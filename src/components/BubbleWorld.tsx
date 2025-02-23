@@ -157,22 +157,46 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       isPinching: false,
     };
 
-    // Touch handlers with pinch-to-zoom
+    // Touch and mouse handlers
     const handleStart = (clientX: number, clientY: number) => {
       controlsState.isDragging = true;
       controlsState.previousTouch = { x: clientX, y: clientY };
       controlsState.velocity = { x: 0, y: 0 };
     };
 
-    const getPinchDistance = (e: TouchEvent): number => {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      return Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
+    const handleMove = (clientX: number, clientY: number) => {
+      if (!controlsState.isDragging) return;
+
+      const deltaX = clientX - controlsState.previousTouch.x;
+      const deltaY = clientY - controlsState.previousTouch.y;
+
+      const rotationSpeed = 0.005;
+      worldGroup.rotation.y += deltaX * rotationSpeed;
+      worldGroup.rotation.x += deltaY * rotationSpeed;
+
+      worldGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, worldGroup.rotation.x));
+
+      controlsState.previousTouch = { x: clientX, y: clientY };
+      controlsState.velocity = {
+        x: deltaX * rotationSpeed * 0.1,
+        y: deltaY * rotationSpeed * 0.1,
+      };
     };
 
+    const handleEnd = () => {
+      controlsState.isDragging = false;
+    };
+
+    // Mouse event handlers
+    const onMouseDown = (e: MouseEvent) => {
+      handleStart(e.clientX, e.clientY);
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      handleMove(e.clientX, e.clientY);
+    };
+
+    // Touch event handlers
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       if (e.touches.length === 2) {
@@ -188,11 +212,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       e.preventDefault();
       
       if (e.touches.length === 2 && controlsState.isPinching) {
-        // Handle pinch-to-zoom
         const currentDistance = getPinchDistance(e);
         const delta = (currentDistance - controlsState.previousPinchDistance) * 0.05;
         
-        // Update camera position with smooth limits
         camera.position.z = Math.max(
           minZoom,
           Math.min(maxZoom, camera.position.z - delta)
@@ -200,23 +222,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         controlsState.previousPinchDistance = currentDistance;
       } else if (e.touches.length === 1 && controlsState.isDragging) {
-        // Handle rotation
         const touch = e.touches[0];
-        const deltaX = touch.clientX - controlsState.previousTouch.x;
-        const deltaY = touch.clientY - controlsState.previousTouch.y;
-
-        const rotationSpeed = 0.005;
-        worldGroup.rotation.y += deltaX * rotationSpeed;
-        worldGroup.rotation.x += deltaY * rotationSpeed;
-
-        // Limit vertical rotation for better UX
-        worldGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, worldGroup.rotation.x));
-
-        controlsState.previousTouch = { x: touch.clientX, y: touch.clientY };
-        controlsState.velocity = {
-          x: deltaX * rotationSpeed * 0.1,
-          y: deltaY * rotationSpeed * 0.1,
-        };
+        handleMove(touch.clientX, touch.clientY);
       }
     };
 
@@ -226,18 +233,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         controlsState.isPinching = false;
       }
       if (e.touches.length === 0) {
-        controlsState.isDragging = false;
+        handleEnd();
       }
     };
 
-    // Mouse wheel zoom for desktop
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const zoomSpeed = 0.5;
-      camera.position.z = Math.max(
-        minZoom,
-        Math.min(maxZoom, camera.position.z + (e.deltaY * 0.01 * zoomSpeed))
-      );
+    // Click/tap handler
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      const coords = 'touches' in e ? e.touches[0] : e;
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((coords.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((coords.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(bubbles);
+
+      if (intersects.length > 0) {
+        const bubble = intersects[0].object;
+        const id = bubble.userData.id;
+        setSelectedBubbleId(id);
+        onBubbleClick(id);
+      }
     };
 
     // Animation loop
@@ -287,6 +302,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.addEventListener('touchmove', handleTouchMove, { passive: false });
     containerRef.current.addEventListener('touchend', handleTouchEnd);
     containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
+
+    // Mouse event listeners
+    containerRef.current.addEventListener('mousedown', onMouseDown);
+    containerRef.current.addEventListener('mousemove', onMouseMove);
+    containerRef.current.addEventListener('mouseup', handleEnd);
+    containerRef.current.addEventListener('click', handleClick);
 
     // Window resize handler
     const handleResize = () => {
