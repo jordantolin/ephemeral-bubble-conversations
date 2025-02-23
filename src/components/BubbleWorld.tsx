@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
+import * as TWEEN from '@tweenjs/tween.js';
 
 interface BubbleWorldProps {
   topics: Array<{
@@ -190,11 +191,11 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       bubbles.push(bubbleGroup);
       bubbleContainer.add(bubbleGroup);
       
-      // Animate new bubble entry
+      // Animate new bubble entry with TWEEN.js
       bubbleGroup.scale.set(0, 0, 0);
-      new THREE.TWEEN.Tween(bubbleGroup.scale)
+      new TWEEN.Tween(bubbleGroup.scale)
         .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(THREE.TWEEN.Easing.Elastic.Out)
+        .easing(TWEEN.Easing.Elastic.Out)
         .start();
 
       return bubbleGroup;
@@ -330,8 +331,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     const animate = () => {
       requestAnimationFrame(animate);
 
-      // Update tweens
-      THREE.TWEEN.update();
+      // Update TWEEN animations
+      TWEEN.update();
 
       // Smooth camera rotation
       currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
