@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { Plus, Send } from "lucide-react";
+import { Plus, Send, Image, Video, Mic, SmilePlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -117,6 +116,32 @@ const Index = () => {
     setIsChatOpen(true);
   };
 
+  const handleFileUpload = (type: 'image' | 'video' | 'gif') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'image' ? 'image/*' : 
+                   type === 'video' ? 'video/*' : 
+                   'image/gif';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        toast({
+          title: "File Selected",
+          description: `${file.name} ready to upload`,
+        });
+        // Here you would typically handle the file upload
+      }
+    };
+    input.click();
+  };
+
+  const handleVoiceRecord = () => {
+    toast({
+      title: "Voice Recording",
+      description: "Voice recording feature coming soon!",
+    });
+  };
+
   const selectedBubble = topics.find(topic => topic.id === selectedBubbleId);
 
   const handleSendMessage = () => {
@@ -125,14 +150,20 @@ const Index = () => {
     const bubbleIndex = topics.findIndex(topic => topic.id === selectedBubbleId);
     if (bubbleIndex === -1) return;
 
-    topics[bubbleIndex].messages.push({
+    const newMsg = {
       id: Date.now().toString(),
       content: newMessage,
       username: "@user",
       timestamp: new Date().toISOString()
-    });
+    };
 
+    topics[bubbleIndex].messages = [...topics[bubbleIndex].messages, newMsg];
     setNewMessage("");
+
+    toast({
+      title: "Message Sent",
+      description: "Your message has been sent successfully",
+    });
   };
 
   return (
@@ -261,22 +292,54 @@ const Index = () => {
             ))}
           </ScrollArea>
 
-          <div className="flex items-center gap-2 p-4 border-t">
-            <Input
-              placeholder="Type your message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              className="flex-1"
-            />
-            <Button onClick={handleSendMessage} size="icon">
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col gap-2 p-4 border-t">
+            <div className="flex gap-2 mb-2">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => handleFileUpload('image')}
+              >
+                <Image className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => handleFileUpload('video')}
+              >
+                <Video className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => handleFileUpload('gif')}
+              >
+                <SmilePlus className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={handleVoiceRecord}
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Type your message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button onClick={handleSendMessage} size="icon">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
