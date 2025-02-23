@@ -22,7 +22,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     planet: THREE.Mesh;
   }>();
 
-  // Movement state
   const controlsRef = useRef({
     isDragging: false,
     isInertiaActive: false,
@@ -34,7 +33,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     momentum: { x: 0, y: 0 },
   });
 
-  // Pinch state
   const pinchRef = useRef({
     active: false,
     initialDistance: 0,
@@ -45,24 +43,31 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#FEF7E4');
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Improved zoom constraints for mobile
     const ZOOM_LIMITS = {
-      min: window.innerWidth < 768 ? 6 : 8,
-      max: window.innerWidth < 768 ? 18 : 25,
-      default: window.innerWidth < 768 ? 12 : 15,
+      min: window.innerWidth < 768 ? 8 : 8,
+      max: window.innerWidth < 768 ? 16 : 25,
+      default: window.innerWidth < 768 ? 10 : 15,
     };
 
-    // Initialize camera with mobile-optimized settings
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(
+      window.innerWidth < 768 ? 65 : 75,
+      width / height,
+      0.1,
+      1000
+    );
     camera.position.z = ZOOM_LIMITS.default;
-    camera.position.y = window.innerWidth < 768 ? 1 : 2;
+    camera.position.y = 0;
+
+    const CENTER_LIMITS = {
+      x: window.innerWidth < 768 ? 2 : 4,
+      y: window.innerWidth < 768 ? 2 : 4
+    };
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -73,7 +78,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(width, height);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Create planet with enhanced material for better depth perception
     const planetGeometry = new THREE.SphereGeometry(6, 128, 128);
     const planetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xFFFFFF,
@@ -88,7 +92,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
 
-    // Enhanced lighting for better depth perception
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1);
     scene.add(ambientLight);
 
@@ -99,7 +102,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const hemisphereLight = new THREE.HemisphereLight(0xFFFAF0, 0xFFF5E6, 0.8);
     scene.add(hemisphereLight);
 
-    // Update bubbles scale based on zoom level
     const updateBubblesScale = (zoomLevel: number) => {
       if (!sceneRef.current?.bubbles) return;
 
@@ -113,7 +115,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       });
     };
 
-    // Enhanced touch controls for rotation
     const onTouchStart = (event: TouchEvent) => {
       event.preventDefault();
       const controls = controlsRef.current;
@@ -135,7 +136,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           x: event.touches[0].clientX,
           y: event.touches[0].clientY,
         };
-        // Reset momentum when starting new touch
         controls.momentum = { x: 0, y: 0 };
       }
     };
@@ -170,28 +170,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const deltaX = touch.clientX - controls.lastTouch.x;
         const deltaY = touch.clientY - controls.lastTouch.y;
 
-        // Enhanced touch sensitivity with smoother rotation
-        const sensitivity = window.innerWidth < 768 ? 0.003 : 0.002;
+        const sensitivity = window.innerWidth < 768 ? 0.002 : 0.002;
         const rotationX = deltaY * sensitivity;
         const rotationY = deltaX * sensitivity;
 
-        // Apply rotation with momentum
-        controls.rotation.x += rotationX;
-        controls.rotation.y += rotationY;
+        const newRotationX = controls.rotation.x + rotationX;
+        const newRotationY = controls.rotation.y + rotationY;
 
-        // Update momentum for inertia
+        controls.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, newRotationX));
+        controls.rotation.y = newRotationY;
+
         controls.velocity = {
-          x: rotationX,
-          y: rotationY,
+          x: rotationX * 0.8,
+          y: rotationY * 0.8,
         };
-
-        // Limit rotation angles for better control
-        controls.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, controls.rotation.x));
 
         controls.lastTouch = { x: touch.clientX, y: touch.clientY };
         controls.momentum = {
-          x: controls.velocity.x * 0.95,
-          y: controls.velocity.y * 0.95,
+          x: controls.velocity.x * 0.9,
+          y: controls.velocity.y * 0.9,
         };
       }
     };
@@ -203,11 +200,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         controls.isDragging = false;
         pinchRef.current.active = false;
         
-        // Enable inertia only if there was significant movement
         const velocityMagnitude = Math.hypot(controls.velocity.x, controls.velocity.y);
         controls.isInertiaActive = velocityMagnitude > 0.0001;
         
-        // Set initial momentum for inertia
         if (controls.isInertiaActive) {
           controls.momentum = {
             x: controls.velocity.x * 0.95,
@@ -224,7 +219,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Mouse wheel zoom
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const zoomDelta = event.deltaY * 0.01;
@@ -237,10 +231,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       updateBubblesScale(newZoom);
     };
 
-    // Create bubbles
     const bubbles: THREE.Mesh[] = [];
     topics.forEach((topic, index) => {
-      // Create text texture for bubble
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -248,7 +240,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       canvas.width = 512;
       canvas.height = 512;
       
-      // Create circular gradient
       const gradient = context.createRadialGradient(
         canvas.width/2, canvas.height/2, 0,
         canvas.width/2, canvas.height/2, canvas.width/2
@@ -262,7 +253,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       context.arc(canvas.width/2, canvas.height/2, canvas.width/2, 0, Math.PI * 2);
       context.fill();
 
-      // Draw text
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.shadowColor = 'rgba(0, 0, 0, 0.2)';
@@ -284,7 +274,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
 
-      // Create bubble
       const bubbleGeometry = new THREE.CircleGeometry(
         topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8,
         32
@@ -299,7 +288,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       const bubble = new THREE.Mesh(bubbleGeometry, bubbleMaterial);
       
-      // Position bubble
       const baseRadius = window.innerWidth < 768 ? 6.5 : 7;
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
@@ -320,32 +308,31 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     sceneRef.current = { scene, camera, renderer, bubbles, planet };
 
-    // Add event listeners
     containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
     containerRef.current.addEventListener('touchmove', onTouchMove, { passive: false });
     containerRef.current.addEventListener('touchend', onTouchEnd);
     containerRef.current.addEventListener('wheel', onWheel, { passive: false });
 
-    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
       
       const controls = controlsRef.current;
 
-      // Enhanced inertia handling
       if (!controls.isDragging && controls.isInertiaActive) {
-        // Smooth deceleration
-        controls.momentum.x *= 0.95;
-        controls.momentum.y *= 0.95;
+        controls.momentum.x *= 0.92;
+        controls.momentum.y *= 0.92;
 
-        // Apply momentum to rotation
-        controls.rotation.x += controls.momentum.x;
-        controls.rotation.y += controls.momentum.y;
+        const newRotationX = controls.rotation.x + controls.momentum.x;
+        const newRotationY = controls.rotation.y + controls.momentum.y;
 
-        // Limit rotation angles
-        controls.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, controls.rotation.x));
+        controls.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, newRotationX));
+        controls.rotation.y = newRotationY;
 
-        // Stop inertia when movement becomes very small
+        const centeringThreshold = 0.001;
+        if (Math.abs(controls.momentum.x) < centeringThreshold) {
+          controls.rotation.x *= 0.95;
+        }
+
         if (Math.abs(controls.momentum.x) < 0.0001 && Math.abs(controls.momentum.y) < 0.0001) {
           controls.isInertiaActive = false;
           controls.momentum = { x: 0, y: 0 };
@@ -353,30 +340,46 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
 
       if (sceneRef.current?.planet) {
-        // Smooth planet rotation
-        sceneRef.current.planet.rotation.x += (controls.rotation.x - sceneRef.current.planet.rotation.x) * 0.1;
-        sceneRef.current.planet.rotation.y += (controls.rotation.y - sceneRef.current.planet.rotation.y) * 0.1;
+        const lerpFactor = window.innerWidth < 768 ? 0.15 : 0.1;
+        sceneRef.current.planet.rotation.x += (controls.rotation.x - sceneRef.current.planet.rotation.x) * lerpFactor;
+        sceneRef.current.planet.rotation.y += (controls.rotation.y - sceneRef.current.planet.rotation.y) * lerpFactor;
+        
+        sceneRef.current.planet.position.x = 0;
+        sceneRef.current.planet.position.y = 0;
       }
 
       bubbles.forEach((bubble) => {
         const time = Date.now();
         bubble.quaternion.copy(camera.quaternion);
         
-        const floatOffset = Math.sin(time * bubble.userData.floatSpeed + bubble.userData.phase) * 0.2;
-        bubble.position.y += floatOffset * 0.01;
+        const floatOffset = Math.sin(time * bubble.userData.floatSpeed + bubble.userData.phase) * 0.1;
+        bubble.position.y += (floatOffset * 0.005 - bubble.position.y * 0.1);
       });
 
       renderer.render(scene, camera);
     };
 
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    };
+
+    window.addEventListener('resize', handleResize);
+
     animate();
 
-    // Cleanup
     return () => {
       containerRef.current?.removeEventListener('touchstart', onTouchStart);
       containerRef.current?.removeEventListener('touchmove', onTouchMove);
       containerRef.current?.removeEventListener('touchend', onTouchEnd);
       containerRef.current?.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', handleResize);
       scene.clear();
       renderer.dispose();
     };
