@@ -15,27 +15,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-
-const availableTopics = [
-  "Technology",
-  "Art",
-  "Music",
-  "Travel",
-  "Sports",
-  "Cooking",
-  "Movies",
-  "Literature",
-  "Science",
-  "Gaming"
-];
 
 const topics = [
   { 
@@ -43,24 +22,42 @@ const topics = [
     topic: "Future of AI",
     username: "@techvisionary",
     name: "AI Research Hub",
-    size: "lg" as const,
-    description: "Exploring the frontiers of artificial intelligence"
+    size: "lg" as const 
   },
   { 
     id: "2", 
     topic: "Digital Art",
     username: "@artmaster",
     name: "Creative Space",
-    size: "md" as const,
-    description: "A space for digital artists to share and inspire"
+    size: "md" as const 
   },
   { 
     id: "3", 
     topic: "World Travel",
     username: "@globetrotter",
     name: "Travel Stories",
-    size: "sm" as const,
-    description: "Share your adventures around the globe"
+    size: "sm" as const 
+  },
+  { 
+    id: "4", 
+    topic: "Indie Music",
+    username: "@soundwave",
+    name: "Music Lab",
+    size: "md" as const 
+  },
+  { 
+    id: "5", 
+    topic: "Web3 Tech",
+    username: "@cryptonaut",
+    name: "Blockchain Hub",
+    size: "lg" as const 
+  },
+  { 
+    id: "6", 
+    topic: "Book Club",
+    username: "@bookworm",
+    name: "Reading Corner",
+    size: "sm" as const 
   }
 ];
 
@@ -68,40 +65,35 @@ const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newBubble, setNewBubble] = useState({
-    name: "",
-    description: "",
     topic: "",
-    username: "@user"
+    username: "",
+    name: ""
   });
   const { toast } = useToast();
 
   const handleCreateBubble = () => {
-    if (!newBubble.name || !newBubble.topic) {
+    if (!newBubble.topic || !newBubble.username || !newBubble.name) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all fields to create a bubble",
         variant: "destructive"
       });
       return;
     }
 
-    const bubble = {
+    // Here you would typically add the new bubble to your state/database
+    topics.push({
       id: (topics.length + 1).toString(),
-      topic: newBubble.topic,
-      username: newBubble.username,
-      name: newBubble.name,
-      size: "md" as const,
-      description: newBubble.description
-    };
-
-    topics.push(bubble);
+      ...newBubble,
+      size: "md"
+    });
 
     toast({
       title: "Success!",
       description: "New bubble created successfully",
     });
 
-    setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+    setNewBubble({ topic: "", username: "", name: "" });
     setIsCreateDialogOpen(false);
   };
 
@@ -126,7 +118,7 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="mt-4 sm:mt-8 relative z-10 glass hover:shadow-xl transform transition-all duration-300 hover:scale-105"
+          className="mt-4 sm:mt-8 relative z-10 glass hover:shadow-xl transform transition-all duration-300 hover:scale-105 hover:bg-primary/20"
           variant="outline"
           size="lg"
         >
@@ -146,6 +138,24 @@ const Index = () => {
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="topic">Topic</Label>
+              <Input
+                id="topic"
+                value={newBubble.topic}
+                onChange={(e) => setNewBubble({ ...newBubble, topic: e.target.value })}
+                placeholder="Enter bubble topic..."
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={newBubble.username}
+                onChange={(e) => setNewBubble({ ...newBubble, username: e.target.value })}
+                placeholder="@username"
+              />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="name">Bubble Name</Label>
               <Input
                 id="name"
@@ -153,35 +163,6 @@ const Index = () => {
                 onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
                 placeholder="Enter bubble name..."
               />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={newBubble.description}
-                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
-                placeholder="Describe your bubble..."
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="topic">Topic</Label>
-              <Select
-                value={newBubble.topic}
-                onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a topic" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTopics.map((topic) => (
-                    <SelectItem key={topic} value={topic}>
-                      {topic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
