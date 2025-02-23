@@ -101,16 +101,16 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         // Set bubble size
         const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
 
-        // Create the bubble with solid yellow color
+        // Create the bubble with the exact color #ebbd34
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshPhysicalMaterial({
-          color: 0xFFD700, // Solid golden yellow
+          color: 0xebbd34, // Exact color requested
           metalness: 0.1,
           roughness: 0.2,
-          transmission: 0.0, // No transparency
+          transmission: 0.0, // Solid color, no transparency
           clearcoat: 1.0,
           clearcoatRoughness: 0.1,
-          emissive: 0xFFD700,
+          emissive: 0xebbd34,
           emissiveIntensity: 0.2,
         });
 
@@ -119,7 +119,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         bubble.receiveShadow = true;
         bubbleGroup.add(bubble);
 
-        // Create text plane that will rotate with the bubble
+        // Create text plane
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
@@ -127,27 +127,20 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         if (context) {
           // Set background to match bubble color exactly
-          context.fillStyle = '#FFD700';
+          context.fillStyle = '#ebbd34';
           context.fillRect(0, 0, canvas.width, canvas.height);
           
           // Configure text rendering
           context.textAlign = 'center';
           context.textBaseline = 'middle';
-          context.imageSmoothingEnabled = true;
-          context.imageSmoothingQuality = 'high';
-
+          
           const drawText = (text: string, x: number, y: number, fontSize: number) => {
-            // Use bold font
             context.font = `900 ${fontSize}px Inter`;
-            
-            // Draw black text multiple times for maximum contrast
-            context.fillStyle = '#000000';
-            for (let i = 0; i < 4; i++) {
-              context.fillText(text, x, y);
-            }
+            context.fillStyle = '#000000'; // Pure black text
+            context.fillText(text, x, y);
           };
 
-          // Draw texts with proper spacing
+          // Draw texts
           drawText(topic, canvas.width/2, canvas.height/2 - 100, 48);
           drawText(username, canvas.width/2, canvas.height/2, 36);
           drawText(name, canvas.width/2, canvas.height/2 + 100, 36);
@@ -157,21 +150,15 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const textTexture = new THREE.CanvasTexture(canvas);
         textTexture.needsUpdate = true;
         textTexture.anisotropy = 16;
-        textTexture.minFilter = THREE.LinearMipmapLinearFilter;
-        textTexture.magFilter = THREE.LinearFilter;
 
         // Create a plane for the text
         const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.5, bubbleSize * 1.5);
         const textMaterial = new THREE.MeshBasicMaterial({
           map: textTexture,
           transparent: true,
-          side: THREE.DoubleSide,
-          depthTest: true,
-          depthWrite: true
+          side: THREE.DoubleSide
         });
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-        
-        // Position the text plane slightly in front of the bubble
         textPlane.position.z = bubbleSize * 0.51;
         bubbleGroup.add(textPlane);
 
