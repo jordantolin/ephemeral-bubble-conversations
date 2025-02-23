@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
@@ -27,9 +26,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup
+    // Camera setup with zoom limits
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    camera.position.z = 20; // Moved camera back for better view
+    camera.position.z = 20;
+    const minZoom = 10;
+    const maxZoom = 30;
 
     // Renderer setup
     const renderer = new THREE.WebGLRenderer({
@@ -44,15 +45,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const worldGroup = new THREE.Group();
     scene.add(worldGroup);
 
-    // Central planet setup
-    const planetGeometry = new THREE.SphereGeometry(4, 64, 64); // Made planet smaller
-    const planetMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xFFFAF0,
-      roughness: 0.8,
-      metalness: 0.1,
+    // Enhanced bubble material with brighter yellow
+    const createBubbleMaterial = () => new THREE.MeshPhysicalMaterial({
+      color: 0xFFFF00, // Brighter yellow
+      metalness: 0.3,
+      roughness: 0.4,
+      clearcoat: 0.5,
+      transparent: false,
+      emissive: 0xFFFF00, // Add slight glow
+      emissiveIntensity: 0.2,
     });
-    const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-    worldGroup.add(planet);
 
     // Lighting setup
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.6);
@@ -66,22 +68,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // Create bubbles
+    // Create bubbles with updated material
     const bubbles: THREE.Mesh[] = [];
     topics.forEach((topic, index) => {
-      // Smaller bubble sizes
       const size = topic.size === 'lg' ? 0.6 : topic.size === 'md' ? 0.5 : 0.4;
       const bubbleGeometry = new THREE.SphereGeometry(size, 32, 32);
-      
-      // Solid material without transparency
-      const bubbleMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xFFD700,
-        metalness: 0.3,
-        roughness: 0.4,
-        clearcoat: 0.5,
-        transparent: false,
-      });
-
+      const bubbleMaterial = createBubbleMaterial();
       const bubble = new THREE.Mesh(bubbleGeometry, bubbleMaterial);
 
       // Create text labels
@@ -156,78 +148,96 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbles.push(bubble);
     });
 
-    // Controls state
+    // Enhanced controls state with zoom
     const controlsState = {
       isDragging: false,
       previousTouch: { x: 0, y: 0 },
       velocity: { x: 0, y: 0 },
+      previousPinchDistance: 0,
+      isPinching: false,
     };
 
-    // Touch handlers
+    // Touch handlers with pinch-to-zoom
     const handleStart = (clientX: number, clientY: number) => {
       controlsState.isDragging = true;
       controlsState.previousTouch = { x: clientX, y: clientY };
       controlsState.velocity = { x: 0, y: 0 };
     };
 
-    const handleMove = (clientX: number, clientY: number) => {
-      if (!controlsState.isDragging) return;
-
-      const deltaX = clientX - controlsState.previousTouch.x;
-      const deltaY = clientY - controlsState.previousTouch.y;
-
-      const rotationSpeed = 0.005;
-      worldGroup.rotation.y += deltaX * rotationSpeed;
-      worldGroup.rotation.x += deltaY * rotationSpeed;
-
-      worldGroup.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, worldGroup.rotation.x));
-
-      controlsState.previousTouch = { x: clientX, y: clientY };
-      controlsState.velocity = {
-        x: deltaX * rotationSpeed * 0.1,
-        y: deltaY * rotationSpeed * 0.1,
-      };
+    const getPinchDistance = (e: TouchEvent): number => {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      return Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY
+      );
     };
 
-    const handleEnd = () => {
-      controlsState.isDragging = false;
-    };
-
-    // Event handlers
-    const onTouchStart = (e: TouchEvent) => {
+    const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
-      handleStart(e.touches[0].clientX, e.touches[0].clientY);
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      handleMove(e.touches[0].clientX, e.touches[0].clientY);
-    };
-
-    const onMouseDown = (e: MouseEvent) => {
-      handleStart(e.clientX, e.clientY);
-    };
-
-    const onMouseMove = (e: MouseEvent) => {
-      handleMove(e.clientX, e.clientY);
-    };
-
-    // Click handler
-    const handleClick = (e: MouseEvent | TouchEvent) => {
-      const coords = 'touches' in e ? e.touches[0] : e;
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((coords.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((coords.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(bubbles);
-
-      if (intersects.length > 0) {
-        const bubble = intersects[0].object;
-        const id = bubble.userData.id;
-        setSelectedBubbleId(id);
-        onBubbleClick(id);
+      if (e.touches.length === 2) {
+        controlsState.isPinching = true;
+        controlsState.previousPinchDistance = getPinchDistance(e);
+        controlsState.isDragging = false;
+      } else {
+        handleStart(e.touches[0].clientX, e.touches[0].clientY);
       }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      
+      if (e.touches.length === 2 && controlsState.isPinching) {
+        // Handle pinch-to-zoom
+        const currentDistance = getPinchDistance(e);
+        const delta = (currentDistance - controlsState.previousPinchDistance) * 0.05;
+        
+        // Update camera position with smooth limits
+        camera.position.z = Math.max(
+          minZoom,
+          Math.min(maxZoom, camera.position.z - delta)
+        );
+        
+        controlsState.previousPinchDistance = currentDistance;
+      } else if (e.touches.length === 1 && controlsState.isDragging) {
+        // Handle rotation
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - controlsState.previousTouch.x;
+        const deltaY = touch.clientY - controlsState.previousTouch.y;
+
+        const rotationSpeed = 0.005;
+        worldGroup.rotation.y += deltaX * rotationSpeed;
+        worldGroup.rotation.x += deltaY * rotationSpeed;
+
+        // Limit vertical rotation for better UX
+        worldGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, worldGroup.rotation.x));
+
+        controlsState.previousTouch = { x: touch.clientX, y: touch.clientY };
+        controlsState.velocity = {
+          x: deltaX * rotationSpeed * 0.1,
+          y: deltaY * rotationSpeed * 0.1,
+        };
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length < 2) {
+        controlsState.isPinching = false;
+      }
+      if (e.touches.length === 0) {
+        controlsState.isDragging = false;
+      }
+    };
+
+    // Mouse wheel zoom for desktop
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomSpeed = 0.5;
+      camera.position.z = Math.max(
+        minZoom,
+        Math.min(maxZoom, camera.position.z + (e.deltaY * 0.01 * zoomSpeed))
+      );
     };
 
     // Animation loop
@@ -272,14 +282,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       renderer.render(scene, camera);
     };
 
-    // Event listeners
-    containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
-    containerRef.current.addEventListener('touchmove', onTouchMove, { passive: false });
-    containerRef.current.addEventListener('touchend', handleEnd);
-    containerRef.current.addEventListener('mousedown', onMouseDown);
-    containerRef.current.addEventListener('mousemove', onMouseMove);
-    containerRef.current.addEventListener('mouseup', handleEnd);
-    containerRef.current.addEventListener('click', handleClick);
+    // Update event listeners
+    containerRef.current.addEventListener('touchstart', handleTouchStart, { passive: false });
+    containerRef.current.addEventListener('touchmove', handleTouchMove, { passive: false });
+    containerRef.current.addEventListener('touchend', handleTouchEnd);
+    containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
 
     // Window resize handler
     const handleResize = () => {
@@ -302,9 +309,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     return () => {
       if (!containerRef.current) return;
       
-      containerRef.current.removeEventListener('touchstart', onTouchStart);
-      containerRef.current.removeEventListener('touchmove', onTouchMove);
-      containerRef.current.removeEventListener('touchend', handleEnd);
+      containerRef.current.removeEventListener('touchstart', handleTouchStart);
+      containerRef.current.removeEventListener('touchmove', handleTouchMove);
+      containerRef.current.removeEventListener('touchend', handleTouchEnd);
+      containerRef.current.removeEventListener('wheel', handleWheel);
       containerRef.current.removeEventListener('mousedown', onMouseDown);
       containerRef.current.removeEventListener('mousemove', onMouseMove);
       containerRef.current.removeEventListener('mouseup', handleEnd);
