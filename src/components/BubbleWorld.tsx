@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
@@ -26,13 +27,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup with zoom limits
+    // Camera setup
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
     camera.position.z = 20;
-    const minZoom = 10;
-    const maxZoom = 30;
 
-    // Renderer setup
+    // Renderer setup with antialiasing
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -41,19 +40,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(width, height);
     containerRef.current.appendChild(renderer.domElement);
 
-    // World group setup
+    // World group for collective rotation
     const worldGroup = new THREE.Group();
     scene.add(worldGroup);
 
-    // Enhanced bubble material with brighter yellow
+    // Enhanced bubble material
     const createBubbleMaterial = () => new THREE.MeshPhysicalMaterial({
-      color: 0xFFFF00, // Brighter yellow
-      metalness: 0.3,
-      roughness: 0.4,
-      clearcoat: 0.5,
-      transparent: false,
-      emissive: 0xFFFF00, // Add slight glow
-      emissiveIntensity: 0.2,
+      color: 0xFFFF00,
+      metalness: 0.1,
+      roughness: 0.2,
+      transmission: 0.95,
+      thickness: 0.5,
+      clearcoat: 1,
+      clearcoatRoughness: 0.1,
     });
 
     // Lighting setup
@@ -64,20 +63,24 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
 
-    // Raycaster setup
+    // Raycaster for interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // Create bubbles with updated material
+    // Create bubbles with labels
     const bubbles: THREE.Mesh[] = [];
-    topics.forEach((topic, index) => {
-      const size = topic.size === 'lg' ? 0.6 : topic.size === 'md' ? 0.5 : 0.4;
+    topics.forEach((topic) => {
+      // Create bubble group
+      const bubbleGroup = new THREE.Group();
+      
+      // Create bubble mesh
+      const size = topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8;
       const bubbleGeometry = new THREE.SphereGeometry(size, 32, 32);
       const bubbleMaterial = createBubbleMaterial();
       const bubble = new THREE.Mesh(bubbleGeometry, bubbleMaterial);
-
+      
       // Create text labels
-      const createTextLabel = (text: string, yOffset: number) => {
+      const createTextSprite = (text: string, yOffset: number) => {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
         canvas.height = 64;
@@ -85,15 +88,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const context = canvas.getContext('2d');
         if (!context) return null;
 
-        // Clear background
         context.fillStyle = 'rgba(255, 255, 255, 0)';
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw text
-        context.font = 'bold 32px Inter';
+        context.font = 'bold 24px Inter';
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        context.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        context.fillStyle = '#000000';
         context.fillText(text, canvas.width / 2, canvas.height / 2);
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -109,160 +110,78 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         return sprite;
       };
 
-      // Add labels to bubble with different offsets
-      const topicLabel = createTextLabel(topic.topic, 1.2);
-      const usernameLabel = createTextLabel(topic.username, 0.8);
-      const nameLabel = createTextLabel(topic.name, 0.4);
+      // Add labels to bubble
+      const topicLabel = createTextSprite(topic.topic, size * 1.5);
+      const usernameLabel = createTextSprite(topic.username, size * 1.2);
+      const nameLabel = createTextSprite(topic.name, size * 0.9);
 
-      if (topicLabel) bubble.add(topicLabel);
-      if (usernameLabel) bubble.add(usernameLabel);
-      if (nameLabel) bubble.add(nameLabel);
-
-      // Calculate orbital parameters
-      const minRadius = 6;
-      const maxRadius = 12;
-      const orbitRadius = minRadius + (Math.random() * (maxRadius - minRadius));
+      if (topicLabel) bubbleGroup.add(topicLabel);
+      if (usernameLabel) bubbleGroup.add(usernameLabel);
+      if (nameLabel) bubbleGroup.add(nameLabel);
       
-      // Generate random spherical coordinates
+      bubbleGroup.add(bubble);
+
+      // Position in 3D space
       const phi = Math.random() * Math.PI * 2;
-      const theta = Math.random() * Math.PI;
+      const theta = Math.acos((Math.random() * 2) - 1);
+      const radius = 8 + Math.random() * 4;
 
-      // Set initial position
-      bubble.position.setFromSpherical(new THREE.Spherical(orbitRadius, theta, phi));
+      bubbleGroup.position.x = radius * Math.sin(theta) * Math.cos(phi);
+      bubbleGroup.position.y = radius * Math.sin(theta) * Math.sin(phi);
+      bubbleGroup.position.z = radius * Math.cos(theta);
 
-      // Store animation parameters
+      // Store metadata
       bubble.userData = {
         id: topic.id,
-        orbitRadius,
-        orbitSpeed: 0.1 + Math.random() * 0.2,
-        rotationAxis: new THREE.Vector3(
-          Math.random() - 0.5,
-          Math.random() - 0.5,
-          Math.random() - 0.5
-        ).normalize(),
-        phase: Math.random() * Math.PI * 2,
-        originalScale: size,
+        group: bubbleGroup,
       };
 
-      worldGroup.add(bubble);
+      worldGroup.add(bubbleGroup);
       bubbles.push(bubble);
     });
 
-    // Helper function for pinch-to-zoom
-    const getPinchDistance = (e: TouchEvent): number => {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      return Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
-    };
+    // Interaction state
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+    let targetRotation = { x: 0, y: 0 };
+    let currentRotation = { x: 0, y: 0 };
 
-    // Wheel handler for desktop zoom
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const zoomSpeed = 0.5;
-      camera.position.z = Math.max(
-        minZoom,
-        Math.min(maxZoom, camera.position.z + (e.deltaY * 0.01 * zoomSpeed))
-      );
-    };
-
-    // Enhanced controls state with zoom
-    const controlsState = {
-      isDragging: false,
-      previousTouch: { x: 0, y: 0 },
-      velocity: { x: 0, y: 0 },
-      previousPinchDistance: 0,
-      isPinching: false,
-    };
-
-    // Touch and mouse handlers
-    const handleStart = (clientX: number, clientY: number) => {
-      controlsState.isDragging = true;
-      controlsState.previousTouch = { x: clientX, y: clientY };
-      controlsState.velocity = { x: 0, y: 0 };
-    };
-
-    const handleMove = (clientX: number, clientY: number) => {
-      if (!controlsState.isDragging) return;
-
-      const deltaX = clientX - controlsState.previousTouch.x;
-      const deltaY = clientY - controlsState.previousTouch.y;
-
-      const rotationSpeed = 0.005;
-      worldGroup.rotation.y += deltaX * rotationSpeed;
-      worldGroup.rotation.x += deltaY * rotationSpeed;
-
-      worldGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, worldGroup.rotation.x));
-
-      controlsState.previousTouch = { x: clientX, y: clientY };
-      controlsState.velocity = {
-        x: deltaX * rotationSpeed * 0.1,
-        y: deltaY * rotationSpeed * 0.1,
+    // Event handlers
+    const onMouseDown = (event: MouseEvent) => {
+      isDragging = true;
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY,
       };
     };
 
-    const handleEnd = () => {
-      controlsState.isDragging = false;
+    const onMouseMove = (event: MouseEvent) => {
+      if (!isDragging) return;
+
+      const deltaMove = {
+        x: event.clientX - previousMousePosition.x,
+        y: event.clientY - previousMousePosition.y,
+      };
+
+      targetRotation.x += deltaMove.y * 0.005;
+      targetRotation.y += deltaMove.x * 0.005;
+
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY,
+      };
     };
 
-    // Mouse event handlers
-    const onMouseDown = (e: MouseEvent) => {
-      handleStart(e.clientX, e.clientY);
+    const onMouseUp = () => {
+      isDragging = false;
     };
 
-    const onMouseMove = (e: MouseEvent) => {
-      handleMove(e.clientX, e.clientY);
-    };
-
-    // Touch event handlers
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      if (e.touches.length === 2) {
-        controlsState.isPinching = true;
-        controlsState.previousPinchDistance = getPinchDistance(e);
-        controlsState.isDragging = false;
-      } else {
-        handleStart(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
+    const onClick = (event: MouseEvent) => {
+      event.preventDefault();
       
-      if (e.touches.length === 2 && controlsState.isPinching) {
-        const currentDistance = getPinchDistance(e);
-        const delta = (currentDistance - controlsState.previousPinchDistance) * 0.05;
-        
-        camera.position.z = Math.max(
-          minZoom,
-          Math.min(maxZoom, camera.position.z - delta)
-        );
-        
-        controlsState.previousPinchDistance = currentDistance;
-      } else if (e.touches.length === 1 && controlsState.isDragging) {
-        const touch = e.touches[0];
-        handleMove(touch.clientX, touch.clientY);
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      if (e.touches.length < 2) {
-        controlsState.isPinching = false;
-      }
-      if (e.touches.length === 0) {
-        handleEnd();
-      }
-    };
-
-    // Click/tap handler
-    const handleClick = (e: MouseEvent | TouchEvent) => {
-      const coords = 'touches' in e ? e.touches[0] : e;
       const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((coords.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((coords.clientY - rect.top) / rect.height) * 2 + 1;
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(bubbles);
@@ -275,61 +194,39 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
+    // Add event listeners
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('mouseup', onMouseUp);
+    renderer.domElement.addEventListener('click', onClick);
+
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
 
-      const time = Date.now() * 0.001;
+      // Smooth rotation
+      currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
+      currentRotation.y += (targetRotation.y - currentRotation.y) * 0.1;
+      
+      worldGroup.rotation.x = currentRotation.x;
+      worldGroup.rotation.y = currentRotation.y;
 
-      // Update bubbles
+      // Make labels face camera
       bubbles.forEach(bubble => {
-        const { orbitRadius, orbitSpeed, rotationAxis, phase, originalScale, id } = bubble.userData;
-
-        // Calculate new position
-        const angle = time * orbitSpeed + phase;
-        const rotationMatrix = new THREE.Matrix4();
-        rotationMatrix.makeRotationAxis(rotationAxis, angle);
-
-        const basePosition = new THREE.Vector3(orbitRadius, 0, 0);
-        basePosition.applyMatrix4(rotationMatrix);
-        bubble.position.copy(basePosition);
-
-        // Make labels face camera
-        bubble.children.forEach(label => {
-          label.quaternion.copy(camera.quaternion);
-        });
-
-        // Scale effect for selected bubble
-        const isSelected = id === selectedBubbleId;
-        const targetScale = isSelected ? originalScale * 1.2 : originalScale;
-        bubble.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+        const group = bubble.userData.group;
+        if (group) {
+          group.children.forEach(child => {
+            if (child instanceof THREE.Sprite) {
+              child.quaternion.copy(camera.quaternion);
+            }
+          });
+        }
       });
-
-      // Apply momentum
-      if (!controlsState.isDragging) {
-        worldGroup.rotation.x += controlsState.velocity.y;
-        worldGroup.rotation.y += controlsState.velocity.x;
-        
-        controlsState.velocity.x *= 0.95;
-        controlsState.velocity.y *= 0.95;
-      }
 
       renderer.render(scene, camera);
     };
 
-    // Update event listeners
-    containerRef.current.addEventListener('touchstart', handleTouchStart, { passive: false });
-    containerRef.current.addEventListener('touchmove', handleTouchMove, { passive: false });
-    containerRef.current.addEventListener('touchend', handleTouchEnd);
-    containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
-
-    // Mouse event listeners
-    containerRef.current.addEventListener('mousedown', onMouseDown);
-    containerRef.current.addEventListener('mousemove', onMouseMove);
-    containerRef.current.addEventListener('mouseup', handleEnd);
-    containerRef.current.addEventListener('click', handleClick);
-
-    // Window resize handler
+    // Handle window resize
     const handleResize = () => {
       if (!containerRef.current) return;
       
@@ -350,17 +247,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     return () => {
       if (!containerRef.current) return;
       
-      containerRef.current.removeEventListener('touchstart', handleTouchStart);
-      containerRef.current.removeEventListener('touchmove', handleTouchMove);
-      containerRef.current.removeEventListener('touchend', handleTouchEnd);
-      containerRef.current.removeEventListener('wheel', handleWheel);
-      containerRef.current.removeEventListener('mousedown', onMouseDown);
-      containerRef.current.removeEventListener('mousemove', onMouseMove);
-      containerRef.current.removeEventListener('mouseup', handleEnd);
-      containerRef.current.removeEventListener('click', handleClick);
+      renderer.domElement.removeEventListener('mousedown', onMouseDown);
+      renderer.domElement.removeEventListener('mousemove', onMouseMove);
+      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('click', onClick);
       window.removeEventListener('resize', handleResize);
       
       renderer.dispose();
+      containerRef.current.removeChild(renderer.domElement);
     };
   }, [topics, onBubbleClick, selectedBubbleId]);
 
