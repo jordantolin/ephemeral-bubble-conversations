@@ -103,8 +103,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Create canvas for the bubble texture
         const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 1024;
+        canvas.width = 2048; // Increased resolution for sharper text
+        canvas.height = 2048;
         const context = canvas.getContext('2d');
         
         if (context) {
@@ -120,31 +120,44 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           context.fillStyle = gradient;
           context.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Add a circular frame for the text
+          // Add a more visible text background
           context.beginPath();
-          context.arc(canvas.width/2, canvas.height/2, canvas.width/3, 0, Math.PI * 2);
-          context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          context.arc(canvas.width/2, canvas.height/2, canvas.width/2.5, 0, Math.PI * 2);
+          context.fillStyle = 'rgba(255, 255, 255, 0.85)';
           context.fill();
 
-          // Configure text rendering
+          // Add a subtle border around the text area
+          context.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+          context.lineWidth = 8;
+          context.stroke();
+
+          // Configure text rendering with better anti-aliasing
           context.textAlign = 'center';
+          context.textBaseline = 'middle';
           context.fillStyle = '#000000';
           
-          // Draw topic (larger and bold)
-          context.font = 'bold 80px Inter';
-          context.fillText(topic, canvas.width/2, canvas.height/2 - 100);
+          // Draw topic (larger and bolder)
+          context.font = 'bold 140px Inter';
+          const topicY = canvas.height/2 - 200;
+          // Add text shadow for better contrast
+          context.shadowColor = 'rgba(255, 255, 255, 0.5)';
+          context.shadowBlur = 4;
+          context.fillText(topic, canvas.width/2, topicY);
           
           // Draw username
-          context.font = '60px Inter';
+          context.font = 'bold 100px Inter';
           context.fillText(username, canvas.width/2, canvas.height/2);
           
           // Draw name
-          context.fillText(name, canvas.width/2, canvas.height/2 + 100);
+          context.fillText(name, canvas.width/2, canvas.height/2 + 200);
         }
 
-        // Create texture from canvas
+        // Create texture from canvas with better filtering
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
+        texture.anisotropy = 16; // Improved texture quality at angles
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
 
         // Create the bubble with the texture
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
