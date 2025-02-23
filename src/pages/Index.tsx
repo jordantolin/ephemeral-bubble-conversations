@@ -61,25 +61,25 @@ const Index = () => {
   const selectedBubble = topics.find(t => t.id === selectedBubbleId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container relative mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
-        <div className="text-center mb-8 relative z-10">
-          <h1 className="text-4xl font-light text-primary mb-2">
+      <main className="container relative mx-auto px-2 sm:px-4 py-4 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
+        <div className="text-center mb-4 sm:mb-8 relative z-10">
+          <h1 className="text-2xl sm:text-4xl font-light text-primary mb-2">
             Welcome to Bubble Trouble
           </h1>
           <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <div className="relative w-full h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
+        <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
           <BubbleWorld 
             topics={topics}
             onBubbleClick={(id) => setSelectedBubbleId(id)}
           />
         </div>
 
-        <Button className="mt-8 relative z-10 flex items-center space-x-2 bg-white/80 hover:bg-white text-primary border border-primary/20">
+        <Button className="mt-4 sm:mt-8 relative z-10 flex items-center space-x-2 bg-white/80 hover:bg-white text-primary border border-primary/20">
           <Plus className="w-4 h-4" />
           <span>Create Bubble</span>
         </Button>
