@@ -7,26 +7,26 @@
  
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 45 100% 98%;
+    --foreground: 20 14.3% 4.1%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 20 14.3% 4.1%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 262 88% 74%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 262 83% 92%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 262 83% 92%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 20 14.3% 4.1%;
+    --primary: 47 95% 56%;
+    --primary-foreground: 26 83.3% 14.1%;
+    --secondary: 47 100% 96%;
+    --secondary-foreground: 24 9.8% 10%;
+    --muted: 47 100% 96%;
+    --muted-foreground: 25 5.3% 44.7%;
+    --accent: 47 100% 96%;
+    --accent-foreground: 24 9.8% 10%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 262 88% 74%;
-    --radius: 1rem;
+    --destructive-foreground: 60 9.1% 97.8%;
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 47 95% 56%;
+    --radius: 1.5rem;
   }
  
   * {
@@ -38,30 +38,37 @@
     font-family: 'Inter', sans-serif;
   }
 
-  /* Custom Animations */
-  @keyframes bubble-pulse {
-    0% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; }
-    100% { transform: scale(1); opacity: 0.8; }
+  /* Floating Bubbles Animation */
+  @keyframes float-bubble {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    25% { transform: translateY(-10px) translateX(5px); }
+    50% { transform: translateY(0) translateX(10px); }
+    75% { transform: translateY(10px) translateX(5px); }
   }
 
-  @keyframes float {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-    100% { transform: translateY(0px); }
+  .float-bubble {
+    animation: float-bubble 8s ease-in-out infinite;
   }
 
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
+  .float-bubble-delay-1 {
+    animation-delay: -2s;
   }
 
-  .animate-bubble-pulse {
-    animation: bubble-pulse 2s ease-in-out infinite;
+  .float-bubble-delay-2 {
+    animation-delay: -4s;
+  }
+
+  .float-bubble-delay-3 {
+    animation-delay: -6s;
   }
 
   /* Glass Effect */
   .glass {
-    @apply bg-white bg-opacity-10 backdrop-blur-lg border border-white border-opacity-20 shadow-lg;
+    @apply bg-white/80 backdrop-blur-lg border border-white/20 shadow-lg;
+  }
+
+  .bubble-glass {
+    @apply bg-primary/90 backdrop-blur-sm border-2 border-primary/20 shadow-lg;
   }
 }
 
@@ -71,6 +78,6 @@
   }
 
   .bubble {
-    @apply glass rounded-3xl p-6 transition-all duration-300 hover:shadow-xl;
+    @apply bubble-glass rounded-full p-6 transition-all duration-300 hover:shadow-xl text-primary-foreground;
   }
 }

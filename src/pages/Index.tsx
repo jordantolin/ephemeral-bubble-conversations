@@ -1,61 +1,48 @@
 
 import MainNav from "@/components/MainNav";
-import Bubble from "@/components/Bubble";
+import FloatingBubble from "@/components/FloatingBubble";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
-const mockBubbles = [
-  {
-    id: "1",
-    title: "Tech Enthusiasts Hub",
-    description: "Discussing the latest in AI and machine learning",
-    timeLeft: "2h left",
-    participants: 24,
-    reflects: 12,
-  },
-  {
-    id: "2",
-    title: "Creative Corner",
-    description: "Share your latest artistic projects and get feedback",
-    timeLeft: "45m left",
-    participants: 15,
-    reflects: 8,
-  },
-  {
-    id: "3",
-    title: "Travel Tales",
-    description: "Exchange travel stories and tips from around the world",
-    timeLeft: "3h left",
-    participants: 32,
-    reflects: 18,
-  },
+const topics = [
+  { id: "1", topic: "AI & Future", size: "lg" as const, delay: "1" as const },
+  { id: "2", topic: "Art & Design", size: "md" as const, delay: "2" as const },
+  { id: "3", topic: "Travel", size: "sm" as const, delay: "3" as const },
+  { id: "4", topic: "Music", size: "md" as const, delay: "1" as const },
+  { id: "5", topic: "Technology", size: "lg" as const, delay: "2" as const },
+  { id: "6", topic: "Books", size: "sm" as const, delay: "3" as const },
 ];
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-secondary/20">
+    <div className="min-h-screen bg-gradient-to-b from-secondary/50 to-background overflow-hidden">
       <MainNav />
       
-      <main className="container mx-auto px-4 pt-24 pb-12">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Discover Bubbles
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              Join ephemeral conversations that matter
-            </p>
-          </div>
-          
-          <Button className="flex items-center space-x-2">
+      <main className="container mx-auto px-4 pt-24 pb-12 relative min-h-[80vh]">
+        <div className="text-center mb-12">
+          <img 
+            src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+            alt="Bubble Trouble"
+            className="w-24 h-24 mx-auto mb-6"
+          />
+          <h1 className="text-4xl font-bold text-primary">
+            Welcome to Bubble Trouble
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Join ephemeral conversations that matter
+          </p>
+          <Button className="mt-6 flex items-center space-x-2">
             <Plus className="w-4 h-4" />
-            <span>New Bubble</span>
+            <span>Create Bubble</span>
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockBubbles.map((bubble) => (
-            <Bubble key={bubble.id} {...bubble} />
+        <div className="relative w-full h-[60vh]">
+          {topics.map((topic) => (
+            <FloatingBubble
+              key={topic.id}
+              {...topic}
+            />
           ))}
         </div>
       </main>
