@@ -27,9 +27,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Setup scene with pure white background
+    // Setup scene with absolutely white background
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);
+    scene.background = new THREE.Color(0xFFFFFF);
 
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -48,34 +48,61 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Create pure white planet with enhanced material
-    const planetGeometry = new THREE.SphereGeometry(8, 96, 96); // Increased segments for smoother appearance
+    // Create pure white planet with maximum brightness
+    const planetGeometry = new THREE.SphereGeometry(8, 128, 128); // Even more segments for pure smoothness
     const planetMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.1, // Smoother surface
-      metalness: 0.1, // Less metallic for purer white
+      color: 0xFFFFFF,
+      roughness: 0,
+      metalness: 0,
+      emissive: 0xFFFFFF,
+      emissiveIntensity: 0.2,
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
 
-    // Enhanced lighting for better white appearance
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1); // Increased intensity
+    // Enhanced lighting for maximum whiteness
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.5);
     scene.add(ambientLight);
 
-    // Multiple directional lights for better illumination
+    // Multiple bright lights for perfect illumination
     const lights = [
-      { position: [1, 1, 1], intensity: 0.8 },
-      { position: [-1, -1, -1], intensity: 0.4 },
-      { position: [1, -1, 1], intensity: 0.6 },
+      { position: [1, 1, 1], intensity: 1 },
+      { position: [-1, -1, -1], intensity: 1 },
+      { position: [1, -1, 1], intensity: 1 },
+      { position: [-1, 1, -1], intensity: 1 },
     ];
 
     lights.forEach(({ position, intensity }) => {
-      const light = new THREE.DirectionalLight(0xffffff, intensity);
-      light.position.set(...position);
+      const light = new THREE.DirectionalLight(0xFFFFFF, intensity);
+      light.position.set(position[0], position[1], position[2]);
       scene.add(light);
     });
 
-    // Create vibrant yellow bubbles
+    // Create text sprites for labels
+    const createTextSprite = (text: string) => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return null;
+
+      canvas.width = 256;
+      canvas.height = 128;
+
+      context.fillStyle = '#000000';
+      context.font = 'bold 24px Inter';
+      context.textAlign = 'center';
+      context.fillText(text, 128, 64);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMaterial = new THREE.SpriteMaterial({ 
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+      });
+      
+      return new THREE.Sprite(spriteMaterial);
+    };
+
+    // Create vibrant yellow bubbles with labels
     const bubbles: THREE.Mesh[] = [];
     const bubbleGeometries = {
       sm: new THREE.SphereGeometry(0.6, 32, 32),
@@ -84,13 +111,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     topics.forEach((topic, index) => {
-      // Enhanced material for more luminous yellow
       const material = new THREE.MeshStandardMaterial({
-        color: 0xfff000, // More luminous yellow
-        emissive: 0xebcc34, // Adding glow effect
-        emissiveIntensity: 0.2,
-        roughness: 0.3,
-        metalness: 0.2,
+        color: 0xfff000,
+        emissive: 0xebcc34,
+        emissiveIntensity: 0.4,
+        roughness: 0.2,
+        metalness: 0.1,
       });
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], material);
@@ -109,6 +135,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           Math.random() - 0.5
         ).normalize()
       };
+      
+      // Add text label
+      const label = createTextSprite(topic.topic);
+      if (label) {
+        label.scale.set(2, 1, 1);
+        label.position.copy(bubble.position);
+        label.position.y += 1.2;
+        scene.add(label);
+      }
       
       scene.add(bubble);
       bubbles.push(bubble);

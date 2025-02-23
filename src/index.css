@@ -6,7 +6,7 @@
  
 @layer base {
   :root {
-    --background: 45 100% 98%;
+    --background: 48 100% 97%; /* Light yellow background */
     --foreground: 20 14.3% 4.1%;
     --card: 0 0% 100%;
     --card-foreground: 20 14.3% 4.1%;
@@ -27,14 +27,10 @@
     --ring: 47 95% 56%;
     --radius: 1.5rem;
   }
- 
-  * {
-    @apply border-border;
-  }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    @apply bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC];
+    min-height: 100vh;
   }
 
   /* Floating Bubbles Animations */
