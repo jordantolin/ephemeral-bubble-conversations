@@ -109,45 +109,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       lg: new THREE.SphereGeometry(1.0, 32, 32),
     };
 
-    topics.forEach((topic, index) => {
-      const material = new THREE.MeshStandardMaterial({
-        color: 0xfff000,
-        emissive: 0xebcc34,
-        emissiveIntensity: 0.4,
-        roughness: 0.2,
-        metalness: 0.1,
-      });
-
-      const bubble = new THREE.Mesh(bubbleGeometries[topic.size], material);
-      
-      const phi = Math.acos(-1 + (2 * index) / topics.length);
-      const theta = Math.sqrt(topics.length * Math.PI) * phi;
-      const radius = window.innerWidth < 768 ? 10 : 9; // Reduced radius to bring bubbles closer
-      
-      bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
-      bubble.userData = { 
-        id: topic.id, 
-        originalPosition: bubble.position.clone(),
-        orbitAxis: new THREE.Vector3(
-          Math.random() - 0.5,
-          Math.random() - 0.5,
-          Math.random() - 0.5
-        ).normalize()
-      };
-      
-      // Add text label closer to bubble
-      const label = createTextSprite(topic.topic);
-      if (label) {
-        label.scale.set(1.5, 0.75, 1); // Adjusted scale
-        label.position.copy(bubble.position);
-        label.position.y += 0.8; // Reduced distance from bubble
-        scene.add(label);
-      }
-      
-      scene.add(bubble);
-      bubbles.push(bubble);
-    });
-
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -180,12 +141,62 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         bubble.position.x += Math.sin(Date.now() * 0.001 + index) * 0.05;
         bubble.position.y += Math.cos(Date.now() * 0.001 + index) * 0.05;
+
+        // Update label position to follow its bubble
+        const label = bubble.userData.label;
+        if (label) {
+          label.position.copy(bubble.position);
+          label.position.y += 0.8; // Keep offset consistent
+          // Make label always face the camera
+          label.lookAt(camera.position);
+        }
       });
 
       renderer.render(scene, camera);
     };
 
-    // Enhanced controls with momentum
+    topics.forEach((topic, index) => {
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xfff000,
+        emissive: 0xebcc34,
+        emissiveIntensity: 0.4,
+        roughness: 0.2,
+        metalness: 0.1,
+      });
+
+      const bubble = new THREE.Mesh(bubbleGeometries[topic.size], material);
+      
+      const phi = Math.acos(-1 + (2 * index) / topics.length);
+      const theta = Math.sqrt(topics.length * Math.PI) * phi;
+      const radius = window.innerWidth < 768 ? 10 : 9;
+      
+      bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
+      
+      // Create and store label in bubble's userData
+      const label = createTextSprite(topic.topic);
+      if (label) {
+        label.scale.set(1.5, 0.75, 1);
+        label.position.copy(bubble.position);
+        label.position.y += 0.8;
+        scene.add(label);
+        // Store label reference in bubble's userData
+        bubble.userData = { 
+          id: topic.id, 
+          originalPosition: bubble.position.clone(),
+          orbitAxis: new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            Math.random() - 0.5
+          ).normalize(),
+          label: label // Store label reference
+        };
+      }
+      
+      scene.add(bubble);
+      bubbles.push(bubble);
+    });
+
+    // Improved smooth camera movement
     const onPointerDown = (x: number, y: number) => {
       isDraggingRef.current = true;
       previousTouchRef.current = { x, y };
@@ -301,8 +312,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       window.removeEventListener('mouseup', onPointerUp);
       window.removeEventListener('click', onClick);
       window.removeEventListener('resize', onResize);
+      
+      // Clean up all objects
+      bubbles.forEach(bubble => {
+        if (bubble.userData.label) {
+          scene.remove(bubble.userData.label);
+        }
+        scene.remove(bubble);
+      });
+      scene.remove(planet);
       containerRef.current?.removeChild(renderer.domElement);
     };
+
   }, [topics, onBubbleClick]);
 
   return <div ref={containerRef} className="fixed inset-0 -z-10 bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]" />;
