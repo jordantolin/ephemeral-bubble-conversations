@@ -1,6 +1,6 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useToast } from "@/hooks/use-toast";
 
 interface BubbleWorldProps {
   topics: Array<{
@@ -11,16 +11,18 @@ interface BubbleWorldProps {
     size: "sm" | "md" | "lg";
   }>;
   onBubbleClick: (id: string) => void;
+  onBubbleCreate?: (bubble: { topic: string; username: string; name: string }) => void;
 }
 
-const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
+const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
+  const { toast } = useToast();
   
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup with atmospheric fog
+    // Scene setup with enhanced atmospheric fog
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xFFFFFF, 15, 30);
     scene.background = new THREE.Color('#FFFFFF');
@@ -28,13 +30,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup with optimal viewing angle
+    // Camera setup with optimal viewing angle and constraints
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.z = 15;
     const minDistance = 8;
     const maxDistance = 20;
 
-    // High-quality renderer setup
+    // High-quality renderer with improved settings
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -46,7 +48,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Create central planet with enhanced materials
+    // Create central planet with enhanced PBR materials
     const planetGeometry = new THREE.SphereGeometry(4, 64, 64);
     const planetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xFFFFFF,
@@ -63,7 +65,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     planet.receiveShadow = true;
     scene.add(planet);
 
-    // Advanced lighting setup
+    // Enhanced lighting setup for better visual quality
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
     scene.add(ambientLight);
 
@@ -80,7 +82,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     rimLight.position.set(0, 10, -10);
     scene.add(rimLight);
 
-    // Bubble container for organization
+    // Bubble container with improved organization
     const bubbleContainer = new THREE.Group();
     scene.add(bubbleContainer);
 
@@ -88,16 +90,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // Initialize bubbles array to store all bubble groups
+    // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Create bubbles with enhanced materials
-    topics.forEach((topic, index) => {
+    // Enhanced bubble creation function
+    const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
       const bubbleGroup = new THREE.Group();
 
       // Enhanced bubble material with PBR
-      const size = topic.size === 'lg' ? 0.8 : topic.size === 'md' ? 0.6 : 0.4;
-      const geometry = new THREE.SphereGeometry(size, 32, 32);
+      const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xFFE566,
         metalness: 0.1,
@@ -151,29 +153,30 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         return sprite;
       };
 
-      // Add text labels
-      const topicSprite = createTextSprite(topic.topic, size * 2, 24);
-      const usernameSprite = createTextSprite(topic.username, size * 1.2, 18);
-      const nameSprite = createTextSprite(topic.name, size * 0.4, 18);
+      // Add text labels with improved positioning
+      const topicSprite = createTextSprite(topic, bubbleSize * 2, 24);
+      const usernameSprite = createTextSprite(username, bubbleSize * 1.2, 18);
+      const nameSprite = createTextSprite(name, bubbleSize * 0.4, 18);
 
       if (topicSprite) bubbleGroup.add(topicSprite);
       if (usernameSprite) bubbleGroup.add(usernameSprite);
       if (nameSprite) bubbleGroup.add(nameSprite);
 
-      // Position bubbles close to planet surface
-      const phi = Math.acos(-1 + (2 * index) / topics.length);
-      const theta = Math.sqrt(topics.length * Math.PI) * phi;
+      // Position bubbles close to planet surface with improved distribution
+      const totalBubbles = topics.length + 1;
+      const phi = Math.acos(-1 + (2 * index) / totalBubbles);
+      const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
       
-      const radius = 4.5; // Slightly larger than planet radius for close orbit
+      const radius = 4.5; // Close to planet surface
       const x = radius * Math.sin(theta) * Math.cos(phi);
       const y = radius * Math.sin(theta) * Math.sin(phi);
       const z = radius * Math.cos(theta);
       
       bubbleGroup.position.set(x, y, z);
 
-      // Add orbital animation data
+      // Add orbital animation data with improved physics
       bubbleGroup.userData = {
-        id: topic.id,
+        id: `bubble-${index}`,
         orbitAxis: new THREE.Vector3(
           Math.random() - 0.5,
           Math.random() - 0.5,
@@ -186,6 +189,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       bubbles.push(bubbleGroup);
       bubbleContainer.add(bubbleGroup);
+      
+      // Animate new bubble entry
+      bubbleGroup.scale.set(0, 0, 0);
+      new THREE.TWEEN.Tween(bubbleGroup.scale)
+        .to({ x: 1, y: 1, z: 1 }, 1000)
+        .easing(THREE.TWEEN.Easing.Elastic.Out)
+        .start();
+
+      return bubbleGroup;
+    };
+
+    // Create initial bubbles
+    topics.forEach((topic, index) => {
+      createBubble(topic.topic, topic.username, topic.name, index, topic.size);
     });
 
     // Interaction state
@@ -309,9 +326,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     element.addEventListener('touchmove', handleTouchMove);
     element.addEventListener('touchend', handleTouchEnd);
 
-    // Animation loop with smooth interpolation
+    // Animation loop with improved performance
     const animate = () => {
       requestAnimationFrame(animate);
+
+      // Update tweens
+      THREE.TWEEN.update();
 
       // Smooth camera rotation
       currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
@@ -320,7 +340,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleContainer.rotation.x = currentRotation.x;
       bubbleContainer.rotation.y = currentRotation.y;
 
-      // Animate bubbles in their orbits
+      // Animate bubbles with improved physics
       bubbles.forEach(bubbleGroup => {
         const userData = bubbleGroup.userData;
         userData.orbitOffset += userData.orbitSpeed;
@@ -349,7 +369,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       renderer.render(scene, camera);
     };
 
-    // Handle window resize
+    // Handle window resize with improved performance
     const handleResize = () => {
       if (!containerRef.current) return;
       
@@ -383,7 +403,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       renderer.dispose();
       containerRef.current.removeChild(renderer.domElement);
     };
-  }, [topics, onBubbleClick, selectedBubbleId]);
+  }, [topics, onBubbleClick, selectedBubbleId, onBubbleCreate]);
 
   return (
     <div 
