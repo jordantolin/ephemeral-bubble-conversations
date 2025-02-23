@@ -10,12 +10,12 @@ interface BubbleWorldProps {
     username: string;
     name: string;
     size: "sm" | "md" | "lg";
-    created_at: string;
   }>;
   onBubbleClick: (id: string) => void;
+  onBubbleCreate?: (bubble: { topic: string; username: string; name: string }) => void;
 }
 
-const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
+const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -23,131 +23,278 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup with white background and fog for depth
+    // Scene setup with enhanced atmospheric fog
     const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0xFFFFFF, 15, 30);
     scene.background = new THREE.Color('#FFFFFF');
-    scene.fog = new THREE.Fog('#FFFFFF', 15, 25);
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+    // Camera setup with optimal viewing angle and constraints
+    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.z = 15;
+    const minDistance = 8;
+    const maxDistance = 20;
 
+    // High-quality renderer with improved settings
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true
+      alpha: true,
+      precision: 'highp'
     });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Enhanced lighting setup for better 3D effect
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.7);
+    // Create central planet with enhanced PBR materials
+    const planetGeometry = new THREE.SphereGeometry(4, 64, 64);
+    const planetMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xFFFFFF,
+      metalness: 0.2,
+      roughness: 0.3,
+      transmission: 0.6,
+      thickness: 0.5,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      envMapIntensity: 1.0,
+    });
+    const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+    planet.castShadow = true;
+    planet.receiveShadow = true;
+    scene.add(planet);
+
+    // Enhanced lighting setup for better visual quality
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
-    directionalLight.position.set(5, 5, 5);
-    scene.add(directionalLight);
+    const mainLight = new THREE.DirectionalLight(0xFFFAF0, 1);
+    mainLight.position.set(10, 10, 10);
+    mainLight.castShadow = true;
+    scene.add(mainLight);
 
-    const backLight = new THREE.DirectionalLight(0xFFFFFF, 0.3);
-    backLight.position.set(-5, -5, -5);
-    scene.add(backLight);
+    const fillLight = new THREE.PointLight(0xFFF5E0, 0.8, 20);
+    fillLight.position.set(-5, -2, 8);
+    scene.add(fillLight);
 
-    // Create bubbles container
+    const rimLight = new THREE.SpotLight(0xFFE4B5, 1);
+    rimLight.position.set(0, 10, -10);
+    scene.add(rimLight);
+
+    // Bubble container with improved organization
     const bubbleContainer = new THREE.Group();
     scene.add(bubbleContainer);
 
-    // Create bubbles
-    topics.forEach((topic, index) => {
-      const bubbleGroup = new THREE.Group();
-
-      // Set bubble size based on type
-      const bubbleSize = topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 0.9 : 0.6;
-
-      // Create bubble sphere with yellow color
-      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-      const material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#FFE566'), // Brighter yellow
-        transparent: true,
-        opacity: 0.9,
-        metalness: 0.1,
-        roughness: 0.2,
-        clearcoat: 0.5,
-        clearcoatRoughness: 0.1,
-      });
-
-      const bubble = new THREE.Mesh(geometry, material);
-      bubbleGroup.add(bubble);
-
-      // Create text with better visibility
-      const canvas = document.createElement('canvas');
-      canvas.width = 1024; // Higher resolution for better text quality
-      canvas.height = 1024;
-      const context = canvas.getContext('2d');
-      
-      if (context) {
-        context.fillStyle = '#000000';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.textRendering = 'optimizeLegibility';
-
-        // Draw name (larger and bolder)
-        context.font = `bold ${bubbleSize * 90}px Inter`;
-        context.fillText(topic.name, 512, 412);
-
-        // Draw topic
-        context.font = `${bubbleSize * 70}px Inter`;
-        context.fillText(topic.topic, 512, 512);
-
-        // Draw username
-        context.font = `${bubbleSize * 60}px Inter`;
-        context.fillText(topic.username, 512, 612);
-      }
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.5, bubbleSize * 2.5);
-      const textMaterial = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        alphaTest: 0.1
-      });
-
-      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      bubbleGroup.add(textMesh);
-
-      // Position bubble in orbital pattern
-      const orbit = 8; // Orbit radius
-      const angle = (index / topics.length) * Math.PI * 2;
-      const verticalOffset = Math.sin(angle) * 2; // Vertical variation
-
-      bubbleGroup.position.x = Math.cos(angle) * orbit;
-      bubbleGroup.position.y = verticalOffset;
-      bubbleGroup.position.z = Math.sin(angle) * orbit;
-
-      // Store orbit data for animation
-      bubbleGroup.userData = {
-        id: topic.id,
-        angle: angle,
-        orbitRadius: orbit,
-        verticalOffset: verticalOffset,
-        rotationSpeed: 0.0005 + Math.random() * 0.0002,
-        textMesh,
-        initialY: verticalOffset
-      };
-
-      bubbleContainer.add(bubbleGroup);
-    });
-
-    // Raycaster for click detection
+    // Raycaster for precise interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
+    // Initialize bubbles array
+    const bubbles: THREE.Group[] = [];
+
+    // Enhanced bubble creation with visible text
+      const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
+        const bubbleGroup = new THREE.Group();
+
+        // Set bubble size
+        const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+
+        // Create the bubble with the exact color #ebbd34
+        const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
+        const material = new THREE.MeshBasicMaterial({
+          color: '#ebbd34',
+        });
+
+        const bubble = new THREE.Mesh(geometry, material);
+        bubbleGroup.add(bubble);
+
+        // Create canvas for text with larger dimensions
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const context = canvas.getContext('2d');
+        
+        if (context) {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.textAlign = 'center';
+          context.textBaseline = 'middle';
+          context.fillStyle = '#000000';
+
+          // Adjust font sizes based on bubble size
+          const nameSize = size === 'lg' ? 120 : size === 'md' ? 100 : 80;
+          const topicSize = size === 'lg' ? 100 : size === 'md' ? 80 : 60;
+          const usernameSize = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
+
+          // Calculate compact vertical spacing based on bubble size
+          const spacing = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
+
+          // 1. Draw name (largest and boldest)
+          context.font = `900 ${nameSize}px Inter`;
+          context.fillText(name, canvas.width/2, canvas.height/2 - spacing);
+
+          // 2. Draw topic (medium size)
+          context.font = `bold ${topicSize}px Inter`;
+          context.fillText(topic, canvas.width/2, canvas.height/2);
+
+          // 3. Draw username (smallest)
+          context.font = `${usernameSize}px Inter`;
+          context.fillText(username, canvas.width/2, canvas.height/2 + spacing);
+        }
+
+        const textTexture = new THREE.CanvasTexture(canvas);
+        textTexture.needsUpdate = true;
+        textTexture.minFilter = THREE.LinearFilter;
+        textTexture.magFilter = THREE.LinearFilter;
+
+        // Make text plane exactly match bubble size
+        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.6, bubbleSize * 1.6);
+        const textMaterial = new THREE.MeshBasicMaterial({
+          map: textTexture,
+          transparent: true,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          depthTest: false
+        });
+
+        const textPlane = new THREE.Mesh(textGeometry, textMaterial);
+        // Position text plane exactly at bubble center
+        textPlane.position.z = bubbleSize * 0.51;
+        bubbleGroup.add(textPlane);
+
+        // Position the bubble group
+        const totalBubbles = topics.length + 1;
+        const phi = Math.acos(-1 + (2 * index) / totalBubbles);
+        const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
+        
+        const radius = 4.5;
+        const x = radius * Math.sin(theta) * Math.cos(phi);
+        const y = radius * Math.sin(theta) * Math.sin(phi);
+        const z = radius * Math.cos(theta);
+        
+        bubbleGroup.position.set(x, y, z);
+
+        bubbleGroup.userData = {
+          id: `bubble-${index}`,
+          orbitAxis: new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            Math.random() - 0.5
+          ).normalize(),
+          orbitSpeed: 0.001 + Math.random() * 0.001,
+          orbitRadius: radius,
+          orbitOffset: Math.random() * Math.PI * 2,
+          textPlane: textPlane
+        };
+
+        bubbles.push(bubbleGroup);
+        bubbleContainer.add(bubbleGroup);
+        
+        bubbleGroup.scale.set(0, 0, 0);
+        new TWEEN.Tween(bubbleGroup.scale)
+          .to({ x: 1, y: 1, z: 1 }, 1000)
+          .easing(TWEEN.Easing.Elastic.Out)
+          .start();
+
+        return bubbleGroup;
+      };
+
+      // Create initial bubbles
+      topics.forEach((topic, index) => {
+        createBubble(topic.topic, topic.username, topic.name, index, topic.size);
+      });
+
+    // Interaction state
+    let isRotating = false;
+    let isPinching = false;
+    let previousMousePosition = { x: 0, y: 0 };
+    let previousTouchDistance = 0;
+    let targetRotation = { x: 0, y: 0 };
+    let currentRotation = { x: 0, y: 0 };
+
+    // Touch controls with smooth interactions
+    const getTouchDistance = (touches: TouchList) => {
+      return Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        isPinching = true;
+        previousTouchDistance = getTouchDistance(event.touches);
+      } else {
+        isRotating = true;
+        previousMousePosition = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY
+        };
+      }
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (isPinching && event.touches.length === 2) {
+        const distance = getTouchDistance(event.touches);
+        const delta = (previousTouchDistance - distance) * 0.03;
+        camera.position.z = Math.max(minDistance, Math.min(maxDistance, camera.position.z + delta));
+        previousTouchDistance = distance;
+      } else if (isRotating && event.touches.length === 1) {
+        const deltaX = event.touches[0].clientX - previousMousePosition.x;
+        const deltaY = event.touches[0].clientY - previousMousePosition.y;
+
+        targetRotation.x += deltaY * 0.004;
+        targetRotation.y += deltaX * 0.004;
+
+        previousMousePosition = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY
+        };
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isRotating = false;
+      isPinching = false;
+    };
+
+    // Mouse controls
+    const onMouseDown = (event: MouseEvent) => {
+      isRotating = true;
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+      };
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      if (!isRotating) return;
+
+      const deltaX = event.clientX - previousMousePosition.x;
+      const deltaY = event.clientY - previousMousePosition.y;
+
+      targetRotation.x += deltaY * 0.004;
+      targetRotation.y += deltaX * 0.004;
+
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+      };
+    };
+
+    const onMouseUp = () => {
+      isRotating = false;
+    };
+
+    // Smooth zoom with mouse wheel
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const delta = event.deltaY * 0.008;
+      camera.position.z = Math.max(minDistance, Math.min(maxDistance, camera.position.z + delta));
+    };
+
+    // Enhanced bubble interaction
     const onClick = (event: MouseEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -162,66 +309,93 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           bubble = bubble.parent;
         }
         if (bubble.userData.id) {
+          setSelectedBubbleId(bubble.userData.id);
           onBubbleClick(bubble.userData.id);
         }
       }
     };
 
-    renderer.domElement.addEventListener('click', onClick);
+    // Add event listeners
+    const element = renderer.domElement;
+    element.addEventListener('mousedown', onMouseDown);
+    element.addEventListener('mousemove', onMouseMove);
+    element.addEventListener('mouseup', onMouseUp);
+    element.addEventListener('click', onClick);
+    element.addEventListener('wheel', onWheel, { passive: false });
+    element.addEventListener('touchstart', handleTouchStart);
+    element.addEventListener('touchmove', handleTouchMove);
+    element.addEventListener('touchend', handleTouchEnd);
 
-    // Animation loop
-    function animate() {
+    // Animation loop with improved performance
+    const animate = () => {
       requestAnimationFrame(animate);
 
-      // Rotate bubble container very slowly
-      bubbleContainer.rotation.y += 0.0005;
+      // Update TWEEN animations
+      TWEEN.update();
 
-      // Animate each bubble
-      bubbleContainer.children.forEach((bubbleGroup) => {
+      // Smooth camera rotation
+      currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
+      currentRotation.y += (targetRotation.y - currentRotation.y) * 0.1;
+
+      bubbleContainer.rotation.x = currentRotation.x;
+      bubbleContainer.rotation.y = currentRotation.y;
+
+      // Animate bubbles
+      bubbles.forEach(bubbleGroup => {
         const userData = bubbleGroup.userData;
-        userData.angle += userData.rotationSpeed;
+        userData.orbitOffset += userData.orbitSpeed;
 
-        // Update bubble position in orbit
-        bubbleGroup.position.x = Math.cos(userData.angle) * userData.orbitRadius;
-        bubbleGroup.position.z = Math.sin(userData.angle) * userData.orbitRadius;
+        // Calculate new position using quaternion rotation
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromAxisAngle(userData.orbitAxis, userData.orbitOffset);
         
-        // Gentle floating motion
-        bubbleGroup.position.y = userData.initialY + Math.sin(Date.now() * 0.001) * 0.2;
+        const position = new THREE.Vector3(userData.orbitRadius, 0, 0);
+        position.applyQuaternion(quaternion);
+        
+        bubbleGroup.position.copy(position);
+          
+          // Make text plane always face the camera
+          userData.textPlane.lookAt(camera.position);
+        });
 
-        // Keep text facing camera
-        if (userData.textMesh) {
-          userData.textMesh.quaternion.copy(camera.quaternion);
-        }
-      });
+        renderer.render(scene, camera);
+      };
 
-      renderer.render(scene, camera);
-    }
-
-    animate();
-
-    // Handle window resize
+    // Handle window resize with improved performance
     const handleResize = () => {
       if (!containerRef.current) return;
-      const newWidth = containerRef.current.clientWidth;
-      const newHeight = containerRef.current.clientHeight;
       
-      camera.aspect = newWidth / newHeight;
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(newWidth, newHeight);
+      renderer.setSize(width, height);
     };
 
     window.addEventListener('resize', handleResize);
 
+    // Start animation
+    animate();
+
     // Cleanup
     return () => {
-      if (containerRef.current) {
-        renderer.domElement.removeEventListener('click', onClick);
-        window.removeEventListener('resize', handleResize);
-        containerRef.current.removeChild(renderer.domElement);
-      }
+      if (!containerRef.current) return;
+      
+      renderer.domElement.removeEventListener('mousedown', onMouseDown);
+      renderer.domElement.removeEventListener('mousemove', onMouseMove);
+      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener('wheel', onWheel);
+      renderer.domElement.removeEventListener('touchstart', handleTouchStart);
+      renderer.domElement.removeEventListener('touchmove', handleTouchMove);
+      renderer.domElement.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('resize', handleResize);
+      
       renderer.dispose();
+      containerRef.current.removeChild(renderer.domElement);
     };
-  }, [topics, onBubbleClick]);
+  }, [topics, onBubbleClick, selectedBubbleId, onBubbleCreate]);
 
   return (
     <div 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
@@ -47,7 +48,6 @@ interface Bubble {
   size: "sm" | "md" | "lg";
   description: string;
   messages: Message[];
-  created_at: string;
 }
 
 interface Message {
@@ -76,14 +76,13 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch bubbles with proper sorting and caching
+  // Fetch bubbles
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bubbles')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
       
       if (error) {
         toast({
@@ -94,89 +93,21 @@ const Index = () => {
         return [];
       }
 
+      // Transform and validate the data to match the expected types
       return data.map(bubble => ({
         id: bubble.id,
         topic: bubble.topic,
         username: bubble.username,
         name: bubble.name,
+        // Ensure size is one of the valid options, default to "md" if invalid
         size: isValidSize(bubble.size) ? bubble.size : "md",
         description: bubble.description || "",
-        created_at: bubble.created_at,
         messages: []
-      }));
-    },
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true
+      })) as Bubble[];
+    }
   });
 
-  const handleCreateBubble = async () => {
-    if (!newBubble.name || !newBubble.topic) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const timestamp = new Date().toISOString();
-      const { error } = await supabase
-        .from('bubbles')
-        .insert({
-          name: newBubble.name,
-          topic: newBubble.topic,
-          description: newBubble.description,
-          username: newBubble.username,
-          size: "md" as const,
-          created_at: timestamp
-        });
-
-      if (error) throw error;
-
-      // Immediately refetch the bubbles
-      await queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-      
-      toast({
-        title: "Success!",
-        description: "New bubble created successfully",
-      });
-
-      setNewBubble({ name: "", description: "", topic: "", username: "@user" });
-      setIsCreateDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        title: "Error creating bubble",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Add a subscription to real-time changes
-  useEffect(() => {
-    const channel = supabase
-      .channel('db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bubbles'
-        },
-        () => {
-          // Refresh bubbles when there's any change
-          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
+  // Fetch messages for selected bubble
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', selectedBubbleId],
     queryFn: async () => {
@@ -231,6 +162,45 @@ const Index = () => {
       supabase.removeChannel(channel);
     };
   }, [selectedBubbleId, queryClient]);
+
+  const handleCreateBubble = async () => {
+    if (!newBubble.name || !newBubble.topic) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('bubbles')
+      .insert({
+        name: newBubble.name,
+        topic: newBubble.topic,
+        description: newBubble.description,
+        username: newBubble.username,
+        size: "md" as const // Explicitly type as "md"
+      });
+
+    if (error) {
+      toast({
+        title: "Error creating bubble",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    toast({
+      title: "Success!",
+      description: "New bubble created successfully",
+    });
+
+    setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+    setIsCreateDialogOpen(false);
+  };
 
   const handleBubbleClick = (id: string) => {
     setSelectedBubbleId(id);
