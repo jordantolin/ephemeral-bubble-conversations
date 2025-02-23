@@ -103,18 +103,19 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Create canvas for the bubble texture
         const canvas = document.createElement('canvas');
-        canvas.width = 2048; // Increased resolution for sharper text
+        canvas.width = 2048;
         canvas.height = 2048;
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Create gradient background
+          // Create gradient with more intense yellow colors
           const gradient = context.createRadialGradient(
             canvas.width/2, canvas.height/2, 0,
             canvas.width/2, canvas.height/2, canvas.width/2
           );
-          gradient.addColorStop(0, '#FFE566');
-          gradient.addColorStop(1, '#FFD700');
+          gradient.addColorStop(0, '#FFFF00'); // Pure bright yellow at center
+          gradient.addColorStop(0.7, '#FFD700'); // Gold
+          gradient.addColorStop(1, '#FFA500'); // Deep golden orange at edges for depth
           
           // Fill background
           context.fillStyle = gradient;
@@ -139,7 +140,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           // Draw topic (larger and bolder)
           context.font = 'bold 140px Inter';
           const topicY = canvas.height/2 - 200;
-          // Add text shadow for better contrast
           context.shadowColor = 'rgba(255, 255, 255, 0.5)';
           context.shadowBlur = 4;
           context.fillText(topic, canvas.width/2, topicY);
@@ -155,11 +155,11 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         // Create texture from canvas with better filtering
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
-        texture.anisotropy = 16; // Improved texture quality at angles
+        texture.anisotropy = 16;
         texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
 
-        // Create the bubble with the texture
+        // Create the bubble with more intense emissive color
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshPhysicalMaterial({
           map: texture,
@@ -169,8 +169,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           thickness: 0.5,
           clearcoat: 1.0,
           clearcoatRoughness: 0.1,
-          emissive: 0xFFE566,
-          emissiveIntensity: 0.2,
+          emissive: 0xFFFF00, // Pure yellow for emissive glow
+          emissiveIntensity: 0.3, // Increased intensity
         });
 
         const bubble = new THREE.Mesh(geometry, material);
