@@ -72,7 +72,7 @@ const Index = () => {
           <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <div className="relative w-full max-w-4xl h-[600px] rounded-lg overflow-hidden border border-primary/5 bg-white/50 backdrop-blur-sm">
+        <div className="relative w-full max-w-3xl aspect-square rounded-2xl overflow-hidden border-2 border-primary/10 bg-white/50 backdrop-blur-sm shadow-xl">
           <BubbleWorld 
             topics={topics}
             onBubbleClick={(id) => setSelectedBubbleId(id)}

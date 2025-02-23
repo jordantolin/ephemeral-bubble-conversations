@@ -35,7 +35,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const height = containerRef.current.clientHeight;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.z = 18;
+    camera.position.z = 15; // Moved camera closer
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
@@ -45,7 +45,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.appendChild(renderer.domElement);
 
     // Create planet with subtle rotation
-    const planetGeometry = new THREE.SphereGeometry(8, 128, 128);
+    const planetGeometry = new THREE.SphereGeometry(6, 128, 128); // Made planet slightly smaller
     const planetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xFFFFFF,
       roughness: 0.4,
@@ -120,9 +120,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     const bubbles: THREE.Mesh[] = [];
     const bubbleGeometries = {
-      sm: new THREE.SphereGeometry(1.2, 64, 64),
-      md: new THREE.SphereGeometry(1.5, 64, 64),
-      lg: new THREE.SphereGeometry(1.8, 64, 64),
+      sm: new THREE.SphereGeometry(0.8, 64, 64), // Made bubbles slightly smaller
+      md: new THREE.SphereGeometry(1, 64, 64),
+      lg: new THREE.SphereGeometry(1.2, 64, 64),
     };
 
     const raycaster = new THREE.Raycaster();
@@ -146,17 +146,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
       
+      // Position bubbles closer to the planet surface
+      const radius = 8; // Closer orbit radius
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
       
-      bubble.position.setFromSpherical(new THREE.Spherical(12, phi, theta));
+      bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
       bubble.userData.id = topic.id;
+      bubble.userData.orbitSpeed = 0.0003 + Math.random() * 0.0002; // Individual orbit speed
+      bubble.userData.orbitRadius = radius;
+      bubble.userData.orbitOffset = Math.random() * Math.PI * 2; // Random starting position
       
       const label = createBubbleText(topic.topic, topic.username, topic.name);
       if (label) {
-        label.scale.set(3, 3, 1); // Increased scale for better visibility
+        label.scale.set(2, 2, 1);
         label.position.copy(bubble.position);
-        label.position.y += 0.2; // Slight vertical offset
         scene.add(label);
         bubble.userData.label = label;
       }
@@ -239,7 +243,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     containerRef.current.addEventListener('wheel', handleWheel);
 
-    // Animation loop with inertia
+    // Animation loop with smooth orbiting
     const animate = () => {
       requestAnimationFrame(animate);
 
@@ -248,16 +252,24 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         rotationSpeed.y *= dampingFactor;
       }
 
-      planet.rotation.x += rotationSpeed.x;
-      planet.rotation.y += rotationSpeed.y;
-      
-      bubbles.forEach((bubble, index) => {
+      planet.rotation.y += 0.001;
+
+      // Update bubble positions with smooth orbiting
+      bubbles.forEach((bubble) => {
+        const time = Date.now() * bubble.userData.orbitSpeed;
+        const orbitOffset = bubble.userData.orbitOffset;
+        const radius = bubble.userData.orbitRadius;
+        
+        // Calculate new position in orbit
+        bubble.position.x = Math.cos(time + orbitOffset) * radius;
+        bubble.position.z = Math.sin(time + orbitOffset) * radius;
+        bubble.position.y = Math.sin(time * 2) * 0.2; // Gentle up/down movement
+        
+        // Apply world rotation
         bubble.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationSpeed.x);
         bubble.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationSpeed.y);
         
-        const time = Date.now() * 0.001;
-        bubble.position.y += Math.sin(time + index) * 0.001;
-        
+        // Update label position
         const label = bubble.userData.label;
         if (label) {
           label.position.copy(bubble.position);
@@ -267,8 +279,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       renderer.render(scene, camera);
     };
-
-    animate();
 
     // Handle window resize
     const handleResize = () => {
