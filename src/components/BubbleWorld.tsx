@@ -95,115 +95,102 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     const bubbles: THREE.Group[] = [];
 
     // Enhanced bubble creation with visible text
-      const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
-        const bubbleGroup = new THREE.Group();
+    const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
+      const bubbleGroup = new THREE.Group();
 
-        // Set bubble size
-        const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+      // Set bubble size
+      const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
 
-        // Create the bubble with the exact color #ebbd34
-        const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-        const material = new THREE.MeshBasicMaterial({
-          color: '#ebbd34',
-        });
+      // Create the bubble with the exact color #ebbd34
+      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
+      const material = new THREE.MeshBasicMaterial({
+        color: '#ebbd34',
+      });
 
-        const bubble = new THREE.Mesh(geometry, material);
-        bubbleGroup.add(bubble);
+      const bubble = new THREE.Mesh(geometry, material);
+      bubbleGroup.add(bubble);
 
-        // Create canvas for text with larger dimensions
-        const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 1024;
-        const context = canvas.getContext('2d');
-        
-        if (context) {
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          context.textAlign = 'center';
-          context.textBaseline = 'middle';
-          context.fillStyle = '#000000';
+      // Create canvas for text with larger dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 2048;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillStyle = '#000000';
 
-          // Adjust font sizes based on bubble size
-          const nameSize = size === 'lg' ? 120 : size === 'md' ? 100 : 80;
-          const topicSize = size === 'lg' ? 100 : size === 'md' ? 80 : 60;
-          const usernameSize = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
+        // Calculate font sizes based on bubble size
+        const nameSize = bubbleSize * 200;
+        const topicSize = bubbleSize * 160;
+        const usernameSize = bubbleSize * 140;
 
-          // Calculate compact vertical spacing based on bubble size
-          const spacing = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
+        // Draw text with improved spacing
+        context.font = `bold ${nameSize}px Inter`;
+        context.fillText(name, canvas.width/2, canvas.height/2 - nameSize);
 
-          // 1. Draw name (largest and boldest)
-          context.font = `900 ${nameSize}px Inter`;
-          context.fillText(name, canvas.width/2, canvas.height/2 - spacing);
+        context.font = `${topicSize}px Inter`;
+        context.fillText(topic, canvas.width/2, canvas.height/2);
 
-          // 2. Draw topic (medium size)
-          context.font = `bold ${topicSize}px Inter`;
-          context.fillText(topic, canvas.width/2, canvas.height/2);
+        context.font = `${usernameSize}px Inter`;
+        context.fillText(username, canvas.width/2, canvas.height/2 + usernameSize);
+      }
 
-          // 3. Draw username (smallest)
-          context.font = `${usernameSize}px Inter`;
-          context.fillText(username, canvas.width/2, canvas.height/2 + spacing);
-        }
+      const textTexture = new THREE.CanvasTexture(canvas);
+      textTexture.needsUpdate = true;
+      textTexture.minFilter = THREE.LinearFilter;
+      textTexture.magFilter = THREE.LinearFilter;
 
-        const textTexture = new THREE.CanvasTexture(canvas);
-        textTexture.needsUpdate = true;
-        textTexture.minFilter = THREE.LinearFilter;
-        textTexture.magFilter = THREE.LinearFilter;
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
+      const textMaterial = new THREE.MeshBasicMaterial({
+        map: textTexture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
 
-        // Make text plane exactly match bubble size
-        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.6, bubbleSize * 1.6);
-        const textMaterial = new THREE.MeshBasicMaterial({
-          map: textTexture,
-          transparent: true,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-          depthTest: false
-        });
+      const textPlane = new THREE.Mesh(textGeometry, textMaterial);
+      textPlane.position.z = bubbleSize * 0.51;
+      bubbleGroup.add(textPlane);
 
-        const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-        // Position text plane exactly at bubble center
-        textPlane.position.z = bubbleSize * 0.51;
-        bubbleGroup.add(textPlane);
+      // Position the bubble group
+      const radius = 6;
+      const angle = (index / topics.length) * Math.PI * 2;
+      
+      const x = radius * Math.cos(angle);
+      const y = Math.sin(angle * 2) * 1.5;
+      const z = radius * Math.sin(angle);
+      
+      bubbleGroup.position.set(x, y, z);
 
-        // Position the bubble group
-        const totalBubbles = topics.length + 1;
-        const phi = Math.acos(-1 + (2 * index) / totalBubbles);
-        const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
-        
-        const radius = 4.5;
-        const x = radius * Math.sin(theta) * Math.cos(phi);
-        const y = radius * Math.sin(theta) * Math.sin(phi);
-        const z = radius * Math.cos(theta);
-        
-        bubbleGroup.position.set(x, y, z);
-
-        bubbleGroup.userData = {
-          id: `bubble-${index}`,
-          orbitAxis: new THREE.Vector3(
-            Math.random() - 0.5,
-            Math.random() - 0.5,
-            Math.random() - 0.5
-          ).normalize(),
-          orbitSpeed: 0.001 + Math.random() * 0.001,
-          orbitRadius: radius,
-          orbitOffset: Math.random() * Math.PI * 2,
-          textPlane: textPlane
-        };
-
-        bubbles.push(bubbleGroup);
-        bubbleContainer.add(bubbleGroup);
-        
-        bubbleGroup.scale.set(0, 0, 0);
-        new TWEEN.Tween(bubbleGroup.scale)
-          .to({ x: 1, y: 1, z: 1 }, 1000)
-          .easing(TWEEN.Easing.Elastic.Out)
-          .start();
-
-        return bubbleGroup;
+      bubbleGroup.userData = {
+        id: `bubble-${index}`,
+        orbitRadius: radius,
+        orbitSpeed: 0.001 + Math.random() * 0.0005,
+        orbitAngle: angle,
+        textPlane,
+        initialY: y
       };
 
-      // Create initial bubbles
-      topics.forEach((topic, index) => {
-        createBubble(topic.topic, topic.username, topic.name, index, topic.size);
-      });
+      bubbles.push(bubbleGroup);
+      bubbleContainer.add(bubbleGroup);
+      
+      bubbleGroup.scale.set(0, 0, 0);
+      new TWEEN.Tween(bubbleGroup.scale)
+        .to({ x: 1, y: 1, z: 1 }, 1000)
+        .easing(TWEEN.Easing.Elastic.Out)
+        .start();
+
+      return bubbleGroup;
+    };
+
+    // Create initial bubbles
+    topics.forEach((topic, index) => {
+      createBubble(topic.topic, topic.username, topic.name, index, topic.size);
+    });
 
     // Interaction state
     let isRotating = false;
@@ -343,23 +330,35 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       // Animate bubbles
       bubbles.forEach(bubbleGroup => {
         const userData = bubbleGroup.userData;
-        userData.orbitOffset += userData.orbitSpeed;
+        userData.orbitAngle += userData.orbitSpeed;
 
-        // Calculate new position using quaternion rotation
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromAxisAngle(userData.orbitAxis, userData.orbitOffset);
+        // Update bubble position
+        const x = userData.orbitRadius * Math.cos(userData.orbitAngle);
+        const z = userData.orbitRadius * Math.sin(userData.orbitAngle);
+        const y = userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
         
-        const position = new THREE.Vector3(userData.orbitRadius, 0, 0);
-        position.applyQuaternion(quaternion);
-        
-        bubbleGroup.position.copy(position);
-          
-          // Make text plane always face the camera
+        bubbleGroup.position.set(x, y, z);
+
+        // Make text always face camera and stay centered
+        if (userData.textPlane) {
+          // Calculate direction to camera
+          const directionToCamera = new THREE.Vector3();
+          directionToCamera.subVectors(camera.position, bubbleGroup.position);
+          directionToCamera.normalize();
+
+          // Update text plane orientation
           userData.textPlane.lookAt(camera.position);
-        });
+          
+          // Ensure text stays perfectly perpendicular to view
+          userData.textPlane.quaternion.copy(camera.quaternion);
+          
+          // Keep text centered on bubble
+          userData.textPlane.position.z = bubbleGroup.position.length() * 0.1;
+        }
+      });
 
-        renderer.render(scene, camera);
-      };
+      renderer.render(scene, camera);
+    };
 
     // Handle window resize with improved performance
     const handleResize = () => {
