@@ -13,7 +13,7 @@ const MainNav = () => {
               alt="Bubble Trouble"
               className="w-8 h-8"
             />
-            <span className="text-xl font-semibold text-primary">Bubble</span>
+            <span className="text-xl font-semibold text-primary">Bubble Trouble</span>
           </Link>
           
           <div className="flex-1 max-w-md mx-4">
