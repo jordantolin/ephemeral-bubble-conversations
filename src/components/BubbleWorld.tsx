@@ -133,7 +133,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const textMaterial = new THREE.MeshBasicMaterial({
           map: textTexture,
           transparent: true,
-          side: THREE.DoubleSide
+          side: THREE.DoubleSide,
+          depthWrite: false // This ensures text is always visible
         });
 
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
@@ -331,8 +332,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         bubbleGroup.position.copy(position);
           
-          // Make bubble face camera
-          bubbleGroup.lookAt(camera.position);
+          // Make text plane always face the camera
+          userData.textPlane.lookAt(camera.position);
         });
 
         renderer.render(scene, camera);
