@@ -76,14 +76,14 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch bubbles with proper sorting
+  // Fetch bubbles with proper sorting and caching
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bubbles')
         .select('*')
-        .order('created_at', { ascending: false }); // Sort by creation time
+        .order('created_at', { ascending: false });
       
       if (error) {
         toast({
@@ -103,11 +103,80 @@ const Index = () => {
         description: bubble.description || "",
         created_at: bubble.created_at,
         messages: []
-      })) as Bubble[];
-    }
+      }));
+    },
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache the results
+    refetchOnWindowFocus: true // Refetch when window gains focus
   });
 
-  // Fetch messages for selected bubble
+  const handleCreateBubble = async () => {
+    if (!newBubble.name || !newBubble.topic) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const timestamp = new Date().toISOString();
+      const { error } = await supabase
+        .from('bubbles')
+        .insert({
+          name: newBubble.name,
+          topic: newBubble.topic,
+          description: newBubble.description,
+          username: newBubble.username,
+          size: "md" as const,
+          created_at: timestamp
+        });
+
+      if (error) throw error;
+
+      // Immediately refetch the bubbles
+      await queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+      
+      toast({
+        title: "Success!",
+        description: "New bubble created successfully",
+      });
+
+      setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+      setIsCreateDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error creating bubble",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Add a subscription to real-time changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bubbles'
+        },
+        () => {
+          // Refresh bubbles when there's any change
+          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', selectedBubbleId],
     queryFn: async () => {
@@ -162,49 +231,6 @@ const Index = () => {
       supabase.removeChannel(channel);
     };
   }, [selectedBubbleId, queryClient]);
-
-  const handleCreateBubble = async () => {
-    if (!newBubble.name || !newBubble.topic) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const timestamp = new Date().toISOString();
-    const { error } = await supabase
-      .from('bubbles')
-      .insert({
-        name: newBubble.name,
-        topic: newBubble.topic,
-        description: newBubble.description,
-        username: newBubble.username,
-        size: "md" as const,
-        created_at: timestamp
-      });
-
-    if (error) {
-      toast({
-        title: "Error creating bubble",
-        description: error.message,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Force a refresh of the bubbles query
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-    
-    toast({
-      title: "Success!",
-      description: "New bubble created successfully",
-    });
-
-    setNewBubble({ name: "", description: "", topic: "", username: "@user" });
-    setIsCreateDialogOpen(false);
-  };
 
   const handleBubbleClick = (id: string) => {
     setSelectedBubbleId(id);
