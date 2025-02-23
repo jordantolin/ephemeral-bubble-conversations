@@ -100,17 +100,36 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Set bubble size
         const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
-        
-        // Create texture with text
+
+        // Create the bubble sphere
+        const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
+        const material = new THREE.MeshPhysicalMaterial({
+          color: 0xFFE566,
+          metalness: 0.1,
+          roughness: 0.2,
+          transmission: 0.6,
+          thickness: 0.5,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.1,
+          emissive: 0xFFE566,
+          emissiveIntensity: 0.2,
+        });
+
+        const bubble = new THREE.Mesh(geometry, material);
+        bubble.castShadow = true;
+        bubble.receiveShadow = true;
+        bubbleGroup.add(bubble);
+
+        // Create flat plane for text
+        const planeGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Clear background
-          context.fillStyle = '#FFE566';
-          context.fillRect(0, 0, canvas.width, canvas.height);
+          // Clear background to transparent
+          context.clearRect(0, 0, canvas.width, canvas.height);
           
           // Set text properties
           context.textAlign = 'center';
@@ -133,34 +152,17 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
 
-        // Create bubble with texture
-        const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-        const material = new THREE.MeshPhysicalMaterial({
+        // Create plane material with texture
+        const planeMaterial = new THREE.MeshBasicMaterial({
           map: texture,
-          color: 0xFFFFFF,
-          metalness: 0.1,
-          roughness: 0.2,
-          transmission: 0.6,
-          thickness: 0.5,
-          clearcoat: 1.0,
-          clearcoatRoughness: 0.1,
-          emissive: 0xFFE566,
-          emissiveIntensity: 0.2,
           transparent: true,
+          side: THREE.DoubleSide,
+          depthTest: false
         });
 
-        const bubble = new THREE.Mesh(geometry, material);
-        bubble.castShadow = true;
-        bubble.receiveShadow = true;
-        
-        // Make text always face camera
-        bubble.onBeforeRender = function(renderer, scene, camera) {
-          const cameraPosition = new THREE.Vector3();
-          camera.getWorldPosition(cameraPosition);
-          bubble.lookAt(cameraPosition);
-        };
-
-        bubbleGroup.add(bubble);
+        const textPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+        textPlane.position.z = bubbleSize + 0.01; // Slightly in front of the bubble
+        bubbleGroup.add(textPlane);
 
         // Position the bubble group
         const totalBubbles = topics.length + 1;
@@ -186,6 +188,20 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           orbitRadius: radius,
           orbitOffset: Math.random() * Math.PI * 2,
         };
+
+        // Make text always face camera
+        const updateTextOrientation = () => {
+          if (camera) {
+            textPlane.lookAt(camera.position);
+          }
+        };
+
+        // Add to animation loop
+        const animate = () => {
+          updateTextOrientation();
+          requestAnimationFrame(animate);
+        };
+        animate();
 
         bubbles.push(bubbleGroup);
         bubbleContainer.add(bubbleGroup);
