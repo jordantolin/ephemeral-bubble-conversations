@@ -159,7 +159,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       textTexture.magFilter = THREE.LinearFilter;
       textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      // Improved text plane sizing for better readability
+      // Create billboard text plane that always faces the camera
       const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.2, bubbleSize * 2.2);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
@@ -335,8 +335,35 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     const animate = () => {
       requestAnimationFrame(animate);
 
-      // Update TWEEN animations
       TWEEN.update();
+
+      // Update text orientation for each bubble
+      bubbles.forEach(bubbleGroup => {
+        if (bubbleGroup.userData.textPlane) {
+          // Calculate direction to camera
+          const directionToCamera = new THREE.Vector3();
+          directionToCamera.subVectors(camera.position, bubbleGroup.position);
+          directionToCamera.normalize();
+
+          // Update text plane orientation
+          bubbleGroup.userData.textPlane.lookAt(camera.position);
+          
+          // Ensure text stays perfectly perpendicular to view
+          bubbleGroup.userData.textPlane.quaternion.copy(camera.quaternion);
+          
+          // Keep text centered on bubble
+          bubbleGroup.userData.textPlane.position.z = bubbleGroup.position.length() * 0.1;
+        }
+
+        // Update bubble position (if you have orbital movement)
+        if (bubbleGroup.userData.orbitAngle !== undefined) {
+          bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
+          const x = bubbleGroup.userData.orbitRadius * Math.cos(bubbleGroup.userData.orbitAngle);
+          const z = bubbleGroup.userData.orbitRadius * Math.sin(bubbleGroup.userData.orbitAngle);
+          const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
+          bubbleGroup.position.set(x, y, z);
+        }
+      });
 
       // Smooth camera rotation
       currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
@@ -344,36 +371,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
       bubbleContainer.rotation.x = currentRotation.x;
       bubbleContainer.rotation.y = currentRotation.y;
-
-      // Animate bubbles
-      bubbles.forEach(bubbleGroup => {
-        const userData = bubbleGroup.userData;
-        userData.orbitAngle += userData.orbitSpeed;
-
-        // Update bubble position
-        const x = userData.orbitRadius * Math.cos(userData.orbitAngle);
-        const z = userData.orbitRadius * Math.sin(userData.orbitAngle);
-        const y = userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
-        
-        bubbleGroup.position.set(x, y, z);
-
-        // Make text always face camera and stay centered
-        if (userData.textPlane) {
-          // Calculate direction to camera
-          const directionToCamera = new THREE.Vector3();
-          directionToCamera.subVectors(camera.position, bubbleGroup.position);
-          directionToCamera.normalize();
-
-          // Update text plane orientation
-          userData.textPlane.lookAt(camera.position);
-          
-          // Ensure text stays perfectly perpendicular to view
-          userData.textPlane.quaternion.copy(camera.quaternion);
-          
-          // Keep text centered on bubble
-          userData.textPlane.position.z = bubbleGroup.position.length() * 0.1;
-        }
-      });
 
       renderer.render(scene, camera);
     };
