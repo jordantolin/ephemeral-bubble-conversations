@@ -64,22 +64,22 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
-        <div className="text-center mb-8">
+      <main className="container relative mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="text-center mb-8 relative z-10">
           <h1 className="text-4xl font-light text-primary mb-2">
             Welcome to Bubble Trouble
           </h1>
           <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <div className="relative w-full max-w-3xl aspect-square rounded-2xl overflow-hidden border-2 border-primary/10 bg-white/50 backdrop-blur-sm shadow-xl">
+        <div className="relative w-full h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
           <BubbleWorld 
             topics={topics}
             onBubbleClick={(id) => setSelectedBubbleId(id)}
           />
         </div>
 
-        <Button className="mt-8 flex items-center space-x-2 bg-white/80 hover:bg-white text-primary border border-primary/20">
+        <Button className="mt-8 relative z-10 flex items-center space-x-2 bg-white/80 hover:bg-white text-primary border border-primary/20">
           <Plus className="w-4 h-4" />
           <span>Create Bubble</span>
         </Button>

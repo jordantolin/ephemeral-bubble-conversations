@@ -41,7 +41,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       alpha: true 
     });
     renderer.setSize(width, height);
+    renderer.setClearColor(0x000000, 0); // Make background transparent
     containerRef.current.appendChild(renderer.domElement);
+
+    // Handle window resize
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      const newWidth = containerRef.current.clientWidth;
+      const newHeight = containerRef.current.clientHeight;
+      
+      camera.aspect = newWidth / newHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(newWidth, newHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
 
     // Create planet
     const planetGeometry = new THREE.SphereGeometry(6, 128, 128);
@@ -291,9 +305,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       renderer.render(scene, camera);
     };
 
+    animate();
+
     // Cleanup
     return () => {
-      window.removeEventListener('resize', () => {});
+      window.removeEventListener('resize', handleResize);
       if (containerRef.current) {
         containerRef.current.removeEventListener('mousedown', onPointerDown);
         containerRef.current.removeEventListener('touchstart', onPointerDown);
