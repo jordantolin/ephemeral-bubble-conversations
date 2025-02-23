@@ -121,74 +121,65 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           context.fillStyle = gradient;
           context.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Create yellow gradient for text background
-          const textBgGradient = context.createRadialGradient(
-            canvas.width/2, canvas.height/2, 0,
-            canvas.width/2, canvas.height/2, canvas.width/2.5
-          );
-          textBgGradient.addColorStop(0, '#FFFF00');
-          textBgGradient.addColorStop(1, '#FFD700');
-
-          // Add the yellow text background
+          // Create a more opaque background for text area
           context.beginPath();
           context.arc(canvas.width/2, canvas.height/2, canvas.width/2.5, 0, Math.PI * 2);
-          context.fillStyle = textBgGradient;
+          context.fillStyle = 'rgba(255, 255, 255, 0.92)'; // More opaque white background
           context.fill();
 
-          // Add a subtle golden border
-          context.strokeStyle = '#FFA500';
-          context.lineWidth = 12;
+          // Add a dark border for better definition
+          context.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+          context.lineWidth = 16;
           context.stroke();
 
-          // Configure text rendering with improved anti-aliasing
+          // Configure text rendering
           context.textAlign = 'center';
           context.textBaseline = 'middle';
-          
-          // Enable better text rendering
           context.imageSmoothingEnabled = true;
           context.imageSmoothingQuality = 'high';
+
+          // Draw dark outline for topic text
+          const drawTextWithOutline = (text: string, x: number, y: number, fontSize: number, fontWeight: number) => {
+            context.font = `${fontWeight} ${fontSize}px Inter`;
+            
+            // Draw outline
+            context.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            context.lineWidth = fontSize * 0.05; // Proportional outline
+            context.strokeText(text, x, y);
+            
+            // Draw main text
+            context.fillStyle = '#000000';
+            context.fillText(text, x, y);
+            
+            // Draw highlight
+            context.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            context.fillText(text, x - 2, y - 2);
+          };
+
+          // Draw topic (largest and boldest)
+          drawTextWithOutline(topic, canvas.width/2, canvas.height/2 - 220, 180, 900);
           
-          // Draw topic (extra bold and larger)
-          context.font = '900 160px Inter';
-          const topicY = canvas.height/2 - 200;
-          // Add strong text shadow for definition
-          context.shadowColor = 'rgba(0, 0, 0, 0.3)';
-          context.shadowBlur = 4;
-          context.shadowOffsetX = 2;
-          context.shadowOffsetY = 2;
-          context.fillStyle = '#000000';
-          // Draw text multiple times for boldness
-          for(let i = 0; i < 3; i++) {
-            context.fillText(topic, canvas.width/2, topicY);
-          }
+          // Draw username (medium size)
+          drawTextWithOutline(username, canvas.width/2, canvas.height/2, 130, 800);
           
-          // Draw username (bold)
-          context.font = '800 120px Inter';
-          // Draw text multiple times for boldness
-          for(let i = 0; i < 3; i++) {
-            context.fillText(username, canvas.width/2, canvas.height/2);
-          }
-          
-          // Draw name (bold)
-          for(let i = 0; i < 3; i++) {
-            context.fillText(name, canvas.width/2, canvas.height/2 + 200);
-          }
+          // Draw name (medium size)
+          drawTextWithOutline(name, canvas.width/2, canvas.height/2 + 220, 130, 800);
         }
 
-        // Create texture from canvas with maximum quality settings
+        // Create texture with maximum quality settings
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
-        texture.anisotropy = 16;
+        texture.anisotropy = 16; // Maximum anisotropic filtering
         texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
 
-        // Create the bubble with intense emissive color
+        // Create the bubble with enhanced material settings
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshPhysicalMaterial({
           map: texture,
           metalness: 0.1,
           roughness: 0.2,
-          transmission: 0.6,
+          transmission: 0.5, // Slightly reduced transmission for better text visibility
           thickness: 0.5,
           clearcoat: 1.0,
           clearcoatRoughness: 0.1,
