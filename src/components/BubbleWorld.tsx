@@ -143,8 +143,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         // Draw username (bottom) in black with improved visibility
         context.font = `bold ${usernameSize}px Inter`;
         context.fillStyle = '#000000';  // Pure black
-        const username = username.startsWith('@') ? username : `@${username}`;
-        context.fillText(username, canvas.width/2, startY + spacing * 2);
+        const usernameText = username.startsWith('@') ? username : `@${username}`;
+        context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
 
         // Enhanced text shadow for better depth perception
         context.shadowColor = 'rgba(0, 0, 0, 0.15)';
