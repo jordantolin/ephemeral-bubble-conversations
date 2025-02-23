@@ -27,9 +27,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Setup scene with absolutely white background
+    // Setup scene with light yellow background
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xFFFFFF);
+    scene.background = new THREE.Color('#FEF7E4');
 
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -37,7 +37,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       0.1,
       1000
     );
-    camera.position.z = window.innerWidth < 768 ? 30 : 25;
+    camera.position.z = window.innerWidth < 768 ? 20 : 18; // Adjusted camera distance
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
@@ -49,27 +49,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.appendChild(renderer.domElement);
 
     // Create pure white planet with maximum brightness
-    const planetGeometry = new THREE.SphereGeometry(8, 128, 128); // Even more segments for pure smoothness
+    const planetGeometry = new THREE.SphereGeometry(8, 128, 128);
     const planetMaterial = new THREE.MeshStandardMaterial({
       color: 0xFFFFFF,
       roughness: 0,
       metalness: 0,
       emissive: 0xFFFFFF,
-      emissiveIntensity: 0.2,
+      emissiveIntensity: 0.3,
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
 
     // Enhanced lighting for maximum whiteness
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.5);
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 2);
     scene.add(ambientLight);
 
-    // Multiple bright lights for perfect illumination
     const lights = [
-      { position: [1, 1, 1], intensity: 1 },
-      { position: [-1, -1, -1], intensity: 1 },
-      { position: [1, -1, 1], intensity: 1 },
-      { position: [-1, 1, -1], intensity: 1 },
+      { position: [1, 1, 1], intensity: 1.2 },
+      { position: [-1, -1, -1], intensity: 1.2 },
+      { position: [1, -1, 1], intensity: 1.2 },
+      { position: [-1, 1, -1], intensity: 1.2 },
     ];
 
     lights.forEach(({ position, intensity }) => {
@@ -87,7 +86,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       canvas.width = 256;
       canvas.height = 128;
 
-      context.fillStyle = '#000000';
+      context.fillStyle = 'rgba(0, 0, 0, 0.7)';
       context.font = 'bold 24px Inter';
       context.textAlign = 'center';
       context.fillText(text, 128, 64);
@@ -102,7 +101,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return new THREE.Sprite(spriteMaterial);
     };
 
-    // Create vibrant yellow bubbles with labels
+    // Create vibrant yellow bubbles with labels closer to the planet
     const bubbles: THREE.Mesh[] = [];
     const bubbleGeometries = {
       sm: new THREE.SphereGeometry(0.6, 32, 32),
@@ -123,7 +122,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
-      const radius = window.innerWidth < 768 ? 16 : 14;
+      const radius = window.innerWidth < 768 ? 10 : 9; // Reduced radius to bring bubbles closer
       
       bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
       bubble.userData = { 
@@ -136,12 +135,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         ).normalize()
       };
       
-      // Add text label
+      // Add text label closer to bubble
       const label = createTextSprite(topic.topic);
       if (label) {
-        label.scale.set(2, 1, 1);
+        label.scale.set(1.5, 0.75, 1); // Adjusted scale
         label.position.copy(bubble.position);
-        label.position.y += 1.2;
+        label.position.y += 0.8; // Reduced distance from bubble
         scene.add(label);
       }
       
@@ -306,7 +305,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
   }, [topics, onBubbleClick]);
 
-  return <div ref={containerRef} className="fixed inset-0 -z-10" />;
+  return <div ref={containerRef} className="fixed inset-0 -z-10 bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]" />;
 };
 
 export default BubbleWorld;
