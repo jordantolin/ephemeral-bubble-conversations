@@ -103,7 +103,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Create canvas for the bubble texture
         const canvas = document.createElement('canvas');
-        canvas.width = 1024; // Larger canvas for better text quality
+        canvas.width = 1024;
         canvas.height = 1024;
         const context = canvas.getContext('2d');
         
@@ -163,9 +163,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const bubble = new THREE.Mesh(geometry, material);
         bubble.castShadow = true;
         bubble.receiveShadow = true;
-        
-        // Add rotation to keep text visible
-        bubble.rotation.y = Math.PI; // Initial rotation to show text
         bubbleGroup.add(bubble);
 
         // Position the bubble group
@@ -180,7 +177,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         bubbleGroup.position.set(x, y, z);
 
-        // Add orbital animation data
+        // Add orbital and self-rotation animation data
         bubbleGroup.userData = {
           id: `bubble-${index}`,
           orbitAxis: new THREE.Vector3(
@@ -191,6 +188,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           orbitSpeed: 0.001 + Math.random() * 0.001,
           orbitRadius: radius,
           orbitOffset: Math.random() * Math.PI * 2,
+          selfRotationSpeed: 0.005, // Speed of bubble's self-rotation
+          selfRotationAxis: new THREE.Vector3(0, 1, 0), // Rotate around Y axis
         };
 
         bubbles.push(bubbleGroup);
@@ -346,7 +345,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       bubbleContainer.rotation.x = currentRotation.x;
       bubbleContainer.rotation.y = currentRotation.y;
 
-      // Animate bubbles with improved physics
+      // Animate bubbles with improved physics and self-rotation
       bubbles.forEach(bubbleGroup => {
         const userData = bubbleGroup.userData;
         userData.orbitOffset += userData.orbitSpeed;
@@ -360,16 +359,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         bubbleGroup.position.copy(position);
 
-        // Make text always face camera
-        bubbleGroup.children.forEach(child => {
-          if (child instanceof THREE.Sprite) {
-            child.quaternion.copy(camera.quaternion);
-          }
-        });
-
-        // Look at planet center
-        const center = new THREE.Vector3(0, 0, 0);
-        bubbleGroup.lookAt(center);
+        // Add self-rotation to the bubble
+        bubbleGroup.children[0].rotation.y += userData.selfRotationSpeed;
       });
 
       renderer.render(scene, camera);
