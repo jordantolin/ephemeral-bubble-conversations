@@ -20,6 +20,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer: THREE.WebGLRenderer;
     bubbles: THREE.Mesh[];
     planet: THREE.Mesh;
+    bubbleGroup: THREE.Group;
   }>();
 
   const controlsRef = useRef({
@@ -78,6 +79,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(width, height);
     containerRef.current.appendChild(renderer.domElement);
 
+    // Create a group to hold the planet and bubbles
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+
+    // Create the planet
     const planetGeometry = new THREE.SphereGeometry(6, 128, 128);
     const planetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xFFFFFF,
@@ -90,8 +96,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       depthTest: true
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-    scene.add(planet);
+    worldGroup.add(planet);
 
+    // Create a group for bubbles
+    const bubbleGroup = new THREE.Group();
+    worldGroup.add(bubbleGroup);
+
+    // Lighting
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1);
     scene.add(ambientLight);
 
@@ -170,19 +181,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const deltaX = touch.clientX - controls.lastTouch.x;
         const deltaY = touch.clientY - controls.lastTouch.y;
 
-        const sensitivity = window.innerWidth < 768 ? 0.002 : 0.002;
+        const sensitivity = window.innerWidth < 768 ? 0.004 : 0.002;
         const rotationX = deltaY * sensitivity;
         const rotationY = deltaX * sensitivity;
 
-        const newRotationX = controls.rotation.x + rotationX;
-        const newRotationY = controls.rotation.y + rotationY;
+        // Apply rotation to the entire world group
+        worldGroup.rotation.x += rotationX;
+        worldGroup.rotation.y += rotationY;
 
-        controls.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, newRotationX));
-        controls.rotation.y = newRotationY;
+        // Limit vertical rotation
+        worldGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, worldGroup.rotation.x));
 
         controls.velocity = {
-          x: rotationX * 0.8,
-          y: rotationY * 0.8,
+          x: rotationX,
+          y: rotationY,
         };
 
         controls.lastTouch = { x: touch.clientX, y: touch.clientY };
@@ -231,6 +243,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       updateBubblesScale(newZoom);
     };
 
+    // Create bubbles
     const bubbles: THREE.Mesh[] = [];
     topics.forEach((topic, index) => {
       const canvas = document.createElement('canvas');
@@ -288,6 +301,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       const bubble = new THREE.Mesh(bubbleGeometry, bubbleMaterial);
       
+      // Position bubbles around the planet
       const baseRadius = window.innerWidth < 768 ? 6.5 : 7;
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
@@ -302,20 +316,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         phase: Math.random() * Math.PI * 2,
       };
 
-      scene.add(bubble);
+      bubbleGroup.add(bubble);
       bubbles.push(bubble);
     });
 
-    sceneRef.current = { scene, camera, renderer, bubbles, planet };
-
-    containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
-    containerRef.current.addEventListener('touchmove', onTouchMove, { passive: false });
-    containerRef.current.addEventListener('touchend', onTouchEnd);
-    containerRef.current.addEventListener('wheel', onWheel, { passive: false });
-
+    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
-      
+
       const controls = controlsRef.current;
 
       if (!controls.isDragging && controls.isInertiaActive) {
@@ -348,10 +356,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         sceneRef.current.planet.position.y = 0;
       }
 
+      // Keep bubbles facing the camera while maintaining their positions
       bubbles.forEach((bubble) => {
-        const time = Date.now();
         bubble.quaternion.copy(camera.quaternion);
         
+        const time = Date.now();
         const floatOffset = Math.sin(time * bubble.userData.floatSpeed + bubble.userData.phase) * 0.1;
         bubble.position.y += (floatOffset * 0.005 - bubble.position.y * 0.1);
       });
@@ -359,6 +368,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       renderer.render(scene, camera);
     };
 
+    // Add event listeners
+    containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
+    containerRef.current.addEventListener('touchmove', onTouchMove, { passive: false });
+    containerRef.current.addEventListener('touchend', onTouchEnd);
+    containerRef.current.addEventListener('wheel', onWheel, { passive: false });
+
+    // Handle window resize
     const handleResize = () => {
       if (!containerRef.current) return;
       
@@ -372,8 +388,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     window.addEventListener('resize', handleResize);
 
+    // Start animation
     animate();
 
+    sceneRef.current = { 
+      scene, 
+      camera, 
+      renderer, 
+      bubbles, 
+      planet, 
+      bubbleGroup 
+    };
+
+    // Cleanup
     return () => {
       containerRef.current?.removeEventListener('touchstart', onTouchStart);
       containerRef.current?.removeEventListener('touchmove', onTouchMove);
