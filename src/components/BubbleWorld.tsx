@@ -127,20 +127,21 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           const topicSize = size === 'lg' ? 100 : size === 'md' ? 80 : 60;
           const usernameSize = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
 
-          // Calculate compact vertical spacing based on bubble size
-          const spacing = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
+          // More compact vertical spacing based on bubble size
+          const spacingTop = size === 'lg' ? 150 : size === 'md' ? 120 : 90; // Space between name and topic
+          const spacingBottom = size === 'lg' ? 120 : size === 'md' ? 90 : 60; // Space between topic and username
 
-          // 1. Draw name (largest and boldest)
+          // 1. Draw name (largest and boldest) - positioned higher
           context.font = `900 ${nameSize}px Inter`;
-          context.fillText(name, canvas.width/2, canvas.height/2 - spacing);
+          context.fillText(name, canvas.width/2, canvas.height/2 - spacingTop);
 
-          // 2. Draw topic (medium size)
+          // 2. Draw topic (medium size) - in the exact center
           context.font = `bold ${topicSize}px Inter`;
           context.fillText(topic, canvas.width/2, canvas.height/2);
 
-          // 3. Draw username (smallest)
+          // 3. Draw username (smallest) - positioned lower
           context.font = `${usernameSize}px Inter`;
-          context.fillText(username, canvas.width/2, canvas.height/2 + spacing);
+          context.fillText(username, canvas.width/2, canvas.height/2 + spacingBottom);
         }
 
         const textTexture = new THREE.CanvasTexture(canvas);
