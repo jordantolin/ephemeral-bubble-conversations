@@ -108,58 +108,81 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Create gradient with more intense yellow colors
+          // Create gradient with intense yellow colors
           const gradient = context.createRadialGradient(
             canvas.width/2, canvas.height/2, 0,
             canvas.width/2, canvas.height/2, canvas.width/2
           );
-          gradient.addColorStop(0, '#FFFF00'); // Pure bright yellow at center
-          gradient.addColorStop(0.7, '#FFD700'); // Gold
-          gradient.addColorStop(1, '#FFA500'); // Deep golden orange at edges for depth
+          gradient.addColorStop(0, '#FFFF00');
+          gradient.addColorStop(0.7, '#FFD700');
+          gradient.addColorStop(1, '#FFA500');
           
           // Fill background
           context.fillStyle = gradient;
           context.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Add a more visible text background
+          // Create yellow gradient for text background
+          const textBgGradient = context.createRadialGradient(
+            canvas.width/2, canvas.height/2, 0,
+            canvas.width/2, canvas.height/2, canvas.width/2.5
+          );
+          textBgGradient.addColorStop(0, '#FFFF00');
+          textBgGradient.addColorStop(1, '#FFD700');
+
+          // Add the yellow text background
           context.beginPath();
           context.arc(canvas.width/2, canvas.height/2, canvas.width/2.5, 0, Math.PI * 2);
-          context.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          context.fillStyle = textBgGradient;
           context.fill();
 
-          // Add a subtle border around the text area
-          context.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-          context.lineWidth = 8;
+          // Add a subtle golden border
+          context.strokeStyle = '#FFA500';
+          context.lineWidth = 12;
           context.stroke();
 
-          // Configure text rendering with better anti-aliasing
+          // Configure text rendering with improved anti-aliasing
           context.textAlign = 'center';
           context.textBaseline = 'middle';
-          context.fillStyle = '#000000';
           
-          // Draw topic (larger and bolder)
-          context.font = 'bold 140px Inter';
+          // Enable better text rendering
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = 'high';
+          
+          // Draw topic (extra bold and larger)
+          context.font = '900 160px Inter';
           const topicY = canvas.height/2 - 200;
-          context.shadowColor = 'rgba(255, 255, 255, 0.5)';
+          // Add strong text shadow for definition
+          context.shadowColor = 'rgba(0, 0, 0, 0.3)';
           context.shadowBlur = 4;
-          context.fillText(topic, canvas.width/2, topicY);
+          context.shadowOffsetX = 2;
+          context.shadowOffsetY = 2;
+          context.fillStyle = '#000000';
+          // Draw text multiple times for boldness
+          for(let i = 0; i < 3; i++) {
+            context.fillText(topic, canvas.width/2, topicY);
+          }
           
-          // Draw username
-          context.font = 'bold 100px Inter';
-          context.fillText(username, canvas.width/2, canvas.height/2);
+          // Draw username (bold)
+          context.font = '800 120px Inter';
+          // Draw text multiple times for boldness
+          for(let i = 0; i < 3; i++) {
+            context.fillText(username, canvas.width/2, canvas.height/2);
+          }
           
-          // Draw name
-          context.fillText(name, canvas.width/2, canvas.height/2 + 200);
+          // Draw name (bold)
+          for(let i = 0; i < 3; i++) {
+            context.fillText(name, canvas.width/2, canvas.height/2 + 200);
+          }
         }
 
-        // Create texture from canvas with better filtering
+        // Create texture from canvas with maximum quality settings
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
         texture.anisotropy = 16;
         texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
 
-        // Create the bubble with more intense emissive color
+        // Create the bubble with intense emissive color
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshPhysicalMaterial({
           map: texture,
@@ -169,8 +192,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           thickness: 0.5,
           clearcoat: 1.0,
           clearcoatRoughness: 0.1,
-          emissive: 0xFFFF00, // Pure yellow for emissive glow
-          emissiveIntensity: 0.3, // Increased intensity
+          emissive: 0xFFFF00,
+          emissiveIntensity: 0.3,
         });
 
         const bubble = new THREE.Mesh(geometry, material);
