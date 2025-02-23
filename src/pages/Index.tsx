@@ -105,9 +105,9 @@ const Index = () => {
         messages: []
       }));
     },
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache the results
-    refetchOnWindowFocus: true // Refetch when window gains focus
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true
   });
 
   const handleCreateBubble = async () => {
