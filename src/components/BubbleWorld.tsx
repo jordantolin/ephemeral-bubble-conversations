@@ -112,8 +112,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Create canvas for text with larger dimensions
         const canvas = document.createElement('canvas');
-        canvas.width = 1024; // Increased canvas size
-        canvas.height = 1024; // Increased canvas size
+        canvas.width = 1024;
+        canvas.height = 1024;
         const context = canvas.getContext('2d');
         
         if (context) {
@@ -122,13 +122,16 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           context.textBaseline = 'middle';
           context.fillStyle = '#000000';
 
-          // Larger font sizes and better spacing
+          // Adjust font sizes based on bubble size
           const topicSize = size === 'lg' ? 120 : size === 'md' ? 100 : 80;
           const nameSize = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
 
+          // Calculate vertical spacing based on bubble size
+          const spacing = size === 'lg' ? 100 : size === 'md' ? 80 : 60;
+
           // Draw topic (larger and bolder)
           context.font = `900 ${topicSize}px Inter`;
-          context.fillText(topic, canvas.width/2, canvas.height/2 - 200);
+          context.fillText(topic, canvas.width/2, canvas.height/2 - spacing);
 
           // Draw username
           context.font = `bold ${nameSize}px Inter`;
@@ -136,7 +139,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
           // Draw name
           context.font = `${nameSize}px Inter`;
-          context.fillText(name, canvas.width/2, canvas.height/2 + 200);
+          context.fillText(name, canvas.width/2, canvas.height/2 + spacing);
         }
 
         const textTexture = new THREE.CanvasTexture(canvas);
@@ -144,18 +147,19 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         textTexture.minFilter = THREE.LinearFilter;
         textTexture.magFilter = THREE.LinearFilter;
 
-        // Larger text plane relative to bubble size
-        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
+        // Make text plane exactly match bubble size
+        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.6, bubbleSize * 1.6);
         const textMaterial = new THREE.MeshBasicMaterial({
           map: textTexture,
           transparent: true,
           side: THREE.DoubleSide,
           depthWrite: false,
-          depthTest: false // Ensures text is always on top
+          depthTest: false
         });
 
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-        textPlane.position.z = bubbleSize * 0.51; // Slightly in front of the bubble
+        // Position text plane exactly at bubble center
+        textPlane.position.z = bubbleSize * 0.51;
         bubbleGroup.add(textPlane);
 
         // Position the bubble group
