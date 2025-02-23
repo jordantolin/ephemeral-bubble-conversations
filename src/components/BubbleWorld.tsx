@@ -95,124 +95,115 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     const bubbles: THREE.Group[] = [];
 
     // Enhanced bubble creation with visible text
-    const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
-      const bubbleGroup = new THREE.Group();
+      const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
+        const bubbleGroup = new THREE.Group();
 
-      // Set bubble size
-      const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
-      
-      // Create the bubble sphere
-      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-      const material = new THREE.MeshPhysicalMaterial({
-        color: 0xFFE566,
-        metalness: 0.1,
-        roughness: 0.2,
-        transmission: 0.6,
-        thickness: 0.5,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
-        emissive: 0xFFE566,
-        emissiveIntensity: 0.2,
-      });
-
-      const bubble = new THREE.Mesh(geometry, material);
-      bubble.castShadow = true;
-      bubble.receiveShadow = true;
-      bubbleGroup.add(bubble);
-
-      // Create text with larger canvas and font size
-      const createTextSprite = (text: string, yOffset: number) => {
+        // Set bubble size
+        const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+        
+        // Create texture with text
         const canvas = document.createElement('canvas');
-        canvas.width = 512; // Larger canvas
-        canvas.height = 128;
-        
+        canvas.width = 512;
+        canvas.height = 512;
         const context = canvas.getContext('2d');
-        if (!context) return null;
-
-        context.fillStyle = 'rgba(255, 255, 255, 0)';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Larger, bold font
-        const fontSize = Math.floor(bubbleSize * 100); // Dynamic font size based on bubble size
-        context.font = `bold ${fontSize}px Inter`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
         
-        // Dark text color
-        context.fillStyle = '#000000';
-        context.fillText(text, canvas.width / 2, canvas.height / 2);
+        if (context) {
+          // Clear background
+          context.fillStyle = '#FFE566';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Set text properties
+          context.textAlign = 'center';
+          context.fillStyle = '#000000';
+          
+          // Draw topic
+          context.font = 'bold 48px Inter';
+          context.fillText(topic, canvas.width/2, canvas.height/2 - 60);
+          
+          // Draw username
+          context.font = '36px Inter';
+          context.fillText(username, canvas.width/2, canvas.height/2);
+          
+          // Draw name
+          context.font = '36px Inter';
+          context.fillText(name, canvas.width/2, canvas.height/2 + 60);
+        }
 
+        // Create texture from canvas
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
 
-        const spriteMaterial = new THREE.SpriteMaterial({
+        // Create bubble with texture
+        const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
+        const material = new THREE.MeshPhysicalMaterial({
           map: texture,
+          color: 0xFFFFFF,
+          metalness: 0.1,
+          roughness: 0.2,
+          transmission: 0.6,
+          thickness: 0.5,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.1,
+          emissive: 0xFFE566,
+          emissiveIntensity: 0.2,
           transparent: true,
         });
 
-        const sprite = new THREE.Sprite(spriteMaterial);
+        const bubble = new THREE.Mesh(geometry, material);
+        bubble.castShadow = true;
+        bubble.receiveShadow = true;
         
-        // Position text within bubble bounds
-        sprite.position.set(0, yOffset * bubbleSize, 0);
+        // Make text always face camera
+        bubble.onBeforeRender = function(renderer, scene, camera) {
+          const cameraPosition = new THREE.Vector3();
+          camera.getWorldPosition(cameraPosition);
+          bubble.lookAt(cameraPosition);
+        };
+
+        bubbleGroup.add(bubble);
+
+        // Position the bubble group
+        const totalBubbles = topics.length + 1;
+        const phi = Math.acos(-1 + (2 * index) / totalBubbles);
+        const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
         
-        // Scale based on bubble size
-        const scale = bubbleSize * 1.5;
-        sprite.scale.set(scale, scale * 0.25, 1);
+        const radius = 4.5;
+        const x = radius * Math.sin(theta) * Math.cos(phi);
+        const y = radius * Math.sin(theta) * Math.sin(phi);
+        const z = radius * Math.cos(theta);
         
-        return sprite;
+        bubbleGroup.position.set(x, y, z);
+
+        // Add orbital animation data
+        bubbleGroup.userData = {
+          id: `bubble-${index}`,
+          orbitAxis: new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            Math.random() - 0.5
+          ).normalize(),
+          orbitSpeed: 0.001 + Math.random() * 0.001,
+          orbitRadius: radius,
+          orbitOffset: Math.random() * Math.PI * 2,
+        };
+
+        bubbles.push(bubbleGroup);
+        bubbleContainer.add(bubbleGroup);
+        
+        // Animate new bubble entry
+        bubbleGroup.scale.set(0, 0, 0);
+        new TWEEN.Tween(bubbleGroup.scale)
+          .to({ x: 1, y: 1, z: 1 }, 1000)
+          .easing(TWEEN.Easing.Elastic.Out)
+          .start();
+
+        return bubbleGroup;
       };
 
-      // Stack text with proper spacing
-      const topicSprite = createTextSprite(topic, 0.4);
-      const usernameSprite = createTextSprite(username, 0);
-      const nameSprite = createTextSprite(name, -0.4);
-
-      if (topicSprite) bubbleGroup.add(topicSprite);
-      if (usernameSprite) bubbleGroup.add(usernameSprite);
-      if (nameSprite) bubbleGroup.add(nameSprite);
-
-      // Position the bubble group
-      const totalBubbles = topics.length + 1;
-      const phi = Math.acos(-1 + (2 * index) / totalBubbles);
-      const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
-      
-      const radius = 4.5;
-      const x = radius * Math.sin(theta) * Math.cos(phi);
-      const y = radius * Math.sin(theta) * Math.sin(phi);
-      const z = radius * Math.cos(theta);
-      
-      bubbleGroup.position.set(x, y, z);
-
-      // Add orbital animation data
-      bubbleGroup.userData = {
-        id: `bubble-${index}`,
-        orbitAxis: new THREE.Vector3(
-          Math.random() - 0.5,
-          Math.random() - 0.5,
-          Math.random() - 0.5
-        ).normalize(),
-        orbitSpeed: 0.001 + Math.random() * 0.001,
-        orbitRadius: radius,
-        orbitOffset: Math.random() * Math.PI * 2,
-      };
-
-      bubbles.push(bubbleGroup);
-      bubbleContainer.add(bubbleGroup);
-      
-      // Animate new bubble entry
-      bubbleGroup.scale.set(0, 0, 0);
-      new TWEEN.Tween(bubbleGroup.scale)
-        .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Elastic.Out)
-        .start();
-
-      return bubbleGroup;
-    };
-
-    // Create initial bubbles
-    topics.forEach((topic, index) => {
-      createBubble(topic.topic, topic.username, topic.name, index, topic.size);
-    });
+      // Create initial bubbles
+      topics.forEach((topic, index) => {
+        createBubble(topic.topic, topic.username, topic.name, index, topic.size);
+      });
 
     // Interaction state
     let isRotating = false;
