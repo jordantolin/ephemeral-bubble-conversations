@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -114,7 +113,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       });
     };
 
-    // Touch and mouse movement handlers
+    // Enhanced touch controls for rotation
     const onTouchStart = (event: TouchEvent) => {
       event.preventDefault();
       const controls = controlsRef.current;
@@ -136,6 +135,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           x: event.touches[0].clientX,
           y: event.touches[0].clientY,
         };
+        // Reset momentum when starting new touch
+        controls.momentum = { x: 0, y: 0 };
       }
     };
 
@@ -169,14 +170,29 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const deltaX = touch.clientX - controls.lastTouch.x;
         const deltaY = touch.clientY - controls.lastTouch.y;
 
-        const sensitivity = 0.002;
+        // Enhanced touch sensitivity with smoother rotation
+        const sensitivity = window.innerWidth < 768 ? 0.003 : 0.002;
+        const rotationX = deltaY * sensitivity;
+        const rotationY = deltaX * sensitivity;
+
+        // Apply rotation with momentum
+        controls.rotation.x += rotationX;
+        controls.rotation.y += rotationY;
+
+        // Update momentum for inertia
         controls.velocity = {
-          x: deltaY * sensitivity,
-          y: deltaX * sensitivity,
+          x: rotationX,
+          y: rotationY,
         };
 
+        // Limit rotation angles for better control
+        controls.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, controls.rotation.x));
+
         controls.lastTouch = { x: touch.clientX, y: touch.clientY };
-        controls.momentum = { ...controls.velocity };
+        controls.momentum = {
+          x: controls.velocity.x * 0.95,
+          y: controls.velocity.y * 0.95,
+        };
       }
     };
 
@@ -186,7 +202,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       if (event.touches.length === 0) {
         controls.isDragging = false;
         pinchRef.current.active = false;
-        controls.isInertiaActive = true;
+        
+        // Enable inertia only if there was significant movement
+        const velocityMagnitude = Math.hypot(controls.velocity.x, controls.velocity.y);
+        controls.isInertiaActive = velocityMagnitude > 0.0001;
+        
+        // Set initial momentum for inertia
+        if (controls.isInertiaActive) {
+          controls.momentum = {
+            x: controls.velocity.x * 0.95,
+            y: controls.velocity.y * 0.95,
+          };
+        }
       } else if (event.touches.length === 1) {
         pinchRef.current.active = false;
         controls.isDragging = true;
@@ -305,22 +332,30 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       const controls = controlsRef.current;
 
+      // Enhanced inertia handling
       if (!controls.isDragging && controls.isInertiaActive) {
+        // Smooth deceleration
         controls.momentum.x *= 0.95;
         controls.momentum.y *= 0.95;
 
+        // Apply momentum to rotation
+        controls.rotation.x += controls.momentum.x;
+        controls.rotation.y += controls.momentum.y;
+
+        // Limit rotation angles
+        controls.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, controls.rotation.x));
+
+        // Stop inertia when movement becomes very small
         if (Math.abs(controls.momentum.x) < 0.0001 && Math.abs(controls.momentum.y) < 0.0001) {
           controls.isInertiaActive = false;
           controls.momentum = { x: 0, y: 0 };
         }
-
-        controls.rotation.x += controls.momentum.x;
-        controls.rotation.y += controls.momentum.y;
       }
 
       if (sceneRef.current?.planet) {
-        sceneRef.current.planet.rotation.x = controls.rotation.x;
-        sceneRef.current.planet.rotation.y = controls.rotation.y;
+        // Smooth planet rotation
+        sceneRef.current.planet.rotation.x += (controls.rotation.x - sceneRef.current.planet.rotation.x) * 0.1;
+        sceneRef.current.planet.rotation.y += (controls.rotation.y - sceneRef.current.planet.rotation.y) * 0.1;
       }
 
       bubbles.forEach((bubble) => {
