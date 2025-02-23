@@ -120,49 +120,49 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         bubble.receiveShadow = true;
         bubbleGroup.add(bubble);
 
-        // Create flat plane for text
-        const planeGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const context = canvas.getContext('2d');
-        
-        if (context) {
-          // Clear background to transparent
+        // Create text using sprites for consistent size
+        const createTextSprite = (text: string, yOffset: number) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 64;
+          
+          const context = canvas.getContext('2d');
+          if (!context) return null;
+
+          // Clear background
           context.clearRect(0, 0, canvas.width, canvas.height);
           
-          // Set text properties
+          // Set text style
           context.textAlign = 'center';
+          context.textBaseline = 'middle';
           context.fillStyle = '#000000';
+          context.font = 'bold 32px Inter';
           
-          // Draw topic
-          context.font = 'bold 48px Inter';
-          context.fillText(topic, canvas.width/2, canvas.height/2 - 60);
+          // Draw text
+          context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+          const texture = new THREE.CanvasTexture(canvas);
+          const spriteMaterial = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+          });
+
+          const sprite = new THREE.Sprite(spriteMaterial);
+          sprite.scale.set(1, 0.25, 1);
+          sprite.position.y = yOffset;
+          sprite.position.z = bubbleSize + 0.01; // Slightly in front of bubble
           
-          // Draw username
-          context.font = '36px Inter';
-          context.fillText(username, canvas.width/2, canvas.height/2);
-          
-          // Draw name
-          context.font = '36px Inter';
-          context.fillText(name, canvas.width/2, canvas.height/2 + 60);
-        }
+          return sprite;
+        };
 
-        // Create texture from canvas
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
+        // Create sprites for each text element with proper spacing
+        const topicSprite = createTextSprite(topic, 0.4);
+        const usernameSprite = createTextSprite(username, 0);
+        const nameSprite = createTextSprite(name, -0.4);
 
-        // Create plane material with texture
-        const planeMaterial = new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true,
-          side: THREE.DoubleSide,
-          depthTest: false
-        });
-
-        const textPlane = new THREE.Mesh(planeGeometry, planeMaterial);
-        textPlane.position.z = bubbleSize + 0.01; // Slightly in front of the bubble
-        bubbleGroup.add(textPlane);
+        if (topicSprite) bubbleGroup.add(topicSprite);
+        if (usernameSprite) bubbleGroup.add(usernameSprite);
+        if (nameSprite) bubbleGroup.add(nameSprite);
 
         // Position the bubble group
         const totalBubbles = topics.length + 1;
@@ -188,20 +188,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           orbitRadius: radius,
           orbitOffset: Math.random() * Math.PI * 2,
         };
-
-        // Make text always face camera
-        const updateTextOrientation = () => {
-          if (camera) {
-            textPlane.lookAt(camera.position);
-          }
-        };
-
-        // Add to animation loop
-        const animate = () => {
-          updateTextOrientation();
-          requestAnimationFrame(animate);
-        };
-        animate();
 
         bubbles.push(bubbleGroup);
         bubbleContainer.add(bubbleGroup);
