@@ -48,79 +48,42 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Create enhanced white planet with detailed surface
-    const planetGeometry = new THREE.SphereGeometry(8, 256, 256); // Increased segments for smoother surface
+    // Create minimal planet with subtle details
+    const planetGeometry = new THREE.SphereGeometry(8, 128, 128);
     const planetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xFFFFFF,
-      roughness: 0.2,
+      roughness: 0.4,
       metalness: 0.1,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.2,
-      emissive: 0xFFFFFF,
-      emissiveIntensity: 0.2,
-      reflectivity: 1,
-      transmission: 0.1,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.3,
+      transmission: 0.05,
+      ior: 1.2,
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-    
-    // Add subtle normal mapping for surface detail
-    const normalTexture = new THREE.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==');
-    normalTexture.wrapS = THREE.RepeatWrapping;
-    normalTexture.wrapT = THREE.RepeatWrapping;
-    normalTexture.repeat.set(4, 4);
-    planetMaterial.normalMap = normalTexture;
-    planetMaterial.normalScale.set(0.1, 0.1);
-
     scene.add(planet);
 
-    // Enhanced lighting setup for better 3D appearance
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.5);
+    // Minimal lighting setup
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.2);
     scene.add(ambientLight);
 
-    // Add hemisphere light for more natural illumination
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xFEF7E4, 1);
+    const hemisphereLight = new THREE.HemisphereLight(0xFFFAF0, 0xFFF5E6, 0.8);
     scene.add(hemisphereLight);
 
-    const lights = [
-      { position: [1, 1, 1], intensity: 1.5, color: 0xFFFFFF },
-      { position: [-1, -1, -1], intensity: 0.8, color: 0xFFF5E0 },
-      { position: [1, -1, 1], intensity: 0.8, color: 0xFFF5E0 },
-      { position: [-1, 1, -1], intensity: 1.2, color: 0xFFFFFF },
-    ];
+    const mainLight = new THREE.DirectionalLight(0xFFFFFF, 1.2);
+    mainLight.position.set(1, 1, 1);
+    scene.add(mainLight);
 
-    lights.forEach(({ position, intensity, color }) => {
-      const light = new THREE.DirectionalLight(color, intensity);
-      light.position.set(position[0], position[1], position[2]);
-      light.castShadow = true;
-      scene.add(light);
-    });
-
-    // Improved text sprite creation for better visibility
+    // Subtle text creation for inside bubbles
     const createTextSprite = (text: string) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return null;
 
-      canvas.width = 512; // Increased resolution
-      canvas.height = 256;
+      canvas.width = 256;
+      canvas.height = 128;
 
-      // Draw background with gradient
-      const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-      
-      context.fillStyle = gradient;
-      context.roundRect(0, 0, canvas.width, canvas.height, 20);
-      context.fill();
-
-      // Draw text with shadow
-      context.shadowColor = 'rgba(0, 0, 0, 0.5)';
-      context.shadowBlur = 4;
-      context.shadowOffsetX = 2;
-      context.shadowOffsetY = 2;
-
-      context.fillStyle = '#FFFFFF';
-      context.font = 'bold 48px Inter';
+      context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      context.font = '32px Inter';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -132,14 +95,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const spriteMaterial = new THREE.SpriteMaterial({ 
         map: texture,
         transparent: true,
-        depthWrite: false,
-        sizeAttenuation: false,
+        opacity: 0.8,
       });
       
       return new THREE.Sprite(spriteMaterial);
     };
 
-    // Enhanced bubble creation with better materials
+    // Minimal bubble design
     const bubbles: THREE.Mesh[] = [];
     const bubbleGeometries = {
       sm: new THREE.SphereGeometry(0.6, 32, 32),
@@ -194,15 +156,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     topics.forEach((topic, index) => {
       const bubbleMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xfff000,
-        emissive: 0xebcc34,
-        emissiveIntensity: 0.3,
-        roughness: 0.2,
-        metalness: 0.3,
-        clearcoat: 0.4,
-        clearcoatRoughness: 0.2,
-        transmission: 0.1,
-        ior: 1.5,
+        color: 0xFFF5E6,
+        emissive: 0xFFF0DB,
+        emissiveIntensity: 0.2,
+        roughness: 0.3,
+        metalness: 0.1,
+        clearcoat: 0.3,
+        transmission: 0.2,
+        opacity: 0.9,
+        transparent: true,
       });
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
@@ -213,12 +175,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
       
-      // Enhance label positioning and scale
+      // Create and position text inside bubble
       const label = createTextSprite(topic.topic);
       if (label) {
-        label.scale.set(0.75, 0.375, 1);
+        label.scale.set(0.5, 0.25, 1);
         label.position.copy(bubble.position);
-        label.position.y += 1;
+        label.position.y += 0.2;
         scene.add(label);
         bubble.userData = { 
           id: topic.id, 
@@ -370,10 +332,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   return (
     <div 
       ref={containerRef} 
-      className="fixed inset-0 -z-10 bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]"
-      style={{
-        boxShadow: 'inset 0 0 100px rgba(0,0,0,0.1)',
-      }}
+      className="absolute inset-0"
     />
   );
 };

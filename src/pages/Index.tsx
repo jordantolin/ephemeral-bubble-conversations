@@ -2,7 +2,6 @@
 import { useState } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
-import FloatingBubble from "@/components/FloatingBubble";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import {
@@ -23,36 +22,31 @@ const topics = [
 
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
-
   const selectedBubble = topics.find(t => t.id === selectedBubbleId);
 
   return (
-    <div className="min-h-screen overflow-hidden">
+    <div className="min-h-screen overflow-hidden bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container mx-auto px-4 pt-24 pb-12 relative">
-        <div className="text-center mb-12 relative z-10">
-          <img 
-            src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-            alt="Bubble Trouble"
-            className="w-24 h-24 mx-auto mb-6"
-          />
-          <h1 className="text-4xl font-bold text-primary">
+      <main className="container mx-auto px-4 flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-light text-primary mb-2">
             Welcome to Bubble Trouble
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            Join ephemeral conversations that matter
-          </p>
-          <Button className="mt-6 flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>Create Bubble</span>
-          </Button>
+          <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <BubbleWorld 
-          topics={topics}
-          onBubbleClick={(id) => setSelectedBubbleId(id)}
-        />
+        <div className="relative w-full max-w-4xl aspect-square rounded-lg overflow-hidden border border-primary/5 bg-white/50 backdrop-blur-sm">
+          <BubbleWorld 
+            topics={topics}
+            onBubbleClick={(id) => setSelectedBubbleId(id)}
+          />
+        </div>
+
+        <Button className="mt-8 flex items-center space-x-2 bg-white/80 hover:bg-white text-primary border border-primary/20">
+          <Plus className="w-4 h-4" />
+          <span>Create Bubble</span>
+        </Button>
       </main>
 
       {selectedBubble && (
@@ -83,10 +77,6 @@ const Index = () => {
           </DialogContent>
         </Dialog>
       )}
-
-      <footer className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground relative z-10">
-        <p>Join the ephemeral interaction revolution!</p>
-      </footer>
     </div>
   );
 };
