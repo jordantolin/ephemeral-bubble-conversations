@@ -103,61 +103,39 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Create the bubble with the exact color #ebbd34
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-        const material = new THREE.MeshPhysicalMaterial({
-          color: 0xebbd34, // Exact color requested
-          metalness: 0.1,
-          roughness: 0.2,
-          transmission: 0.0, // Solid color, no transparency
-          clearcoat: 1.0,
-          clearcoatRoughness: 0.1,
-          emissive: 0xebbd34,
-          emissiveIntensity: 0.2,
+        const material = new THREE.MeshBasicMaterial({
+          color: '#ebbd34', // Exact color requested, using hex string
         });
 
         const bubble = new THREE.Mesh(geometry, material);
-        bubble.castShadow = true;
-        bubble.receiveShadow = true;
         bubbleGroup.add(bubble);
 
-        // Create text plane
+        // Create canvas for text
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Set background to match bubble color exactly
-          context.fillStyle = '#ebbd34';
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          
-          // Configure text rendering
           context.textAlign = 'center';
           context.textBaseline = 'middle';
-          
-          const drawText = (text: string, x: number, y: number, fontSize: number) => {
-            context.font = `900 ${fontSize}px Inter`;
-            context.fillStyle = '#000000'; // Pure black text
-            context.fillText(text, x, y);
-          };
+          context.font = '900 48px Inter';
+          context.fillStyle = '#000000';
 
-          // Draw texts
-          drawText(topic, canvas.width/2, canvas.height/2 - 100, 48);
-          drawText(username, canvas.width/2, canvas.height/2, 36);
-          drawText(name, canvas.width/2, canvas.height/2 + 100, 36);
+          // Draw text directly without background
+          context.fillText(topic, canvas.width/2, canvas.height/2 - 100);
+          context.fillText(username, canvas.width/2, canvas.height/2);
+          context.fillText(name, canvas.width/2, canvas.height/2 + 100);
         }
 
-        // Create texture for the text plane
         const textTexture = new THREE.CanvasTexture(canvas);
-        textTexture.needsUpdate = true;
-        textTexture.anisotropy = 16;
-
-        // Create a plane for the text
         const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.5, bubbleSize * 1.5);
         const textMaterial = new THREE.MeshBasicMaterial({
           map: textTexture,
           transparent: true,
           side: THREE.DoubleSide
         });
+
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
         textPlane.position.z = bubbleSize * 0.51;
         bubbleGroup.add(textPlane);
@@ -174,7 +152,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         bubbleGroup.position.set(x, y, z);
 
-        // Add orbital animation data
         bubbleGroup.userData = {
           id: `bubble-${index}`,
           orbitAxis: new THREE.Vector3(
@@ -191,7 +168,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         bubbles.push(bubbleGroup);
         bubbleContainer.add(bubbleGroup);
         
-        // Animate new bubble entry
         bubbleGroup.scale.set(0, 0, 0);
         new TWEEN.Tween(bubbleGroup.scale)
           .to({ x: 1, y: 1, z: 1 }, 1000)
