@@ -41,11 +41,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Lighting for better bubble appearance
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
 
@@ -59,17 +59,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     topics.forEach((topic, index) => {
       const material = new THREE.MeshPhysicalMaterial({
-        color: 0xFED766,
+        color: 0xFED766, // Bright yellow color
         transparent: true,
         opacity: 0.8,
         metalness: 0.1,
         roughness: 0.2,
         transmission: 0.5,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1,
       });
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], material);
       
-      // Distribute bubbles in a sphere
+      // Distribute bubbles in a spherical pattern
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
       
@@ -96,11 +98,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbles.forEach((bubble, index) => {
         const originalPos = bubble.userData.originalPosition;
         
-        // Unique floating motion for each bubble
+        // Smooth orbital motion
         bubble.position.x = originalPos.x + Math.sin(time * 2 + index) * 0.5;
         bubble.position.y = originalPos.y + Math.cos(time * 1.5 + index) * 0.5;
         bubble.position.z = originalPos.z + Math.sin(time * 1.8 + index) * 0.5;
         
+        // Gentle rotation
         bubble.rotation.x += 0.001;
         bubble.rotation.y += 0.001;
       });
@@ -116,12 +119,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(bubbles);
 
-      bubbles.forEach(bubble => {
-        (bubble.material as THREE.MeshPhysicalMaterial).opacity = 0.8;
+      // Reset all bubbles opacity
+      bubbles.forEach((bubble) => {
+        const bubbleMaterial = bubble.material as THREE.MeshPhysicalMaterial;
+        bubbleMaterial.opacity = 0.8;
       });
 
+      // Highlight hovered bubble
       if (intersects.length > 0) {
-        (intersects[0].object.material as THREE.MeshPhysicalMaterial).opacity = 1;
+        const bubbleMaterial = (intersects[0].object as THREE.Mesh)
+          .material as THREE.MeshPhysicalMaterial;
+        bubbleMaterial.opacity = 1;
       }
     };
 
