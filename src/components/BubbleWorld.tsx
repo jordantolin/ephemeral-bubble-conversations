@@ -148,6 +148,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbles.push(bubble);
     });
 
+    // Helper function for pinch-to-zoom
+    const getPinchDistance = (e: TouchEvent): number => {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      return Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY
+      );
+    };
+
+    // Wheel handler for desktop zoom
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomSpeed = 0.5;
+      camera.position.z = Math.max(
+        minZoom,
+        Math.min(maxZoom, camera.position.z + (e.deltaY * 0.01 * zoomSpeed))
+      );
+    };
+
     // Enhanced controls state with zoom
     const controlsState = {
       isDragging: false,
