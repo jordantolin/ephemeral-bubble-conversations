@@ -103,13 +103,22 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
         // Create text plane that will always face the camera
         const canvas = document.createElement('canvas');
-        canvas.width = 1024; // Reduced for better performance
+        canvas.width = 1024;
         canvas.height = 1024;
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Clear background
-          context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+          // Create the same yellow gradient as the bubble for the background
+          const gradient = context.createRadialGradient(
+            canvas.width/2, canvas.height/2, 0,
+            canvas.width/2, canvas.height/2, canvas.width/2
+          );
+          gradient.addColorStop(0, '#FFFF00');
+          gradient.addColorStop(0.7, '#FFD700');
+          gradient.addColorStop(1, '#FFA500');
+          
+          // Fill background with the yellow gradient
+          context.fillStyle = gradient;
           context.fillRect(0, 0, canvas.width, canvas.height);
           
           // Configure text rendering
@@ -118,27 +127,21 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           context.imageSmoothingEnabled = true;
           context.imageSmoothingQuality = 'high';
 
-          const drawTextWithOutline = (text: string, x: number, y: number, fontSize: number, fontWeight: number) => {
-            context.font = `${fontWeight} ${fontSize}px Inter`;
+          const drawText = (text: string, x: number, y: number, fontSize: number) => {
+            // Set very bold font
+            context.font = `900 ${fontSize}px Inter`;
             
-            // Draw outline
-            context.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            context.lineWidth = fontSize * 0.05;
-            context.strokeText(text, x, y);
-            
-            // Draw main text
+            // Draw black text multiple times for extra boldness
             context.fillStyle = '#000000';
-            context.fillText(text, x, y);
-            
-            // Draw highlight
-            context.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            context.fillText(text, x - 1, y - 1);
+            for (let i = 0; i < 3; i++) {
+              context.fillText(text, x, y);
+            }
           };
 
-          // Draw texts with better spacing
-          drawTextWithOutline(topic, canvas.width/2, canvas.height/2 - 180, 90, 900);
-          drawTextWithOutline(username, canvas.width/2, canvas.height/2, 70, 800);
-          drawTextWithOutline(name, canvas.width/2, canvas.height/2 + 180, 70, 800);
+          // Draw texts with proper spacing
+          drawText(topic, canvas.width/2, canvas.height/2 - 180, 90);
+          drawText(username, canvas.width/2, canvas.height/2, 70);
+          drawText(name, canvas.width/2, canvas.height/2 + 180, 70);
         }
 
         // Create texture for the text plane
@@ -154,7 +157,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           map: textTexture,
           transparent: true,
           side: THREE.DoubleSide,
-          depthWrite: false // Ensures text is always visible
+          depthWrite: false
         });
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
         bubbleGroup.add(textPlane);
