@@ -88,6 +88,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
+    // Initialize bubbles array to store all bubble groups
+    const bubbles: THREE.Group[] = [];
+
     // Create bubbles with enhanced materials
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
@@ -367,14 +370,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     return () => {
       if (!containerRef.current) return;
       
-      element.removeEventListener('mousedown', onMouseDown);
-      element.removeEventListener('mousemove', onMouseMove);
-      element.removeEventListener('mouseup', onMouseUp);
-      element.removeEventListener('click', onClick);
-      element.removeEventListener('wheel', onWheel);
-      element.removeEventListener('touchstart', handleTouchStart);
-      element.removeEventListener('touchmove', handleTouchMove);
-      element.removeEventListener('touchend', handleTouchEnd);
+      renderer.domElement.removeEventListener('mousedown', onMouseDown);
+      renderer.domElement.removeEventListener('mousemove', onMouseMove);
+      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener('wheel', onWheel);
+      renderer.domElement.removeEventListener('touchstart', handleTouchStart);
+      renderer.domElement.removeEventListener('touchmove', handleTouchMove);
+      renderer.domElement.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('resize', handleResize);
       
       renderer.dispose();
