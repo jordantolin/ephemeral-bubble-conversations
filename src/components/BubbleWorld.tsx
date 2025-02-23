@@ -48,60 +48,98 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Create pure white planet with maximum brightness
-    const planetGeometry = new THREE.SphereGeometry(8, 128, 128);
-    const planetMaterial = new THREE.MeshStandardMaterial({
+    // Create enhanced white planet with detailed surface
+    const planetGeometry = new THREE.SphereGeometry(8, 256, 256); // Increased segments for smoother surface
+    const planetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xFFFFFF,
-      roughness: 0,
-      metalness: 0,
+      roughness: 0.2,
+      metalness: 0.1,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.2,
       emissive: 0xFFFFFF,
-      emissiveIntensity: 0.3,
+      emissiveIntensity: 0.2,
+      reflectivity: 1,
+      transmission: 0.1,
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+    
+    // Add subtle normal mapping for surface detail
+    const normalTexture = new THREE.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==');
+    normalTexture.wrapS = THREE.RepeatWrapping;
+    normalTexture.wrapT = THREE.RepeatWrapping;
+    normalTexture.repeat.set(4, 4);
+    planetMaterial.normalMap = normalTexture;
+    planetMaterial.normalScale.set(0.1, 0.1);
+
     scene.add(planet);
 
-    // Enhanced lighting for maximum whiteness
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 2);
+    // Enhanced lighting setup for better 3D appearance
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.5);
     scene.add(ambientLight);
 
+    // Add hemisphere light for more natural illumination
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xFEF7E4, 1);
+    scene.add(hemisphereLight);
+
     const lights = [
-      { position: [1, 1, 1], intensity: 1.2 },
-      { position: [-1, -1, -1], intensity: 1.2 },
-      { position: [1, -1, 1], intensity: 1.2 },
-      { position: [-1, 1, -1], intensity: 1.2 },
+      { position: [1, 1, 1], intensity: 1.5, color: 0xFFFFFF },
+      { position: [-1, -1, -1], intensity: 0.8, color: 0xFFF5E0 },
+      { position: [1, -1, 1], intensity: 0.8, color: 0xFFF5E0 },
+      { position: [-1, 1, -1], intensity: 1.2, color: 0xFFFFFF },
     ];
 
-    lights.forEach(({ position, intensity }) => {
-      const light = new THREE.DirectionalLight(0xFFFFFF, intensity);
+    lights.forEach(({ position, intensity, color }) => {
+      const light = new THREE.DirectionalLight(color, intensity);
       light.position.set(position[0], position[1], position[2]);
+      light.castShadow = true;
       scene.add(light);
     });
 
-    // Create text sprites for labels
+    // Improved text sprite creation for better visibility
     const createTextSprite = (text: string) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return null;
 
-      canvas.width = 256;
-      canvas.height = 128;
+      canvas.width = 512; // Increased resolution
+      canvas.height = 256;
 
-      context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      context.font = 'bold 24px Inter';
+      // Draw background with gradient
+      const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+      
+      context.fillStyle = gradient;
+      context.roundRect(0, 0, canvas.width, canvas.height, 20);
+      context.fill();
+
+      // Draw text with shadow
+      context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      context.shadowBlur = 4;
+      context.shadowOffsetX = 2;
+      context.shadowOffsetY = 2;
+
+      context.fillStyle = '#FFFFFF';
+      context.font = 'bold 48px Inter';
       context.textAlign = 'center';
-      context.fillText(text, 128, 64);
+      context.textBaseline = 'middle';
+      context.fillText(text, canvas.width / 2, canvas.height / 2);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      
       const spriteMaterial = new THREE.SpriteMaterial({ 
         map: texture,
         transparent: true,
         depthWrite: false,
+        sizeAttenuation: false,
       });
       
       return new THREE.Sprite(spriteMaterial);
     };
 
-    // Create vibrant yellow bubbles with labels closer to the planet
+    // Enhanced bubble creation with better materials
     const bubbles: THREE.Mesh[] = [];
     const bubbleGeometries = {
       sm: new THREE.SphereGeometry(0.6, 32, 32),
@@ -155,15 +193,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     topics.forEach((topic, index) => {
-      const material = new THREE.MeshStandardMaterial({
+      const bubbleMaterial = new THREE.MeshPhysicalMaterial({
         color: 0xfff000,
         emissive: 0xebcc34,
-        emissiveIntensity: 0.4,
+        emissiveIntensity: 0.3,
         roughness: 0.2,
-        metalness: 0.1,
+        metalness: 0.3,
+        clearcoat: 0.4,
+        clearcoatRoughness: 0.2,
+        transmission: 0.1,
+        ior: 1.5,
       });
 
-      const bubble = new THREE.Mesh(bubbleGeometries[topic.size], material);
+      const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
       
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
@@ -171,14 +213,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
       
-      // Create and store label in bubble's userData
+      // Enhance label positioning and scale
       const label = createTextSprite(topic.topic);
       if (label) {
-        label.scale.set(1.5, 0.75, 1);
+        label.scale.set(0.75, 0.375, 1);
         label.position.copy(bubble.position);
-        label.position.y += 0.8;
+        label.position.y += 1;
         scene.add(label);
-        // Store label reference in bubble's userData
         bubble.userData = { 
           id: topic.id, 
           originalPosition: bubble.position.clone(),
@@ -187,7 +228,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             Math.random() - 0.5,
             Math.random() - 0.5
           ).normalize(),
-          label: label // Store label reference
+          label: label
         };
       }
       
@@ -326,7 +367,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
   }, [topics, onBubbleClick]);
 
-  return <div ref={containerRef} className="fixed inset-0 -z-10 bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]" />;
+  return (
+    <div 
+      ref={containerRef} 
+      className="fixed inset-0 -z-10 bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]"
+      style={{
+        boxShadow: 'inset 0 0 100px rgba(0,0,0,0.1)',
+      }}
+    />
+  );
 };
 
 export default BubbleWorld;
