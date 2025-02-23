@@ -121,8 +121,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       // Enhanced text rendering with improved design
       const createTextSprite = (text: string, yOffset: number, fontSize: number = 24) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 128;
+        canvas.width = 256; // Reduced canvas size for tighter text
+        canvas.height = 64;
         
         const context = canvas.getContext('2d');
         if (!context) return null;
@@ -136,19 +136,14 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        // Add text shadow for better readability
-        context.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        context.shadowBlur = 4;
-        context.shadowOffsetX = 2;
-        context.shadowOffsetY = 2;
-
-        // Draw text outline for better visibility
-        context.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        context.lineWidth = 3;
-        context.strokeText(text, canvas.width / 2, canvas.height / 2);
+        // Add subtle text shadow
+        context.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        context.shadowBlur = 2;
+        context.shadowOffsetX = 1;
+        context.shadowOffsetY = 1;
 
         // Draw main text
-        context.fillStyle = '#1A1F2C'; // Dark color for better contrast
+        context.fillStyle = '#1A1F2C';
         context.fillText(text, canvas.width / 2, canvas.height / 2);
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -160,22 +155,22 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         });
 
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.position.set(0, yOffset, 0);
+        sprite.position.set(0, yOffset, 0.1); // Move text slightly forward to prevent z-fighting
         
-        // Adjust scale based on text type
+        // Adjust scale based on text type and bubble size
         if (fontSize === 24) {
-          sprite.scale.set(2, 0.5, 1); // Topic text (larger)
+          sprite.scale.set(bubbleSize * 1.2, bubbleSize * 0.3, 1); // Topic text
         } else {
-          sprite.scale.set(1.5, 0.4, 1); // Username and name text (smaller)
+          sprite.scale.set(bubbleSize * 1, bubbleSize * 0.25, 1); // Username and name text
         }
         
         return sprite;
       };
 
-      // Add text labels with improved positioning and sizes
-      const topicSprite = createTextSprite(topic, bubbleSize * 2, 24);
-      const usernameSprite = createTextSprite(username, bubbleSize * 1.2, 18);
-      const nameSprite = createTextSprite(name, bubbleSize * 0.4, 18);
+      // Add text labels with improved positioning inside the bubble
+      const topicSprite = createTextSprite(topic, bubbleSize * 0.1, 18); // Move text inside bubble
+      const usernameSprite = createTextSprite(username, -bubbleSize * 0.1, 14); // Move text inside bubble
+      const nameSprite = createTextSprite(name, -bubbleSize * 0.3, 14); // Move text inside bubble
 
       if (topicSprite) bubbleGroup.add(topicSprite);
       if (usernameSprite) bubbleGroup.add(usernameSprite);
