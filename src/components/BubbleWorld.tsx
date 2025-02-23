@@ -146,8 +146,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const label = bubble.userData.label;
         if (label) {
           label.position.copy(bubble.position);
-          label.position.y += 0.8; // Keep offset consistent
-          // Make label always face the camera
+          label.position.y += 0.8;
           label.lookAt(camera.position);
         }
       });
@@ -196,7 +195,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbles.push(bubble);
     });
 
-    // Improved smooth camera movement
+    // Enhanced smooth camera movement
     const onPointerDown = (x: number, y: number) => {
       isDraggingRef.current = true;
       previousTouchRef.current = { x, y };
@@ -226,7 +225,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       isDraggingRef.current = false;
     };
 
-    // Improved zoom with smooth transitions
+    // Improved smooth zoom
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const zoomSpeed = 0.5;
@@ -302,6 +301,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     window.addEventListener('resize', onResize);
     animate();
 
+    // Cleanup
     return () => {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('touchstart', onTouchStart);
