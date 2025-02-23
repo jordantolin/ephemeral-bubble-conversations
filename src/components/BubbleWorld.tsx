@@ -94,12 +94,14 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Enhanced bubble creation function
+    // Enhanced bubble creation with visible text
     const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
       const bubbleGroup = new THREE.Group();
 
-      // Enhanced bubble material with PBR
+      // Set bubble size
       const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+      
+      // Create the bubble sphere
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xFFE566,
@@ -118,26 +120,26 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       bubble.receiveShadow = true;
       bubbleGroup.add(bubble);
 
-      // Enhanced text rendering with stacked design inside bubble
-      const createTextSprite = (text: string, yOffset: number, fontSize: number = 24) => {
+      // Create text with larger canvas and font size
+      const createTextSprite = (text: string, yOffset: number) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 64;
+        canvas.width = 512; // Larger canvas
+        canvas.height = 128;
         
         const context = canvas.getContext('2d');
         if (!context) return null;
 
-        // Set background transparent
         context.fillStyle = 'rgba(255, 255, 255, 0)';
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Configure text style
-        context.font = `${fontSize}px Inter`;
+        // Larger, bold font
+        const fontSize = Math.floor(bubbleSize * 100); // Dynamic font size based on bubble size
+        context.font = `bold ${fontSize}px Inter`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        // Draw main text
-        context.fillStyle = '#1A1F2C';
+        // Dark text color
+        context.fillStyle = '#000000';
         context.fillText(text, canvas.width / 2, canvas.height / 2);
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -149,38 +151,39 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         });
 
         const sprite = new THREE.Sprite(spriteMaterial);
-        // Position text inside the bubble with proper stacking
-        sprite.position.set(0, yOffset, 0); 
         
-        // Scale text to fit inside bubble
-        const scale = bubbleSize * 0.7; // Reduced overall scale to fit inside
-        sprite.scale.set(scale, scale * 0.2, 1);
+        // Position text within bubble bounds
+        sprite.position.set(0, yOffset * bubbleSize, 0);
+        
+        // Scale based on bubble size
+        const scale = bubbleSize * 1.5;
+        sprite.scale.set(scale, scale * 0.25, 1);
         
         return sprite;
       };
 
-      // Stack text labels vertically inside the bubble
-      const topicSprite = createTextSprite(topic, bubbleSize * 0.2, 16);
-      const usernameSprite = createTextSprite(username, 0, 14);
-      const nameSprite = createTextSprite(name, -bubbleSize * 0.2, 14);
+      // Stack text with proper spacing
+      const topicSprite = createTextSprite(topic, 0.4);
+      const usernameSprite = createTextSprite(username, 0);
+      const nameSprite = createTextSprite(name, -0.4);
 
       if (topicSprite) bubbleGroup.add(topicSprite);
       if (usernameSprite) bubbleGroup.add(usernameSprite);
       if (nameSprite) bubbleGroup.add(nameSprite);
 
-      // Position bubbles close to planet surface with improved distribution
+      // Position the bubble group
       const totalBubbles = topics.length + 1;
       const phi = Math.acos(-1 + (2 * index) / totalBubbles);
       const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
       
-      const radius = 4.5; // Close to planet surface
+      const radius = 4.5;
       const x = radius * Math.sin(theta) * Math.cos(phi);
       const y = radius * Math.sin(theta) * Math.sin(phi);
       const z = radius * Math.cos(theta);
       
       bubbleGroup.position.set(x, y, z);
 
-      // Add orbital animation data with improved physics
+      // Add orbital animation data
       bubbleGroup.userData = {
         id: `bubble-${index}`,
         orbitAxis: new THREE.Vector3(
@@ -196,7 +199,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       bubbles.push(bubbleGroup);
       bubbleContainer.add(bubbleGroup);
       
-      // Animate new bubble entry with TWEEN.js
+      // Animate new bubble entry
       bubbleGroup.scale.set(0, 0, 0);
       new TWEEN.Tween(bubbleGroup.scale)
         .to({ x: 1, y: 1, z: 1 }, 1000)
