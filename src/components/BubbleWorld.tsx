@@ -122,14 +122,14 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const spacing = bubbleSize * 140;
         const startY = canvas.height/2 - spacing;
 
-        // Draw name (top) in bright blue
+        // Draw name (top) in electric blue
         context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = '#1EAEDB';  // Bright blue
+        context.fillStyle = '#1EAEDB';  // Electric blue
         context.fillText(name, canvas.width/2, startY);
 
-        // Draw topic (middle) in bright blue
+        // Draw topic (middle) in electric blue
         context.font = `${topicSize}px Inter`;
-        context.fillStyle = '#1EAEDB';  // Bright blue
+        context.fillStyle = '#1EAEDB';  // Electric blue
         context.fillText(topic, canvas.width/2, startY + spacing);
 
         // Draw username (bottom) in black
@@ -194,9 +194,9 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         .easing(TWEEN.Easing.Elastic.Out)
         .start();
 
-      // Yellow bubble with enhanced material
+      // Bright strong yellow bubble
       const material = new THREE.MeshPhysicalMaterial({
-        color: '#FEF7CD',  // Soft yellow
+        color: '#FFE566',  // Bright strong yellow
         metalness: 0.1,
         roughness: 0.2,
         clearcoat: 0.8,
