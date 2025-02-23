@@ -44,11 +44,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Mobile-optimized camera setup
+    // Enhanced pinch-to-zoom state tracking
+    const pinchRef = useRef({
+      active: false,
+      initialDistance: 0,
+      initialZoom: 0,
+      lastScale: 1,
+    });
+
+    // Improved zoom constraints for mobile
+    const ZOOM_LIMITS = {
+      min: window.innerWidth < 768 ? 6 : 8,
+      max: window.innerWidth < 768 ? 18 : 25,
+      default: window.innerWidth < 768 ? 12 : 15,
+    };
+
+    // Initialize camera with mobile-optimized settings
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    const isMobile = window.innerWidth < 768;
-    camera.position.z = isMobile ? 12 : 15; // Closer view on mobile
-    camera.position.y = isMobile ? 1 : 2; // Adjusted vertical position for mobile
+    camera.position.z = ZOOM_LIMITS.default;
+    camera.position.y = window.innerWidth < 768 ? 1 : 2;
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -143,6 +157,22 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       lg: new THREE.CircleGeometry(1.2, 32),
     };
 
+    // Enhanced bubble scaling function
+    const updateBubblesScale = (zoomLevel: number) => {
+      if (!sceneRef.current?.bubbles) return;
+
+      const zoomFactor = (zoomLevel - ZOOM_LIMITS.min) / (ZOOM_LIMITS.max - ZOOM_LIMITS.min);
+      const scaleFactor = 1 + (1 - zoomFactor) * 0.8; // More pronounced scale effect
+
+      sceneRef.current.bubbles.forEach((bubble) => {
+        const baseScale = bubble.userData.originalScale;
+        const targetScale = baseScale * scaleFactor;
+        
+        // Smooth scale transition
+        bubble.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+      });
+    };
+
     // Enhanced resize handler for mobile
     const handleResize = () => {
       if (!containerRef.current) return;
@@ -164,13 +194,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     window.addEventListener('orientationchange', handleResize);
 
     // Mobile-optimized movement constants
-    const INERTIA_DECAY = isMobile ? 0.90 : 0.95; // Faster decay on mobile
-    const MAX_ROTATION_SPEED = isMobile ? 0.08 : 0.1;
-    const MIN_ZOOM = isMobile ? 7 : 8;
-    const MAX_ZOOM = isMobile ? 20 : 25;
-    const ZOOM_SPEED = isMobile ? 0.0015 : 0.001;
-    const MIN_POLAR_ANGLE = Math.PI * (isMobile ? 0.15 : 0.1);
-    const MAX_POLAR_ANGLE = Math.PI * (isMobile ? 0.85 : 0.9);
+    const INERTIA_DECAY = window.innerWidth < 768 ? 0.90 : 0.95; // Faster decay on mobile
+    const MAX_ROTATION_SPEED = window.innerWidth < 768 ? 0.08 : 0.1;
+    const MIN_ZOOM = window.innerWidth < 768 ? 7 : 8;
+    const MAX_ZOOM = window.innerWidth < 768 ? 20 : 25;
+    const ZOOM_SPEED = window.innerWidth < 768 ? 0.0015 : 0.001;
+    const MIN_POLAR_ANGLE = Math.PI * (window.innerWidth < 768 ? 0.15 : 0.1);
+    const MAX_POLAR_ANGLE = Math.PI * (window.innerWidth < 768 ? 0.85 : 0.9);
 
     // Touch and mouse movement handlers
     const onPointerDown = (event: TouchEvent | MouseEvent) => {
@@ -213,7 +243,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const deltaY = touch.clientY - controls.lastTouch.y;
 
           // Enhanced touch sensitivity
-          const sensitivity = isMobile ? 0.002 : 0.001;
+          const sensitivity = window.innerWidth < 768 ? 0.002 : 0.001;
           controls.velocity = {
             x: deltaY * sensitivity,
             y: deltaX * sensitivity,
@@ -227,7 +257,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           );
 
           // Enhanced pinch zoom sensitivity
-          const pinchSensitivity = isMobile ? 0.015 : 0.01;
+          const pinchSensitivity = window.innerWidth < 768 ? 0.015 : 0.01;
           const delta = (controls.pinchDistance - currentDistance) * pinchSensitivity;
           camera.position.z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.position.z + delta));
           controls.pinchDistance = currentDistance;
@@ -269,6 +299,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       event.preventDefault();
       const zoomDelta = event.deltaY * ZOOM_SPEED;
       camera.position.z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.position.z + zoomDelta));
+      updateBubblesScale(camera.position.z);
     };
 
     // Double tap/click to center view
@@ -288,13 +319,97 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       lastTap = currentTime;
     };
 
+    // Enhanced touch handlers
+    const onTouchStart = (event: TouchEvent) => {
+      event.preventDefault();
+      const controls = controlsRef.current;
+
+      if (event.touches.length === 2) {
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        
+        pinchRef.current.active = true;
+        pinchRef.current.initialDistance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        pinchRef.current.initialZoom = camera.position.z;
+        controls.isDragging = false;
+      } else if (event.touches.length === 1) {
+        controls.isDragging = true;
+        controls.lastTouch = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+        };
+      }
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      event.preventDefault();
+      const controls = controlsRef.current;
+
+      if (event.touches.length === 2 && pinchRef.current.active) {
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        
+        const currentDistance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+
+        const scale = currentDistance / pinchRef.current.initialDistance;
+        const zoomDelta = (pinchRef.current.lastScale - scale) * 15; // Adjusted sensitivity
+        
+        const newZoom = Math.max(
+          ZOOM_LIMITS.min,
+          Math.min(ZOOM_LIMITS.max, pinchRef.current.initialZoom + zoomDelta)
+        );
+
+        camera.position.z = newZoom;
+        updateBubblesScale(newZoom);
+        
+        pinchRef.current.lastScale = scale;
+      } else if (event.touches.length === 1 && controls.isDragging) {
+        const touch = event.touches[0];
+        const deltaX = touch.clientX - controls.lastTouch.x;
+        const deltaY = touch.clientY - controls.lastTouch.y;
+
+        // Enhanced touch sensitivity
+        const sensitivity = 0.002;
+        controls.velocity = {
+          x: deltaY * sensitivity,
+          y: deltaX * sensitivity,
+        };
+
+        controls.lastTouch = { x: touch.clientX, y: touch.clientY };
+        controls.momentum = { ...controls.velocity };
+      }
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      const controls = controlsRef.current;
+      
+      if (event.touches.length === 0) {
+        controls.isDragging = false;
+        pinchRef.current.active = false;
+        controls.isInertiaActive = true;
+      } else if (event.touches.length === 1) {
+        pinchRef.current.active = false;
+        controls.isDragging = true;
+        controls.lastTouch = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+        };
+      }
+    };
+
     // Add event listeners
     containerRef.current.addEventListener('mousedown', onPointerDown);
-    containerRef.current.addEventListener('touchstart', onPointerDown);
+    containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
     window.addEventListener('mousemove', onPointerMove);
-    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('mouseup', onPointerUp);
-    window.addEventListener('touchend', onPointerUp);
+    window.addEventListener('touchend', onTouchEnd);
     containerRef.current.addEventListener('wheel', onWheel, { passive: false });
     containerRef.current.addEventListener('click', onDoubleTap);
     containerRef.current.addEventListener('touchend', onDoubleTap);
@@ -315,7 +430,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
       
       // Adjusted bubble positioning for mobile
-      const baseRadius = isMobile ? 6.5 : 7; // Closer to surface on mobile
+      const baseRadius = window.innerWidth < 768 ? 6.5 : 7; // Closer to surface on mobile
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
       
@@ -324,10 +439,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Mobile-optimized movement parameters
       bubble.userData = {
         id: topic.id,
-        orbitSpeed: isMobile ? 0.0002 : 0.00015,
+        orbitSpeed: window.innerWidth < 768 ? 0.0002 : 0.00015,
         baseRadius: baseRadius,
-        floatAmplitude: isMobile ? 0.2 : 0.3,
-        floatSpeed: isMobile ? 0.001 : 0.0008,
+        floatAmplitude: window.innerWidth < 768 ? 0.2 : 0.3,
+        floatSpeed: window.innerWidth < 768 ? 0.001 : 0.0008,
         orbitOffset: Math.random() * Math.PI * 2,
         originalScale: topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8,
         phase: Math.random() * Math.PI * 2,
@@ -417,21 +532,24 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       containerRef.current?.removeEventListener('mousedown', onPointerDown);
-      containerRef.current?.removeEventListener('touchstart', onPointerDown);
+      containerRef.current?.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('mousemove', onPointerMove);
-      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('mouseup', onPointerUp);
-      window.removeEventListener('touchend', onPointerUp);
+      window.removeEventListener('touchend', onTouchEnd);
       containerRef.current?.removeEventListener('wheel', onWheel);
       containerRef.current?.removeEventListener('click', onDoubleTap);
       containerRef.current?.removeEventListener('touchend', onDoubleTap);
+      containerRef.current?.removeEventListener('touchstart', onTouchStart);
+      containerRef.current?.removeEventListener('touchmove', onTouchMove);
+      containerRef.current?.removeEventListener('touchend', onTouchEnd);
     };
   }, [topics, onBubbleClick]);
 
   return (
     <div 
       ref={containerRef} 
-      className="absolute inset-0 touch-none overscroll-none"
+      className="absolute inset-0 touch-none overscroll-none select-none"
     />
   );
 };
