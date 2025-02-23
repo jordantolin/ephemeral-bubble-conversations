@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -79,22 +78,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       canvas.width = 512;
       canvas.height = 512;
       
-      // Create circular gradient
+      // Create circular gradient with stronger yellow
       const gradient = context.createRadialGradient(
         canvas.width/2, canvas.height/2, 0,
         canvas.width/2, canvas.height/2, canvas.width/2
       );
-      gradient.addColorStop(0, 'rgba(255, 224, 102, 0.98)'); // More solid yellow
-      gradient.addColorStop(1, 'rgba(255, 224, 102, 0.95)');
+      gradient.addColorStop(0, 'rgba(255, 214, 0, 1)');      // Vibrant yellow core
+      gradient.addColorStop(0.7, 'rgba(255, 198, 0, 0.98)'); // Strong yellow edge
+      gradient.addColorStop(1, 'rgba(255, 198, 0, 0.95)');   // Slight fade at the very edge
       
       context.fillStyle = gradient;
       context.beginPath();
       context.arc(canvas.width/2, canvas.height/2, canvas.width/2, 0, Math.PI * 2);
       context.fill();
 
-      // Draw text
+      // Draw text with better contrast
       context.textAlign = 'center';
       context.textBaseline = 'middle';
+      
+      // Bolder text with shadow for better readability
+      const shadowColor = 'rgba(0, 0, 0, 0.2)';
+      context.shadowColor = shadowColor;
+      context.shadowBlur = 4;
       
       context.font = 'bold 56px Inter';
       context.fillStyle = 'rgba(0, 0, 0, 0.9)';
@@ -116,7 +121,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const bubbles: THREE.Mesh[] = [];
-    // Use CircleGeometry instead of SphereGeometry for 2D effect
+    // Use CircleGeometry for 2D bubbles
     const bubbleGeometries = {
       sm: new THREE.CircleGeometry(0.8, 32),
       md: new THREE.CircleGeometry(1, 32),
@@ -126,7 +131,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     topics.forEach((topic, index) => {
       const bubbleTexture = createBubbleText(topic.topic, topic.username, topic.name);
       
-      // Create 2D-like material
+      // Enhanced material with stronger yellow
       const bubbleMaterial = new THREE.MeshBasicMaterial({
         map: bubbleTexture,
         transparent: true,
@@ -137,20 +142,23 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
       
-      // Position bubbles around the planet
-      const radius = 6.2; // Keep very close to planet surface
+      // Position bubbles slightly above surface
+      const baseRadius = 6.5; // Increased base radius to float above surface
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
       
-      bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
+      bubble.position.setFromSpherical(new THREE.Spherical(baseRadius, phi, theta));
       
-      // Store movement parameters
+      // Enhanced movement parameters
       bubble.userData = {
         id: topic.id,
-        orbitSpeed: 0.0001 + Math.random() * 0.0001, // Slower movement
-        orbitRadius: radius,
+        orbitSpeed: 0.00015 + Math.random() * 0.0001,
+        baseRadius: baseRadius,
+        floatAmplitude: 0.2 + Math.random() * 0.1, // Random floating height
+        floatSpeed: 0.001 + Math.random() * 0.0005, // Random floating speed
         orbitOffset: Math.random() * Math.PI * 2,
         originalScale: topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8,
+        phase: Math.random() * Math.PI * 2, // Random phase for varied movement
       };
       
       scene.add(bubble);
@@ -221,24 +229,29 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.addEventListener('click', onClick);
     containerRef.current.addEventListener('touchstart', onClick);
 
-    // Zoom handling
+    // Enhanced camera controls
+    camera.position.z = 15;
+    const minZoom = 8;
+    const maxZoom = 20;
+    
+    // Enhanced zoom handling
     const handleWheel = (event: WheelEvent) => {
       const zoomSpeed = 0.001;
       const newZoom = camera.position.z + event.deltaY * zoomSpeed;
-      camera.position.z = Math.max(8, Math.min(20, newZoom));
+      camera.position.z = Math.max(minZoom, Math.min(maxZoom, newZoom));
 
-      // Scale bubbles based on zoom level
-      const zoomFactor = (camera.position.z - 8) / 12;
+      // Dynamic bubble scaling based on zoom
+      const zoomFactor = (camera.position.z - minZoom) / (maxZoom - minZoom);
       bubbles.forEach((bubble) => {
         const baseScale = bubble.userData.originalScale;
-        const scale = baseScale * (1 + (1 - zoomFactor) * 0.5);
+        const scale = baseScale * (1 + (1 - zoomFactor) * 0.8); // More pronounced scaling
         bubble.scale.setScalar(scale);
       });
     };
 
     containerRef.current.addEventListener('wheel', handleWheel);
 
-    // Animation
+    // Enhanced animation with more dynamic movement
     const animate = () => {
       requestAnimationFrame(animate);
 
@@ -250,26 +263,33 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       planet.rotation.y += 0.001;
 
       bubbles.forEach((bubble) => {
-        const time = Date.now() * bubble.userData.orbitSpeed;
-        const radius = bubble.userData.orbitRadius;
+        const time = Date.now();
+        const baseRadius = bubble.userData.baseRadius;
         
-        // Update position
-        bubble.position.x = Math.cos(time + bubble.userData.orbitOffset) * radius;
-        bubble.position.z = Math.sin(time + bubble.userData.orbitOffset) * radius;
-        bubble.position.y = Math.sin(time * 0.5) * (radius * 0.1); // Subtle vertical movement
+        // Complex floating movement
+        const floatOffset = Math.sin(time * bubble.userData.floatSpeed + bubble.userData.phase) * 
+                          bubble.userData.floatAmplitude;
         
-        // Apply world rotation
+        // Calculate position with enhanced movement
+        const orbitAngle = time * bubble.userData.orbitSpeed + bubble.userData.orbitOffset;
+        const radius = baseRadius + floatOffset;
+        
+        // Update position with more natural movement
+        bubble.position.x = Math.cos(orbitAngle) * Math.sin(bubble.userData.phase) * radius;
+        bubble.position.z = Math.sin(orbitAngle) * Math.sin(bubble.userData.phase) * radius;
+        bubble.position.y = Math.cos(bubble.userData.phase) * radius + 
+                          Math.sin(time * bubble.userData.floatSpeed * 0.5) * 0.1;
+        
+        // Apply world rotation with smooth damping
         bubble.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationSpeed.x);
         bubble.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationSpeed.y);
         
-        // Make bubble always face camera
+        // Always face camera
         bubble.quaternion.copy(camera.quaternion);
       });
 
       renderer.render(scene, camera);
     };
-
-    animate();
 
     // Cleanup
     return () => {
