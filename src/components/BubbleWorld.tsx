@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
@@ -24,9 +23,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup with white background
+    // Scene setup with white background and fog for depth
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#FFFFFF');
+    scene.fog = new THREE.Fog('#FFFFFF', 15, 25);
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
@@ -43,13 +43,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setSize(width, height);
     containerRef.current.appendChild(renderer.domElement);
 
-    // Lighting for better bubble appearance
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.6);
+    // Enhanced lighting setup for better 3D effect
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.7);
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
-    directionalLight.position.set(10, 10, 10);
+    directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
+
+    const backLight = new THREE.DirectionalLight(0xFFFFFF, 0.3);
+    backLight.position.set(-5, -5, -5);
+    scene.add(backLight);
 
     // Create bubbles container
     const bubbleContainer = new THREE.Group();
@@ -62,56 +66,59 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Set bubble size based on type
       const bubbleSize = topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 0.9 : 0.6;
 
-      // Create bubble sphere with soft yellow color
+      // Create bubble sphere with yellow color
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#FEF7CD'),
+        color: new THREE.Color('#FFE566'), // Brighter yellow
         transparent: true,
         opacity: 0.9,
         metalness: 0.1,
         roughness: 0.2,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.2,
+        clearcoat: 0.5,
+        clearcoatRoughness: 0.1,
       });
 
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text texture
+      // Create text with better visibility
       const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
+      canvas.width = 1024; // Higher resolution for better text quality
+      canvas.height = 1024;
       const context = canvas.getContext('2d');
       
       if (context) {
         context.fillStyle = '#000000';
         context.textAlign = 'center';
         context.textBaseline = 'middle';
+        context.textRendering = 'optimizeLegibility';
 
-        // Draw topic name
-        context.font = 'bold 48px Inter';
-        context.fillText(topic.name, 256, 200);
+        // Draw name (larger and bolder)
+        context.font = `bold ${bubbleSize * 90}px Inter`;
+        context.fillText(topic.name, 512, 412);
 
         // Draw topic
-        context.font = '36px Inter';
-        context.fillText(topic.topic, 256, 256);
+        context.font = `${bubbleSize * 70}px Inter`;
+        context.fillText(topic.topic, 512, 512);
 
         // Draw username
-        context.font = '32px Inter';
-        context.fillText(topic.username, 256, 312);
+        context.font = `${bubbleSize * 60}px Inter`;
+        context.fillText(topic.username, 512, 612);
       }
 
       const texture = new THREE.CanvasTexture(canvas);
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.5, bubbleSize * 2.5);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
         side: THREE.DoubleSide,
-        depthWrite: false
+        depthWrite: false,
+        alphaTest: 0.1
       });
 
       const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.z = bubbleSize * 1.1;
       bubbleGroup.add(textMesh);
 
       // Position bubble in orbital pattern
@@ -129,8 +136,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         angle: angle,
         orbitRadius: orbit,
         verticalOffset: verticalOffset,
-        rotationSpeed: 0.001 + Math.random() * 0.0005,
-        textMesh
+        rotationSpeed: 0.0005 + Math.random() * 0.0002,
+        textMesh,
+        initialY: verticalOffset
       };
 
       bubbleContainer.add(bubbleGroup);
@@ -165,8 +173,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     function animate() {
       requestAnimationFrame(animate);
 
-      // Rotate bubble container slightly
-      bubbleContainer.rotation.y += 0.001;
+      // Rotate bubble container very slowly
+      bubbleContainer.rotation.y += 0.0005;
 
       // Animate each bubble
       bubbleContainer.children.forEach((bubbleGroup) => {
@@ -176,11 +184,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         // Update bubble position in orbit
         bubbleGroup.position.x = Math.cos(userData.angle) * userData.orbitRadius;
         bubbleGroup.position.z = Math.sin(userData.angle) * userData.orbitRadius;
-        bubbleGroup.position.y = Math.sin(userData.angle * 0.5) * 2; // Gentle vertical movement
+        
+        // Gentle floating motion
+        bubbleGroup.position.y = userData.initialY + Math.sin(Date.now() * 0.001) * 0.2;
 
-        // Make text face camera
+        // Keep text facing camera
         if (userData.textMesh) {
-          userData.textMesh.lookAt(camera.position);
+          userData.textMesh.quaternion.copy(camera.quaternion);
         }
       });
 
