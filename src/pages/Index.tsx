@@ -14,46 +14,46 @@ import {
 const topics = [
   { 
     id: "1", 
-    topic: "AI & Future",
-    username: "AI Explorer",
-    name: "Future Tech",
+    topic: "Future of AI",
+    username: "@techvisionary",
+    name: "AI Research Hub",
     size: "lg" as const 
   },
   { 
     id: "2", 
-    topic: "Art & Design",
-    username: "ArtLover",
-    name: "Design Hub",
+    topic: "Digital Art",
+    username: "@artmaster",
+    name: "Creative Space",
     size: "md" as const 
   },
   { 
     id: "3", 
-    topic: "Travel",
-    username: "Wanderlust",
-    name: "Travel Tales",
+    topic: "World Travel",
+    username: "@globetrotter",
+    name: "Travel Stories",
     size: "sm" as const 
   },
   { 
     id: "4", 
-    topic: "Music",
-    username: "MusicMaker",
-    name: "Sound Space",
+    topic: "Indie Music",
+    username: "@soundwave",
+    name: "Music Lab",
     size: "md" as const 
   },
   { 
     id: "5", 
-    topic: "Technology",
-    username: "TechGuru",
-    name: "Tech Talk",
+    topic: "Web3 Tech",
+    username: "@cryptonaut",
+    name: "Blockchain Hub",
     size: "lg" as const 
   },
   { 
     id: "6", 
-    topic: "Books",
-    username: "Bookworm",
-    name: "Book Club",
+    topic: "Book Club",
+    username: "@bookworm",
+    name: "Reading Corner",
     size: "sm" as const 
-  },
+  }
 ];
 
 const Index = () => {
@@ -88,7 +88,9 @@ const Index = () => {
       <Dialog open={!!selectedBubbleId} onOpenChange={() => setSelectedBubbleId(null)}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{selectedBubble?.topic}</DialogTitle>
+            <DialogTitle>
+              {selectedBubble?.name} - {selectedBubble?.topic}
+            </DialogTitle>
           </DialogHeader>
           
           <div className="h-[400px] overflow-y-auto p-4 space-y-4">
@@ -97,7 +99,8 @@ const Index = () => {
                 <Plus className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1 glass rounded-2xl p-3">
-                <p className="text-sm">Welcome to the bubble! Share your thoughts...</p>
+                <p className="text-sm font-medium mb-1">{selectedBubble?.username}</p>
+                <p className="text-sm">Welcome to {selectedBubble?.name}! Share your thoughts...</p>
               </div>
             </div>
           </div>

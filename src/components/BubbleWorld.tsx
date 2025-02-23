@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -69,43 +68,44 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     mainLight.position.set(1, 1, 1);
     scene.add(mainLight);
 
-    // Enhanced bubble text creation
+    // Enhanced bubble text creation with better visibility
     const createBubbleText = (topic: string, username: string, name: string) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return null;
 
-      canvas.width = 256;
-      canvas.height = 256;
+      canvas.width = 512; // Increased for better quality
+      canvas.height = 512;
       
-      // Create circular gradient for text background
+      // Create subtle background glow
       const gradient = context.createRadialGradient(
         canvas.width/2, canvas.height/2, 0,
-        canvas.width/2, canvas.height/2, canvas.width/2
+        canvas.width/2, canvas.height/2, canvas.width/4
       );
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
       gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
       
       context.fillStyle = gradient;
       context.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw text layers
+      // Center all text
       context.textAlign = 'center';
-      context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      context.textBaseline = 'middle';
       
-      // Topic
-      context.font = 'bold 28px Inter';
-      context.fillText(topic, canvas.width/2, canvas.height/2 - 20);
+      // Draw topic name (largest and boldest)
+      context.font = 'bold 48px Inter';
+      context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      context.fillText(topic, canvas.width/2, canvas.height/2 - 40);
       
-      // Username
-      context.font = '20px Inter';
+      // Draw username
+      context.font = '32px Inter';
+      context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      context.fillText(username, canvas.width/2, canvas.height/2 + 20);
+      
+      // Draw bubble name
+      context.font = '28px Inter';
       context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      context.fillText(username, canvas.width/2, canvas.height/2 + 15);
-      
-      // Name
-      context.font = '18px Inter';
-      context.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      context.fillText(name, canvas.width/2, canvas.height/2 + 40);
+      context.fillText(name, canvas.width/2, canvas.height/2 + 70);
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.minFilter = THREE.LinearFilter;
@@ -114,7 +114,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return new THREE.Sprite(new THREE.SpriteMaterial({ 
         map: texture,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95, // Slightly increased opacity
       }));
     };
 
@@ -131,9 +131,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     sceneRef.current = { scene, camera, renderer, bubbles, planet, raycaster, mouse };
 
     topics.forEach((topic, index) => {
-      // Enhanced bubble material with better yellow glow
       const bubbleMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xffd700, // More vibrant yellow
+        color: 0xffd700,
         emissive: 0xffeb3b,
         emissiveIntensity: 0.2,
         roughness: 0.2,
@@ -155,8 +154,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       const label = createBubbleText(topic.topic, topic.username, topic.name);
       if (label) {
-        label.scale.set(2, 2, 1);
+        label.scale.set(3, 3, 1); // Increased scale for better visibility
         label.position.copy(bubble.position);
+        label.position.y += 0.2; // Slight vertical offset
         scene.add(label);
         bubble.userData.label = label;
       }
