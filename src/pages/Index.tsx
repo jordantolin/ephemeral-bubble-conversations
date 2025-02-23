@@ -15,6 +15,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+const availableTopics = [
+  "Tecnologia",
+  "Arte",
+  "Musica",
+  "Viaggi",
+  "Sport",
+  "Cucina",
+  "Cinema",
+  "Letteratura",
+  "Scienza",
+  "Gaming"
+];
 
 const topics = [
   { 
@@ -65,35 +86,37 @@ const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newBubble, setNewBubble] = useState({
+    name: "",
+    description: "",
     topic: "",
-    username: "",
-    name: ""
+    username: "@user" // Default value
   });
   const { toast } = useToast();
 
   const handleCreateBubble = () => {
-    if (!newBubble.topic || !newBubble.username || !newBubble.name) {
+    if (!newBubble.name || !newBubble.description || !newBubble.topic) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all fields to create a bubble",
+        title: "Campi mancanti",
+        description: "Per favore compila tutti i campi richiesti",
         variant: "destructive"
       });
       return;
     }
 
-    // Here you would typically add the new bubble to your state/database
     topics.push({
       id: (topics.length + 1).toString(),
-      ...newBubble,
+      topic: newBubble.topic,
+      username: newBubble.username,
+      name: newBubble.name,
       size: "md"
     });
 
     toast({
-      title: "Success!",
-      description: "New bubble created successfully",
+      title: "Bolla creata!",
+      description: "La tua bolla è stata creata con successo",
     });
 
-    setNewBubble({ topic: "", username: "", name: "" });
+    setNewBubble({ name: "", description: "", topic: "", username: "@user" });
     setIsCreateDialogOpen(false);
   };
 
@@ -118,63 +141,87 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="mt-4 sm:mt-8 relative z-10 glass hover:shadow-xl transform transition-all duration-300 hover:scale-105 hover:bg-primary/20"
-          variant="outline"
+          className="mt-4 sm:mt-8 relative z-10 bg-[#FFE566] hover:bg-[#FFD700] text-primary-foreground shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 border-none"
           size="lg"
         >
           <Plus className="w-5 h-5 mr-2" />
-          <span>Create Bubble</span>
+          <span>Crea Bolla</span>
         </Button>
       </main>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] bg-[#FFFDF7]">
           <DialogHeader>
-            <DialogTitle>Create New Bubble</DialogTitle>
-            <DialogDescription>
-              Add your bubble to the universe. Fill in the details below.
+            <DialogTitle className="text-2xl font-semibold text-primary">Crea Nuova Bolla</DialogTitle>
+            <DialogDescription className="text-muted-foreground mt-1">
+              Aggiungi una nuova bolla al tuo universo digitale
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="topic">Topic</Label>
-              <Input
-                id="topic"
-                value={newBubble.topic}
-                onChange={(e) => setNewBubble({ ...newBubble, topic: e.target.value })}
-                placeholder="Enter bubble topic..."
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={newBubble.username}
-                onChange={(e) => setNewBubble({ ...newBubble, username: e.target.value })}
-                placeholder="@username"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="name">Bubble Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium">
+                Nome Bolla
+              </Label>
               <Input
                 id="name"
                 value={newBubble.name}
                 onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
-                placeholder="Enter bubble name..."
+                placeholder="Inserisci il nome della bolla..."
+                className="bg-white/50 border-primary/20 focus:border-primary"
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description" className="text-sm font-medium">
+                Descrizione Bolla
+              </Label>
+              <Textarea
+                id="description"
+                value={newBubble.description}
+                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
+                placeholder="Descrivi la tua bolla..."
+                className="bg-white/50 border-primary/20 focus:border-primary min-h-[100px] resize-none"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="topic" className="text-sm font-medium">
+                Topic
+              </Label>
+              <Select
+                value={newBubble.topic}
+                onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
+              >
+                <SelectTrigger className="bg-white/50 border-primary/20 focus:border-primary">
+                  <SelectValue placeholder="Seleziona un topic" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTopics.map((topic) => (
+                    <SelectItem key={topic} value={topic}>
+                      {topic}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sm:justify-end gap-2">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
+              className="border-primary/20 hover:bg-primary/5"
             >
-              Cancel
+              Annulla
             </Button>
-            <Button onClick={handleCreateBubble}>
-              Create Bubble
+            <Button
+              type="submit"
+              onClick={handleCreateBubble}
+              className="bg-[#FFE566] hover:bg-[#FFD700] text-primary-foreground border-none"
+            >
+              Crea Bolla
             </Button>
           </DialogFooter>
         </DialogContent>
