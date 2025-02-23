@@ -101,50 +101,29 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         // Set bubble size
         const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
 
-        // Create canvas for the bubble texture
+        // Create text plane that will always face the camera
         const canvas = document.createElement('canvas');
-        canvas.width = 2048;
-        canvas.height = 2048;
+        canvas.width = 1024; // Reduced for better performance
+        canvas.height = 1024;
         const context = canvas.getContext('2d');
         
         if (context) {
-          // Create gradient with intense yellow colors
-          const gradient = context.createRadialGradient(
-            canvas.width/2, canvas.height/2, 0,
-            canvas.width/2, canvas.height/2, canvas.width/2
-          );
-          gradient.addColorStop(0, '#FFFF00');
-          gradient.addColorStop(0.7, '#FFD700');
-          gradient.addColorStop(1, '#FFA500');
-          
-          // Fill background
-          context.fillStyle = gradient;
+          // Clear background
+          context.fillStyle = 'rgba(255, 255, 255, 0.92)';
           context.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Create a more opaque background for text area
-          context.beginPath();
-          context.arc(canvas.width/2, canvas.height/2, canvas.width/2.5, 0, Math.PI * 2);
-          context.fillStyle = 'rgba(255, 255, 255, 0.92)'; // More opaque white background
-          context.fill();
-
-          // Add a dark border for better definition
-          context.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-          context.lineWidth = 16;
-          context.stroke();
-
           // Configure text rendering
           context.textAlign = 'center';
           context.textBaseline = 'middle';
           context.imageSmoothingEnabled = true;
           context.imageSmoothingQuality = 'high';
 
-          // Draw dark outline for topic text
           const drawTextWithOutline = (text: string, x: number, y: number, fontSize: number, fontWeight: number) => {
             context.font = `${fontWeight} ${fontSize}px Inter`;
             
             // Draw outline
             context.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            context.lineWidth = fontSize * 0.05; // Proportional outline
+            context.lineWidth = fontSize * 0.05;
             context.strokeText(text, x, y);
             
             // Draw main text
@@ -153,33 +132,61 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
             
             // Draw highlight
             context.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            context.fillText(text, x - 2, y - 2);
+            context.fillText(text, x - 1, y - 1);
           };
 
-          // Draw topic (largest and boldest)
-          drawTextWithOutline(topic, canvas.width/2, canvas.height/2 - 220, 180, 900);
-          
-          // Draw username (medium size)
-          drawTextWithOutline(username, canvas.width/2, canvas.height/2, 130, 800);
-          
-          // Draw name (medium size)
-          drawTextWithOutline(name, canvas.width/2, canvas.height/2 + 220, 130, 800);
+          // Draw texts with better spacing
+          drawTextWithOutline(topic, canvas.width/2, canvas.height/2 - 180, 90, 900);
+          drawTextWithOutline(username, canvas.width/2, canvas.height/2, 70, 800);
+          drawTextWithOutline(name, canvas.width/2, canvas.height/2 + 180, 70, 800);
         }
 
-        // Create texture with maximum quality settings
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
-        texture.anisotropy = 16; // Maximum anisotropic filtering
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
+        // Create texture for the text plane
+        const textTexture = new THREE.CanvasTexture(canvas);
+        textTexture.needsUpdate = true;
+        textTexture.anisotropy = 16;
+        textTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        textTexture.magFilter = THREE.LinearFilter;
 
-        // Create the bubble with enhanced material settings
+        // Create a plane for the text that will always face the camera
+        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
+        const textMaterial = new THREE.MeshBasicMaterial({
+          map: textTexture,
+          transparent: true,
+          side: THREE.DoubleSide,
+          depthWrite: false // Ensures text is always visible
+        });
+        const textPlane = new THREE.Mesh(textGeometry, textMaterial);
+        bubbleGroup.add(textPlane);
+
+        // Create the bubble sphere
+        const sphereCanvas = document.createElement('canvas');
+        sphereCanvas.width = 1024;
+        sphereCanvas.height = 1024;
+        const sphereContext = sphereCanvas.getContext('2d');
+        
+        if (sphereContext) {
+          const gradient = sphereContext.createRadialGradient(
+            sphereCanvas.width/2, sphereCanvas.height/2, 0,
+            sphereCanvas.width/2, sphereCanvas.height/2, sphereCanvas.width/2
+          );
+          gradient.addColorStop(0, '#FFFF00');
+          gradient.addColorStop(0.7, '#FFD700');
+          gradient.addColorStop(1, '#FFA500');
+          
+          sphereContext.fillStyle = gradient;
+          sphereContext.fillRect(0, 0, sphereCanvas.width, sphereCanvas.height);
+        }
+
+        const sphereTexture = new THREE.CanvasTexture(sphereCanvas);
+        sphereTexture.needsUpdate = true;
+        
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshPhysicalMaterial({
-          map: texture,
+          map: sphereTexture,
           metalness: 0.1,
           roughness: 0.2,
-          transmission: 0.5, // Slightly reduced transmission for better text visibility
+          transmission: 0.5,
           thickness: 0.5,
           clearcoat: 1.0,
           clearcoatRoughness: 0.1,
@@ -215,8 +222,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           orbitSpeed: 0.001 + Math.random() * 0.001,
           orbitRadius: radius,
           orbitOffset: Math.random() * Math.PI * 2,
-          selfRotationSpeed: 0.005, // Speed of bubble's self-rotation
-          selfRotationAxis: new THREE.Vector3(0, 1, 0), // Rotate around Y axis
+          textPlane: textPlane // Store reference to text plane
         };
 
         bubbles.push(bubbleGroup);
@@ -372,7 +378,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       bubbleContainer.rotation.x = currentRotation.x;
       bubbleContainer.rotation.y = currentRotation.y;
 
-      // Animate bubbles with improved physics and self-rotation
+      // Animate bubbles and make text face camera
       bubbles.forEach(bubbleGroup => {
         const userData = bubbleGroup.userData;
         userData.orbitOffset += userData.orbitSpeed;
@@ -386,8 +392,10 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         bubbleGroup.position.copy(position);
 
-        // Add self-rotation to the bubble
-        bubbleGroup.children[0].rotation.y += userData.selfRotationSpeed;
+        // Make text plane always face the camera
+        if (userData.textPlane) {
+          userData.textPlane.lookAt(camera.position);
+        }
       });
 
       renderer.render(scene, camera);
