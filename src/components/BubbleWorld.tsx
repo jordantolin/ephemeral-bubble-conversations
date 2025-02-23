@@ -10,6 +10,7 @@ interface BubbleWorldProps {
     username: string;
     name: string;
     size: "sm" | "md" | "lg";
+    created_at: string; // Add this to sort by creation time
   }>;
   onBubbleClick: (id: string) => void;
   onBubbleCreate?: (bubble: { topic: string; username: string; name: string }) => void;
@@ -94,7 +95,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Enhanced bubble creation with visible text
+      // Modified createBubble to consider the bubble's position in timeline
       const createBubble = (topic: string, username: string, name: string, index: number, size: "sm" | "md" | "lg" = "md") => {
         const bubbleGroup = new THREE.Group();
 
@@ -128,18 +129,16 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
           const usernameSize = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
 
           // More compact vertical spacing based on bubble size
-          const spacingTop = size === 'lg' ? 150 : size === 'md' ? 120 : 90; // Space between name and topic
-          const spacingBottom = size === 'lg' ? 120 : size === 'md' ? 90 : 60; // Space between topic and username
+          const spacingTop = size === 'lg' ? 150 : size === 'md' ? 120 : 90;
+          const spacingBottom = size === 'lg' ? 120 : size === 'md' ? 90 : 60;
 
-          // 1. Draw name (largest and boldest) - positioned higher
+          // Draw texts in order
           context.font = `900 ${nameSize}px Inter`;
           context.fillText(name, canvas.width/2, canvas.height/2 - spacingTop);
 
-          // 2. Draw topic (medium size) - in the exact center
           context.font = `bold ${topicSize}px Inter`;
           context.fillText(topic, canvas.width/2, canvas.height/2);
 
-          // 3. Draw username (smallest) - positioned lower
           context.font = `${usernameSize}px Inter`;
           context.fillText(username, canvas.width/2, canvas.height/2 + spacingBottom);
         }
@@ -149,7 +148,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         textTexture.minFilter = THREE.LinearFilter;
         textTexture.magFilter = THREE.LinearFilter;
 
-        // Make text plane exactly match bubble size
         const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.6, bubbleSize * 1.6);
         const textMaterial = new THREE.MeshBasicMaterial({
           map: textTexture,
@@ -160,19 +158,17 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         });
 
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-        // Position text plane exactly at bubble center
         textPlane.position.z = bubbleSize * 0.51;
         bubbleGroup.add(textPlane);
 
-        // Position the bubble group
-        const totalBubbles = topics.length + 1;
-        const phi = Math.acos(-1 + (2 * index) / totalBubbles);
-        const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
-        
+        // Position bubbles in a spiral pattern based on their index
         const radius = 4.5;
-        const x = radius * Math.sin(theta) * Math.cos(phi);
-        const y = radius * Math.sin(theta) * Math.sin(phi);
-        const z = radius * Math.cos(theta);
+        const angle = (index * 0.5) * Math.PI; // Adjust 0.5 to control spacing between bubbles
+        const height = index * 0.2; // Adds some vertical variation
+
+        const x = radius * Math.cos(angle);
+        const y = height;
+        const z = radius * Math.sin(angle);
         
         bubbleGroup.position.set(x, y, z);
 
@@ -184,14 +180,12 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
             Math.random() - 0.5
           ).normalize(),
           orbitSpeed: 0.001 + Math.random() * 0.001,
-          orbitRadius: radius,
+          orbitRadius: Math.sqrt(x * x + z * z),
           orbitOffset: Math.random() * Math.PI * 2,
           textPlane: textPlane
         };
 
-        bubbles.push(bubbleGroup);
-        bubbleContainer.add(bubbleGroup);
-        
+        // Add scale-in animation
         bubbleGroup.scale.set(0, 0, 0);
         new TWEEN.Tween(bubbleGroup.scale)
           .to({ x: 1, y: 1, z: 1 }, 1000)

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
@@ -48,6 +47,7 @@ interface Bubble {
   size: "sm" | "md" | "lg";
   description: string;
   messages: Message[];
+  created_at: string;
 }
 
 interface Message {
@@ -76,13 +76,14 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch bubbles
+  // Fetch bubbles with proper sorting
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bubbles')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false }); // Sort by creation time
       
       if (error) {
         toast({
@@ -93,15 +94,14 @@ const Index = () => {
         return [];
       }
 
-      // Transform and validate the data to match the expected types
       return data.map(bubble => ({
         id: bubble.id,
         topic: bubble.topic,
         username: bubble.username,
         name: bubble.name,
-        // Ensure size is one of the valid options, default to "md" if invalid
         size: isValidSize(bubble.size) ? bubble.size : "md",
         description: bubble.description || "",
+        created_at: bubble.created_at,
         messages: []
       })) as Bubble[];
     }
@@ -173,6 +173,7 @@ const Index = () => {
       return;
     }
 
+    const timestamp = new Date().toISOString();
     const { error } = await supabase
       .from('bubbles')
       .insert({
@@ -180,7 +181,8 @@ const Index = () => {
         topic: newBubble.topic,
         description: newBubble.description,
         username: newBubble.username,
-        size: "md" as const // Explicitly type as "md"
+        size: "md" as const,
+        created_at: timestamp
       });
 
     if (error) {
@@ -192,7 +194,9 @@ const Index = () => {
       return;
     }
 
+    // Force a refresh of the bubbles query
     queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    
     toast({
       title: "Success!",
       description: "New bubble created successfully",
