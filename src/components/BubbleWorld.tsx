@@ -101,7 +101,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       // Set bubble size
       const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
 
-      // Create the bubble with the exact color #ebbd34
+      // Create the bubble sphere
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
       const material = new THREE.MeshBasicMaterial({
         color: '#ebbd34',
@@ -110,10 +110,10 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create canvas for text with improved readability
+      // Create canvas for text
       const canvas = document.createElement('canvas');
-      canvas.width = 2048;
-      canvas.height = 2048;
+      canvas.width = 1024; // Reduced for better performance
+      canvas.height = 1024;
       const context = canvas.getContext('2d');
       
       if (context) {
@@ -121,36 +121,32 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        // Improved font sizes for better readability
-        const nameSize = Math.floor(bubbleSize * 200);
-        const topicSize = Math.floor(bubbleSize * 160);
-        const usernameSize = Math.floor(bubbleSize * 140);
+        const nameSize = Math.floor(canvas.height * 0.08);
+        const topicSize = Math.floor(canvas.height * 0.07);
+        const usernameSize = Math.floor(canvas.height * 0.06);
         
-        // Increased spacing for better text separation
-        const spacing = bubbleSize * 160;
+        const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
 
-        // Draw name (top) in electric blue with enhanced visibility
+        // Draw text with enhanced visibility
         context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = '#344ceb';  // Specified electric blue
+        context.fillStyle = '#344ceb';
         context.fillText(name, canvas.width/2, startY);
 
-        // Draw topic (middle) in electric blue
         context.font = `${topicSize}px Inter`;
-        context.fillStyle = '#344ceb';  // Same electric blue
+        context.fillStyle = '#344ceb';
         context.fillText(topic, canvas.width/2, startY + spacing);
 
-        // Draw username (bottom) in black with improved visibility
         context.font = `bold ${usernameSize}px Inter`;
-        context.fillStyle = '#000000';  // Pure black
+        context.fillStyle = '#000000';
         const usernameText = username.startsWith('@') ? username : `@${username}`;
         context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
 
-        // Enhanced text shadow for better depth perception
-        context.shadowColor = 'rgba(0, 0, 0, 0.15)';
-        context.shadowBlur = 3;
-        context.shadowOffsetX = 1;
-        context.shadowOffsetY = 1;
+        // Add slight shadow for better contrast
+        context.shadowColor = 'rgba(255, 255, 255, 0.5)';
+        context.shadowBlur = 2;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 0;
       }
 
       const textTexture = new THREE.CanvasTexture(canvas);
@@ -159,29 +155,26 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       textTexture.magFilter = THREE.LinearFilter;
       textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      // Create billboard text plane that always faces the camera
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.2, bubbleSize * 2.2);
+      // Create text plane slightly larger than bubble
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
-        depthTest: false,
         depthWrite: false,
         side: THREE.DoubleSide,
-        alphaTest: 0.1
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-      textPlane.position.z = bubbleSize * 0.51;
+      // Position text slightly in front of bubble
+      textPlane.position.z = bubbleSize * 1.1;
       bubbleGroup.add(textPlane);
 
-      // Position the bubble group
+      // Position bubble in world
       const radius = 6;
       const angle = (index / topics.length) * Math.PI * 2;
-      
       const x = radius * Math.cos(angle);
       const y = Math.sin(angle * 2) * 1.5;
       const z = radius * Math.sin(angle);
-      
       bubbleGroup.position.set(x, y, z);
 
       bubbleGroup.userData = {
@@ -193,9 +186,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         initialY: y
       };
 
-      bubbles.push(bubbleGroup);
-      bubbleContainer.add(bubbleGroup);
-      
       bubbleGroup.scale.set(0, 0, 0);
       new TWEEN.Tween(bubbleGroup.scale)
         .to({ x: 1, y: 1, z: 1 }, 1000)
@@ -337,25 +327,13 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
       TWEEN.update();
 
-      // Update text orientation for each bubble
       bubbles.forEach(bubbleGroup => {
         if (bubbleGroup.userData.textPlane) {
-          // Calculate direction to camera
-          const directionToCamera = new THREE.Vector3();
-          directionToCamera.subVectors(camera.position, bubbleGroup.position);
-          directionToCamera.normalize();
-
-          // Update text plane orientation
-          bubbleGroup.userData.textPlane.lookAt(camera.position);
-          
-          // Ensure text stays perfectly perpendicular to view
+          // Make text always face camera
           bubbleGroup.userData.textPlane.quaternion.copy(camera.quaternion);
-          
-          // Keep text centered on bubble
-          bubbleGroup.userData.textPlane.position.z = bubbleGroup.position.length() * 0.1;
         }
 
-        // Update bubble position (if you have orbital movement)
+        // Update bubble position
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
           const x = bubbleGroup.userData.orbitRadius * Math.cos(bubbleGroup.userData.orbitAngle);
