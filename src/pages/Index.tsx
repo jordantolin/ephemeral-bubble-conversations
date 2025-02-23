@@ -1,8 +1,9 @@
+
 import { useState } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Send } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const availableTopics = [
   "Technology",
@@ -43,7 +45,8 @@ const topics = [
     username: "@techvisionary",
     name: "AI Research Hub",
     size: "lg" as const,
-    description: "Exploring the frontiers of artificial intelligence"
+    description: "Exploring the frontiers of artificial intelligence",
+    messages: []
   },
   { 
     id: "2", 
@@ -51,7 +54,8 @@ const topics = [
     username: "@artmaster",
     name: "Creative Space",
     size: "md" as const,
-    description: "A space for digital artists to share and inspire"
+    description: "A space for digital artists to share and inspire",
+    messages: []
   },
   { 
     id: "3", 
@@ -59,12 +63,14 @@ const topics = [
     username: "@globetrotter",
     name: "Travel Stories",
     size: "sm" as const,
-    description: "Share your adventures around the globe"
+    description: "Share your adventures around the globe",
+    messages: []
   }
 ];
 
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newBubble, setNewBubble] = useState({
     name: "",
@@ -72,6 +78,7 @@ const Index = () => {
     topic: "",
     username: "@user"
   });
+  const [newMessage, setNewMessage] = useState("");
   const { toast } = useToast();
 
   const handleCreateBubble = () => {
@@ -90,7 +97,8 @@ const Index = () => {
       username: newBubble.username,
       name: newBubble.name,
       size: "md" as const,
-      description: newBubble.description
+      description: newBubble.description,
+      messages: []
     };
 
     topics.push(bubble);
@@ -102,6 +110,29 @@ const Index = () => {
 
     setNewBubble({ name: "", description: "", topic: "", username: "@user" });
     setIsCreateDialogOpen(false);
+  };
+
+  const handleBubbleClick = (id: string) => {
+    setSelectedBubbleId(id);
+    setIsChatOpen(true);
+  };
+
+  const selectedBubble = topics.find(topic => topic.id === selectedBubbleId);
+
+  const handleSendMessage = () => {
+    if (!newMessage.trim() || !selectedBubbleId) return;
+
+    const bubbleIndex = topics.findIndex(topic => topic.id === selectedBubbleId);
+    if (bubbleIndex === -1) return;
+
+    topics[bubbleIndex].messages.push({
+      id: Date.now().toString(),
+      content: newMessage,
+      username: "@user",
+      timestamp: new Date().toISOString()
+    });
+
+    setNewMessage("");
   };
 
   return (
@@ -119,7 +150,7 @@ const Index = () => {
         <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
           <BubbleWorld 
             topics={topics}
-            onBubbleClick={(id) => setSelectedBubbleId(id)}
+            onBubbleClick={handleBubbleClick}
           />
         </div>
 
@@ -133,6 +164,7 @@ const Index = () => {
         </Button>
       </main>
 
+      {/* Create Bubble Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -194,6 +226,58 @@ const Index = () => {
               Create Bubble
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chat Dialog */}
+      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+        <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{selectedBubble?.name}</DialogTitle>
+            <DialogDescription>
+              {selectedBubble?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 px-4 py-3 space-y-4 mb-4">
+            {selectedBubble?.messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex flex-col ${
+                  message.username === "@user" ? "items-end" : "items-start"
+                }`}
+              >
+                <div className={`max-w-[80%] rounded-lg p-3 ${
+                  message.username === "@user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                }`}>
+                  <p className="text-sm">{message.content}</p>
+                </div>
+                <span className="text-xs text-muted-foreground mt-1">
+                  {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+          </ScrollArea>
+
+          <div className="flex items-center gap-2 p-4 border-t">
+            <Input
+              placeholder="Type your message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button onClick={handleSendMessage} size="icon">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
