@@ -122,19 +122,19 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const spacing = bubbleSize * 140;
         const startY = canvas.height/2 - spacing;
 
-        // Draw name (top)
+        // Draw name (top) in bright blue
         context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = '#1A1F2C';  // Dark purple for better contrast
+        context.fillStyle = '#1EAEDB';  // Bright blue
         context.fillText(name, canvas.width/2, startY);
 
-        // Draw topic (middle)
+        // Draw topic (middle) in bright blue
         context.font = `${topicSize}px Inter`;
-        context.fillStyle = '#221F26';  // Dark charcoal
+        context.fillStyle = '#1EAEDB';  // Bright blue
         context.fillText(topic, canvas.width/2, startY + spacing);
 
-        // Draw username (bottom) with enhanced visibility
+        // Draw username (bottom) in black
         context.font = `bold ${usernameSize}px Inter`;
-        context.fillStyle = '#000000';  // Pure black for maximum contrast
+        context.fillStyle = '#000000';  // Pure black
         const usernameText = username.startsWith('@') ? username : `@${username}`;
         context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
 
@@ -194,16 +194,16 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         .easing(TWEEN.Easing.Elastic.Out)
         .start();
 
-      // Enhanced bubble material for more professional look
+      // Yellow bubble with enhanced material
       const material = new THREE.MeshPhysicalMaterial({
-        color: '#ebbd34',  // Keep the yellow color
+        color: '#FEF7CD',  // Soft yellow
         metalness: 0.1,
         roughness: 0.2,
-        clearcoat: 0.8,    // Increased for more shine
+        clearcoat: 0.8,
         clearcoatRoughness: 0.1,
-        reflectivity: 0.5, // Added for subtle reflections
+        reflectivity: 0.5,
         transparent: true,
-        opacity: 0.95      // Slightly transparent
+        opacity: 0.95
       });
 
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
