@@ -101,10 +101,55 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         // Set bubble size
         const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
 
-        // Create the bubble sphere
+        // Create canvas for the bubble texture
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024; // Larger canvas for better text quality
+        canvas.height = 1024;
+        const context = canvas.getContext('2d');
+        
+        if (context) {
+          // Create gradient background
+          const gradient = context.createRadialGradient(
+            canvas.width/2, canvas.height/2, 0,
+            canvas.width/2, canvas.height/2, canvas.width/2
+          );
+          gradient.addColorStop(0, '#FFE566');
+          gradient.addColorStop(1, '#FFD700');
+          
+          // Fill background
+          context.fillStyle = gradient;
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Add a circular frame for the text
+          context.beginPath();
+          context.arc(canvas.width/2, canvas.height/2, canvas.width/3, 0, Math.PI * 2);
+          context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          context.fill();
+
+          // Configure text rendering
+          context.textAlign = 'center';
+          context.fillStyle = '#000000';
+          
+          // Draw topic (larger and bold)
+          context.font = 'bold 80px Inter';
+          context.fillText(topic, canvas.width/2, canvas.height/2 - 100);
+          
+          // Draw username
+          context.font = '60px Inter';
+          context.fillText(username, canvas.width/2, canvas.height/2);
+          
+          // Draw name
+          context.fillText(name, canvas.width/2, canvas.height/2 + 100);
+        }
+
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+
+        // Create the bubble with the texture
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshPhysicalMaterial({
-          color: 0xFFE566,
+          map: texture,
           metalness: 0.1,
           roughness: 0.2,
           transmission: 0.6,
@@ -118,51 +163,10 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const bubble = new THREE.Mesh(geometry, material);
         bubble.castShadow = true;
         bubble.receiveShadow = true;
+        
+        // Add rotation to keep text visible
+        bubble.rotation.y = Math.PI; // Initial rotation to show text
         bubbleGroup.add(bubble);
-
-        // Create text using sprites for consistent size
-        const createTextSprite = (text: string, yOffset: number) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 256;
-          canvas.height = 64;
-          
-          const context = canvas.getContext('2d');
-          if (!context) return null;
-
-          // Clear background
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          
-          // Set text style
-          context.textAlign = 'center';
-          context.textBaseline = 'middle';
-          context.fillStyle = '#000000';
-          context.font = 'bold 32px Inter';
-          
-          // Draw text
-          context.fillText(text, canvas.width / 2, canvas.height / 2);
-
-          const texture = new THREE.CanvasTexture(canvas);
-          const spriteMaterial = new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true,
-          });
-
-          const sprite = new THREE.Sprite(spriteMaterial);
-          sprite.scale.set(1, 0.25, 1);
-          sprite.position.y = yOffset;
-          sprite.position.z = bubbleSize + 0.01; // Slightly in front of bubble
-          
-          return sprite;
-        };
-
-        // Create sprites for each text element with proper spacing
-        const topicSprite = createTextSprite(topic, 0.4);
-        const usernameSprite = createTextSprite(username, 0);
-        const nameSprite = createTextSprite(name, -0.4);
-
-        if (topicSprite) bubbleGroup.add(topicSprite);
-        if (usernameSprite) bubbleGroup.add(usernameSprite);
-        if (nameSprite) bubbleGroup.add(nameSprite);
 
         // Position the bubble group
         const totalBubbles = topics.length + 1;
