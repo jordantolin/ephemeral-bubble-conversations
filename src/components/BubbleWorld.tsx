@@ -70,44 +70,44 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     mainLight.position.set(1, 1, 1);
     scene.add(mainLight);
 
-    // Create text texture for bubbles
+    // Create text texture for bubbles with better contrast
     const createBubbleText = (topic: string, username: string, name: string) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return null;
 
-      canvas.width = 256;
-      canvas.height = 256;
+      canvas.width = 512; // Increased for better text quality
+      canvas.height = 512;
       
-      // Create circular gradient background
+      // Create stronger yellow gradient background
       const gradient = context.createRadialGradient(
         canvas.width/2, canvas.height/2, 0,
         canvas.width/2, canvas.height/2, canvas.width/2
       );
-      gradient.addColorStop(0, 'rgba(255, 236, 179, 0.9)');
-      gradient.addColorStop(1, 'rgba(255, 236, 179, 0)');
+      gradient.addColorStop(0, 'rgba(255, 233, 125, 0.95)'); // More vibrant yellow
+      gradient.addColorStop(1, 'rgba(255, 233, 125, 0.85)');
       
       context.fillStyle = gradient;
       context.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw text with enhanced visibility
+      // Draw text with better contrast
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       
-      // Topic (largest)
-      context.font = 'bold 32px Inter';
-      context.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      context.fillText(topic, canvas.width/2, canvas.height/2 - 30);
+      // Topic (largest and bolder)
+      context.font = 'bold 56px Inter';
+      context.fillStyle = 'rgba(0, 0, 0, 0.9)'; // Darker text
+      context.fillText(topic, canvas.width/2, canvas.height/2 - 60);
       
       // Username
-      context.font = '24px Inter';
-      context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      context.fillText(username, canvas.width/2, canvas.height/2 + 10);
+      context.font = 'bold 40px Inter';
+      context.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      context.fillText(username, canvas.width/2, canvas.height/2 + 20);
       
       // Bubble name
-      context.font = '20px Inter';
-      context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      context.fillText(name, canvas.width/2, canvas.height/2 + 40);
+      context.font = '36px Inter';
+      context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      context.fillText(name, canvas.width/2, canvas.height/2 + 80);
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.minFilter = THREE.LinearFilter;
@@ -123,45 +123,43 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       lg: new THREE.SphereGeometry(1.2, 64, 64),
     };
 
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    sceneRef.current = { scene, camera, renderer, bubbles, planet, raycaster, mouse };
-
     topics.forEach((topic, index) => {
-      // Create bubble texture with text
       const bubbleTexture = createBubbleText(topic.topic, topic.username, topic.name);
       
-      // Enhanced bubble material with text
+      // Enhanced yellow bubble material with less transparency
       const bubbleMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xffd700,
-        emissive: 0xffeb3b,
-        emissiveIntensity: 0.3,
-        roughness: 0.2,
-        metalness: 0.3,
+        color: 0xFFE066, // Brighter yellow
+        emissive: 0xFFF3B0,
+        emissiveIntensity: 0.4,
+        roughness: 0.1,
+        metalness: 0.2,
         clearcoat: 1,
         clearcoatRoughness: 0.1,
-        transmission: 0.5,
+        transmission: 0.2, // Less transmission for more opacity
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95, // Higher opacity
         map: bubbleTexture,
       });
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
       
-      // Position bubbles closer to planet
-      const radius = 7;
-      const phi = Math.acos(-1 + (2 * index) / topics.length);
-      const theta = Math.sqrt(topics.length * Math.PI) * phi;
+      // Random initial position in a sphere around the center
+      const radius = 7 + Math.random() * 2; // Varying distances
+      const phi = Math.random() * Math.PI * 2;
+      const theta = Math.random() * Math.PI;
       
       bubble.position.setFromSpherical(new THREE.Spherical(radius, phi, theta));
-      bubble.userData.id = topic.id;
-      bubble.userData.orbitSpeed = 0.0002 + Math.random() * 0.0001;
-      bubble.userData.orbitRadius = radius;
-      bubble.userData.orbitOffset = Math.random() * Math.PI * 2;
       
-      // Make bubble always face camera
-      bubble.userData.originalScale = topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8;
+      // Store movement parameters
+      bubble.userData = {
+        id: topic.id,
+        orbitSpeed: 0.0002 + Math.random() * 0.0003,
+        orbitRadius: radius,
+        orbitOffset: Math.random() * Math.PI * 2,
+        verticalOffset: Math.random() * Math.PI * 2,
+        horizontalOffset: Math.random() * Math.PI * 2,
+        originalScale: topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8,
+      };
       
       scene.add(bubble);
       bubbles.push(bubble);
@@ -207,9 +205,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
       const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
 
+      const mouse = new THREE.Vector2();
       mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
+      const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(bubbles);
 
@@ -245,7 +245,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     containerRef.current.addEventListener('wheel', handleWheel);
 
-    // Animation loop
+    // Animation loop with more dynamic movement
     const animate = () => {
       requestAnimationFrame(animate);
 
@@ -258,13 +258,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       bubbles.forEach((bubble) => {
         const time = Date.now() * bubble.userData.orbitSpeed;
-        const orbitOffset = bubble.userData.orbitOffset;
         const radius = bubble.userData.orbitRadius;
         
-        // Smooth orbital movement
-        bubble.position.x = Math.cos(time + orbitOffset) * radius;
-        bubble.position.z = Math.sin(time + orbitOffset) * radius;
-        bubble.position.y = Math.sin(time * 2) * 0.1;
+        // More complex orbital movement
+        bubble.position.x = Math.cos(time + bubble.userData.horizontalOffset) * radius;
+        bubble.position.z = Math.sin(time + bubble.userData.horizontalOffset) * radius;
+        bubble.position.y = Math.sin(time * 0.5 + bubble.userData.verticalOffset) * (radius * 0.2);
         
         // Apply world rotation
         bubble.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationSpeed.x);
