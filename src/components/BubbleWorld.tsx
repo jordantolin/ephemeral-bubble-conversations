@@ -33,15 +33,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
+    // Enhanced camera setup with better constraints
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 15;
+    camera.position.y = 2; // Slightly elevated default view
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      alpha: true 
+      alpha: true,
+      logarithmicDepthBuffer: true // Better depth handling
     });
     renderer.setSize(width, height);
-    renderer.setClearColor(0x000000, 0); // Make background transparent
+    renderer.setClearColor(0x000000, 0);
     containerRef.current.appendChild(renderer.domElement);
 
     // Handle window resize
@@ -57,31 +60,31 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     window.addEventListener('resize', handleResize);
 
-    // Create planet
+    // Create planet with enhanced material for better depth perception
     const planetGeometry = new THREE.SphereGeometry(6, 128, 128);
-    const planet = new THREE.Mesh(
-      planetGeometry,
-      new THREE.MeshPhysicalMaterial({
-        color: 0xFFFFFF,
-        roughness: 0.4,
-        metalness: 0.1,
-        clearcoat: 0.3,
-        transmission: 0.05,
-        ior: 1.2,
-      })
-    );
+    const planetMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xFFFFFF,
+      roughness: 0.4,
+      metalness: 0.1,
+      clearcoat: 0.3,
+      transmission: 0.05,
+      ior: 1.2,
+      depthWrite: true,
+      depthTest: true
+    });
+    const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
 
-    // Enhanced lighting
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.5);
+    // Enhanced lighting for better depth perception
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1);
     scene.add(ambientLight);
 
-    const hemisphereLight = new THREE.HemisphereLight(0xFFFAF0, 0xFFF5E6, 1);
-    scene.add(hemisphereLight);
+    const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.5);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
 
-    const mainLight = new THREE.DirectionalLight(0xFFFFFF, 1.5);
-    mainLight.position.set(1, 1, 1);
-    scene.add(mainLight);
+    const hemisphereLight = new THREE.HemisphereLight(0xFFFAF0, 0xFFF5E6, 0.8);
+    scene.add(hemisphereLight);
 
     // Create text texture for bubbles
     const createBubbleText = (topic: string, username: string, name: string) => {
@@ -135,7 +138,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const bubbles: THREE.Mesh[] = [];
-    // Use CircleGeometry for 2D bubbles
     const bubbleGeometries = {
       sm: new THREE.CircleGeometry(0.8, 32),
       md: new THREE.CircleGeometry(1, 32),
@@ -145,19 +147,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     topics.forEach((topic, index) => {
       const bubbleTexture = createBubbleText(topic.topic, topic.username, topic.name);
       
-      // Enhanced material with stronger yellow
+      // Enhanced material with proper depth handling
       const bubbleMaterial = new THREE.MeshBasicMaterial({
         map: bubbleTexture,
         transparent: true,
         opacity: 1,
         side: THREE.DoubleSide,
-        depthWrite: true,
+        depthWrite: false, // Prevents bubbles from affecting depth buffer
+        depthTest: true,   // Still tests against depth buffer
       });
 
       const bubble = new THREE.Mesh(bubbleGeometries[topic.size], bubbleMaterial);
       
-      // Position bubbles slightly above surface
-      const baseRadius = 6.5; // Increased base radius to float above surface
+      // Position bubbles with increased offset from surface
+      const baseRadius = 7; // Increased distance from surface
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
       
@@ -168,11 +171,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         id: topic.id,
         orbitSpeed: 0.00015 + Math.random() * 0.0001,
         baseRadius: baseRadius,
-        floatAmplitude: 0.2 + Math.random() * 0.1, // Random floating height
-        floatSpeed: 0.001 + Math.random() * 0.0005, // Random floating speed
+        floatAmplitude: 0.3 + Math.random() * 0.2,    // Increased floating range
+        floatSpeed: 0.0008 + Math.random() * 0.0004,  // Adjusted for smoother movement
         orbitOffset: Math.random() * Math.PI * 2,
         originalScale: topic.size === 'lg' ? 1.2 : topic.size === 'md' ? 1 : 0.8,
-        phase: Math.random() * Math.PI * 2, // Random phase for varied movement
+        phase: Math.random() * Math.PI * 2,
+        verticalOffset: Math.random() * Math.PI * 2,   // Additional offset for vertical movement
       };
       
       scene.add(bubble);
@@ -183,6 +187,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     let previousMousePosition = { x: 0, y: 0 };
     let rotationSpeed = { x: 0, y: 0 };
     const dampingFactor = 0.95;
+    let momentum = { x: 0, y: 0 };
+
+    // Enhanced camera controls
+    const minZoom = 10; // Increased minimum zoom to prevent clipping
+    const maxZoom = 20;
+    const minPolarAngle = Math.PI * 0.15; // Limit vertical rotation
+    const maxPolarAngle = Math.PI * 0.85;
+    let currentRotation = { x: 0, y: 0 };
 
     // Event handlers
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
@@ -211,6 +223,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     const onPointerUp = () => {
       isDragging = false;
+      momentum.x = rotationSpeed.x;
+      momentum.y = rotationSpeed.y;
     };
 
     const onClick = (event: MouseEvent | TouchEvent) => {
@@ -243,62 +257,76 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.addEventListener('click', onClick);
     containerRef.current.addEventListener('touchstart', onClick);
 
-    // Enhanced camera controls
-    camera.position.z = 15;
-    const minZoom = 8;
-    const maxZoom = 20;
-    
-    // Enhanced zoom handling
     const handleWheel = (event: WheelEvent) => {
       const zoomSpeed = 0.001;
       const newZoom = camera.position.z + event.deltaY * zoomSpeed;
       camera.position.z = Math.max(minZoom, Math.min(maxZoom, newZoom));
 
-      // Dynamic bubble scaling based on zoom
+      // Enhanced bubble scaling based on zoom
       const zoomFactor = (camera.position.z - minZoom) / (maxZoom - minZoom);
       bubbles.forEach((bubble) => {
         const baseScale = bubble.userData.originalScale;
-        const scale = baseScale * (1 + (1 - zoomFactor) * 0.8); // More pronounced scaling
+        const scale = baseScale * (1 + (1 - zoomFactor) * 0.5);
         bubble.scale.setScalar(scale);
       });
     };
 
     containerRef.current.addEventListener('wheel', handleWheel);
 
-    // Enhanced animation with more dynamic movement
+    // Enhanced animation with improved movement
     const animate = () => {
       requestAnimationFrame(animate);
 
       if (!isDragging) {
-        rotationSpeed.x *= dampingFactor;
-        rotationSpeed.y *= dampingFactor;
+        // Apply momentum with damping
+        momentum.x *= dampingFactor;
+        momentum.y *= dampingFactor;
+        rotationSpeed.x = momentum.x;
+        rotationSpeed.y = momentum.y;
+
+        // Continue rotation with momentum
+        currentRotation.x += rotationSpeed.x;
+        currentRotation.y += rotationSpeed.y;
+
+        // Apply rotation limits
+        currentRotation.x = Math.max(minPolarAngle - Math.PI/2, 
+                                   Math.min(maxPolarAngle - Math.PI/2, 
+                                   currentRotation.x));
       }
 
+      // Smooth planet rotation
       planet.rotation.y += 0.001;
 
       bubbles.forEach((bubble) => {
         const time = Date.now();
         const baseRadius = bubble.userData.baseRadius;
         
-        // Complex floating movement
+        // Enhanced floating movement
         const floatOffset = Math.sin(time * bubble.userData.floatSpeed + bubble.userData.phase) * 
                           bubble.userData.floatAmplitude;
         
-        // Calculate position with enhanced movement
+        // Calculate complex orbital movement
         const orbitAngle = time * bubble.userData.orbitSpeed + bubble.userData.orbitOffset;
+        
+        // Keep bubbles at constant radius from center but allow floating
         const radius = baseRadius + floatOffset;
         
-        // Update position with more natural movement
-        bubble.position.x = Math.cos(orbitAngle) * Math.sin(bubble.userData.phase) * radius;
-        bubble.position.z = Math.sin(orbitAngle) * Math.sin(bubble.userData.phase) * radius;
-        bubble.position.y = Math.cos(bubble.userData.phase) * radius + 
-                          Math.sin(time * bubble.userData.floatSpeed * 0.5) * 0.1;
+        // Calculate position with enhanced movement
+        const phi = Math.acos(-1 + (2 * bubbles.indexOf(bubble)) / bubbles.length);
+        const theta = Math.sqrt(bubbles.length * Math.PI) * phi + orbitAngle;
         
-        // Apply world rotation with smooth damping
+        // Convert spherical coordinates to Cartesian
+        bubble.position.setFromSpherical(new THREE.Spherical(
+          radius,
+          phi + Math.sin(time * bubble.userData.floatSpeed * 0.5 + bubble.userData.verticalOffset) * 0.1,
+          theta
+        ));
+        
+        // Apply world rotation while maintaining proper depth
         bubble.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationSpeed.x);
         bubble.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationSpeed.y);
         
-        // Always face camera
+        // Ensure bubbles always face camera
         bubble.quaternion.copy(camera.quaternion);
       });
 
