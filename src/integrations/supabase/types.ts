@@ -9,6 +9,68 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bubble_messages: {
+        Row: {
+          bubble_id: string | null
+          content: string
+          created_at: string
+          id: string
+          username: string
+        }
+        Insert: {
+          bubble_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          username: string
+        }
+        Update: {
+          bubble_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bubble_messages_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bubbles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          size: string
+          topic: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          size: string
+          topic: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          size?: string
+          topic?: string
+          username?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           created_at: string

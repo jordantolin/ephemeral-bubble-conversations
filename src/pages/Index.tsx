@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const availableTopics = [
   "Technology",
@@ -37,35 +40,22 @@ const availableTopics = [
   "Gaming"
 ];
 
-const topics = [
-  { 
-    id: "1", 
-    topic: "Future of AI",
-    username: "@techvisionary",
-    name: "AI Research Hub",
-    size: "lg" as const,
-    description: "Exploring the frontiers of artificial intelligence",
-    messages: []
-  },
-  { 
-    id: "2", 
-    topic: "Digital Art",
-    username: "@artmaster",
-    name: "Creative Space",
-    size: "md" as const,
-    description: "A space for digital artists to share and inspire",
-    messages: []
-  },
-  { 
-    id: "3", 
-    topic: "World Travel",
-    username: "@globetrotter",
-    name: "Travel Stories",
-    size: "sm" as const,
-    description: "Share your adventures around the globe",
-    messages: []
-  }
-];
+interface Bubble {
+  id: string;
+  topic: string;
+  username: string;
+  name: string;
+  size: "sm" | "md" | "lg";
+  description: string;
+  messages: Message[];
+}
+
+interface Message {
+  id: string;
+  content: string;
+  username: string;
+  timestamp: string;
+}
 
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
@@ -79,8 +69,89 @@ const Index = () => {
   });
   const [newMessage, setNewMessage] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleCreateBubble = () => {
+  // Fetch bubbles
+  const { data: bubbles = [] } = useQuery({
+    queryKey: ['bubbles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bubbles')
+        .select('*');
+      
+      if (error) {
+        toast({
+          title: "Error fetching bubbles",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      return data.map(bubble => ({
+        ...bubble,
+        messages: []
+      }));
+    }
+  });
+
+  // Fetch messages for selected bubble
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return [];
+
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error fetching messages",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      return data.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        username: msg.username,
+        timestamp: msg.created_at
+      }));
+    },
+    enabled: !!selectedBubbleId
+  });
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bubble_messages'
+        },
+        (payload) => {
+          // Refresh messages when there's a change
+          queryClient.invalidateQueries({
+            queryKey: ['messages', selectedBubbleId]
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedBubbleId, queryClient]);
+
+  const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
       toast({
         title: "Missing Information",
@@ -90,18 +161,26 @@ const Index = () => {
       return;
     }
 
-    const bubble = {
-      id: (topics.length + 1).toString(),
-      topic: newBubble.topic,
-      username: newBubble.username,
-      name: newBubble.name,
-      size: "md" as const,
-      description: newBubble.description,
-      messages: []
-    };
+    const { error } = await supabase
+      .from('bubbles')
+      .insert({
+        name: newBubble.name,
+        topic: newBubble.topic,
+        description: newBubble.description,
+        username: newBubble.username,
+        size: "md"
+      });
 
-    topics.push(bubble);
+    if (error) {
+      toast({
+        title: "Error creating bubble",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
 
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
     toast({
       title: "Success!",
       description: "New bubble created successfully",
@@ -122,14 +201,14 @@ const Index = () => {
     input.accept = type === 'image' ? 'image/*' : 
                    type === 'video' ? 'video/*' : 
                    'image/gif';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         toast({
           title: "File Selected",
           description: `${file.name} ready to upload`,
         });
-        // Here you would typically handle the file upload
+        // Here you would typically handle the file upload to Supabase Storage
       }
     };
     input.click();
@@ -142,24 +221,29 @@ const Index = () => {
     });
   };
 
-  const selectedBubble = topics.find(topic => topic.id === selectedBubbleId);
+  const selectedBubble = bubbles.find(bubble => bubble.id === selectedBubbleId);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedBubbleId) return;
 
-    const bubbleIndex = topics.findIndex(topic => topic.id === selectedBubbleId);
-    if (bubbleIndex === -1) return;
+    const { error } = await supabase
+      .from('bubble_messages')
+      .insert({
+        bubble_id: selectedBubbleId,
+        content: newMessage,
+        username: "@user"
+      });
 
-    const newMsg = {
-      id: Date.now().toString(),
-      content: newMessage,
-      username: "@user",
-      timestamp: new Date().toISOString()
-    };
+    if (error) {
+      toast({
+        title: "Error sending message",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
 
-    topics[bubbleIndex].messages = [...topics[bubbleIndex].messages, newMsg];
     setNewMessage("");
-
     toast({
       title: "Message Sent",
       description: "Your message has been sent successfully",
@@ -180,7 +264,7 @@ const Index = () => {
 
         <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
           <BubbleWorld 
-            topics={topics}
+            topics={bubbles}
             onBubbleClick={handleBubbleClick}
           />
         </div>
@@ -271,7 +355,7 @@ const Index = () => {
           </DialogHeader>
 
           <ScrollArea className="flex-1 px-4 py-3 space-y-4 mb-4">
-            {selectedBubble?.messages.map((message) => (
+            {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex flex-col ${
