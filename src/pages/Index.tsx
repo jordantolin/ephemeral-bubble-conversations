@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
@@ -126,8 +125,7 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="mt-4 sm:mt-8 relative z-10 glass hover:shadow-xl transform transition-all duration-300 hover:scale-105 hover:bg-primary/20"
-          variant="outline"
+          className="mt-4 sm:mt-8 relative z-10 bg-[#FFE566] hover:bg-[#FFD700] text-primary-foreground transform transition-all duration-300 hover:scale-105"
           size="lg"
         >
           <Plus className="w-5 h-5 mr-2" />
