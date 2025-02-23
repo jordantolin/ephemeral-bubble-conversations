@@ -101,65 +101,55 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       // Set bubble size
       const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
 
-      // Create high-resolution canvas for text with improved spacing
+      // Create the bubble with the exact color #ebbd34
+      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
+      const material = new THREE.MeshBasicMaterial({
+        color: '#ebbd34',
+      });
+
+      const bubble = new THREE.Mesh(geometry, material);
+      bubbleGroup.add(bubble);
+
+      // Create canvas for text with larger dimensions
       const canvas = document.createElement('canvas');
       canvas.width = 2048;
       canvas.height = 2048;
       const context = canvas.getContext('2d');
       
       if (context) {
-        // Clear canvas and set text properties
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        
-        // Calculate dynamic font sizes with better proportions
-        const nameSize = Math.floor(bubbleSize * 180);
-        const topicSize = Math.floor(bubbleSize * 140);
-        const usernameSize = Math.floor(bubbleSize * 120);
-        
-        // Calculate vertical spacing
-        const spacing = bubbleSize * 140;
-        const startY = canvas.height/2 - spacing;
+        context.fillStyle = '#000000';
 
-        // Draw name (top) in electric blue
+        // Calculate font sizes based on bubble size
+        const nameSize = bubbleSize * 200;
+        const topicSize = bubbleSize * 160;
+        const usernameSize = bubbleSize * 140;
+
+        // Draw text with improved spacing
         context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = '#1EAEDB';  // Electric blue
-        context.fillText(name, canvas.width/2, startY);
+        context.fillText(name, canvas.width/2, canvas.height/2 - nameSize);
 
-        // Draw topic (middle) in electric blue
         context.font = `${topicSize}px Inter`;
-        context.fillStyle = '#1EAEDB';  // Electric blue
-        context.fillText(topic, canvas.width/2, startY + spacing);
+        context.fillText(topic, canvas.width/2, canvas.height/2);
 
-        // Draw username (bottom) in black
-        context.font = `bold ${usernameSize}px Inter`;
-        context.fillStyle = '#000000';  // Pure black
-        const usernameText = username.startsWith('@') ? username : `@${username}`;
-        context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
-
-        // Add subtle text shadow for depth
-        context.shadowColor = 'rgba(0, 0, 0, 0.1)';
-        context.shadowBlur = 2;
-        context.shadowOffsetX = 1;
-        context.shadowOffsetY = 1;
+        context.font = `${usernameSize}px Inter`;
+        context.fillText(username, canvas.width/2, canvas.height/2 + usernameSize);
       }
 
       const textTexture = new THREE.CanvasTexture(canvas);
       textTexture.needsUpdate = true;
       textTexture.minFilter = THREE.LinearFilter;
       textTexture.magFilter = THREE.LinearFilter;
-      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      // Improved text plane sizing for better readability
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.2, bubbleSize * 2.2);
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
         depthTest: false,
         depthWrite: false,
-        side: THREE.DoubleSide,
-        alphaTest: 0.1
+        side: THREE.DoubleSide
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
@@ -193,22 +183,6 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         .to({ x: 1, y: 1, z: 1 }, 1000)
         .easing(TWEEN.Easing.Elastic.Out)
         .start();
-
-      // Bright strong yellow bubble
-      const material = new THREE.MeshPhysicalMaterial({
-        color: '#FFE566',  // Bright strong yellow
-        metalness: 0.1,
-        roughness: 0.2,
-        clearcoat: 0.8,
-        clearcoatRoughness: 0.1,
-        reflectivity: 0.5,
-        transparent: true,
-        opacity: 0.95
-      });
-
-      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-      const bubble = new THREE.Mesh(geometry, material);
-      bubbleGroup.add(bubble);
 
       return bubbleGroup;
     };
