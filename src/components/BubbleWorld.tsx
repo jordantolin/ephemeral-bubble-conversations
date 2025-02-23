@@ -104,41 +104,58 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         // Create the bubble with the exact color #ebbd34
         const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
         const material = new THREE.MeshBasicMaterial({
-          color: '#ebbd34', // Exact color requested, using hex string
+          color: '#ebbd34',
         });
 
         const bubble = new THREE.Mesh(geometry, material);
         bubbleGroup.add(bubble);
 
-        // Create canvas for text
+        // Create canvas for text with larger dimensions
         const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
+        canvas.width = 1024; // Increased canvas size
+        canvas.height = 1024; // Increased canvas size
         const context = canvas.getContext('2d');
         
         if (context) {
+          context.clearRect(0, 0, canvas.width, canvas.height);
           context.textAlign = 'center';
           context.textBaseline = 'middle';
-          context.font = '900 48px Inter';
           context.fillStyle = '#000000';
 
-          // Draw text directly without background
-          context.fillText(topic, canvas.width/2, canvas.height/2 - 100);
+          // Larger font sizes and better spacing
+          const topicSize = size === 'lg' ? 120 : size === 'md' ? 100 : 80;
+          const nameSize = size === 'lg' ? 80 : size === 'md' ? 60 : 40;
+
+          // Draw topic (larger and bolder)
+          context.font = `900 ${topicSize}px Inter`;
+          context.fillText(topic, canvas.width/2, canvas.height/2 - 200);
+
+          // Draw username
+          context.font = `bold ${nameSize}px Inter`;
           context.fillText(username, canvas.width/2, canvas.height/2);
-          context.fillText(name, canvas.width/2, canvas.height/2 + 100);
+
+          // Draw name
+          context.font = `${nameSize}px Inter`;
+          context.fillText(name, canvas.width/2, canvas.height/2 + 200);
         }
 
         const textTexture = new THREE.CanvasTexture(canvas);
-        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 1.5, bubbleSize * 1.5);
+        textTexture.needsUpdate = true;
+        textTexture.minFilter = THREE.LinearFilter;
+        textTexture.magFilter = THREE.LinearFilter;
+
+        // Larger text plane relative to bubble size
+        const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
         const textMaterial = new THREE.MeshBasicMaterial({
           map: textTexture,
           transparent: true,
           side: THREE.DoubleSide,
-          depthWrite: false // This ensures text is always visible
+          depthWrite: false,
+          depthTest: false // Ensures text is always on top
         });
 
         const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-        textPlane.position.z = bubbleSize * 0.51;
+        textPlane.position.z = bubbleSize * 0.51; // Slightly in front of the bubble
         bubbleGroup.add(textPlane);
 
         // Position the bubble group
