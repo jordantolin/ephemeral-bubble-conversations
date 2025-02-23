@@ -57,6 +57,11 @@ interface Message {
   timestamp: string;
 }
 
+// Type guard to check if size is valid
+const isValidSize = (size: string): size is "sm" | "md" | "lg" => {
+  return ["sm", "md", "lg"].includes(size);
+};
+
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -88,10 +93,17 @@ const Index = () => {
         return [];
       }
 
+      // Transform and validate the data to match the expected types
       return data.map(bubble => ({
-        ...bubble,
+        id: bubble.id,
+        topic: bubble.topic,
+        username: bubble.username,
+        name: bubble.name,
+        // Ensure size is one of the valid options, default to "md" if invalid
+        size: isValidSize(bubble.size) ? bubble.size : "md",
+        description: bubble.description || "",
         messages: []
-      }));
+      })) as Bubble[];
     }
   });
 
@@ -168,7 +180,7 @@ const Index = () => {
         topic: newBubble.topic,
         description: newBubble.description,
         username: newBubble.username,
-        size: "md"
+        size: "md" as const // Explicitly type as "md"
       });
 
     if (error) {
