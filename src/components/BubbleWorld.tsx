@@ -110,7 +110,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create canvas for text with larger dimensions
+      // Create canvas for text with improved readability
       const canvas = document.createElement('canvas');
       canvas.width = 2048;
       canvas.height = 2048;
@@ -120,36 +120,54 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        context.fillStyle = '#000000';
+        
+        // Improved font sizes for better readability
+        const nameSize = Math.floor(bubbleSize * 200);
+        const topicSize = Math.floor(bubbleSize * 160);
+        const usernameSize = Math.floor(bubbleSize * 140);
+        
+        // Increased spacing for better text separation
+        const spacing = bubbleSize * 160;
+        const startY = canvas.height/2 - spacing;
 
-        // Calculate font sizes based on bubble size
-        const nameSize = bubbleSize * 200;
-        const topicSize = bubbleSize * 160;
-        const usernameSize = bubbleSize * 140;
-
-        // Draw text with improved spacing
+        // Draw name (top) in electric blue with enhanced visibility
         context.font = `bold ${nameSize}px Inter`;
-        context.fillText(name, canvas.width/2, canvas.height/2 - nameSize);
+        context.fillStyle = '#344ceb';  // Specified electric blue
+        context.fillText(name, canvas.width/2, startY);
 
+        // Draw topic (middle) in electric blue
         context.font = `${topicSize}px Inter`;
-        context.fillText(topic, canvas.width/2, canvas.height/2);
+        context.fillStyle = '#344ceb';  // Same electric blue
+        context.fillText(topic, canvas.width/2, startY + spacing);
 
-        context.font = `${usernameSize}px Inter`;
-        context.fillText(username, canvas.width/2, canvas.height/2 + usernameSize);
+        // Draw username (bottom) in black with improved visibility
+        context.font = `bold ${usernameSize}px Inter`;
+        context.fillStyle = '#000000';  // Pure black
+        const username = username.startsWith('@') ? username : `@${username}`;
+        context.fillText(username, canvas.width/2, startY + spacing * 2);
+
+        // Enhanced text shadow for better depth perception
+        context.shadowColor = 'rgba(0, 0, 0, 0.15)';
+        context.shadowBlur = 3;
+        context.shadowOffsetX = 1;
+        context.shadowOffsetY = 1;
       }
 
       const textTexture = new THREE.CanvasTexture(canvas);
       textTexture.needsUpdate = true;
       textTexture.minFilter = THREE.LinearFilter;
       textTexture.magFilter = THREE.LinearFilter;
+      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
+      // Improved text plane sizing for better readability
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.2, bubbleSize * 2.2);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
         depthTest: false,
         depthWrite: false,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        alphaTest: 0.1
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
