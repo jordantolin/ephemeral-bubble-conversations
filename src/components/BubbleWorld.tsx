@@ -89,30 +89,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Simplified text rendering with clear black text
+      // Improved text rendering with Montserrat
       const createTextTexture = (text: string, fontSize: number) => {
         const canvas = document.createElement('canvas');
-        const size = 2048; // High resolution for sharp text
+        const size = 2048;
         canvas.width = size;
         canvas.height = size;
         const context = canvas.getContext('2d')!;
         
-        // Clear background
         context.fillStyle = 'rgba(0,0,0,0)';
         context.fillRect(0, 0, size, size);
         
-        // Set up text style
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        // Draw white outline for contrast
+        // White outline for contrast
         context.strokeStyle = '#FFFFFF';
-        context.lineWidth = fontSize * 0.3; // Thicker outline
+        context.lineWidth = fontSize * 0.4;
         context.lineJoin = 'round';
-        context.font = `bold ${fontSize * 2.5}px Inter`; // Larger font
+        context.font = `600 ${fontSize * 3}px Montserrat`;
         context.strokeText(text, size/2, size/2);
         
-        // Draw black text
+        // Black text
         context.fillStyle = '#000000';
         context.fillText(text, size/2, size/2);
         
@@ -135,21 +133,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         });
 
         const sprite = new THREE.Sprite(spriteMaterial);
-        // Increased scale for better mobile visibility
-        sprite.scale.set(finalSize * 5, finalSize * 1.2, 1);
+        // Much larger scale for better visibility
+        sprite.scale.set(finalSize * 6, finalSize * 1.5, 1);
         sprite.position.y = yOffset;
         sprite.renderOrder = 999;
         return sprite;
       };
 
-      // Create larger text sprites
-      const nameSprite = createTextSprite(topic.name, 100, finalSize * 0.5);
-      const topicSprite = createTextSprite(topic.topic, 80, -finalSize * 0.5);
+      // Larger text with more spacing
+      const nameSprite = createTextSprite(topic.name, 90, finalSize * 0.6);
+      const topicSprite = createTextSprite(topic.topic, 70, -finalSize * 0.6);
       
       const textGroup = new THREE.Group();
       textGroup.add(nameSprite);
       textGroup.add(topicSprite);
-      textGroup.position.z = finalSize * 0.1;
+      textGroup.position.z = finalSize * 0.2;
       bubbleGroup.add(textGroup);
 
       // Position bubbles closer to planet

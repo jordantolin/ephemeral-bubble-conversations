@@ -310,18 +310,18 @@ const Index = () => {
   }, [selectedBubbleId, queryClient]);
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <MainNav />
       
-      <main className="container mx-auto px-0 sm:px-4 pt-16 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
-        <div className="text-center mb-4 relative z-10">
-          <h1 className="text-3xl sm:text-4xl font-light text-[#ebbd34] mb-2 px-4">
+      <main className="container mx-auto px-4 sm:px-8 pt-24 sm:pt-32 pb-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
+        <div className="text-center mb-8 sm:mb-12 relative z-10">
+          <h1 className="text-4xl sm:text-5xl font-light text-[#ebbd34] mb-4">
             Bubble Trouble
           </h1>
-          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
+          <div className="h-px w-32 sm:w-48 bg-[#ebbd34]/20 mx-auto" />
         </div>
 
-        <div className="relative w-screen sm:w-full h-[calc(100dvh-150px)] sm:h-[600px] sm:max-w-3xl sm:rounded-2xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm shadow-xl">
+        <div className="relative w-full sm:w-[90%] h-[calc(100dvh-220px)] sm:h-[700px] max-w-4xl rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm shadow-xl border border-[#ebbd34]/10">
           <BubbleWorld 
             topics={bubbles}
             onBubbleClick={handleBubbleClick}
@@ -330,17 +330,17 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="fixed bottom-8 right-8 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white transform transition-all duration-300 hover:scale-105 shadow-lg rounded-full w-16 h-16 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8"
+          className="fixed bottom-8 right-8 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white transform transition-all duration-300 hover:scale-105 shadow-lg rounded-full w-16 h-16 p-0 sm:static sm:w-auto sm:h-auto sm:p-6 sm:mt-12 sm:text-lg font-medium"
           size="icon"
         >
-          <Plus className="w-8 h-8 sm:w-5 sm:h-5 sm:mr-2" />
+          <Plus className="w-8 h-8 sm:w-6 sm:h-6 sm:mr-2" />
           <span className="hidden sm:inline">Create Bubble</span>
         </Button>
       </main>
 
-      {/* Chat Dialog - Update colors */}
+      {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[500px] h-[80vh] sm:h-[600px] flex flex-col p-0 border-none bg-[#FEF7E4]">
+        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-2xl">
           <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10">
             <div>
               <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
@@ -440,9 +440,9 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Bubble Dialog - Update colors */}
+      {/* Create Bubble Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-[#FEF7E4] border-none">
+        <DialogContent className="sm:max-w-[500px] bg-[#FEF7E4] border-none rounded-2xl p-8">
           <DialogHeader>
             <DialogTitle className="text-[#ebbd34] text-xl">Create New Bubble</DialogTitle>
             <DialogDescription className="text-[#ebbd34]/70">
