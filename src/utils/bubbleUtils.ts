@@ -14,9 +14,9 @@ export const createBubbleMaterial = () => {
     color: BUBBLE_COLOR,
     transparent: true,
     opacity: 0.7,
-    metalness: 0.1, // Reduced metalness to show more of the true color
+    metalness: 0.1,
     roughness: 0.2,
-    transmission: 0.3, // Reduced transmission to make color more visible
+    transmission: 0.3,
     thickness: 0.5,
     clearcoat: 1.0,
     clearcoatRoughness: 0.1
@@ -41,9 +41,9 @@ export const createCentralWorldMaterial = () => {
   });
 };
 
-export const createTextCanvas = (text: string, fontSize: number = 64): THREE.Texture => {
+export const createTextCanvas = (text: string, fontSize: number = 48): THREE.Texture => {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
+  canvas.width = 512; // Increased canvas size for better text quality
   canvas.height = 256;
   const context = canvas.getContext('2d');
 
@@ -55,18 +55,18 @@ export const createTextCanvas = (text: string, fontSize: number = 64): THREE.Tex
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     
-    // Extra thick black outline for maximum contrast
+    // Even thicker black outline for maximum contrast
     context.strokeStyle = '#000000';
-    context.lineWidth = 8;
+    context.lineWidth = 12;
     context.strokeText(text, canvas.width / 2, canvas.height / 2);
     
     // Bright white text
     context.fillStyle = '#FFFFFF';
     context.fillText(text, canvas.width / 2, canvas.height / 2);
     
-    // Add extra glow/shadow for depth
-    context.shadowColor = 'rgba(0, 0, 0, 0.8)';
-    context.shadowBlur = 15;
+    // Multiple passes for stronger glow effect
+    context.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    context.shadowBlur = 20;
     context.shadowOffsetX = 4;
     context.shadowOffsetY = 4;
     context.fillText(text, canvas.width / 2, canvas.height / 2);

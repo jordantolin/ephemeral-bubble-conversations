@@ -103,7 +103,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('click', handleClick);
 
-    // Create bubbles with improved spacing and text
+    // Create bubbles with improved spacing and text positioning
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -118,34 +118,35 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text sprite
+      // Create text sprite positioned above bubble
       const textTexture = createTextCanvas(topic.name);
       const spriteMaterial = new THREE.SpriteMaterial({ 
         map: textTexture,
         transparent: true,
-        opacity: 1
+        opacity: 1,
+        depthTest: false // Ensures text is always visible
       });
       const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.scale.set(finalSize * 2, finalSize * 2, 1);
-      sprite.position.z = finalSize * 0.5;
+      sprite.scale.set(finalSize * 2.5, finalSize * 1.25, 1);
+      sprite.position.y = finalSize * 1.2; // Position above bubble
       bubbleGroup.add(sprite);
 
-      // Add reflect count text
-      const reflectTexture = createTextCanvas(`⭐ ${topic.reflect_count}`, 48);
+      // Add reflect count text below bubble name
+      const reflectTexture = createTextCanvas(`⭐ ${topic.reflect_count}`, 36);
       const reflectMaterial = new THREE.SpriteMaterial({
         map: reflectTexture,
         transparent: true,
-        opacity: 1
+        opacity: 1,
+        depthTest: false // Ensures text is always visible
       });
       const reflectSprite = new THREE.Sprite(reflectMaterial);
-      reflectSprite.scale.set(finalSize * 1.5, finalSize * 1.5, 1);
-      reflectSprite.position.z = finalSize * 0.5;
-      reflectSprite.position.y = -finalSize * 1.2;
+      reflectSprite.scale.set(finalSize * 2, finalSize, 1);
+      reflectSprite.position.y = finalSize * 0.8; // Position just below the name
       bubbleGroup.add(reflectSprite);
 
-      // Position bubbles in a spherical arrangement around the central world
+      // Position bubbles closer to the central world
       const totalBubbles = topics.length;
-      const radius = isMobile ? 4 : 6;
+      const radius = isMobile ? 3 : 4; // Reduced radius to keep bubbles closer
       const phi = Math.acos(-1 + (2 * index) / totalBubbles);
       const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
 
@@ -159,6 +160,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         reflectCount: topic.reflect_count
       };
 
+      // Make bubble group always face camera
       bubbleGroup.lookAt(new THREE.Vector3(0, 0, 0));
       bubblesRef.current[topic.id] = bubbleGroup;
       scene.add(bubbleGroup);
@@ -217,24 +219,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
 
-    // Animation loop with smooth rotation for central world
+    // Animation loop with smooth rotation
     const animate = () => {
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
       
       animationFrameRef.current = requestAnimationFrame(animate);
       
-      // Update camera position and rotation
       updateCamera(cameraRef.current);
       
-      // Rotate central world
+      // Rotate central world slowly
       centralWorld.rotation.y += 0.001;
       
-      // Update tweens
       TWEEN.update();
 
-      // Make bubbles face camera
+      // Make text always face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        bubbleGroup.quaternion.copy(camera.quaternion);
+        const cameraPos = cameraRef.current!.position;
+        bubbleGroup.children.forEach((child, index) => {
+          if (child instanceof THREE.Sprite) {
+            child.lookAt(cameraPos);
+          }
+        });
       });
 
       renderer.render(scene, camera);
