@@ -16,7 +16,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const planetRef = useRef<THREE.Mesh | null>(null);
   const isCleanedUpRef = useRef(false);
   const { isInteractingRef, targetRotationRef, dragStartRef, isDraggingRef, handleReflect } = useBubbleInteraction();
-  const { zoomRef, handleWheel } = useCameraControls();
+  const { zoomRef, panRef, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd } = useCameraControls();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -200,9 +200,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       isDraggingRef.current = false;
     };
 
-    containerRef.current.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    // Add touch event listeners
+    containerRef.current.addEventListener('touchstart', handleTouchStart, { passive: false });
+    containerRef.current.addEventListener('touchmove', handleTouchMove, { passive: false });
+    containerRef.current.addEventListener('touchend', handleTouchEnd);
     containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
 
     // Update the dblclick handler to use onBubbleClick prop
@@ -243,6 +244,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       TWEEN.update();
 
+      // Smoothly update camera position
+      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
+      cameraRef.current.position.z = zoomRef.current.current;
+
       // Update text orientation to always face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         // Make text always face camera
@@ -271,7 +276,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     animate();
 
-    // Cleanup function
     return () => {
       // Prevent multiple cleanups
       if (isCleanedUpRef.current) return;
@@ -317,8 +321,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       // Remove wheel event listener
       containerRef.current?.removeEventListener('wheel', handleWheel);
+      containerRef.current?.removeEventListener('touchstart', handleTouchStart);
+      containerRef.current?.removeEventListener('touchmove', handleTouchMove);
+      containerRef.current?.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [topics, onBubbleClick, handleReflect, handleWheel]);
+  }, [topics, onBubbleClick, handleReflect, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return (
     <div 

@@ -313,15 +313,15 @@ const Index = () => {
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container relative mx-auto px-2 sm:px-4 py-4 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
+      <main className="container relative mx-auto px-2 sm:px-4 py-4 pt-20 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
         <div className="text-center mb-4 sm:mb-8 relative z-10">
-          <h1 className="text-2xl sm:text-4xl font-light text-[#ebbd34] mb-2">
+          <h1 className="text-2xl sm:text-4xl font-light text-[#ebbd34] mb-2 px-4">
             Welcome to Bubble Trouble
           </h1>
           <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
         </div>
 
-        <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
+        <div className="relative w-full h-[calc(100dvh-220px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent backdrop-blur-sm">
           <BubbleWorld 
             topics={bubbles}
             onBubbleClick={handleBubbleClick}
@@ -330,35 +330,35 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="mt-4 sm:mt-8 relative z-10 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-primary-foreground transform transition-all duration-300 hover:scale-105 shadow-lg"
-          size="lg"
+          className="fixed bottom-6 right-6 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-primary-foreground transform transition-all duration-300 hover:scale-105 shadow-lg rounded-full w-14 h-14 p-0 sm:static sm:w-auto sm:h-auto sm:p-3 sm:mt-8"
+          size="icon"
         >
-          <Plus className="w-5 h-5 mr-2" />
-          <span>Create Bubble</span>
+          <Plus className="w-6 h-6 sm:w-5 sm:h-5 sm:mr-2" />
+          <span className="hidden sm:inline">Create Bubble</span>
         </Button>
       </main>
 
       {/* Chat Dialog with Real-time Updates */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
-          <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogContent className="sm:max-w-[500px] h-[80vh] sm:h-[600px] flex flex-col p-0">
+          <DialogHeader className="flex flex-row items-center justify-between p-4 border-b">
             <div>
-              <DialogTitle>{selectedBubble?.name}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-[#ebbd34]">{selectedBubble?.name}</DialogTitle>
+              <DialogDescription className="text-[#ebbd34]/70">
                 {selectedBubble?.description}
               </DialogDescription>
             </div>
             <Button
               variant="outline"
               size="icon"
-              className="ml-4 hover:text-yellow-500 transition-colors"
+              className="ml-4 hover:text-[#ebbd34] transition-colors border-[#ebbd34]"
               onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
             >
               <Star className="h-4 w-4" />
             </Button>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 px-4 py-3 space-y-4 mb-4">
+          <ScrollArea className="flex-1 px-4 py-3 space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -366,25 +366,26 @@ const Index = () => {
                   message.username === "@user" ? "items-end" : "items-start"
                 }`}
               >
-                <div className={`max-w-[80%] rounded-lg p-3 ${
+                <div className={`max-w-[80%] rounded-2xl p-3 ${
                   message.username === "@user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
+                    ? "bg-[#ebbd34] text-white"
+                    : "bg-[#ebbd34]/10 text-[#ebbd34]"
                 }`}>
                   <p className="text-sm">{message.content}</p>
                 </div>
-                <span className="text-xs text-muted-foreground mt-1">
+                <span className="text-xs text-[#ebbd34]/70 mt-1">
                   {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
                 </span>
               </div>
             ))}
           </ScrollArea>
 
-          <div className="flex flex-col gap-2 p-4 border-t">
-            <div className="flex gap-2 mb-2">
+          <div className="flex flex-col gap-2 p-4 border-t bg-white/80 backdrop-blur-sm">
+            <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
               <Button 
                 variant="outline" 
                 size="icon"
+                className="shrink-0 border-[#ebbd34] text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={() => handleFileUpload('image')}
               >
                 <Image className="h-4 w-4" />
@@ -392,6 +393,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon"
+                className="shrink-0 border-[#ebbd34] text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={() => handleFileUpload('video')}
               >
                 <Video className="h-4 w-4" />
@@ -399,6 +401,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon"
+                className="shrink-0 border-[#ebbd34] text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={() => handleFileUpload('gif')}
               >
                 <SmilePlus className="h-4 w-4" />
@@ -406,6 +409,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon"
+                className="shrink-0 border-[#ebbd34] text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={handleVoiceRecord}
               >
                 <Mic className="h-4 w-4" />
@@ -422,9 +426,13 @@ const Index = () => {
                     handleSendMessage();
                   }
                 }}
-                className="flex-1"
+                className="flex-1 border-[#ebbd34] focus:ring-[#ebbd34] text-[#ebbd34] placeholder-[#ebbd34]/50"
               />
-              <Button onClick={handleSendMessage} size="icon">
+              <Button 
+                onClick={handleSendMessage} 
+                size="icon" 
+                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+              >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
@@ -436,20 +444,20 @@ const Index = () => {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Create New Bubble</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-[#ebbd34]">Create New Bubble</DialogTitle>
+            <DialogDescription className="text-[#ebbd34]/70">
               Choose a topic and name for your new bubble community.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="topic">Topic</Label>
+              <Label htmlFor="topic" className="text-[#ebbd34]">Topic</Label>
               <Select
                 value={newBubble.topic}
                 onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full border-[#ebbd34] text-[#ebbd34]">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -463,22 +471,24 @@ const Index = () => {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="name">Bubble Name</Label>
+              <Label htmlFor="name" className="text-[#ebbd34]">Bubble Name</Label>
               <Input
                 id="name"
                 value={newBubble.name}
                 onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
                 placeholder="Give your bubble a name..."
+                className="border-[#ebbd34] text-[#ebbd34] placeholder-[#ebbd34]/50"
               />
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-[#ebbd34]">Description</Label>
               <Textarea
                 id="description"
                 value={newBubble.description}
                 onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
                 placeholder="What's your bubble about?"
+                className="border-[#ebbd34] text-[#ebbd34] placeholder-[#ebbd34]/50"
               />
             </div>
           </div>
@@ -487,6 +497,7 @@ const Index = () => {
             <Button
               variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
+              className="border-[#ebbd34] text-[#ebbd34] hover:text-[#ebbd34]/70"
             >
               Cancel
             </Button>
