@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
@@ -28,16 +27,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const availableTopics = [
-  "Technology",
-  "Art",
+  "Art & Design",
+  "Books & Writing",
+  "Business",
+  "Education",
+  "Entertainment",
+  "Food & Cooking",
+  "Gaming",
+  "Health & Fitness",
   "Music",
-  "Travel",
+  "Nature & Environment",
+  "Science & Tech",
+  "Social & Community",
   "Sports",
-  "Cooking",
-  "Movies",
-  "Literature",
-  "Science",
-  "Gaming"
+  "Travel & Adventure",
+  "World Culture"
 ];
 
 interface Bubble {
@@ -173,15 +177,19 @@ const Index = () => {
       return;
     }
 
-    const { error } = await supabase
+    const newBubbleData = {
+      name: newBubble.name,
+      topic: newBubble.topic,
+      description: newBubble.description,
+      username: newBubble.username,
+      size: "md" as const
+    };
+
+    const { data, error } = await supabase
       .from('bubbles')
-      .insert({
-        name: newBubble.name,
-        topic: newBubble.topic,
-        description: newBubble.description,
-        username: newBubble.username,
-        size: "md" as const // Explicitly type as "md"
-      });
+      .insert(newBubbleData)
+      .select()
+      .single();
 
     if (error) {
       toast({
@@ -192,14 +200,15 @@ const Index = () => {
       return;
     }
 
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    // Immediately close dialog and show success message
+    setIsCreateDialogOpen(false);
     toast({
       title: "Success!",
       description: "New bubble created successfully",
     });
 
+    // Reset form
     setNewBubble({ name: "", description: "", topic: "", username: "@user" });
-    setIsCreateDialogOpen(false);
   };
 
   const handleBubbleClick = (id: string) => {
@@ -283,7 +292,7 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="mt-4 sm:mt-8 relative z-10 bg-[#FFE566] hover:bg-[#FFD700] text-primary-foreground transform transition-all duration-300 hover:scale-105"
+          className="mt-4 sm:mt-8 relative z-10 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-primary-foreground transform transition-all duration-300 hover:scale-105 shadow-lg"
           size="lg"
         >
           <Plus className="w-5 h-5 mr-2" />
@@ -297,39 +306,19 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Create New Bubble</DialogTitle>
             <DialogDescription>
-              Add your bubble to the universe. Fill in the details below.
+              Choose a topic and name for your new bubble community.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Bubble Name</Label>
-              <Input
-                id="name"
-                value={newBubble.name}
-                onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
-                placeholder="Enter bubble name..."
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={newBubble.description}
-                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
-                placeholder="Describe your bubble..."
-              />
-            </div>
-
             <div className="grid gap-2">
               <Label htmlFor="topic">Topic</Label>
               <Select
                 value={newBubble.topic}
                 onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a topic" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableTopics.map((topic) => (
@@ -340,6 +329,26 @@ const Index = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="name">Bubble Name</Label>
+              <Input
+                id="name"
+                value={newBubble.name}
+                onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
+                placeholder="Give your bubble a name..."
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newBubble.description}
+                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
+                placeholder="What's your bubble about?"
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -349,7 +358,10 @@ const Index = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateBubble}>
+            <Button 
+              onClick={handleCreateBubble}
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+            >
               Create Bubble
             </Button>
           </DialogFooter>
