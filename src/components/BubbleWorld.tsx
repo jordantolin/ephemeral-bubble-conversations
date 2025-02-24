@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
 import * as TWEEN from '@tweenjs/tween.js';
 import { supabase } from "@/integrations/supabase/client";
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface BubbleData {
   id: string;
@@ -11,6 +10,7 @@ interface BubbleData {
   username: string;
   name: string;
   size: "sm" | "md" | "lg";
+  reflect_count: number;
   created_at?: string;
 }
 
@@ -49,6 +49,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     startDistance: 0,
     initialZoom: 16
   });
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -135,32 +138,38 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const createBubble = (topicData: BubbleData, index: number) => {
       const bubbleGroup = new THREE.Group();
       
-      const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
+      // Scale based on reflect count
+      const baseSize = topicData.size === 'lg' ? 0.8 : 
+                      topicData.size === 'md' ? 0.6 : 0.4;
+      const reflectScale = 1 + (topicData.reflect_count * 0.1); // Grow with reflects
+      const finalSize = baseSize * reflectScale;
       
-      // Create bubble with lighter color
-      const geometry = new THREE.SphereGeometry(baseSize, 32, 32);
+      // Create bubble with refined appearance
+      const geometry = new THREE.SphereGeometry(finalSize, 32, 32);
       const material = new THREE.MeshStandardMaterial({
-        color: 0xebc942, // Lighter yellow color as requested
+        color: 0xebc942,
         emissive: 0xebc942,
         emissiveIntensity: 0.1,
         metalness: 0.2,
         roughness: 0.3,
+        transparent: true,
+        opacity: 0.9
       });
 
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Add subtle glow to bubbles
-      const bubbleGlowGeometry = new THREE.SphereGeometry(baseSize * 1.1, 32, 32);
-      const bubbleGlowMaterial = new THREE.MeshStandardMaterial({
+      // Add subtle glow effect
+      const glowGeometry = new THREE.SphereGeometry(finalSize * 1.1, 32, 32);
+      const glowMaterial = new THREE.MeshStandardMaterial({
         color: 0xebc942,
         transparent: true,
         opacity: 0.1
       });
-      const bubbleGlow = new THREE.Mesh(bubbleGlowGeometry, bubbleGlowMaterial);
-      bubble.add(bubbleGlow);
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      bubble.add(glow);
 
-      // Create text
+      // Improved text rendering
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
       canvas.height = 1024;
@@ -173,9 +182,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.globalCompositeOperation = 'source-over';
         
-        const nameSize = Math.floor(canvas.height * 0.12);
-        const topicSize = Math.floor(canvas.height * 0.11);
-        const usernameSize = Math.floor(canvas.height * 0.10);
+        // Scale text sizes based on bubble size
+        const nameSize = Math.floor(canvas.height * 0.12 * reflectScale);
+        const topicSize = Math.floor(canvas.height * 0.11 * reflectScale);
+        const usernameSize = Math.floor(canvas.height * 0.10 * reflectScale);
         
         const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
@@ -184,10 +194,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           context.textAlign = 'center';
           context.textBaseline = 'middle';
           
+          // Enhanced text appearance
           context.strokeStyle = '#000000';
           context.lineWidth = fontSize * 0.2;
           context.lineJoin = 'round';
-          context.font = `${fontSize}px Inter`;
+          context.font = `bold ${fontSize}px Inter`;
           context.strokeText(text, canvas.width/2, y);
           
           context.fillStyle = '#FFFFFF';
@@ -209,13 +220,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         side: THREE.DoubleSide,
       });
 
-      const textGeometry = new THREE.PlaneGeometry(baseSize * 3, baseSize * 3);
+      const textGeometry = new THREE.PlaneGeometry(finalSize * 3, finalSize * 3);
       const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.z = baseSize * 1.1;
+      textMesh.position.z = finalSize * 1.1;
       bubbleGroup.add(textMesh);
 
-      // Position bubble closer to the central sphere
-      const radius = 4.8; // Reduced radius to bring bubbles closer to the central sphere
+      // Position bubble with slight randomization
+      const radius = 4.8;
       const angle = (index / topics.length) * Math.PI * 2;
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
@@ -225,11 +236,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const z = radius * Math.sin(angle) * Math.sin(theta * 0.5);
       
       bubbleGroup.position.set(x, y, z);
-
       bubbleGroup.userData = {
         id: topicData.id,
         orbitRadius: radius,
-        orbitSpeed: 0.0005, // Slightly slower orbit
+        orbitSpeed: 0.0005,
         orbitAngle: angle,
         orbitHeight: y
       };
@@ -238,11 +248,34 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return bubbleGroup;
     };
 
-    // Create initial bubbles
-    topics.forEach((topic, index) => {
-      const bubbleGroup = createBubble(topic, index);
-      bubbleContainer.add(bubbleGroup);
-    });
+    // Handle click events
+    const handleClick = (event: MouseEvent) => {
+      if (isInteractingRef.current) return; // Don't trigger click if dragging
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      if (cameraRef.current && sceneRef.current) {
+        raycaster.setFromCamera(mouse, cameraRef.current);
+        const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
+
+        for (const intersect of intersects) {
+          let current = intersect.object;
+          while (current.parent) {
+            if (current.userData?.id) {
+              onBubbleClick(current.userData.id);
+              return;
+            }
+            current = current.parent;
+          }
+        }
+      }
+    };
+
+    containerRef.current.addEventListener('click', handleClick);
 
     // Enhanced zoom handler for mouse wheel
     const handleWheel = (event: WheelEvent) => {
@@ -444,6 +477,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         containerRef.current.removeEventListener('wheel', handleWheel);
         containerRef.current.removeEventListener('touchstart', handleTouchStart);
         containerRef.current.removeEventListener('mousedown', onMouseDown);
+        containerRef.current.removeEventListener('click', handleClick);
       }
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('mousemove', onMouseMove);
