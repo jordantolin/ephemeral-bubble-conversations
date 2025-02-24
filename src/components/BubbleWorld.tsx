@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
@@ -84,7 +85,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Create bubble function with corrected parameter type
+    // Create bubble function
     const createBubble = (topicData: { id: string; topic: string; username: string; name: string; size: "sm" | "md" | "lg" }, index: number) => {
       const bubbleGroup = new THREE.Group();
 
@@ -102,8 +103,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
       // Create text canvas
       const canvas = document.createElement('canvas');
-      canvas.width = 1024;
-      canvas.height = 1024;
+      canvas.width = 2048; // Increased resolution
+      canvas.height = 2048;
       const context = canvas.getContext('2d');
       
       if (context) {
@@ -111,12 +112,19 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        const nameSize = Math.floor(canvas.height * 0.08);
-        const topicSize = Math.floor(canvas.height * 0.07);
-        const usernameSize = Math.floor(canvas.height * 0.06);
+        // Increased text sizes for better visibility
+        const nameSize = Math.floor(canvas.height * 0.1);
+        const topicSize = Math.floor(canvas.height * 0.09);
+        const usernameSize = Math.floor(canvas.height * 0.08);
         
         const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
+
+        // Add text shadow for better visibility
+        context.shadowColor = 'white';
+        context.shadowBlur = 15;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 0;
 
         context.font = `bold ${nameSize}px Inter`;
         context.fillStyle = '#344ceb';
@@ -136,19 +144,21 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       textTexture.needsUpdate = true;
       textTexture.minFilter = THREE.LinearFilter;
       textTexture.magFilter = THREE.LinearFilter;
+      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2, bubbleSize * 2);
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.5, bubbleSize * 2.5);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
         side: THREE.DoubleSide,
+        depthWrite: false, // Ensures text is always visible
+        alphaTest: 0.1 // Helps with transparency issues
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
       textPlane.position.z = bubbleSize * 1.1;
       bubbleGroup.add(textPlane);
 
-      // Position bubble
       const radius = 6;
       const angle = (index / topics.length) * Math.PI * 2;
       const x = radius * Math.cos(angle);
@@ -171,7 +181,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       return bubbleGroup;
     };
 
-    // Create initial bubbles - now passing the entire topic object
+    // Create initial bubbles
     topics.forEach((topic, index) => {
       createBubble(topic, index);
     });
@@ -210,6 +220,14 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
     const onMouseUp = () => {
       isRotating = false;
+    };
+
+    // Add zoom handler
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const zoomSpeed = 0.001;
+      const newZ = camera.position.z + event.deltaY * zoomSpeed;
+      camera.position.z = Math.max(minDistance, Math.min(maxDistance, newZ));
     };
 
     const onClick = (event: MouseEvent) => {
@@ -266,6 +284,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('mouseup', onMouseUp);
     renderer.domElement.addEventListener('click', onClick);
+    renderer.domElement.addEventListener('wheel', onWheel); // Add zoom listener
 
     // Start animation
     animate();
@@ -277,6 +296,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         renderer.domElement.removeEventListener('mousemove', onMouseMove);
         renderer.domElement.removeEventListener('mouseup', onMouseUp);
         renderer.domElement.removeEventListener('click', onClick);
+        renderer.domElement.removeEventListener('wheel', onWheel); // Remove zoom listener
         containerRef.current.removeChild(renderer.domElement);
       }
       renderer.dispose();
