@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
+import * * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
 import * as TWEEN from '@tweenjs/tween.js';
 import { supabase } from "@/integrations/supabase/client";
@@ -52,12 +52,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup with persistent reference
+    // Camera setup with proper perspective for interaction
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.z = 15;
     cameraRef.current = camera;
 
-    // Renderer setup with persistent reference
+    // Enhanced renderer setup
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -94,13 +94,154 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     fillLight.position.set(-5, -2, 8);
     scene.add(fillLight);
 
+    // Interaction state
+    let isRotating = false;
+    let isPinching = false;
+    let previousMousePosition = { x: 0, y: 0 };
+    let previousTouchDistance = 0;
+    let targetRotation = { x: 0, y: 0 };
+    let currentRotation = { x: 0, y: 0 };
+
+    // Raycaster for bubble interaction
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // Touch/mouse handlers
+    const onMouseDown = (event: MouseEvent) => {
+      isRotating = true;
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+      };
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      if (!isRotating) return;
+
+      const deltaX = event.clientX - previousMousePosition.x;
+      const deltaY = event.clientY - previousMousePosition.y;
+
+      targetRotation.y += deltaX * 0.004;
+      targetRotation.x += deltaY * 0.004;
+
+      // Limit vertical rotation
+      targetRotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, targetRotation.x));
+
+      previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+      };
+    };
+
+    const onMouseUp = () => {
+      isRotating = false;
+    };
+
+    // Touch handlers for mobile
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 1) {
+        isRotating = true;
+        previousMousePosition = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY
+        };
+      } else if (event.touches.length === 2) {
+        isPinching = true;
+        previousTouchDistance = Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY
+        );
+      }
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.touches.length === 1 && isRotating) {
+        const deltaX = event.touches[0].clientX - previousMousePosition.x;
+        const deltaY = event.touches[0].clientY - previousMousePosition.y;
+
+        targetRotation.y += deltaX * 0.004;
+        targetRotation.x += deltaY * 0.004;
+
+        // Limit vertical rotation
+        targetRotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, targetRotation.x));
+
+        previousMousePosition = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY
+        };
+      } else if (event.touches.length === 2 && isPinching) {
+        const distance = Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY
+        );
+        const delta = (previousTouchDistance - distance) * 0.01;
+        camera.position.z = Math.max(8, Math.min(20, camera.position.z + delta));
+        previousTouchDistance = distance;
+      }
+    };
+
+    const onTouchEnd = () => {
+      isRotating = false;
+      isPinching = false;
+    };
+
+    // Zoom handler
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const zoomSpeed = 0.001;
+      camera.position.z = Math.max(8, Math.min(20, camera.position.z + event.deltaY * zoomSpeed));
+    };
+
+    // Click/tap handler for bubble interaction
+    const onClick = (event: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      if (intersects.length > 0) {
+        let bubble = intersects[0].object;
+        while (bubble.parent && !bubble.userData.id) {
+          bubble = bubble.parent;
+        }
+        if (bubble.userData.id) {
+          setSelectedBubbleId(bubble.userData.id);
+          onBubbleClick(bubble.userData.id);
+
+          // Animate camera to focus on selected bubble
+          new TWEEN.Tween(camera.position)
+            .to({
+              x: bubble.position.x * 0.8,
+              y: bubble.position.y * 0.8,
+              z: camera.position.z * 0.8
+            })
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .duration(1000)
+            .start();
+        }
+      }
+    };
+
+    // Add event listeners
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('mouseup', onMouseUp);
+    renderer.domElement.addEventListener('mouseleave', onMouseUp);
+    renderer.domElement.addEventListener('wheel', onWheel);
+    renderer.domElement.addEventListener('click', onClick);
+    renderer.domElement.addEventListener('touchstart', onTouchStart);
+    renderer.domElement.addEventListener('touchmove', onTouchMove);
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+
     // Bubble container
     const bubbleContainer = new THREE.Group();
     scene.add(bubbleContainer);
 
     // Raycaster setup
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
+    const raycaster2 = new THREE.Raycaster();
+    const mouse2 = new THREE.Vector2();
 
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
@@ -278,15 +419,22 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.add(bubbleGroup);
     });
 
-    // Optimized animation loop
+    // Enhanced animation loop with smooth camera movement
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
 
+      // Smooth camera rotation
+      currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
+      currentRotation.y += (targetRotation.y - currentRotation.y) * 0.1;
+
+      scene.rotation.x = currentRotation.x;
+      scene.rotation.y = currentRotation.y;
+
       TWEEN.update();
 
-      // Update bubble positions
+      // Update bubble positions with smooth movement
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
@@ -296,17 +444,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
           bubbleGroup.position.set(x, y, z);
 
-          // Update text orientation
-          if (bubbleGroup.userData.textPlane) {
-            bubbleGroup.userData.textPlane.quaternion.copy(cameraRef.current.quaternion);
+          // Always face camera
+          if (bubbleGroup.children[1]) {
+            bubbleGroup.children[1].quaternion.copy(camera.quaternion);
           }
         }
       });
 
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
+      renderer.render(scene, camera);
     };
 
-    // Start animation loop
+    // Start animation
     animate();
 
     // Handle real-time updates asynchronously
@@ -352,85 +500,30 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       )
       .subscribe();
 
-    // Interaction state
-    let isRotating = false;
-    let isPinching = false;
-    let previousMousePosition = { x: 0, y: 0 };
-    let previousTouchDistance = 0;
-    let targetRotation = { x: 0, y: 0 };
-    let currentRotation = { x: 0, y: 0 };
-
-    // Mouse/Touch handlers
-    const onMouseDown = (event: MouseEvent) => {
-      isRotating = true;
-      previousMousePosition = {
-        x: event.clientX,
-        y: event.clientY
-      };
-    };
-
-    const onMouseMove = (event: MouseEvent) => {
-      if (!isRotating) return;
-
-      const deltaX = event.clientX - previousMousePosition.x;
-      const deltaY = event.clientY - previousMousePosition.y;
-
-      targetRotation.x += deltaY * 0.004;
-      targetRotation.y += deltaX * 0.004;
-
-      previousMousePosition = {
-        x: event.clientX,
-        y: event.clientY
-      };
-    };
-
-    const onMouseUp = () => {
-      isRotating = false;
-    };
-
-    // Add zoom handler
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const zoomSpeed = 0.001;
-      const newZ = camera.position.z + event.deltaY * zoomSpeed;
-      camera.position.z = Math.max(8, Math.min(20, newZ));
-    };
-
-    const onClick = (event: MouseEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(bubbleContainer.children, true);
-
-      if (intersects.length > 0) {
-        let bubble = intersects[0].object;
-        while (bubble.parent && !bubble.userData.id) {
-          bubble = bubble.parent;
-        }
-        if (bubble.userData.id) {
-          setSelectedBubbleId(bubble.userData.id);
-          onBubbleClick(bubble.userData.id);
-        }
-      }
-    };
-
     // Enhanced cleanup
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       
+      // Remove event listeners
+      renderer.domElement.removeEventListener('mousedown', onMouseDown);
+      renderer.domElement.removeEventListener('mousemove', onMouseMove);
+      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('mouseleave', onMouseUp);
+      renderer.domElement.removeEventListener('wheel', onWheel);
+      renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
+
       if (rendererRef.current && containerRef.current) {
         rendererRef.current.dispose();
         containerRef.current.removeChild(rendererRef.current.domElement);
       }
 
-      // Clear all tweens
       TWEEN.removeAll();
 
-      // Clear all timeouts
       Object.values(bubblesRef.current).forEach(bubble => {
         if (bubble.userData.explosionTimeout) {
           clearTimeout(bubble.userData.explosionTimeout);
