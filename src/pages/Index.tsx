@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { Plus, Send, Image, Video, Mic, SmilePlus } from "lucide-react";
+import { Plus, Send, Image, Video, Mic, SmilePlus, Heart } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -50,8 +51,10 @@ interface Bubble {
   username: string;
   name: string;
   size: "sm" | "md" | "lg";
-  description: string;
-  messages: Message[];
+  description: string | null;
+  reflect_count: number;
+  expires_at: string;
+  created_at: string;
 }
 
 interface Message {
@@ -61,9 +64,11 @@ interface Message {
   timestamp: string;
 }
 
-// Type guard to check if size is valid
-const isValidSize = (size: string): size is "sm" | "md" | "lg" => {
-  return ["sm", "md", "lg"].includes(size);
+// Helper function to calculate bubble size based on reflects
+const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
+  if (reflectCount >= 10) return "lg";
+  if (reflectCount >= 5) return "md";
+  return "sm";
 };
 
 const Index = () => {
@@ -80,13 +85,14 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch bubbles
+  // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bubbles')
-        .select('*');
+        .select('*')
+        .gte('expires_at', new Date().toISOString());
       
       if (error) {
         toast({
@@ -97,18 +103,12 @@ const Index = () => {
         return [];
       }
 
-      // Transform and validate the data to match the expected types
       return data.map(bubble => ({
-        id: bubble.id,
-        topic: bubble.topic,
-        username: bubble.username,
-        name: bubble.name,
-        // Ensure size is one of the valid options, default to "md" if invalid
-        size: isValidSize(bubble.size) ? bubble.size : "md",
-        description: bubble.description || "",
-        messages: []
-      })) as Bubble[];
-    }
+        ...bubble,
+        size: calculateBubbleSize(bubble.reflect_count || 0)
+      }));
+    },
+    refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
 
   // Fetch messages for selected bubble
@@ -142,31 +142,6 @@ const Index = () => {
     enabled: !!selectedBubbleId
   });
 
-  // Subscribe to real-time updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bubble_messages'
-        },
-        (payload) => {
-          // Refresh messages when there's a change
-          queryClient.invalidateQueries({
-            queryKey: ['messages', selectedBubbleId]
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedBubbleId, queryClient]);
-
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
       toast({
@@ -177,12 +152,16 @@ const Index = () => {
       return;
     }
 
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
     const newBubbleData = {
       name: newBubble.name,
       topic: newBubble.topic,
       description: newBubble.description,
       username: newBubble.username,
-      size: "md" as const
+      size: "md" as const,
+      expires_at: expiresAt.toISOString()
     };
 
     const { data, error } = await supabase
@@ -200,15 +179,47 @@ const Index = () => {
       return;
     }
 
-    // Immediately close dialog and show success message
     setIsCreateDialogOpen(false);
     toast({
       title: "Success!",
       description: "New bubble created successfully",
     });
 
-    // Reset form
     setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+  };
+
+  const handleReflect = async (bubbleId: string) => {
+    const { error } = await supabase
+      .from('reflects')
+      .insert({ 
+        bubble_id: bubbleId,
+        username: "@user" 
+      });
+
+    if (error) {
+      if (error.code === '23505') { // Unique violation
+        toast({
+          title: "Already reflected",
+          description: "You have already reflected this bubble",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error reflecting bubble",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+
+    toast({
+      title: "Bubble reflected!",
+      description: "This bubble will appear in your profile",
+    });
+
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
   };
 
   const handleBubbleClick = (id: string) => {
@@ -265,11 +276,39 @@ const Index = () => {
     }
 
     setNewMessage("");
+    queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+
     toast({
       title: "Message Sent",
       description: "Your message has been sent successfully",
     });
   };
+
+  // Subscribe to real-time updates for reflects and bubble changes
+  useEffect(() => {
+    const channel = supabase.channel('db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reflects' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bubble_messages' },
+        () => {
+          if (selectedBubbleId) {
+            queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedBubbleId, queryClient]);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -300,82 +339,24 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Create Bubble Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Create New Bubble</DialogTitle>
-            <DialogDescription>
-              Choose a topic and name for your new bubble community.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="topic">Topic</Label>
-              <Select
-                value={newBubble.topic}
-                onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTopics.map((topic) => (
-                    <SelectItem key={topic} value={topic}>
-                      {topic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="name">Bubble Name</Label>
-              <Input
-                id="name"
-                value={newBubble.name}
-                onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
-                placeholder="Give your bubble a name..."
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={newBubble.description}
-                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
-                placeholder="What's your bubble about?"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCreateBubble}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
-            >
-              Create Bubble
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Chat Dialog */}
+      {/* Chat Dialog with Reflect Button */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{selectedBubble?.name}</DialogTitle>
-            <DialogDescription>
-              {selectedBubble?.description}
-            </DialogDescription>
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle>{selectedBubble?.name}</DialogTitle>
+              <DialogDescription>
+                {selectedBubble?.description}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="ml-4"
+              onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
+            >
+              <Heart className="h-4 w-4" />
+            </Button>
           </DialogHeader>
 
           <ScrollArea className="flex-1 px-4 py-3 space-y-4 mb-4">
@@ -449,6 +430,74 @@ const Index = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Bubble Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New Bubble</DialogTitle>
+            <DialogDescription>
+              Choose a topic and name for your new bubble community.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="topic">Topic</Label>
+              <Select
+                value={newBubble.topic}
+                onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTopics.map((topic) => (
+                    <SelectItem key={topic} value={topic}>
+                      {topic}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="name">Bubble Name</Label>
+              <Input
+                id="name"
+                value={newBubble.name}
+                onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
+                placeholder="Give your bubble a name..."
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newBubble.description}
+                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
+                placeholder="What's your bubble about?"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateBubble}
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+            >
+              Create Bubble
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
