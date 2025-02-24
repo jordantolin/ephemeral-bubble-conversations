@@ -45,10 +45,8 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
-          expires_at: string | null
           id: string
           name: string
-          reflect_count: number | null
           size: string
           topic: string
           username: string
@@ -56,10 +54,8 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
-          expires_at?: string | null
           id?: string
           name: string
-          reflect_count?: number | null
           size: string
           topic: string
           username: string
@@ -67,10 +63,8 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
-          expires_at?: string | null
           id?: string
           name?: string
-          reflect_count?: number | null
           size?: string
           topic?: string
           username?: string
@@ -100,35 +94,6 @@ export type Database = {
           name?: string
         }
         Relationships: []
-      }
-      reflects: {
-        Row: {
-          bubble_id: string
-          created_at: string
-          id: string
-          username: string
-        }
-        Insert: {
-          bubble_id: string
-          created_at?: string
-          id?: string
-          username: string
-        }
-        Update: {
-          bubble_id?: string
-          created_at?: string
-          id?: string
-          username?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reflects_bubble_id_fkey"
-            columns: ["bubble_id"]
-            isOneToOne: false
-            referencedRelation: "bubbles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       waitlist: {
         Row: {

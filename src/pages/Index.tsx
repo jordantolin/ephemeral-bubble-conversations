@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { Plus, Send, Image, Video, Mic, SmilePlus, Heart } from "lucide-react";
+import { Plus, Send, Image, Video, Mic, SmilePlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,16 @@ const availableTopics = [
   "World Culture"
 ];
 
+interface Bubble {
+  id: string;
+  topic: string;
+  username: string;
+  name: string;
+  size: "sm" | "md" | "lg";
+  description: string;
+  messages: Message[];
+}
+
 interface Message {
   id: string;
   content: string;
@@ -51,18 +61,10 @@ interface Message {
   timestamp: string;
 }
 
-interface Bubble {
-  id: string;
-  topic: string;
-  username: string;
-  name: string;
-  size: "sm" | "md" | "lg";
-  description: string | null;
-  messages: Message[];
-  expires_at: string;
-  reflect_count: number;
-  created_at: string;
-}
+// Type guard to check if size is valid
+const isValidSize = (size: string): size is "sm" | "md" | "lg" => {
+  return ["sm", "md", "lg"].includes(size);
+};
 
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
@@ -75,18 +77,16 @@ const Index = () => {
     username: "@user"
   });
   const [newMessage, setNewMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch bubbles with reflects
+  // Fetch bubbles
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bubbles')
-        .select('*, reflects:reflects(count)')
-        .gte('expires_at', new Date().toISOString());
+        .select('*');
       
       if (error) {
         toast({
@@ -97,89 +97,75 @@ const Index = () => {
         return [];
       }
 
+      // Transform and validate the data to match the expected types
       return data.map(bubble => ({
-        ...bubble,
-        size: calculateBubbleSize(bubble.reflect_count || 0),
-        messages: [] // Initialize empty messages array for each bubble
+        id: bubble.id,
+        topic: bubble.topic,
+        username: bubble.username,
+        name: bubble.name,
+        // Ensure size is one of the valid options, default to "md" if invalid
+        size: isValidSize(bubble.size) ? bubble.size : "md",
+        description: bubble.description || "",
+        messages: []
       })) as Bubble[];
-    },
-    refetchInterval: 60000
+    }
   });
 
-  // Fetch messages when a bubble is selected
-  useEffect(() => {
-    if (selectedBubbleId) {
-      const fetchMessages = async () => {
-        const { data, error } = await supabase
-          .from('bubble_messages')
-          .select('*')
-          .eq('bubble_id', selectedBubbleId)
-          .order('created_at', { ascending: true });
+  // Fetch messages for selected bubble
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return [];
 
-        if (error) {
-          toast({
-            title: "Error fetching messages",
-            description: error.message,
-            variant: "destructive"
-          });
-          return;
-        }
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .order('created_at', { ascending: true });
 
-        setMessages(data.map(msg => ({
-          id: msg.id,
-          content: msg.content,
-          username: msg.username,
-          timestamp: msg.created_at
-        })));
-      };
-
-      fetchMessages();
-    } else {
-      setMessages([]);
-    }
-  }, [selectedBubbleId]);
-
-  // Helper function to calculate bubble size based on reflects
-  const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
-    if (reflectCount >= 10) return "lg";
-    if (reflectCount >= 5) return "md";
-    return "sm";
-  };
-
-  // Handle reflecting a bubble
-  const handleReflect = async (bubbleId: string) => {
-    const { error } = await supabase
-      .from('reflects')
-      .insert({ 
-        bubble_id: bubbleId,
-        username: "@user" 
-      });
-
-    if (error) {
-      if (error.code === '23505') { // Unique violation
+      if (error) {
         toast({
-          title: "Already reflected",
-          description: "You have already reflected this bubble",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Error reflecting bubble",
+          title: "Error fetching messages",
           description: error.message,
           variant: "destructive"
         });
+        return [];
       }
-      return;
-    }
 
-    toast({
-      title: "Bubble reflected!",
-      description: "This bubble will appear in your profile",
-    });
+      return data.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        username: msg.username,
+        timestamp: msg.created_at
+      }));
+    },
+    enabled: !!selectedBubbleId
+  });
 
-    // Invalidate queries to refresh data
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-  };
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bubble_messages'
+        },
+        (payload) => {
+          // Refresh messages when there's a change
+          queryClient.invalidateQueries({
+            queryKey: ['messages', selectedBubbleId]
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedBubbleId, queryClient]);
 
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
@@ -191,15 +177,12 @@ const Index = () => {
       return;
     }
 
-    const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
     const newBubbleData = {
       name: newBubble.name,
       topic: newBubble.topic,
       description: newBubble.description,
       username: newBubble.username,
-      size: "md" as const,
-      expires_at: expires_at
+      size: "md" as const
     };
 
     const { data, error } = await supabase
@@ -282,50 +265,11 @@ const Index = () => {
     }
 
     setNewMessage("");
-    // Refresh messages
-    const { data: newMessages } = await supabase
-      .from('bubble_messages')
-      .select('*')
-      .eq('bubble_id', selectedBubbleId)
-      .order('created_at', { ascending: true });
-
-    if (newMessages) {
-      setMessages(newMessages.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        username: msg.username,
-        timestamp: msg.created_at
-      })));
-    }
-
     toast({
       title: "Message Sent",
       description: "Your message has been sent successfully",
     });
   };
-
-  // Subscribe to real-time updates for reflects
-  useEffect(() => {
-    const channel = supabase
-      .channel('public:reflects')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'reflects'
-        },
-        () => {
-          // Refresh bubbles data when reflects change
-          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -424,24 +368,14 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Chat Dialog with Reflect Button */}
+      {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
-          <DialogHeader className="flex flex-row items-center justify-between">
-            <div>
-              <DialogTitle>{selectedBubble?.name}</DialogTitle>
-              <DialogDescription>
-                {selectedBubble?.description}
-              </DialogDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="ml-4"
-              onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
-            >
-              <Heart className="h-4 w-4" />
-            </Button>
+          <DialogHeader>
+            <DialogTitle>{selectedBubble?.name}</DialogTitle>
+            <DialogDescription>
+              {selectedBubble?.description}
+            </DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="flex-1 px-4 py-3 space-y-4 mb-4">
