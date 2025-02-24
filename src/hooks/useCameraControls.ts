@@ -1,5 +1,6 @@
 
 import { useRef, useCallback } from 'react';
+import * as THREE from 'three';
 
 export const useCameraControls = () => {
   const zoomRef = useRef({
@@ -9,11 +10,45 @@ export const useCameraControls = () => {
     max: 24
   });
 
-  const panRef = useRef({
+  const rotationRef = useRef({
+    x: 0,
+    y: 0,
+    targetX: 0,
+    targetY: 0
+  });
+
+  const mouseRef = useRef({
     startX: 0,
     startY: 0,
     isDragging: false
   });
+
+  const handleMouseDown = useCallback((event: MouseEvent) => {
+    event.preventDefault();
+    mouseRef.current.isDragging = true;
+    mouseRef.current.startX = event.clientX;
+    mouseRef.current.startY = event.clientY;
+  }, []);
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!mouseRef.current.isDragging) return;
+
+    const deltaX = event.clientX - mouseRef.current.startX;
+    const deltaY = event.clientY - mouseRef.current.startY;
+
+    rotationRef.current.targetY += deltaX * 0.005;
+    rotationRef.current.targetX += deltaY * 0.005;
+
+    // Limit vertical rotation
+    rotationRef.current.targetX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.targetX));
+
+    mouseRef.current.startX = event.clientX;
+    mouseRef.current.startY = event.clientY;
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    mouseRef.current.isDragging = false;
+  }, []);
 
   const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
@@ -26,39 +61,30 @@ export const useCameraControls = () => {
     );
   }, []);
 
-  const handleTouchStart = useCallback((event: TouchEvent) => {
-    event.preventDefault();
-    if (event.touches.length === 1) {
-      panRef.current.startX = event.touches[0].clientX;
-      panRef.current.startY = event.touches[0].clientY;
-      panRef.current.isDragging = true;
-    }
-  }, []);
+  const updateCamera = useCallback((camera: THREE.Camera) => {
+    // Smoothly update rotation
+    rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.1;
+    rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.1;
 
-  const handleTouchMove = useCallback((event: TouchEvent) => {
-    event.preventDefault();
-    if (!panRef.current.isDragging) return;
+    // Apply rotation to camera
+    camera.position.x = Math.sin(rotationRef.current.y) * zoomRef.current.current;
+    camera.position.z = Math.cos(rotationRef.current.y) * zoomRef.current.current;
+    camera.position.y = Math.sin(rotationRef.current.x) * zoomRef.current.current;
 
-    const touch = event.touches[0];
-    const deltaX = touch.clientX - panRef.current.startX;
-    const deltaY = touch.clientY - panRef.current.startY;
+    // Update zoom
+    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
 
-    panRef.current.startX = touch.clientX;
-    panRef.current.startY = touch.clientY;
-
-    return { deltaX: deltaX * 0.005, deltaY: deltaY * 0.005 };
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    panRef.current.isDragging = false;
+    // Make camera look at center
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
   }, []);
 
   return {
-    zoomRef,
-    panRef,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
     handleWheel,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd
+    updateCamera,
+    zoomRef,
+    rotationRef
   };
 };

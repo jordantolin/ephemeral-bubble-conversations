@@ -16,7 +16,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const planetRef = useRef<THREE.Mesh | null>(null);
   const isCleanedUpRef = useRef(false);
   const { isInteractingRef, targetRotationRef, dragStartRef, isDraggingRef, handleReflect } = useBubbleInteraction();
-  const { zoomRef, panRef, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd } = useCameraControls();
+  const { handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera } = useCameraControls();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -69,7 +69,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     scene.add(planet);
     planetRef.current = planet;
 
-    // Create bubbles closer to the planet
+    // Add mouse and wheel event listeners
+    containerRef.current.addEventListener('mousedown', handleMouseDown);
+    containerRef.current.addEventListener('mousemove', handleMouseMove);
+    containerRef.current.addEventListener('mouseup', handleMouseUp);
+    containerRef.current.addEventListener('mouseleave', handleMouseUp);
+    containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
+
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -83,30 +89,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text that always faces camera with better readability
+      // Create text with larger size and better contrast
       const createTextTexture = (text: string, fontSize: number) => {
         const canvas = document.createElement('canvas');
-        const size = 512; // Increased canvas size for better text quality
+        const size = 1024; // Increased canvas size for better quality
         canvas.width = size;
         canvas.height = size;
         const context = canvas.getContext('2d')!;
         
-        // Clear background
         context.fillStyle = 'rgba(0,0,0,0)';
         context.fillRect(0, 0, size, size);
         
-        // Set up text style
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        context.font = `bold ${fontSize}px Inter`;
+        context.font = `bold ${fontSize * 1.5}px Inter`; // Increased font size
         
-        // Add white outline for better contrast
+        // Thicker white outline for better contrast
         context.strokeStyle = '#FFFFFF';
-        context.lineWidth = fontSize * 0.1;
+        context.lineWidth = fontSize * 0.2;
         context.lineJoin = 'round';
         context.strokeText(text, size / 2, size / 2);
         
-        // Draw black text
+        // Dark text for better readability
         context.fillStyle = '#000000';
         context.fillText(text, size / 2, size / 2);
         
@@ -116,33 +120,30 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         return texture;
       };
 
-      // Create separate sprites for name and topic for better positioning
       const createTextSprite = (text: string, fontSize: number, yOffset: number) => {
         const texture = createTextTexture(text, fontSize);
         const spriteMaterial = new THREE.SpriteMaterial({
           map: texture,
           transparent: true,
           depthWrite: false,
-          depthTest: false, // Ensures text is always visible
-          sizeAttenuation: true // Maintains consistent size with distance
+          depthTest: false
         });
 
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(finalSize * 2, finalSize * 0.5, 1);
+        sprite.scale.set(finalSize * 3, finalSize * 0.75, 1); // Increased scale for larger text
         sprite.position.y = yOffset;
-        sprite.renderOrder = 999; // Ensures text renders on top
+        sprite.renderOrder = 999;
         return sprite;
       };
 
-      // Create text sprites with improved visibility
-      const nameSprite = createTextSprite(topic.name, 64, finalSize * 0.3);
-      const topicSprite = createTextSprite(topic.topic, 48, -finalSize * 0.3);
+      // Create larger text sprites
+      const nameSprite = createTextSprite(topic.name, 96, finalSize * 0.4); // Increased font size
+      const topicSprite = createTextSprite(topic.topic, 72, -finalSize * 0.4); // Increased font size
       
-      // Create a text container group that will always face the camera
       const textGroup = new THREE.Group();
       textGroup.add(nameSprite);
       textGroup.add(topicSprite);
-      textGroup.position.z = finalSize * 0.1; // Slight offset from bubble surface
+      textGroup.position.z = finalSize * 0.1;
       bubbleGroup.add(textGroup);
 
       // Position bubbles closer to planet
@@ -168,89 +169,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.add(bubbleGroup);
     });
 
-    const handleMouseDown = (event: MouseEvent) => {
-      isDraggingRef.current = true;
-      dragStartRef.current = {
-        x: event.clientX,
-        y: event.clientY
-      };
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDraggingRef.current) return;
-
-      const deltaX = event.clientX - dragStartRef.current.x;
-      const deltaY = event.clientY - dragStartRef.current.y;
-
-      targetRotationRef.current.y += deltaX * 0.005;
-      targetRotationRef.current.x += deltaY * 0.005;
-
-      targetRotationRef.current.x = Math.max(
-        -Math.PI / 3,
-        Math.min(Math.PI / 3, targetRotationRef.current.x)
-      );
-
-      dragStartRef.current = {
-        x: event.clientX,
-        y: event.clientY
-      };
-    };
-
-    const handleMouseUp = () => {
-      isDraggingRef.current = false;
-    };
-
-    // Add touch event listeners
-    containerRef.current.addEventListener('touchstart', handleTouchStart, { passive: false });
-    containerRef.current.addEventListener('touchmove', handleTouchMove, { passive: false });
-    containerRef.current.addEventListener('touchend', handleTouchEnd);
-    containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
-
-    // Update the dblclick handler to use onBubbleClick prop
-    containerRef.current.addEventListener('dblclick', (event) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const mouse = new THREE.Vector2(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      );
-
-      if (cameraRef.current && sceneRef.current) {
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(mouse, cameraRef.current);
-        const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
-
-        for (const intersect of intersects) {
-          let current = intersect.object;
-          while (current.parent) {
-            if (current.userData?.id) {
-              handleReflect(current.userData.id, bubblesRef.current);
-              onBubbleClick(current.userData.id); // Call the provided click handler
-              return;
-            }
-            current = current.parent;
-          }
-        }
-      }
-    });
-
     const animate = () => {
       if (isCleanedUpRef.current) return;
       
       animationFrameRef.current = requestAnimationFrame(animate);
       
-      if (!rendererRef.current || !cameraRef.current || !sceneRef.current || !planetRef.current) return;
+      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+
+      // Update camera position and rotation
+      updateCamera(cameraRef.current);
 
       TWEEN.update();
 
-      // Smoothly update camera position
-      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
-      cameraRef.current.position.z = zoomRef.current.current;
-
       // Update text orientation to always face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        // Make text always face camera
         bubbleGroup.children.forEach(child => {
           if (child instanceof THREE.Group && child.children.some(c => c instanceof THREE.Sprite)) {
             child.quaternion.copy(cameraRef.current!.quaternion);
@@ -319,13 +251,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       cameraRef.current = null;
       planetRef.current = null;
 
-      // Remove wheel event listener
+      containerRef.current?.removeEventListener('mousedown', handleMouseDown);
+      containerRef.current?.removeEventListener('mousemove', handleMouseMove);
+      containerRef.current?.removeEventListener('mouseup', handleMouseUp);
+      containerRef.current?.removeEventListener('mouseleave', handleMouseUp);
       containerRef.current?.removeEventListener('wheel', handleWheel);
-      containerRef.current?.removeEventListener('touchstart', handleTouchStart);
-      containerRef.current?.removeEventListener('touchmove', handleTouchMove);
-      containerRef.current?.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [topics, onBubbleClick, handleReflect, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [topics, onBubbleClick, handleReflect, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera]);
 
   return (
     <div 
