@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -50,7 +49,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create central planet (now white)
+    // Create central planet (white)
     const planetGeometry = new THREE.SphereGeometry(3, 32, 32);
     const planetMaterial = new THREE.MeshPhongMaterial({
       color: 0xFFFFFF,
@@ -76,36 +75,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text that always faces camera
+      // Create text sprite that always faces camera with black text
       const createText = (text: string, yOffset: number, fontSize: number) => {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
         const context = canvas.getContext('2d')!;
         
-        // Add slight black outline for better readability
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         context.font = `bold ${fontSize}px Inter`;
         
-        // Draw outline
-        context.strokeStyle = '#000000';
-        context.lineWidth = fontSize * 0.1;
-        context.lineJoin = 'round';
-        context.strokeText(text, canvas.width / 2, canvas.height / 2 + yOffset);
-        
-        // Draw text
-        context.fillStyle = '#FEF7CD';
+        // Draw black text
+        context.fillStyle = '#000000';
         context.fillText(text, canvas.width / 2, canvas.height / 2 + yOffset);
         
         return canvas;
       };
 
-      // Create separate canvases for name and topic
       const nameCanvas = createText(topic.name, -30, 48);
       const topicCanvas = createText(topic.topic, 30, 32);
       
-      // Create a merged canvas
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = 512;
       finalCanvas.height = 512;
@@ -122,15 +112,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         depthWrite: false
       });
 
-      // Use Sprite instead of Mesh for text (always faces camera)
       const textSprite = new THREE.Sprite(textMaterial);
-      textSprite.scale.set(finalSize * 2, finalSize * 2, 1);
+      textSprite.scale.set(finalSize * 2.5, finalSize * 2.5, 1); // Increased text size
       textSprite.position.z = finalSize * 1.1;
       bubbleGroup.add(textSprite);
 
-      // Position bubbles closer to planet
+      // Position bubbles even closer to planet
+      const radius = 4; // Reduced radius
       const angle = (index / topics.length) * Math.PI * 2;
-      const radius = 5;
       const x = Math.cos(angle) * radius;
       const y = Math.sin(angle) * radius * 0.8;
       const z = Math.sin(angle) * radius * 0.6;
@@ -140,10 +129,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         id: topic.id,
         reflectCount: topic.reflect_count,
         orbitAngle: angle,
-        orbitSpeed: 0.0002 + Math.random() * 0.0003,
+        orbitSpeed: 0.0001 + Math.random() * 0.0002, // Slower orbit
         floatOffset: Math.random() * Math.PI * 2,
-        floatSpeed: 0.001 + Math.random() * 0.001,
-        floatAmplitude: 0.1 + Math.random() * 0.1
+        floatSpeed: 0.0005 + Math.random() * 0.0005, // Slower floating
+        floatAmplitude: 0.15 + Math.random() * 0.15 // More pronounced floating
       };
 
       bubbleGroup.lookAt(new THREE.Vector3(0, 0, 0));
@@ -217,6 +206,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     });
 
+    // Animation loop with smoother movement
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
@@ -241,7 +231,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
-          const radius = 5;
+          const radius = 4; // Keep same reduced radius
           const x = Math.cos(bubbleGroup.userData.orbitAngle) * radius;
           const y = Math.sin(bubbleGroup.userData.orbitAngle) * radius * 0.8 + 
                    Math.sin(time * bubbleGroup.userData.floatSpeed + bubbleGroup.userData.floatOffset) * 
@@ -255,6 +245,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       renderer.render(scene, camera);
     };
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    if (rendererRef.current && containerRef.current) {
+      containerRef.current.removeChild(rendererRef.current.domElement);
+    }
+
+    containerRef.current?.removeEventListener('wheel', handleWheel);
 
     animate();
 

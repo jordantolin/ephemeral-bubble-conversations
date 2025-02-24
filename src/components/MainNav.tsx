@@ -1,5 +1,5 @@
 
-import { MessageCircle, Search, User, TrendingUp, Heart } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Heart, Star } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 const MainNav = () => {
@@ -16,13 +16,13 @@ const MainNav = () => {
                 alt="Bubble Trouble"
                 className="w-8 h-8"
               />
-              <span className="text-xl font-semibold text-primary">Bubble Trouble</span>
+              <span className="text-xl font-semibold text-[#ebbd34]">Bubble Trouble</span>
             </Link>
 
             <div className="hidden md:flex items-center space-x-1">
               <Link 
                 to="/feed" 
-                className={`nav-link flex items-center space-x-1 ${
+                className={`nav-link flex items-center space-x-1 text-[#ebbd34] ${
                   location.pathname === '/feed' ? 'bg-secondary' : ''
                 }`}
               >
@@ -31,11 +31,11 @@ const MainNav = () => {
               </Link>
               <Link 
                 to="/my-bubbles" 
-                className={`nav-link flex items-center space-x-1 ${
+                className={`nav-link flex items-center space-x-1 text-[#ebbd34] ${
                   location.pathname === '/my-bubbles' ? 'bg-secondary' : ''
                 }`}
               >
-                <Heart className="w-4 h-4" />
+                <Star className="w-4 h-4" />
                 <span>My Bubbles</span>
               </Link>
             </div>
@@ -43,15 +43,15 @@ const MainNav = () => {
 
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34] w-4 h-4" />
               <input
                 type="search"
                 placeholder="Search bubbles..."
-                className="w-48 pl-10 pr-4 py-2 rounded-full bg-secondary border-0 focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                className="w-48 pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/10 border-[#ebbd34] border text-[#ebbd34] placeholder-[#ebbd34]/70 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
               />
             </div>
 
-            <Link to="/profile" className="nav-link">
+            <Link to="/profile" className="nav-link text-[#ebbd34]">
               <User className="w-5 h-5" />
             </Link>
           </div>

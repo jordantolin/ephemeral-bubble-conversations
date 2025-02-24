@@ -315,10 +315,10 @@ const Index = () => {
       
       <main className="container relative mx-auto px-2 sm:px-4 py-4 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
         <div className="text-center mb-4 sm:mb-8 relative z-10">
-          <h1 className="text-2xl sm:text-4xl font-light text-primary mb-2">
+          <h1 className="text-2xl sm:text-4xl font-light text-[#ebbd34] mb-2">
             Welcome to Bubble Trouble
           </h1>
-          <div className="h-px w-24 bg-primary/20 mx-auto" />
+          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
         </div>
 
         <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
