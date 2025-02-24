@@ -3,6 +3,7 @@ import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { BubbleData } from "@/types/bubble";
 
 const MyBubbles = () => {
   const { data: bubbles = [] } = useQuery({
@@ -25,12 +26,17 @@ const MyBubbles = () => {
         .in('id', bubbleIds);
       
       if (error) throw error;
-      return data;
+
+      // Convert size to correct type
+      return data.map(bubble => ({
+        ...bubble,
+        size: bubble.size as "sm" | "md" | "lg"
+      })) as BubbleData[];
     }
   });
 
   const handleBubbleClick = (id: string) => {
-    // Handle bubble click (you can implement this later)
+    // Handle bubble click
   };
 
   return (
@@ -56,4 +62,4 @@ const MyBubbles = () => {
   );
 };
 
-export default MyBubbles;
+export default BubbleWorld;
