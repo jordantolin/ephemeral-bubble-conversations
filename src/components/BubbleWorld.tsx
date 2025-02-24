@@ -78,38 +78,42 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return;
     }
 
-    // Visual feedback
+    // Enhanced visual feedback
     const bubble = bubblesRef.current[bubbleId];
     if (bubble) {
       const bubbleMesh = bubble.children[0] as THREE.Mesh;
       const material = bubbleMesh.material as THREE.MeshStandardMaterial;
       
-      // Brighten the color temporarily
+      // Brighter yellow flash
       const originalColor = material.color.getHex();
-      material.color.setHex(0xffd700);
-      material.emissiveIntensity = 0.3;
+      material.color.setHex(0xFFE500);
+      material.emissiveIntensity = 0.5;
 
-      // Scale up animation
-      const scale = 1.2;
+      // More pronounced scale animation
+      const scale = 1.3;
       new TWEEN.Tween(bubble.scale)
         .to({ x: scale, y: scale, z: scale }, 300)
         .easing(TWEEN.Easing.Quadratic.Out)
         .start()
         .onComplete(() => {
           new TWEEN.Tween(bubble.scale)
-            .to({ x: 1, y: 1, z: 1 }, 200)
+            .to({ 
+              x: 1 + (bubble.userData.reflectCount * 0.05), 
+              y: 1 + (bubble.userData.reflectCount * 0.05), 
+              z: 1 + (bubble.userData.reflectCount * 0.05) 
+            }, 200)
             .easing(TWEEN.Easing.Quadratic.InOut)
             .start();
           
-          // Reset color gradually
-          new TWEEN.Tween({ intensity: 0.3 })
-            .to({ intensity: 0.1 }, 500)
+          // Gradual color reset
+          new TWEEN.Tween({ intensity: 0.5 })
+            .to({ intensity: 0.2 }, 500)
             .onUpdate((obj) => {
               material.emissiveIntensity = obj.intensity;
             })
             .start();
           
-          material.color.setHex(originalColor);
+          material.color.setHex(0xFEF7CD);
         });
     }
 
@@ -173,12 +177,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const finalSize = baseSize * reflectScale;
     
     const geometry = new THREE.SphereGeometry(finalSize, 32, 32);
+    
+    // Brighter, more yellow color
+    const bubbleColor = 0xFEF7CD; // Soft yellow color
     const material = new THREE.MeshStandardMaterial({
-      color: 0xebc942,
-      emissive: 0xebc942,
-      emissiveIntensity: 0.1,
-      metalness: 0.2,
-      roughness: 0.3,
+      color: bubbleColor,
+      emissive: bubbleColor,
+      emissiveIntensity: 0.2,
+      metalness: 0.1,
+      roughness: 0.2,
       transparent: true,
       opacity: 0.9
     });
@@ -186,15 +193,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const bubble = new THREE.Mesh(geometry, material);
     bubbleGroup.add(bubble);
 
+    // Enhance glow effect
     const glowGeometry = new THREE.SphereGeometry(finalSize * 1.1, 32, 32);
     const glowMaterial = new THREE.MeshStandardMaterial({
-      color: 0xebc942,
+      color: bubbleColor,
       transparent: true,
-      opacity: 0.1
+      opacity: 0.15
     });
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     bubble.add(glow);
 
+    // Text rendering with reflection count
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 1024;
@@ -210,9 +219,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const nameSize = Math.floor(canvas.height * 0.12 * reflectScale);
       const topicSize = Math.floor(canvas.height * 0.11 * reflectScale);
       const usernameSize = Math.floor(canvas.height * 0.10 * reflectScale);
+      const reflectSize = Math.floor(canvas.height * 0.09 * reflectScale);
       
-      const spacing = canvas.height * 0.15;
-      const startY = canvas.height/2 - spacing;
+      const spacing = canvas.height * 0.14;
+      const startY = canvas.height/2 - spacing * 1.5;
 
       const drawText = (text: string, y: number, fontSize: number) => {
         context.textAlign = 'center';
@@ -231,6 +241,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       drawText(topicData.name, startY, nameSize);
       drawText(topicData.topic, startY + spacing, topicSize);
       drawText(topicData.username, startY + spacing * 2, usernameSize);
+      
+      // Add reflection count with star emoji
+      const reflectText = `⭐ ${topicData.reflect_count}`;
+      drawText(reflectText, startY + spacing * 3, reflectSize);
     }
 
     const textTexture = new THREE.CanvasTexture(canvas);
@@ -248,6 +262,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     textMesh.position.z = finalSize * 1.1;
     bubbleGroup.add(textMesh);
 
+    // Position bubble
     const radius = 6;
     const angle = (index / topics.length) * Math.PI * 2;
     const phi = Math.acos(-1 + (2 * index) / topics.length);
@@ -263,10 +278,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       orbitRadius: radius,
       orbitSpeed: 0.0005,
       orbitAngle: angle,
-      orbitHeight: y
+      orbitHeight: y,
+      reflectCount: topicData.reflect_count
     };
 
     bubbleGroup.lookAt(camera.position);
+
+    // Scale the bubble based on reflection count
+    const reflectionScale = 1 + (topicData.reflect_count * 0.05);
+    bubbleGroup.scale.set(reflectionScale, reflectionScale, reflectionScale);
 
     bubblesRef.current[topicData.id] = bubbleGroup;
     return bubbleGroup;
