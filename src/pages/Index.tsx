@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { Plus, Send, Image, Video, Mic, SmilePlus } from "lucide-react";
+import { Plus, Send, Image, Video, Mic, SmilePlus, Heart } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,8 @@ interface Bubble {
   size: "sm" | "md" | "lg";
   description: string;
   messages: Message[];
+  expires_at: string;
+  reflect_count: number;
 }
 
 interface Message {
@@ -80,13 +82,14 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch bubbles
+  // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bubbles')
-        .select('*');
+        .select('*, reflects:reflects(count)')
+        .gte('expires_at', new Date().toISOString());
       
       if (error) {
         toast({
@@ -97,75 +100,57 @@ const Index = () => {
         return [];
       }
 
-      // Transform and validate the data to match the expected types
       return data.map(bubble => ({
-        id: bubble.id,
-        topic: bubble.topic,
-        username: bubble.username,
-        name: bubble.name,
-        // Ensure size is one of the valid options, default to "md" if invalid
-        size: isValidSize(bubble.size) ? bubble.size : "md",
-        description: bubble.description || "",
-        messages: []
+        ...bubble,
+        size: calculateBubbleSize(bubble.reflects[0]?.count || 0),
+        expires_at: bubble.expires_at,
+        reflect_count: bubble.reflects[0]?.count || 0
       })) as Bubble[];
-    }
+    },
+    refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
 
-  // Fetch messages for selected bubble
-  const { data: messages = [] } = useQuery({
-    queryKey: ['messages', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return [];
+  // Helper function to calculate bubble size based on reflects
+  const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
+    if (reflectCount >= 10) return "lg";
+    if (reflectCount >= 5) return "md";
+    return "sm";
+  };
 
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .eq('bubble_id', selectedBubbleId)
-        .order('created_at', { ascending: true });
+  // Handle reflecting a bubble
+  const handleReflect = async (bubbleId: string) => {
+    const { error } = await supabase
+      .from('reflects')
+      .insert({ 
+        bubble_id: bubbleId,
+        username: "@user" 
+      });
 
-      if (error) {
+    if (error) {
+      if (error.code === '23505') { // Unique violation
         toast({
-          title: "Error fetching messages",
+          title: "Already reflected",
+          description: "You have already reflected this bubble",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error reflecting bubble",
           description: error.message,
           variant: "destructive"
         });
-        return [];
       }
+      return;
+    }
 
-      return data.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        username: msg.username,
-        timestamp: msg.created_at
-      }));
-    },
-    enabled: !!selectedBubbleId
-  });
+    toast({
+      title: "Bubble reflected!",
+      description: "This bubble will appear in your profile",
+    });
 
-  // Subscribe to real-time updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bubble_messages'
-        },
-        (payload) => {
-          // Refresh messages when there's a change
-          queryClient.invalidateQueries({
-            queryKey: ['messages', selectedBubbleId]
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedBubbleId, queryClient]);
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+  };
 
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
@@ -177,12 +162,15 @@ const Index = () => {
       return;
     }
 
+    const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
     const newBubbleData = {
       name: newBubble.name,
       topic: newBubble.topic,
       description: newBubble.description,
       username: newBubble.username,
-      size: "md" as const
+      size: "md" as const,
+      expires_at: expires_at
     };
 
     const { data, error } = await supabase
@@ -270,6 +258,29 @@ const Index = () => {
       description: "Your message has been sent successfully",
     });
   };
+
+  // Subscribe to real-time updates for reflects
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:reflects')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reflects'
+        },
+        () => {
+          // Refresh bubbles data when reflects change
+          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -368,14 +379,24 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Chat Dialog */}
+      {/* Chat Dialog with Reflect Button */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{selectedBubble?.name}</DialogTitle>
-            <DialogDescription>
-              {selectedBubble?.description}
-            </DialogDescription>
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle>{selectedBubble?.name}</DialogTitle>
+              <DialogDescription>
+                {selectedBubble?.description}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="ml-4"
+              onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
+            >
+              <Heart className="h-4 w-4" />
+            </Button>
           </DialogHeader>
 
           <ScrollArea className="flex-1 px-4 py-3 space-y-4 mb-4">

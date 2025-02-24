@@ -12,6 +12,7 @@ interface BubbleData {
   name: string;
   size: "sm" | "md" | "lg";
   created_at?: string;
+  expires_at?: string;
 }
 
 interface BubbleWorldProps {
@@ -246,22 +247,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Optimized bubble creation function
+    // Enhanced bubble creation function with size based on reflects
     const createBubble = (topicData: BubbleData, index: number) => {
       const bubbleGroup = new THREE.Group();
       
-      const createdAt = topicData.created_at ? new Date(topicData.created_at) : new Date();
-      const ageInHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-      const remainingLife = Math.max(0, 24 - ageInHours);
+      const expiresAt = topicData.expires_at ? new Date(topicData.expires_at) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const timeUntilExpiration = expiresAt.getTime() - Date.now();
+      const lifePercentage = Math.max(0, Math.min(1, timeUntilExpiration / (24 * 60 * 60 * 1000)));
       
+      // Base size determined by reflects, scaled by remaining life
       const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
-      const bubbleSize = baseSize * (remainingLife / 24);
+      const bubbleSize = baseSize * lifePercentage;
 
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-      const material = new THREE.MeshBasicMaterial({
+      const material = new THREE.MeshPhongMaterial({
         color: '#ebbd34',
         transparent: true,
-        opacity: remainingLife / 24,
+        opacity: lifePercentage,
+        metalness: 0.2,
+        roughness: 0.3,
+        transmission: 0.6,
       });
 
       const bubble = new THREE.Mesh(geometry, material);
@@ -339,27 +344,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       bubblesRef.current[topicData.id] = bubbleGroup;
 
-      // Handle bubble expiration asynchronously
-      if (remainingLife > 0) {
-        const timeUntilExplosion = remainingLife * 60 * 60 * 1000;
+      // Handle bubble expiration
+      if (timeUntilExpiration > 0) {
         setTimeout(() => {
           requestAnimationFrame(() => explodeBubble(topicData.id));
-        }, timeUntilExplosion);
+        }, timeUntilExpiration);
       }
 
       return bubbleGroup;
     };
 
-    // Explosion animation function
+    // Enhanced explosion animation
     const explodeBubble = (bubbleId: string) => {
       const bubbleGroup = bubblesRef.current[bubbleId];
       if (!bubbleGroup || !sceneRef.current) return;
 
       const bubble = bubbleGroup.children[0] as THREE.Mesh;
       const originalScale = bubble.scale.clone();
-      const originalOpacity = (bubble.material as THREE.MeshBasicMaterial).opacity;
 
-      // Create particle system for explosion effect
+      // Create particle system for explosion
       const particleCount = 50;
       const particles = new THREE.Points(
         new THREE.BufferGeometry(),
@@ -381,13 +384,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.add(particles);
 
       // Animate explosion
-      new TWEEN.Tween({ scale: 1, opacity: originalOpacity })
+      new TWEEN.Tween({ scale: 1, opacity: 1 })
         .to({ scale: 0, opacity: 0 }, 2000)
         .easing(TWEEN.Easing.Quadratic.Out)
         .onUpdate(({ scale, opacity }) => {
           if (bubble.material) {
             bubble.scale.set(scale, scale, scale);
-            (bubble.material as THREE.MeshBasicMaterial).opacity = opacity;
+            (bubble.material as THREE.MeshPhongMaterial).opacity = opacity;
           }
 
           // Animate particles
@@ -411,6 +414,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           }
         })
         .start();
+
+      // Notify user
+      toast({
+        title: "Bubble Expired",
+        description: "This bubble has reached its 24-hour lifespan",
+      });
     };
 
     // Initialize bubbles
