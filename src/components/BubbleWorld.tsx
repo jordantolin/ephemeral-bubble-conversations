@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
@@ -85,12 +84,12 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Create bubble function
-    const createBubble = (topicData: { topic: string; username: string; name: string }, index: number, size: "sm" | "md" | "lg" = "md") => {
+    // Create bubble function with corrected parameter type
+    const createBubble = (topicData: { id: string; topic: string; username: string; name: string; size: "sm" | "md" | "lg" }, index: number) => {
       const bubbleGroup = new THREE.Group();
 
-      // Set bubble size
-      const bubbleSize = size === 'lg' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+      // Set bubble size based on topicData.size
+      const bubbleSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
 
       // Create the bubble sphere
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
@@ -172,9 +171,9 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       return bubbleGroup;
     };
 
-    // Create initial bubbles
+    // Create initial bubbles - now passing the entire topic object
     topics.forEach((topic, index) => {
-      createBubble(topic, index, topic.size);
+      createBubble(topic, index);
     });
 
     // Interaction state
