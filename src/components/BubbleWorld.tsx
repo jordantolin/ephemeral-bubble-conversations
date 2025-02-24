@@ -2,7 +2,13 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
-import { createBubbleGeometry, createBubbleMaterial, createTextCanvas } from '@/utils/bubbleUtils';
+import { 
+  createBubbleGeometry, 
+  createBubbleMaterial, 
+  createTextCanvas,
+  createCentralWorldGeometry,
+  createCentralWorldMaterial 
+} from '@/utils/bubbleUtils';
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
 import { useCameraControls } from '@/hooks/useCameraControls';
 
@@ -35,7 +41,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // Adjust camera FOV and position for mobile
     const isMobile = width < 768;
     const fov = isMobile ? 75 : 45;
     const camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 1000);
@@ -52,12 +57,23 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight('#FFFFFF', 2);
+    // Enhanced lighting for better 3D effect
+    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1.5);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight('#FFFFFF', 2.5);
+    const mainLight = new THREE.DirectionalLight('#FFFFFF', 2);
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
+
+    const backLight = new THREE.DirectionalLight('#FFFFFF', 1);
+    backLight.position.set(-10, -10, -10);
+    scene.add(backLight);
+
+    // Add central white world sphere
+    const worldGeometry = createCentralWorldGeometry();
+    const worldMaterial = createCentralWorldMaterial();
+    const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
+    scene.add(centralWorld);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -107,11 +123,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const spriteMaterial = new THREE.SpriteMaterial({ 
         map: textTexture,
         transparent: true,
-        opacity: 0.9
+        opacity: 1
       });
       const sprite = new THREE.Sprite(spriteMaterial);
       sprite.scale.set(finalSize * 2, finalSize * 2, 1);
-      sprite.position.z = finalSize * 0.5; // Position slightly in front of bubble
+      sprite.position.z = finalSize * 0.5;
       bubbleGroup.add(sprite);
 
       // Add reflect count text
@@ -119,7 +135,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const reflectMaterial = new THREE.SpriteMaterial({
         map: reflectTexture,
         transparent: true,
-        opacity: 0.9
+        opacity: 1
       });
       const reflectSprite = new THREE.Sprite(reflectMaterial);
       reflectSprite.scale.set(finalSize * 1.5, finalSize * 1.5, 1);
@@ -127,7 +143,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       reflectSprite.position.y = -finalSize * 1.2;
       bubbleGroup.add(reflectSprite);
 
-      // Improved bubble positioning
+      // Position bubbles in a spherical arrangement around the central world
       const totalBubbles = topics.length;
       const radius = isMobile ? 4 : 6;
       const phi = Math.acos(-1 + (2 * index) / totalBubbles);
@@ -201,7 +217,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
 
-    // Animation loop with smooth rotation
+    // Animation loop with smooth rotation for central world
     const animate = () => {
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
       
@@ -209,6 +225,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       // Update camera position and rotation
       updateCamera(cameraRef.current);
+      
+      // Rotate central world
+      centralWorld.rotation.y += 0.001;
       
       // Update tweens
       TWEEN.update();
