@@ -105,6 +105,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Create bubble function with explosion animation
     const createBubble = (topicData: BubbleData, index: number) => {
+      console.log('Creating bubble:', topicData); // Debug log
       const bubbleGroup = new THREE.Group();
       
       // Calculate bubble age and scale
@@ -276,12 +277,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     // Initialize bubbles and set up real-time subscription
+    console.log('Initializing bubbles:', topics.length); // Debug log
     topics.forEach((topic, index) => {
       const bubbleGroup = createBubble(topic, index);
       scene.add(bubbleGroup);
     });
 
-    // Subscribe to real-time updates with proper type checking
+    // Subscribe to real-time updates with proper type checking and error handling
     const channel = supabase
       .channel('public:bubbles')
       .on(
@@ -292,17 +294,54 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           table: 'bubbles'
         },
         (payload: RealtimePostgresChangesPayload<BubbleData>) => {
+          console.log('Received realtime payload:', payload); // Debug log
+
           // Use the type guard to ensure payload.new is a valid BubbleData
-          if (payload.new && isBubbleData(payload.new)) {
-            const index = Object.keys(bubblesRef.current).length;
-            const bubbleGroup = createBubble(payload.new, index);
-            if (sceneRef.current && bubbleGroup) {
-              sceneRef.current.add(bubbleGroup);
-            }
+          if (!payload.new) {
+            console.error('No payload.new data received');
+            return;
           }
+
+          if (!isBubbleData(payload.new)) {
+            console.error('Invalid bubble data received:', payload.new);
+            return;
+          }
+
+          console.log('Creating new bubble from payload:', payload.new); // Debug log
+          
+          const index = Object.keys(bubblesRef.current).length;
+          const bubbleGroup = createBubble(payload.new, index);
+          
+          if (!sceneRef.current) {
+            console.error('Scene reference is null');
+            return;
+          }
+
+          if (!bubbleGroup) {
+            console.error('Failed to create bubble group');
+            return;
+          }
+
+          sceneRef.current.add(bubbleGroup);
+          toast({
+            title: "New Bubble Created",
+            description: `${payload.new.name} has joined the conversation!`,
+          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription status:', status); // Debug log
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to realtime updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Failed to subscribe to realtime updates');
+          toast({
+            title: "Connection Error",
+            description: "Failed to connect to real-time updates",
+            variant: "destructive"
+          });
+        }
+      });
 
     // Interaction state
     let isRotating = false;
@@ -420,6 +459,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Cleanup
     return () => {
+      console.log('Cleaning up BubbleWorld'); // Debug log
       if (containerRef.current) {
         renderer.dispose();
         containerRef.current.removeChild(renderer.domElement);
