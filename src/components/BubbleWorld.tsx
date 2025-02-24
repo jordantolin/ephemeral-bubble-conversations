@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
-import { createBubbleGeometry, createBubbleMaterial, createTextCanvas, calculateBubblePosition } from '@/utils/bubbleUtils';
+import { createBubbleGeometry, createBubbleMaterial } from '@/utils/bubbleUtils';
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
 import { useCameraControls } from '@/hooks/useCameraControls';
 
@@ -43,20 +43,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     rendererRef.current = renderer;
 
     // Add lighting
-    const ambientLight = new THREE.AmbientLight('#FFF7CD', 1.5);
+    const ambientLight = new THREE.AmbientLight('#FFFFFF', 2);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight('#FFFFFF', 2);
+    const mainLight = new THREE.DirectionalLight('#FFFFFF', 2.5);
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create central planet
+    // Create central planet (now white)
     const planetGeometry = new THREE.SphereGeometry(3, 32, 32);
     const planetMaterial = new THREE.MeshPhongMaterial({
-      color: 0xebc942,
-      emissive: 0xebc942,
-      emissiveIntensity: 0.2,
-      shininess: 50
+      color: 0xFFFFFF,
+      emissive: 0xFFFFFF,
+      emissiveIntensity: 0.1,
+      shininess: 100
     });
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
@@ -76,45 +76,63 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text with yellow color
-      const textCanvas = document.createElement('canvas');
-      textCanvas.width = 512;
-      textCanvas.height = 512;
-      const context = textCanvas.getContext('2d')!;
+      // Create text that always faces camera
+      const createText = (text: string, yOffset: number, fontSize: number) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext('2d')!;
+        
+        // Add slight black outline for better readability
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.font = `bold ${fontSize}px Inter`;
+        
+        // Draw outline
+        context.strokeStyle = '#000000';
+        context.lineWidth = fontSize * 0.1;
+        context.lineJoin = 'round';
+        context.strokeText(text, canvas.width / 2, canvas.height / 2 + yOffset);
+        
+        // Draw text
+        context.fillStyle = '#FEF7CD';
+        context.fillText(text, canvas.width / 2, canvas.height / 2 + yOffset);
+        
+        return canvas;
+      };
+
+      // Create separate canvases for name and topic
+      const nameCanvas = createText(topic.name, -30, 48);
+      const topicCanvas = createText(topic.topic, 30, 32);
       
-      // Clear background
-      context.fillStyle = 'transparent';
-      context.fillRect(0, 0, textCanvas.width, textCanvas.height);
-      
-      // Draw text
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.fillStyle = '#FEF7CD'; // Yellow brand color
-      context.font = 'bold 48px Inter';
-      context.fillText(topic.name, textCanvas.width / 2, textCanvas.height / 2 - 30);
-      context.font = '32px Inter';
-      context.fillText(topic.topic, textCanvas.width / 2, textCanvas.height / 2 + 30);
-      
-      const textTexture = new THREE.CanvasTexture(textCanvas);
+      // Create a merged canvas
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = 512;
+      finalCanvas.height = 512;
+      const finalContext = finalCanvas.getContext('2d')!;
+      finalContext.drawImage(nameCanvas, 0, 0);
+      finalContext.drawImage(topicCanvas, 0, 0);
+
+      const textTexture = new THREE.CanvasTexture(finalCanvas);
       textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
       
-      const textMaterial = new THREE.MeshBasicMaterial({
+      const textMaterial = new THREE.SpriteMaterial({
         map: textTexture,
         transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
+        depthWrite: false
       });
 
-      const textGeometry = new THREE.PlaneGeometry(finalSize * 2, finalSize * 2);
-      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.z = finalSize * 1.1;
-      bubbleGroup.add(textMesh);
+      // Use Sprite instead of Mesh for text (always faces camera)
+      const textSprite = new THREE.Sprite(textMaterial);
+      textSprite.scale.set(finalSize * 2, finalSize * 2, 1);
+      textSprite.position.z = finalSize * 1.1;
+      bubbleGroup.add(textSprite);
 
-      // Position bubbles closer to planet (reduced radius)
+      // Position bubbles closer to planet
       const angle = (index / topics.length) * Math.PI * 2;
-      const radius = 5; // Reduced radius to keep bubbles closer to planet
+      const radius = 5;
       const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius * 0.8; // Slightly elliptical orbit
+      const y = Math.sin(angle) * radius * 0.8;
       const z = Math.sin(angle) * radius * 0.6;
       bubbleGroup.position.set(x, y, z);
       
@@ -221,10 +239,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       const time = Date.now() * 0.001;
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        // Update orbital movement
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
-          const radius = 5; // Keep same radius as initial positioning
+          const radius = 5;
           const x = Math.cos(bubbleGroup.userData.orbitAngle) * radius;
           const y = Math.sin(bubbleGroup.userData.orbitAngle) * radius * 0.8 + 
                    Math.sin(time * bubbleGroup.userData.floatSpeed + bubbleGroup.userData.floatOffset) * 
