@@ -43,7 +43,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup with enhanced fog for better depth perception
+    // Scene setup
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.fog = new THREE.Fog(0xFFFFFF, 15, 30);
@@ -52,12 +52,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup with improved near/far planes
+    // Camera setup with improved near plane for better text rendering
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.z = 15;
     cameraRef.current = camera;
 
-    // Enhanced renderer setup
+    // Renderer setup
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -82,7 +82,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
 
-    // Improved lighting setup for ocher yellow
+    // Optimized lighting for ocher yellow
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.7);
     scene.add(ambientLight);
 
@@ -118,7 +118,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         opacity: 0.95,
         metalness: 0.2,
         roughness: 0.3,
-        transmission: 0.05,
+        transmission: 0.05, // Minimal transmission to prevent color darkening
         thickness: 1.0,
         clearcoat: 0.8,
         clearcoatRoughness: 0.2,
@@ -132,7 +132,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       // Enhanced text creation with better visibility
       const canvas = document.createElement('canvas');
-      canvas.width = 2048; // Increased resolution for better quality
+      canvas.width = 2048;
       canvas.height = 2048;
       const context = canvas.getContext('2d');
       
@@ -167,24 +167,29 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           context.fillStyle = glowGradient;
           context.fillRect(0, y - fontSize, canvas.width, fontSize * 2);
           
-          // Thick outline for better contrast
+          // Multiple outline layers for better contrast
           context.font = `${isBold ? 'bold' : ''} ${fontSize}px Inter`;
           context.strokeStyle = '#000000';
           context.lineWidth = fontSize * 0.1;
           context.lineJoin = 'round';
           
-          // Multiple outline layers
-          for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const offset = fontSize * 0.05;
+          const outlineOffsets = [
+            { x: -1, y: -1 }, { x: 1, y: -1 },
+            { x: -1, y: 1 }, { x: 1, y: 1 },
+            { x: -2, y: 0 }, { x: 2, y: 0 },
+            { x: 0, y: -2 }, { x: 0, y: 2 }
+          ];
+
+          // Draw multiple outline layers
+          outlineOffsets.forEach(offset => {
             context.strokeText(
               text,
-              canvas.width/2 + Math.cos(angle) * offset,
-              y + Math.sin(angle) * offset
+              canvas.width/2 + offset.x * (fontSize * 0.05),
+              y + offset.y * (fontSize * 0.05)
             );
-          }
+          });
           
-          // Main text with shadow
+          // Main text with white color for maximum contrast
           context.fillStyle = '#FFFFFF';
           context.fillText(text, canvas.width/2, y);
         };
@@ -215,7 +220,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const textGeometry = new THREE.PlaneGeometry(baseSize * 3, baseSize * 3);
       const textMesh = new THREE.Mesh(textGeometry, textMaterial);
       textMesh.position.z = baseSize * 1.1;
-      textMesh.renderOrder = 999; // Ensure text always renders on top
+      textMesh.renderOrder = 999;
       bubbleGroup.add(textMesh);
 
       // Position bubble
@@ -392,7 +397,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.rotation.x = currentRotation.x;
       scene.rotation.y = currentRotation.y;
 
-      // Update bubbles with enhanced text positioning
+      const cameraPosition = new THREE.Vector3();
+      camera.getWorldPosition(cameraPosition);
+
+      // Update bubbles with enhanced text visibility
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
@@ -402,23 +410,35 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
           bubbleGroup.position.set(x, y, z);
 
-          // Enhanced text visibility with dynamic adjustments
+          // Enhanced billboarding with dynamic scaling
           if (bubbleGroup.children[1]) {
             const textMesh = bubbleGroup.children[1];
-            const cameraPosition = new THREE.Vector3();
-            camera.getWorldPosition(cameraPosition);
             
-            // Calculate optimal text position
+            // Get bubble's world position
             const bubblePosition = new THREE.Vector3();
             bubbleGroup.getWorldPosition(bubblePosition);
             
-            // Make text always face camera
-            textMesh.lookAt(cameraPosition);
+            // Calculate direction from text to camera
+            const direction = new THREE.Vector3();
+            direction.subVectors(cameraPosition, bubblePosition);
+            direction.normalize();
             
-            // Scale text based on distance for better readability
+            // Make text face camera perfectly
+            const quaternion = new THREE.Quaternion();
+            const up = new THREE.Vector3(0, 1, 0);
+            quaternion.setFromRotationMatrix(
+              new THREE.Matrix4().lookAt(
+                bubblePosition,
+                cameraPosition,
+                up
+              )
+            );
+            textMesh.quaternion.copy(quaternion);
+            
+            // Dynamic scaling based on distance
             const distance = bubblePosition.distanceTo(cameraPosition);
-            const scale = Math.max(0.8, Math.min(1.2, distance / 10));
-            textMesh.scale.set(scale, scale, 1);
+            const baseScale = Math.max(0.8, Math.min(1.2, distance / 10));
+            textMesh.scale.set(baseScale, baseScale, 1);
           }
         }
       });
