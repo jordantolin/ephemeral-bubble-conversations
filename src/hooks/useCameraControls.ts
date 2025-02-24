@@ -6,8 +6,8 @@ export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 8,
-    max: 24
+    min: 6, // Reduced min zoom for mobile to get closer
+    max: 20
   });
 
   const rotationRef = useRef({
@@ -20,7 +20,8 @@ export const useCameraControls = () => {
   const mouseRef = useRef({
     startX: 0,
     startY: 0,
-    isDragging: false
+    isDragging: false,
+    lastPinchDistance: 0
   });
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
@@ -39,8 +40,8 @@ export const useCameraControls = () => {
     rotationRef.current.targetY += deltaX * 0.005;
     rotationRef.current.targetX += deltaY * 0.005;
 
-    // Limit vertical rotation
-    rotationRef.current.targetX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.targetX));
+    // Limit vertical rotation for better mobile experience
+    rotationRef.current.targetX = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, rotationRef.current.targetX));
 
     mouseRef.current.startX = event.clientX;
     mouseRef.current.startY = event.clientY;
@@ -61,18 +62,33 @@ export const useCameraControls = () => {
     );
   }, []);
 
+  // New function to handle pinch zoom
+  const handlePinchZoom = useCallback((distance: number) => {
+    const pinchDelta = mouseRef.current.lastPinchDistance - distance;
+    const zoomSpeed = 0.02;
+    
+    zoomRef.current.target = Math.max(
+      zoomRef.current.min,
+      Math.min(zoomRef.current.max,
+        zoomRef.current.target + pinchDelta * zoomSpeed
+      )
+    );
+    
+    mouseRef.current.lastPinchDistance = distance;
+  }, []);
+
   const updateCamera = useCallback((camera: THREE.Camera) => {
-    // Smoothly update rotation
-    rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.1;
-    rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.1;
+    // Smoothly update rotation with increased damping for mobile
+    rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.15;
+    rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.15;
 
     // Apply rotation to camera
     camera.position.x = Math.sin(rotationRef.current.y) * zoomRef.current.current;
     camera.position.z = Math.cos(rotationRef.current.y) * zoomRef.current.current;
     camera.position.y = Math.sin(rotationRef.current.x) * zoomRef.current.current;
 
-    // Update zoom
-    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
+    // Smooth zoom with increased damping for mobile
+    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.15;
 
     // Make camera look at center
     camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -83,6 +99,7 @@ export const useCameraControls = () => {
     handleMouseMove,
     handleMouseUp,
     handleWheel,
+    handlePinchZoom,
     updateCamera,
     zoomRef,
     rotationRef
