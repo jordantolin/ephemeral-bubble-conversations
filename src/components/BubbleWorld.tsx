@@ -29,32 +29,45 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   
-  // Add mouse interaction state
-  const isMouseDownRef = useRef(false);
-  const mousePositionRef = useRef({ x: 0, y: 0 });
-  const targetRotationRef = useRef({ x: 0, y: 0 });
-  const currentRotationRef = useRef({ x: 0, y: 0 });
+  // Interaction state with better touch support
+  const isInteractingRef = useRef(false);
+  const lastInteractionRef = useRef({ x: 0, y: 0 });
+  const rotationRef = useRef({ x: 0, y: 0 });
+  const momentumRef = useRef({ x: 0, y: 0 });
+  const lastFrameTimeRef = useRef(Date.now());
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Scene setup
+    // Scene setup with proper centering
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color('#FFFFFF');
 
+    const updateSize = () => {
+      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
+      
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(width, height);
+    };
+
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    camera.position.z = 15;
+    // Improved camera setup for better viewing angle
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera.position.z = 16;
     cameraRef.current = camera;
 
-    // Renderer setup
+    // Enhanced renderer setup
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
+      powerPreference: "high-performance"
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
@@ -217,64 +230,104 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleContainer.add(bubbleGroup);
     });
 
-    // Mouse event handlers
-    const onMouseDown = (event: MouseEvent) => {
-      event.preventDefault();
-      isMouseDownRef.current = true;
-      mousePositionRef.current = {
-        x: event.clientX,
-        y: event.clientY
-      };
+    // Enhanced interaction handlers
+    const startInteraction = (x: number, y: number) => {
+      isInteractingRef.current = true;
+      lastInteractionRef.current = { x, y };
+      momentumRef.current = { x: 0, y: 0 };
     };
 
-    const onMouseMove = (event: MouseEvent) => {
-      if (!isMouseDownRef.current) return;
+    const moveInteraction = (x: number, y: number) => {
+      if (!isInteractingRef.current) return;
 
-      const deltaX = event.clientX - mousePositionRef.current.x;
-      const deltaY = event.clientY - mousePositionRef.current.y;
+      const deltaX = x - lastInteractionRef.current.x;
+      const deltaY = y - lastInteractionRef.current.y;
 
-      mousePositionRef.current = {
-        x: event.clientX,
-        y: event.clientY
+      // Smoother rotation with momentum
+      momentumRef.current = {
+        x: deltaX * 0.003,
+        y: deltaY * 0.003
       };
 
-      targetRotationRef.current.y += deltaX * 0.01;
-      targetRotationRef.current.x += deltaY * 0.01;
+      rotationRef.current.y += momentumRef.current.x;
+      rotationRef.current.x += momentumRef.current.y;
 
       // Limit vertical rotation
-      targetRotationRef.current.x = Math.max(
-        -Math.PI / 4,
-        Math.min(Math.PI / 4, targetRotationRef.current.x)
-      );
+      rotationRef.current.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.x));
+
+      lastInteractionRef.current = { x, y };
+    };
+
+    const endInteraction = () => {
+      isInteractingRef.current = false;
+    };
+
+    // Mouse event handlers
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      startInteraction(e.clientX, e.clientY);
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      moveInteraction(e.clientX, e.clientY);
     };
 
     const onMouseUp = () => {
-      isMouseDownRef.current = false;
+      endInteraction();
+    };
+
+    // Touch event handlers
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      startInteraction(touch.clientX, touch.clientY);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      moveInteraction(touch.clientX, touch.clientY);
+    };
+
+    const onTouchEnd = () => {
+      endInteraction();
     };
 
     // Add event listeners
     containerRef.current.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('resize', updateSize);
 
-    // Animation loop
+    // Enhanced animation loop with smooth momentum
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+
+      const currentTime = Date.now();
+      const deltaTime = (currentTime - lastFrameTimeRef.current) / 16; // Normalize to 60fps
+      lastFrameTimeRef.current = currentTime;
+
+      // Apply momentum decay
+      if (!isInteractingRef.current) {
+        momentumRef.current.x *= 0.95;
+        momentumRef.current.y *= 0.95;
+        rotationRef.current.y += momentumRef.current.x * deltaTime;
+        rotationRef.current.x += momentumRef.current.y * deltaTime;
+      }
+
+      // Smooth rotation application
+      scene.rotation.x += (rotationRef.current.x - scene.rotation.x) * 0.1;
+      scene.rotation.y += (rotationRef.current.y - scene.rotation.y) * 0.1;
 
       // Rotate world sphere slowly with smooth sine wave motion
       const time = Date.now() * 0.001;
       worldSphere.rotation.y += 0.0005;
       worldSphere.rotation.x = Math.sin(time * 0.2) * 0.1;
       glowSphere.rotation.y -= 0.0003;
-
-      // Update scene rotation
-      currentRotationRef.current.x += (targetRotationRef.current.x - currentRotationRef.current.x) * 0.1;
-      currentRotationRef.current.y += (targetRotationRef.current.y - currentRotationRef.current.y) * 0.1;
-
-      scene.rotation.x = currentRotationRef.current.x;
-      scene.rotation.y = currentRotationRef.current.y;
 
       // Update bubbles with smooth motion
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
@@ -301,7 +354,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     animate();
 
-    // Cleanup
+    // Enhanced cleanup
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -311,12 +364,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         containerRef.current.removeChild(rendererRef.current.domElement);
       }
 
-      // Remove event listeners
       if (containerRef.current) {
         containerRef.current.removeEventListener('mousedown', onMouseDown);
+        containerRef.current.removeEventListener('touchstart', onTouchStart);
       }
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('resize', updateSize);
     };
   }, [topics, onBubbleClick]);
 
@@ -324,6 +380,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     <div 
       ref={containerRef} 
       className="absolute inset-0 touch-none overscroll-none select-none"
+      style={{ 
+        touchAction: 'none',
+        WebkitTapHighlightColor: 'transparent'
+      }}
     />
   );
 };
