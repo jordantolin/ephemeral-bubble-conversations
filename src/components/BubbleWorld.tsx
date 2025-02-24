@@ -14,11 +14,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const planetRef = useRef<THREE.Mesh | null>(null);
+  const isCleanedUpRef = useRef(false);
   const { isInteractingRef, targetRotationRef, dragStartRef, isDraggingRef, handleReflect } = useBubbleInteraction();
   const { zoomRef, handleWheel } = useCameraControls();
 
   useEffect(() => {
     if (!containerRef.current) return;
+    
+    // Reset cleanup flag on mount
+    isCleanedUpRef.current = false;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -38,7 +42,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
-    containerRef.current.appendChild(renderer.domElement);
+    
+    // Only append if container exists and doesn't already have a canvas
+    if (!containerRef.current.querySelector('canvas')) {
+      containerRef.current.appendChild(renderer.domElement);
+    }
     rendererRef.current = renderer;
 
     // Add lighting
@@ -208,6 +216,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Animation loop with smoother movement
     const animate = () => {
+      // Only continue animation if not cleaned up
+      if (isCleanedUpRef.current) return;
+      
       animationFrameRef.current = requestAnimationFrame(animate);
       
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current || !planetRef.current) return;
@@ -246,27 +257,53 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       renderer.render(scene, camera);
     };
 
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    
-    if (rendererRef.current && containerRef.current) {
-      containerRef.current.removeChild(rendererRef.current.domElement);
-    }
-
-    containerRef.current?.removeEventListener('wheel', handleWheel);
-
     animate();
 
+    // Cleanup function
     return () => {
+      // Prevent multiple cleanups
+      if (isCleanedUpRef.current) return;
+      isCleanedUpRef.current = true;
+
+      // Cancel animation frame
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      
-      if (rendererRef.current && containerRef.current) {
-        containerRef.current.removeChild(rendererRef.current.domElement);
+
+      // Clean up Three.js resources
+      if (rendererRef.current) {
+        // Dispose of renderer
+        rendererRef.current.dispose();
+        
+        // Only try to remove if the container and canvas exist
+        const canvas = rendererRef.current.domElement;
+        if (containerRef.current && canvas && containerRef.current.contains(canvas)) {
+          containerRef.current.removeChild(canvas);
+        }
+        rendererRef.current = null;
       }
 
+      // Clean up scene resources
+      if (sceneRef.current) {
+        sceneRef.current.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            object.geometry.dispose();
+            if (object.material instanceof THREE.Material) {
+              object.material.dispose();
+            } else if (Array.isArray(object.material)) {
+              object.material.forEach(material => material.dispose());
+            }
+          }
+        });
+        sceneRef.current = null;
+      }
+
+      // Clean up other references
+      bubblesRef.current = {};
+      cameraRef.current = null;
+      planetRef.current = null;
+
+      // Remove wheel event listener
       containerRef.current?.removeEventListener('wheel', handleWheel);
     };
   }, [topics, onBubbleClick, handleReflect, handleWheel]);
