@@ -338,7 +338,7 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Chat Dialog with Reflect Button */}
+      {/* Chat Dialog with Real-time Updates */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
           <DialogHeader className="flex flex-row items-center justify-between">
