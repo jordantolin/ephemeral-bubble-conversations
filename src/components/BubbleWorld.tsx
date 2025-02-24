@@ -89,56 +89,82 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text with larger size and better contrast
-      const createTextTexture = (text: string, fontSize: number) => {
+      // Improved text rendering with better quality and readability
+      const createTextTexture = (text: string, fontSize: number, isName: boolean) => {
         const canvas = document.createElement('canvas');
-        const size = 1024; // Increased canvas size for better quality
+        const size = 2048; // Increased resolution for sharper text
         canvas.width = size;
         canvas.height = size;
         const context = canvas.getContext('2d')!;
         
+        // Clear background
         context.fillStyle = 'rgba(0,0,0,0)';
         context.fillRect(0, 0, size, size);
         
+        // Set up text style
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        context.font = `bold ${fontSize * 1.5}px Inter`; // Increased font size
         
-        // Thicker white outline for better contrast
-        context.strokeStyle = '#FFFFFF';
-        context.lineWidth = fontSize * 0.2;
-        context.lineJoin = 'round';
-        context.strokeText(text, size / 2, size / 2);
+        // Use different font weights for name and topic
+        const fontWeight = isName ? '700' : '600';
+        context.font = `${fontWeight} ${fontSize * 2}px Inter`;
         
-        // Dark text for better readability
-        context.fillStyle = '#000000';
-        context.fillText(text, size / 2, size / 2);
+        // Create multiple outline layers for depth
+        const outlineColors = [
+          'rgba(0,0,0,0.6)',  // Dark shadow
+          'rgba(255,255,255,0.95)',  // White outline
+          'rgba(255,255,255,1)'   // Pure white core
+        ];
+        
+        const outlineSizes = [3.5, 2.5, 1.5];
+        
+        // Draw multiple outlines for depth effect
+        outlineColors.forEach((color, i) => {
+          context.strokeStyle = color;
+          context.lineWidth = fontSize * 0.2 * outlineSizes[i];
+          context.lineJoin = 'round';
+          context.miterLimit = 2;
+          context.strokeText(text, size/2, size/2);
+        });
+        
+        // Draw main text
+        context.fillStyle = isName ? '#000000' : '#1A1A1A';
+        context.fillText(text, size/2, size/2);
+        
+        // Add subtle inner shadow for depth
+        context.shadowColor = 'rgba(0,0,0,0.2)';
+        context.shadowBlur = fontSize * 0.1;
+        context.fillText(text, size/2, size/2);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.anisotropy = rendererRef.current!.capabilities.getMaxAnisotropy();
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
         texture.needsUpdate = true;
         return texture;
       };
 
-      const createTextSprite = (text: string, fontSize: number, yOffset: number) => {
-        const texture = createTextTexture(text, fontSize);
+      const createTextSprite = (text: string, fontSize: number, yOffset: number, isName: boolean) => {
+        const texture = createTextTexture(text, fontSize, isName);
         const spriteMaterial = new THREE.SpriteMaterial({
           map: texture,
           transparent: true,
           depthWrite: false,
-          depthTest: false
+          depthTest: false,
+          sizeAttenuation: true
         });
 
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(finalSize * 3, finalSize * 0.75, 1); // Increased scale for larger text
+        // Increased scale for better visibility
+        sprite.scale.set(finalSize * 4, finalSize * 1, 1);
         sprite.position.y = yOffset;
         sprite.renderOrder = 999;
         return sprite;
       };
 
-      // Create larger text sprites
-      const nameSprite = createTextSprite(topic.name, 96, finalSize * 0.4); // Increased font size
-      const topicSprite = createTextSprite(topic.topic, 72, -finalSize * 0.4); // Increased font size
+      // Create text sprites with enhanced size and style
+      const nameSprite = createTextSprite(topic.name, 120, finalSize * 0.4, true);
+      const topicSprite = createTextSprite(topic.topic, 90, -finalSize * 0.4, false);
       
       const textGroup = new THREE.Group();
       textGroup.add(nameSprite);
