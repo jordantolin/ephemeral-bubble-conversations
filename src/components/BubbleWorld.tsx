@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
@@ -62,25 +61,45 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Create central world sphere
+    // Create enhanced central world sphere
     const worldGeometry = new THREE.SphereGeometry(4, 64, 64);
     const worldMaterial = new THREE.MeshStandardMaterial({
-      color: 0xebbd34,
-      metalness: 0.1,
-      roughness: 0.8,
+      color: 0xFFFFFF, // Pure white
+      metalness: 0.2,
+      roughness: 0.3,
+      transparent: true,
+      opacity: 0.8
+    });
+    const worldSphere = new THREE.Mesh(worldGeometry, worldMaterial);
+    
+    // Add glow effect to the central sphere
+    const glowGeometry = new THREE.SphereGeometry(4.2, 64, 64);
+    const glowMaterial = new THREE.MeshStandardMaterial({
+      color: 0xFFFFFF,
       transparent: true,
       opacity: 0.1
     });
-    const worldSphere = new THREE.Mesh(worldGeometry, worldMaterial);
+    const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+    worldSphere.add(glowSphere);
+    
     scene.add(worldSphere);
 
-    // Lighting setup
+    // Enhanced lighting setup
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.0);
     scene.add(ambientLight);
 
     const mainLight = new THREE.DirectionalLight(0xFFFFFF, 1.5);
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
+
+    // Add point lights for better depth
+    const pointLight1 = new THREE.PointLight(0xFFFFFF, 0.5);
+    pointLight1.position.set(-10, 5, -5);
+    scene.add(pointLight1);
+
+    const pointLight2 = new THREE.PointLight(0xFFFFFF, 0.5);
+    pointLight2.position.set(10, -5, 5);
+    scene.add(pointLight2);
 
     // Bubble container
     const bubbleContainer = new THREE.Group();
@@ -91,18 +110,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
       
-      // Create bubble with exact button color
+      // Create bubble with lighter color
       const geometry = new THREE.SphereGeometry(baseSize, 32, 32);
       const material = new THREE.MeshStandardMaterial({
-        color: 0xebbd34, // Hex color matching the Create Bubble button
-        emissive: 0xebbd34,
-        emissiveIntensity: 0.2,
-        metalness: 0.1,
+        color: 0xebc942, // Lighter yellow color as requested
+        emissive: 0xebc942,
+        emissiveIntensity: 0.1,
+        metalness: 0.2,
         roughness: 0.3,
       });
 
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
+
+      // Add subtle glow to bubbles
+      const bubbleGlowGeometry = new THREE.SphereGeometry(baseSize * 1.1, 32, 32);
+      const bubbleGlowMaterial = new THREE.MeshStandardMaterial({
+        color: 0xebc942,
+        transparent: true,
+        opacity: 0.1
+      });
+      const bubbleGlow = new THREE.Mesh(bubbleGlowGeometry, bubbleGlowMaterial);
+      bubble.add(bubbleGlow);
 
       // Create text
       const canvas = document.createElement('canvas');
@@ -158,21 +187,24 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       textMesh.position.z = baseSize * 1.1;
       bubbleGroup.add(textMesh);
 
-      // Position bubble
-      const radius = 8;
+      // Position bubble closer to the central sphere
+      const radius = 4.8; // Reduced radius to bring bubbles closer to the central sphere
       const angle = (index / topics.length) * Math.PI * 2;
+      const phi = Math.acos(-1 + (2 * index) / topics.length);
+      const theta = Math.sqrt(topics.length * Math.PI) * phi;
+      
       const x = radius * Math.cos(angle);
-      const y = Math.sin(angle * 2) * 1.5;
-      const z = radius * Math.sin(angle);
+      const y = radius * Math.sin(angle) * Math.cos(theta * 0.5);
+      const z = radius * Math.sin(angle) * Math.sin(theta * 0.5);
       
       bubbleGroup.position.set(x, y, z);
 
       bubbleGroup.userData = {
         id: topicData.id,
         orbitRadius: radius,
-        orbitSpeed: 0.001,
+        orbitSpeed: 0.0005, // Slightly slower orbit
         orbitAngle: angle,
-        initialY: y
+        orbitHeight: y
       };
 
       bubblesRef.current[topicData.id] = bubbleGroup;
@@ -231,9 +263,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
 
-      // Rotate world sphere slowly
-      worldSphere.rotation.y += 0.001;
-      worldSphere.rotation.x += 0.0005;
+      // Rotate world sphere slowly with smooth sine wave motion
+      const time = Date.now() * 0.001;
+      worldSphere.rotation.y += 0.0005;
+      worldSphere.rotation.x = Math.sin(time * 0.2) * 0.1;
+      glowSphere.rotation.y -= 0.0003;
 
       // Update scene rotation
       currentRotationRef.current.x += (targetRotationRef.current.x - currentRotationRef.current.x) * 0.1;
@@ -242,14 +276,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.rotation.x = currentRotationRef.current.x;
       scene.rotation.y = currentRotationRef.current.y;
 
-      // Update bubbles
+      // Update bubbles with smooth motion
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
           const radius = bubbleGroup.userData.orbitRadius;
-          const x = radius * Math.cos(bubbleGroup.userData.orbitAngle);
-          const z = radius * Math.sin(bubbleGroup.userData.orbitAngle);
-          const y = bubbleGroup.userData.initialY;
+          const angle = bubbleGroup.userData.orbitAngle;
+          
+          const x = radius * Math.cos(angle);
+          const z = radius * Math.sin(angle);
+          const y = bubbleGroup.userData.orbitHeight + Math.sin(time + angle) * 0.2;
+          
           bubbleGroup.position.set(x, y, z);
 
           // Make text face camera
