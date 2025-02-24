@@ -320,19 +320,32 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           table: 'bubbles'
         },
         (payload: RealtimePostgresChangesPayload<BubbleData>) => {
-          if (!payload.new || !isBubbleData(payload.new)) return;
+          // First, validate the payload data
+          if (!payload.new) {
+            console.error('No payload data received');
+            return;
+          }
+
+          // Type guard check
+          if (!isBubbleData(payload.new)) {
+            console.error('Invalid bubble data received:', payload.new);
+            return;
+          }
+
+          // At this point, TypeScript knows payload.new is BubbleData
+          const newBubbleData = payload.new;
 
           // Create new bubble in the next animation frame
           requestAnimationFrame(() => {
             if (!sceneRef.current) return;
             
             const index = Object.keys(bubblesRef.current).length;
-            const bubbleGroup = createBubble(payload.new as BubbleData, index);
+            const bubbleGroup = createBubble(newBubbleData, index);
             sceneRef.current.add(bubbleGroup);
             
             toast({
               title: "New Bubble Created",
-              description: `${payload.new.name} has joined the conversation!`,
+              description: `${newBubbleData.name} has joined the conversation!`,
             });
           });
         }
