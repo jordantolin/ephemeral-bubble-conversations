@@ -7,6 +7,14 @@ import { createBubbleGeometry, createBubbleMaterial } from '@/utils/bubbleUtils'
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
 import { useCameraControls } from '@/hooks/useCameraControls';
 
+// Helper function to convert touch to mouse-like event
+const touchToMouseEvent = (touch: Touch): Partial<MouseEvent> => ({
+  clientX: touch.clientX,
+  clientY: touch.clientY,
+  preventDefault: () => {},
+  stopPropagation: () => {}
+});
+
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
@@ -57,12 +65,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const mouse = new THREE.Vector2();
 
     // Handle bubble clicks
-    const handleClick = (event: MouseEvent) => {
+    const handleClick = (event: MouseEvent | TouchEvent) => {
       if (isDraggingRef.current) return;
 
       const rect = container.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
+      const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
+
+      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
@@ -78,6 +89,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('click', handleClick);
 
+    // Create bubbles
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -126,7 +138,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     animate();
 
-    // Handle resize
+    // Handle window resize
     const handleResize = () => {
       if (!container || !camera || !renderer) return;
       
@@ -140,29 +152,37 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     window.addEventListener('resize', handleResize);
 
-    // Touch events for mobile
-    container.addEventListener('touchstart', (e) => {
+    // Touch event handlers
+    const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.touches[0];
-      handleMouseDown(touch);
-    });
+      const mouseEventLike = touchToMouseEvent(touch);
+      handleMouseDown(mouseEventLike as MouseEvent);
+    };
 
-    container.addEventListener('touchmove', (e) => {
+    const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.touches[0];
-      handleMouseMove(touch);
-    });
+      const mouseEventLike = touchToMouseEvent(touch);
+      handleMouseMove(mouseEventLike as MouseEvent);
+    };
 
-    container.addEventListener('touchend', () => {
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
       handleMouseUp();
-    });
+    };
+
+    // Add touch event listeners
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     return () => {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('click', handleClick);
-      container.removeEventListener('touchstart', handleMouseDown as any);
-      container.removeEventListener('touchmove', handleMouseMove as any);
-      container.removeEventListener('touchend', handleMouseUp);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
