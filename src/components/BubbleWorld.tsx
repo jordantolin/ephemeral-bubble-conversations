@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
 import * as TWEEN from '@tweenjs/tween.js';
+import { supabase } from "@/integrations/supabase/client";
 
 interface BubbleWorldProps {
   topics: Array<{
@@ -10,21 +11,24 @@ interface BubbleWorldProps {
     username: string;
     name: string;
     size: "sm" | "md" | "lg";
+    created_at?: string;
   }>;
   onBubbleClick: (id: string) => void;
-  onBubbleCreate?: (bubble: { topic: string; username: string; name: string }) => void;
 }
 
-const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps) => {
+const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const { toast } = useToast();
+  const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
+  const sceneRef = useRef<THREE.Scene | null>(null);
   
   useEffect(() => {
     if (!containerRef.current) return;
 
     // Scene setup
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.fog = new THREE.Fog(0xFFFFFF, 15, 30);
     scene.background = new THREE.Color('#FFFFFF');
 
@@ -84,17 +88,25 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Create bubble function
-    const createBubble = (topicData: { id: string; topic: string; username: string; name: string; size: "sm" | "md" | "lg" }, index: number) => {
+    // Create bubble function with explosion animation
+    const createBubble = (topicData: { id: string; topic: string; username: string; name: string; size: "sm" | "md" | "lg"; created_at?: string }, index: number) => {
       const bubbleGroup = new THREE.Group();
-
-      // Set bubble size based on topicData.size
-      const bubbleSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
+      
+      // Calculate bubble age and scale
+      const createdAt = topicData.created_at ? new Date(topicData.created_at) : new Date();
+      const ageInHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+      const remainingLife = Math.max(0, 24 - ageInHours);
+      
+      // Set bubble size based on topicData.size and remaining life
+      const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
+      const bubbleSize = baseSize * (remainingLife / 24);
 
       // Create the bubble sphere
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
       const material = new THREE.MeshBasicMaterial({
         color: '#ebbd34',
+        transparent: true,
+        opacity: remainingLife / 24,
       });
 
       const bubble = new THREE.Mesh(geometry, material);
@@ -171,16 +183,108 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         initialY: y
       };
 
-      bubbles.push(bubbleGroup);
-      bubbleContainer.add(bubbleGroup);
+      // Store reference to the bubble
+      bubblesRef.current[topicData.id] = bubbleGroup;
+
+      // Schedule explosion if needed
+      if (remainingLife > 0) {
+        const timeUntilExplosion = remainingLife * 60 * 60 * 1000;
+        setTimeout(() => {
+          explodeBubble(topicData.id);
+        }, timeUntilExplosion);
+      }
 
       return bubbleGroup;
     };
 
-    // Create initial bubbles
+    // Explosion animation function
+    const explodeBubble = (bubbleId: string) => {
+      const bubbleGroup = bubblesRef.current[bubbleId];
+      if (!bubbleGroup || !sceneRef.current) return;
+
+      const bubble = bubbleGroup.children[0] as THREE.Mesh;
+      const originalScale = bubble.scale.clone();
+      const originalOpacity = (bubble.material as THREE.MeshBasicMaterial).opacity;
+
+      // Create particle system for explosion effect
+      const particleCount = 50;
+      const particles = new THREE.Points(
+        new THREE.BufferGeometry(),
+        new THREE.PointsMaterial({
+          color: '#ebbd34',
+          size: 0.05,
+          transparent: true,
+          opacity: 0.8,
+        })
+      );
+
+      const positions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = 0;
+        positions[i * 3 + 1] = 0;
+        positions[i * 3 + 2] = 0;
+      }
+      particles.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      bubbleGroup.add(particles);
+
+      // Animate explosion
+      new TWEEN.Tween({ scale: 1, opacity: originalOpacity })
+        .to({ scale: 0, opacity: 0 }, 2000)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(({ scale, opacity }) => {
+          if (bubble.material) {
+            bubble.scale.set(scale, scale, scale);
+            (bubble.material as THREE.MeshBasicMaterial).opacity = opacity;
+          }
+
+          // Animate particles
+          const positions = particles.geometry.attributes.position.array as Float32Array;
+          for (let i = 0; i < particleCount; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI;
+            const r = 0.5 * (1 - scale);
+
+            positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            positions[i * 3 + 2] = r * Math.cos(phi);
+          }
+          particles.geometry.attributes.position.needsUpdate = true;
+          (particles.material as THREE.PointsMaterial).opacity = opacity;
+        })
+        .onComplete(() => {
+          if (sceneRef.current) {
+            sceneRef.current.remove(bubbleGroup);
+            delete bubblesRef.current[bubbleId];
+          }
+        })
+        .start();
+    };
+
+    // Initialize bubbles and set up real-time subscription
     topics.forEach((topic, index) => {
       createBubble(topic, index);
     });
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('public:bubbles')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'bubbles'
+        },
+        (payload) => {
+          const newBubble = payload.new;
+          const index = Object.keys(bubblesRef.current).length;
+          const bubbleGroup = createBubble(newBubble, index);
+          if (sceneRef.current && bubbleGroup) {
+            sceneRef.current.add(bubbleGroup);
+          }
+        }
+      )
+      .subscribe();
 
     // Interaction state
     let isRotating = false;
@@ -299,16 +403,12 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
     // Cleanup
     return () => {
       if (containerRef.current) {
-        renderer.domElement.removeEventListener('mousedown', onMouseDown);
-        renderer.domElement.removeEventListener('mousemove', onMouseMove);
-        renderer.domElement.removeEventListener('mouseup', onMouseUp);
-        renderer.domElement.removeEventListener('click', onClick);
-        renderer.domElement.removeEventListener('wheel', onWheel); // Remove zoom listener
+        renderer.dispose();
         containerRef.current.removeChild(renderer.domElement);
       }
-      renderer.dispose();
+      supabase.removeChannel(channel);
     };
-  }, [topics, onBubbleClick, selectedBubbleId, onBubbleCreate]);
+  }, [topics, onBubbleClick, selectedBubbleId]);
 
   return (
     <div 
