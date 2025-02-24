@@ -44,18 +44,6 @@ const availableTopics = [
   "World Culture"
 ];
 
-interface Bubble {
-  id: string;
-  topic: string;
-  username: string;
-  name: string;
-  size: "sm" | "md" | "lg";
-  description: string;
-  messages: Message[];
-  expires_at: string;
-  reflect_count: number;
-}
-
 interface Message {
   id: string;
   content: string;
@@ -63,10 +51,18 @@ interface Message {
   timestamp: string;
 }
 
-// Type guard to check if size is valid
-const isValidSize = (size: string): size is "sm" | "md" | "lg" => {
-  return ["sm", "md", "lg"].includes(size);
-};
+interface Bubble {
+  id: string;
+  topic: string;
+  username: string;
+  name: string;
+  size: "sm" | "md" | "lg";
+  description: string | null;
+  messages: Message[];
+  expires_at: string;
+  reflect_count: number;
+  created_at: string;
+}
 
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
@@ -79,6 +75,7 @@ const Index = () => {
     username: "@user"
   });
   const [newMessage, setNewMessage] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -102,13 +99,45 @@ const Index = () => {
 
       return data.map(bubble => ({
         ...bubble,
-        size: calculateBubbleSize(bubble.reflects[0]?.count || 0),
-        expires_at: bubble.expires_at,
-        reflect_count: bubble.reflects[0]?.count || 0
+        size: calculateBubbleSize(bubble.reflect_count || 0),
+        messages: [] // Initialize empty messages array for each bubble
       })) as Bubble[];
     },
-    refetchInterval: 60000 // Refetch every minute to check for expired bubbles
+    refetchInterval: 60000
   });
+
+  // Fetch messages when a bubble is selected
+  useEffect(() => {
+    if (selectedBubbleId) {
+      const fetchMessages = async () => {
+        const { data, error } = await supabase
+          .from('bubble_messages')
+          .select('*')
+          .eq('bubble_id', selectedBubbleId)
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          toast({
+            title: "Error fetching messages",
+            description: error.message,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        setMessages(data.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          username: msg.username,
+          timestamp: msg.created_at
+        })));
+      };
+
+      fetchMessages();
+    } else {
+      setMessages([]);
+    }
+  }, [selectedBubbleId]);
 
   // Helper function to calculate bubble size based on reflects
   const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
@@ -253,6 +282,22 @@ const Index = () => {
     }
 
     setNewMessage("");
+    // Refresh messages
+    const { data: newMessages } = await supabase
+      .from('bubble_messages')
+      .select('*')
+      .eq('bubble_id', selectedBubbleId)
+      .order('created_at', { ascending: true });
+
+    if (newMessages) {
+      setMessages(newMessages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        username: msg.username,
+        timestamp: msg.created_at
+      })));
+    }
+
     toast({
       title: "Message Sent",
       description: "Your message has been sent successfully",
