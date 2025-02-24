@@ -118,19 +118,8 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         
         const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
-
-        // Create semi-transparent white background for better contrast
-        context.fillStyle = 'rgba(255, 255, 255, 0.92)';
-        const padding = canvas.height * 0.1;
-        const rectHeight = spacing * 3.5;
-        context.fillRect(
-          padding, 
-          (canvas.height - rectHeight) / 2, 
-          canvas.width - (padding * 2), 
-          rectHeight
-        );
         
-        // Draw text elements with enhanced visibility
+        // Draw text elements with pure black color for maximum contrast
         context.fillStyle = '#000000';
         context.font = `bold ${nameSize}px Inter`;
         context.fillText(topicData.name, canvas.width/2, startY);
@@ -143,7 +132,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
       }
 
-      // Create and configure text texture
+      // Create and configure text texture with improved alpha handling
       const textTexture = new THREE.CanvasTexture(canvas);
       textTexture.needsUpdate = true;
       textTexture.minFilter = THREE.LinearFilter;
@@ -158,7 +147,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         side: THREE.DoubleSide,
         depthWrite: false,
         depthTest: false, // Ensures text always renders on top
-        alphaTest: 0.1
+        alphaTest: 0.01  // Reduced for smoother text edges
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
