@@ -178,8 +178,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     
     const geometry = new THREE.SphereGeometry(finalSize, 32, 32);
     
-    // Brighter, more yellow color
-    const bubbleColor = 0xFEF7CD; // Soft yellow color
+    // Use the specified yellow color #ebc942
+    const bubbleColor = 0xebc942;
     const material = new THREE.MeshStandardMaterial({
       color: bubbleColor,
       emissive: bubbleColor,
