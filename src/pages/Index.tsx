@@ -310,18 +310,18 @@ const Index = () => {
   }, [selectedBubbleId, queryClient]);
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] to-[#222222]">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container relative mx-auto px-2 sm:px-4 py-4 pt-20 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
-        <div className="text-center mb-4 sm:mb-8 relative z-10">
-          <h1 className="text-3xl sm:text-4xl font-light text-white mb-2 px-4">
+      <main className="container mx-auto px-0 sm:px-4 pt-16 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
+        <div className="text-center mb-4 relative z-10">
+          <h1 className="text-3xl sm:text-4xl font-light text-[#ebbd34] mb-2 px-4">
             Bubble Trouble
           </h1>
-          <div className="h-px w-24 bg-white/20 mx-auto" />
+          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
         </div>
 
-        <div className="relative w-full h-[calc(100dvh-220px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-[#1A1F2C]/50 backdrop-blur-sm shadow-xl">
+        <div className="relative w-screen sm:w-full h-[calc(100dvh-150px)] sm:h-[600px] sm:max-w-3xl sm:rounded-2xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm shadow-xl">
           <BubbleWorld 
             topics={bubbles}
             onBubbleClick={handleBubbleClick}
@@ -330,7 +330,7 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="fixed bottom-8 right-8 z-50 bg-white hover:bg-white/90 text-[#1A1F2C] transform transition-all duration-300 hover:scale-105 shadow-lg rounded-full w-16 h-16 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8"
+          className="fixed bottom-8 right-8 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white transform transition-all duration-300 hover:scale-105 shadow-lg rounded-full w-16 h-16 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8"
           size="icon"
         >
           <Plus className="w-8 h-8 sm:w-5 sm:h-5 sm:mr-2" />
@@ -338,20 +338,20 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Chat Dialog */}
+      {/* Chat Dialog - Update colors */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[500px] h-[80vh] sm:h-[600px] flex flex-col p-0 border-none bg-[#1A1F2C]">
-          <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-white/10">
+        <DialogContent className="sm:max-w-[500px] h-[80vh] sm:h-[600px] flex flex-col p-0 border-none bg-[#FEF7E4]">
+          <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10">
             <div>
-              <DialogTitle className="text-white text-xl">{selectedBubble?.name}</DialogTitle>
-              <DialogDescription className="text-white/70">
+              <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
+              <DialogDescription className="text-[#ebbd34]/70">
                 {selectedBubble?.description}
               </DialogDescription>
             </div>
             <Button
               variant="outline"
               size="icon"
-              className="ml-4 hover:text-white transition-colors border-white/20"
+              className="ml-4 hover:text-[#ebbd34] transition-colors border-[#ebbd34]/20"
               onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
             >
               <Star className="h-5 w-5" />
@@ -368,24 +368,24 @@ const Index = () => {
               >
                 <div className={`max-w-[80%] rounded-2xl p-3 ${
                   message.username === "@user"
-                    ? "bg-white text-[#1A1F2C]"
-                    : "bg-white/10 text-white"
+                    ? "bg-[#ebbd34] text-white"
+                    : "bg-[#ebbd34]/10 text-[#ebbd34]"
                 }`}>
                   <p className="text-sm">{message.content}</p>
                 </div>
-                <span className="text-xs text-white/50 mt-1">
+                <span className="text-xs text-[#ebbd34]/50 mt-1">
                   {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
                 </span>
               </div>
             ))}
           </ScrollArea>
 
-          <div className="flex flex-col gap-2 p-4 border-t border-white/10 bg-[#1A1F2C]">
+          <div className="flex flex-col gap-2 p-4 border-t border-[#ebbd34]/10 bg-[#FEF7E4]">
             <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
               <Button 
                 variant="outline" 
                 size="icon"
-                className="shrink-0 border-white/20 text-white hover:text-white/70"
+                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={() => handleFileUpload('image')}
               >
                 <Image className="h-5 w-5" />
@@ -393,7 +393,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon"
-                className="shrink-0 border-white/20 text-white hover:text-white/70"
+                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={() => handleFileUpload('video')}
               >
                 <Video className="h-5 w-5" />
@@ -401,7 +401,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon"
-                className="shrink-0 border-white/20 text-white hover:text-white/70"
+                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={() => handleFileUpload('gif')}
               >
                 <SmilePlus className="h-5 w-5" />
@@ -409,7 +409,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon"
-                className="shrink-0 border-white/20 text-white hover:text-white/70"
+                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
                 onClick={handleVoiceRecord}
               >
                 <Mic className="h-5 w-5" />
@@ -426,12 +426,12 @@ const Index = () => {
                     handleSendMessage();
                   }
                 }}
-                className="flex-1 bg-white/5 border-white/20 text-white placeholder-white/50"
+                className="flex-1 bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
               />
               <Button 
                 onClick={handleSendMessage} 
                 size="icon" 
-                className="bg-white hover:bg-white/90 text-[#1A1F2C]"
+                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
               >
                 <Send className="h-5 w-5" />
               </Button>
@@ -440,29 +440,29 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Bubble Dialog */}
+      {/* Create Bubble Dialog - Update colors */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-[#1A1F2C] border-none">
+        <DialogContent className="sm:max-w-[425px] bg-[#FEF7E4] border-none">
           <DialogHeader>
-            <DialogTitle className="text-white text-xl">Create New Bubble</DialogTitle>
-            <DialogDescription className="text-white/70">
+            <DialogTitle className="text-[#ebbd34] text-xl">Create New Bubble</DialogTitle>
+            <DialogDescription className="text-[#ebbd34]/70">
               Choose a topic and name for your new bubble community.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="topic" className="text-white">Topic</Label>
+              <Label htmlFor="topic" className="text-[#ebbd34]">Topic</Label>
               <Select
                 value={newBubble.topic}
                 onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
               >
-                <SelectTrigger className="w-full bg-white/5 border-white/20 text-white">
+                <SelectTrigger className="w-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34]">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1A1F2C] border-white/20">
+                <SelectContent className="bg-[#FEF7E4] border-[#ebbd34]/20">
                   {availableTopics.map((topic) => (
-                    <SelectItem key={topic} value={topic} className="text-white">
+                    <SelectItem key={topic} value={topic} className="text-[#ebbd34]">
                       {topic}
                     </SelectItem>
                   ))}
@@ -471,24 +471,24 @@ const Index = () => {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-white">Bubble Name</Label>
+              <Label htmlFor="name" className="text-[#ebbd34]">Bubble Name</Label>
               <Input
                 id="name"
                 value={newBubble.name}
                 onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
                 placeholder="Give your bubble a name..."
-                className="bg-white/5 border-white/20 text-white placeholder-white/50"
+                className="bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
               />
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="description" className="text-white">Description</Label>
+              <Label htmlFor="description" className="text-[#ebbd34]">Description</Label>
               <Textarea
                 id="description"
                 value={newBubble.description}
                 onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
                 placeholder="What's your bubble about?"
-                className="bg-white/5 border-white/20 text-white placeholder-white/50"
+                className="bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
               />
             </div>
           </div>
@@ -497,13 +497,13 @@ const Index = () => {
             <Button
               variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
-              className="border-white/20 text-white hover:text-white/70"
+              className="border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleCreateBubble}
-              className="bg-white hover:bg-white/90 text-[#1A1F2C]"
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
             >
               Create Bubble
             </Button>
