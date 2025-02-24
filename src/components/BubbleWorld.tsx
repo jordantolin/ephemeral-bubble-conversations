@@ -22,7 +22,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const planetRef = useRef<THREE.Mesh | null>(null);
   const { isInteractingRef, targetRotationRef, dragStartRef, isDraggingRef, handleReflect } = useBubbleInteraction();
   const { handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera } = useCameraControls();
 
@@ -37,11 +36,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // Adjust camera FOV for mobile
+    // Adjust camera FOV and position for mobile
     const isMobile = width < 768;
-    const fov = isMobile ? 60 : 45;
+    const fov = isMobile ? 75 : 45;
     const camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 1000);
-    camera.position.z = isMobile ? 12 : 16;
+    camera.position.z = isMobile ? 8 : 12;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
@@ -89,7 +88,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('click', handleClick);
 
-    // Create bubbles
+    // Create bubbles with improved spacing
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -103,14 +102,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Position bubbles in a circle with adjusted radius for mobile
-      const radius = isMobile ? 5 : 6;
-      const angle = (index / topics.length) * Math.PI * 2;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius * 0.8; // Flatten circle slightly
-      const z = Math.sin(angle) * radius * 0.6;
-      bubbleGroup.position.set(x, y, z);
+      // Improved bubble positioning
+      const totalBubbles = topics.length;
+      const radius = isMobile ? 4 : 6;
+      const phi = Math.acos(-1 + (2 * index) / totalBubbles);
+      const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
 
+      const x = radius * Math.cos(theta) * Math.sin(phi);
+      const y = radius * Math.sin(theta) * Math.sin(phi);
+      const z = radius * Math.cos(phi);
+
+      bubbleGroup.position.set(x, y, z);
       bubbleGroup.userData = {
         id: topic.id,
         reflectCount: topic.reflect_count
@@ -120,23 +122,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubblesRef.current[topic.id] = bubbleGroup;
       scene.add(bubbleGroup);
     });
-
-    const animate = () => {
-      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
-      animationFrameRef.current = requestAnimationFrame(animate);
-      
-      updateCamera(cameraRef.current);
-      TWEEN.update();
-
-      // Rotate bubbles to face camera
-      Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        bubbleGroup.quaternion.copy(camera.quaternion);
-      });
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
 
     // Handle window resize
     const handleResize = () => {
@@ -152,16 +137,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     window.addEventListener('resize', handleResize);
 
+    // Mouse wheel for zoom
+    const handleWheelEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      handleWheel(e);
+    };
+
+    container.addEventListener('wheel', handleWheelEvent);
+
     // Touch event handlers
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.touches[0];
       const mouseEventLike = touchToMouseEvent(touch);
       handleMouseDown(mouseEventLike as MouseEvent);
+      isDraggingRef.current = true;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
+      if (!isDraggingRef.current) return;
       const touch = e.touches[0];
       const mouseEventLike = touchToMouseEvent(touch);
       handleMouseMove(mouseEventLike as MouseEvent);
@@ -169,20 +164,50 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
+      isDraggingRef.current = false;
       handleMouseUp();
     };
 
-    // Add touch event listeners
+    // Add all event listeners
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: false });
+    container.addEventListener('mousedown', handleMouseDown);
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseup', handleMouseUp);
+
+    // Animation loop with smooth rotation
+    const animate = () => {
+      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+      
+      animationFrameRef.current = requestAnimationFrame(animate);
+      
+      // Update camera position and rotation
+      updateCamera(cameraRef.current);
+      
+      // Update tweens
+      TWEEN.update();
+
+      // Make bubbles face camera
+      Object.values(bubblesRef.current).forEach(bubbleGroup => {
+        bubbleGroup.quaternion.copy(camera.quaternion);
+      });
+
+      renderer.render(scene, camera);
+    };
+
+    animate();
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      container.removeEventListener('wheel', handleWheelEvent);
       container.removeEventListener('click', handleClick);
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseup', handleMouseUp);
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
