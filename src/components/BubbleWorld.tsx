@@ -118,35 +118,61 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text sprite positioned above bubble
+      // Create bubble name text sprite
       const textTexture = createTextCanvas(topic.name);
       const spriteMaterial = new THREE.SpriteMaterial({ 
         map: textTexture,
         transparent: true,
         opacity: 1,
-        depthTest: false // Ensures text is always visible
+        depthTest: false
       });
       const sprite = new THREE.Sprite(spriteMaterial);
       sprite.scale.set(finalSize * 2.5, finalSize * 1.25, 1);
-      sprite.position.y = finalSize * 1.2; // Position above bubble
+      sprite.position.y = finalSize * 1.2;
       bubbleGroup.add(sprite);
 
-      // Add reflect count text below bubble name
+      // Add username text
+      const userTexture = createTextCanvas(`by ${topic.username}`, 32);
+      const userMaterial = new THREE.SpriteMaterial({
+        map: userTexture,
+        transparent: true,
+        opacity: 1,
+        depthTest: false
+      });
+      const userSprite = new THREE.Sprite(userMaterial);
+      userSprite.scale.set(finalSize * 2, finalSize * 0.8, 1);
+      userSprite.position.y = finalSize * 0.6;
+      bubbleGroup.add(userSprite);
+
+      // Add topic text
+      const topicTexture = createTextCanvas(topic.topic, 32);
+      const topicMaterial = new THREE.SpriteMaterial({
+        map: topicTexture,
+        transparent: true,
+        opacity: 1,
+        depthTest: false
+      });
+      const topicSprite = new THREE.Sprite(topicMaterial);
+      topicSprite.scale.set(finalSize * 2, finalSize * 0.8, 1);
+      topicSprite.position.y = finalSize * 0.2;
+      bubbleGroup.add(topicSprite);
+
+      // Add reflect count text
       const reflectTexture = createTextCanvas(`⭐ ${topic.reflect_count}`, 36);
       const reflectMaterial = new THREE.SpriteMaterial({
         map: reflectTexture,
         transparent: true,
         opacity: 1,
-        depthTest: false // Ensures text is always visible
+        depthTest: false
       });
       const reflectSprite = new THREE.Sprite(reflectMaterial);
-      reflectSprite.scale.set(finalSize * 2, finalSize, 1);
-      reflectSprite.position.y = finalSize * 0.8; // Position just below the name
+      reflectSprite.scale.set(finalSize * 2, finalSize * 0.8, 1);
+      reflectSprite.position.y = finalSize * -0.2;
       bubbleGroup.add(reflectSprite);
 
-      // Position bubbles closer to the central world
+      // Position bubbles very close to the central world
       const totalBubbles = topics.length;
-      const radius = isMobile ? 3 : 4; // Reduced radius to keep bubbles closer
+      const radius = isMobile ? 2.5 : 3; // Even closer to the central world
       const phi = Math.acos(-1 + (2 * index) / totalBubbles);
       const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
 
