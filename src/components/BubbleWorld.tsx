@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import * * as THREE from 'three';
+import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
 import * as TWEEN from '@tweenjs/tween.js';
 import { supabase } from "@/integrations/supabase/client";
