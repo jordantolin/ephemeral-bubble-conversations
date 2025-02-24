@@ -1,18 +1,22 @@
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
 import * as TWEEN from '@tweenjs/tween.js';
 import { supabase } from "@/integrations/supabase/client";
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+
+interface BubbleData {
+  id: string;
+  topic: string;
+  username: string;
+  name: string;
+  size: "sm" | "md" | "lg";
+  created_at?: string;
+}
 
 interface BubbleWorldProps {
-  topics: Array<{
-    id: string;
-    topic: string;
-    username: string;
-    name: string;
-    size: "sm" | "md" | "lg";
-    created_at?: string;
-  }>;
+  topics: BubbleData[];
   onBubbleClick: (id: string) => void;
 }
 
@@ -89,7 +93,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const bubbles: THREE.Group[] = [];
 
     // Create bubble function with explosion animation
-    const createBubble = (topicData: { id: string; topic: string; username: string; name: string; size: "sm" | "md" | "lg"; created_at?: string }, index: number) => {
+    const createBubble = (topicData: BubbleData, index: number) => {
       const bubbleGroup = new THREE.Group();
       
       // Calculate bubble age and scale
@@ -262,10 +266,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Initialize bubbles and set up real-time subscription
     topics.forEach((topic, index) => {
-      createBubble(topic, index);
+      const bubbleGroup = createBubble(topic, index);
+      scene.add(bubbleGroup);
     });
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates with proper type checking
     const channel = supabase
       .channel('public:bubbles')
       .on(
@@ -275,12 +280,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           schema: 'public',
           table: 'bubbles'
         },
-        (payload) => {
-          const newBubble = payload.new;
-          const index = Object.keys(bubblesRef.current).length;
-          const bubbleGroup = createBubble(newBubble, index);
-          if (sceneRef.current && bubbleGroup) {
-            sceneRef.current.add(bubbleGroup);
+        (payload: RealtimePostgresChangesPayload<BubbleData>) => {
+          if (payload.new && 
+              typeof payload.new.id === 'string' &&
+              typeof payload.new.topic === 'string' &&
+              typeof payload.new.username === 'string' &&
+              typeof payload.new.name === 'string' &&
+              (payload.new.size === 'sm' || payload.new.size === 'md' || payload.new.size === 'lg')) {
+            
+            const newBubble: BubbleData = {
+              id: payload.new.id,
+              topic: payload.new.topic,
+              username: payload.new.username,
+              name: payload.new.name,
+              size: payload.new.size,
+              created_at: payload.new.created_at
+            };
+
+            const index = Object.keys(bubblesRef.current).length;
+            const bubbleGroup = createBubble(newBubble, index);
+            if (sceneRef.current && bubbleGroup) {
+              sceneRef.current.add(bubbleGroup);
+            }
           }
         }
       )
