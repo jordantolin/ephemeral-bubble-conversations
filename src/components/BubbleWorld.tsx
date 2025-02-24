@@ -103,7 +103,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
       // Create text canvas
       const canvas = document.createElement('canvas');
-      canvas.width = 2048; // Increased resolution
+      canvas.width = 2048;
       canvas.height = 2048;
       const context = canvas.getContext('2d');
       
@@ -120,18 +120,22 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
 
-        // Add text shadow for better visibility
-        context.shadowColor = 'white';
-        context.shadowBlur = 15;
+        // Add white background with slight opacity for better readability
+        context.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Set all text to black with enhanced visibility
+        context.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        context.shadowBlur = 20;
         context.shadowOffsetX = 0;
         context.shadowOffsetY = 0;
 
         context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = '#344ceb';
+        context.fillStyle = '#000000';
         context.fillText(topicData.name, canvas.width/2, startY);
 
         context.font = `${topicSize}px Inter`;
-        context.fillStyle = '#344ceb';
+        context.fillStyle = '#000000';
         context.fillText(topicData.topic, canvas.width/2, startY + spacing);
 
         context.font = `bold ${usernameSize}px Inter`;
@@ -146,13 +150,14 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       textTexture.magFilter = THREE.LinearFilter;
       textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.5, bubbleSize * 2.5);
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 3, bubbleSize * 3); // Increased size for better readability
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
         side: THREE.DoubleSide,
-        depthWrite: false, // Ensures text is always visible
-        alphaTest: 0.1 // Helps with transparency issues
+        depthWrite: false,
+        depthTest: false, // This ensures text is always rendered on top
+        alphaTest: 0.1
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
