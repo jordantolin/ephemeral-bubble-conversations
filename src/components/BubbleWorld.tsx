@@ -62,6 +62,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
+    // Create central world sphere
+    const worldGeometry = new THREE.SphereGeometry(4, 64, 64);
+    const worldMaterial = new THREE.MeshStandardMaterial({
+      color: 0xebbd34,
+      metalness: 0.1,
+      roughness: 0.8,
+      transparent: true,
+      opacity: 0.1
+    });
+    const worldSphere = new THREE.Mesh(worldGeometry, worldMaterial);
+    scene.add(worldSphere);
+
     // Lighting setup
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.0);
     scene.add(ambientLight);
@@ -82,10 +94,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Create bubble with exact button color
       const geometry = new THREE.SphereGeometry(baseSize, 32, 32);
       const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#ebbd34'),
-        emissive: new THREE.Color('#ebbd34'),
+        color: 0xebbd34, // Hex color matching the Create Bubble button
+        emissive: 0xebbd34,
         emissiveIntensity: 0.2,
-        metalness: 0,
+        metalness: 0.1,
         roughness: 0.3,
       });
 
@@ -218,6 +230,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+
+      // Rotate world sphere slowly
+      worldSphere.rotation.y += 0.001;
+      worldSphere.rotation.x += 0.0005;
 
       // Update scene rotation
       currentRotationRef.current.x += (targetRotationRef.current.x - currentRotationRef.current.x) * 0.1;
