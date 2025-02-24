@@ -1,9 +1,8 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
-import { createBubbleGeometry, createBubbleMaterial } from '@/utils/bubbleUtils';
+import { createBubbleGeometry, createBubbleMaterial, createTextCanvas } from '@/utils/bubbleUtils';
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
 import { useCameraControls } from '@/hooks/useCameraControls';
 
@@ -88,7 +87,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('click', handleClick);
 
-    // Create bubbles with improved spacing
+    // Create bubbles with improved spacing and text
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -97,10 +96,36 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const reflectScale = 1 + (topic.reflect_count * 0.1);
       const finalSize = baseSize * reflectScale;
       
+      // Create main bubble
       const geometry = createBubbleGeometry(finalSize);
       const material = createBubbleMaterial();
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
+
+      // Create text sprite
+      const textTexture = createTextCanvas(topic.name);
+      const spriteMaterial = new THREE.SpriteMaterial({ 
+        map: textTexture,
+        transparent: true,
+        opacity: 0.9
+      });
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.scale.set(finalSize * 2, finalSize * 2, 1);
+      sprite.position.z = finalSize * 0.5; // Position slightly in front of bubble
+      bubbleGroup.add(sprite);
+
+      // Add reflect count text
+      const reflectTexture = createTextCanvas(`⭐ ${topic.reflect_count}`, 48);
+      const reflectMaterial = new THREE.SpriteMaterial({
+        map: reflectTexture,
+        transparent: true,
+        opacity: 0.9
+      });
+      const reflectSprite = new THREE.Sprite(reflectMaterial);
+      reflectSprite.scale.set(finalSize * 1.5, finalSize * 1.5, 1);
+      reflectSprite.position.z = finalSize * 0.5;
+      reflectSprite.position.y = -finalSize * 1.2;
+      bubbleGroup.add(reflectSprite);
 
       // Improved bubble positioning
       const totalBubbles = topics.length;
