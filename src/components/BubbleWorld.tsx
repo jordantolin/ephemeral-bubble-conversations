@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -14,25 +15,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const planetRef = useRef<THREE.Mesh | null>(null);
-  const isCleanedUpRef = useRef(false);
   const { isInteractingRef, targetRotationRef, dragStartRef, isDraggingRef, handleReflect } = useBubbleInteraction();
   const { handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera } = useCameraControls();
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
-    // Reset cleanup flag on mount
-    isCleanedUpRef.current = false;
 
+    const container = containerRef.current;
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color('#FEF7E4');
 
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 16;
+    // Adjust camera FOV for mobile
+    const isMobile = width < 768;
+    const fov = isMobile ? 60 : 45;
+    const camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 1000);
+    camera.position.z = isMobile ? 12 : 16;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
@@ -42,14 +43,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
-    
-    // Only append if container exists and doesn't already have a canvas
-    if (!containerRef.current.querySelector('canvas')) {
-      containerRef.current.appendChild(renderer.domElement);
-    }
+    container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Add lighting
     const ambientLight = new THREE.AmbientLight('#FFFFFF', 2);
     scene.add(ambientLight);
 
@@ -57,24 +53,30 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create central planet (white)
-    const planetGeometry = new THREE.SphereGeometry(3, 32, 32);
-    const planetMaterial = new THREE.MeshPhongMaterial({
-      color: 0xFFFFFF,
-      emissive: 0xFFFFFF,
-      emissiveIntensity: 0.1,
-      shininess: 100
-    });
-    const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-    scene.add(planet);
-    planetRef.current = planet;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
-    // Add mouse and wheel event listeners
-    containerRef.current.addEventListener('mousedown', handleMouseDown);
-    containerRef.current.addEventListener('mousemove', handleMouseMove);
-    containerRef.current.addEventListener('mouseup', handleMouseUp);
-    containerRef.current.addEventListener('mouseleave', handleMouseUp);
-    containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
+    // Handle bubble clicks
+    const handleClick = (event: MouseEvent) => {
+      if (isDraggingRef.current) return;
+
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      if (intersects.length > 0) {
+        const bubble = intersects[0].object;
+        const bubbleGroup = bubble.parent;
+        if (bubbleGroup && bubbleGroup.userData.id) {
+          onBubbleClick(bubbleGroup.userData.id);
+        }
+      }
+    };
+
+    container.addEventListener('click', handleClick);
 
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
@@ -89,83 +91,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Improved text rendering with Montserrat
-      const createTextTexture = (text: string, fontSize: number) => {
-        const canvas = document.createElement('canvas');
-        const size = 2048;
-        canvas.width = size;
-        canvas.height = size;
-        const context = canvas.getContext('2d')!;
-        
-        context.fillStyle = 'rgba(0,0,0,0)';
-        context.fillRect(0, 0, size, size);
-        
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        
-        // White outline for contrast
-        context.strokeStyle = '#FFFFFF';
-        context.lineWidth = fontSize * 0.4;
-        context.lineJoin = 'round';
-        context.font = `600 ${fontSize * 3}px Montserrat`;
-        context.strokeText(text, size/2, size/2);
-        
-        // Black text
-        context.fillStyle = '#000000';
-        context.fillText(text, size/2, size/2);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.anisotropy = rendererRef.current!.capabilities.getMaxAnisotropy();
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.needsUpdate = true;
-        return texture;
-      };
-
-      const createTextSprite = (text: string, fontSize: number, yOffset: number) => {
-        const texture = createTextTexture(text, fontSize);
-        const spriteMaterial = new THREE.SpriteMaterial({
-          map: texture,
-          transparent: true,
-          depthWrite: false,
-          depthTest: false,
-          sizeAttenuation: true
-        });
-
-        const sprite = new THREE.Sprite(spriteMaterial);
-        // Much larger scale for better visibility
-        sprite.scale.set(finalSize * 6, finalSize * 1.5, 1);
-        sprite.position.y = yOffset;
-        sprite.renderOrder = 999;
-        return sprite;
-      };
-
-      // Larger text with more spacing
-      const nameSprite = createTextSprite(topic.name, 90, finalSize * 0.6);
-      const topicSprite = createTextSprite(topic.topic, 70, -finalSize * 0.6);
-      
-      const textGroup = new THREE.Group();
-      textGroup.add(nameSprite);
-      textGroup.add(topicSprite);
-      textGroup.position.z = finalSize * 0.2;
-      bubbleGroup.add(textGroup);
-
-      // Position bubbles closer to planet
-      const radius = 4;
+      // Position bubbles in a circle with adjusted radius for mobile
+      const radius = isMobile ? 5 : 6;
       const angle = (index / topics.length) * Math.PI * 2;
       const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius * 0.8;
+      const y = Math.sin(angle) * radius * 0.8; // Flatten circle slightly
       const z = Math.sin(angle) * radius * 0.6;
       bubbleGroup.position.set(x, y, z);
-      
+
       bubbleGroup.userData = {
         id: topic.id,
-        reflectCount: topic.reflect_count,
-        orbitAngle: angle,
-        orbitSpeed: 0.0001 + Math.random() * 0.0002,
-        floatOffset: Math.random() * Math.PI * 2,
-        floatSpeed: 0.0005 + Math.random() * 0.0005,
-        floatAmplitude: 0.15 + Math.random() * 0.15
+        reflectCount: topic.reflect_count
       };
 
       bubbleGroup.lookAt(new THREE.Vector3(0, 0, 0));
@@ -174,37 +110,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     });
 
     const animate = () => {
-      if (isCleanedUpRef.current) return;
-      
+      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
       animationFrameRef.current = requestAnimationFrame(animate);
       
-      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
-
-      // Update camera position and rotation
       updateCamera(cameraRef.current);
-
       TWEEN.update();
 
-      // Update text orientation to always face camera
+      // Rotate bubbles to face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        bubbleGroup.children.forEach(child => {
-          if (child instanceof THREE.Group && child.children.some(c => c instanceof THREE.Sprite)) {
-            child.quaternion.copy(cameraRef.current!.quaternion);
-          }
-        });
-
-        if (bubbleGroup.userData.orbitAngle !== undefined) {
-          bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
-          const radius = 4;
-          const x = Math.cos(bubbleGroup.userData.orbitAngle) * radius;
-          const y = Math.sin(bubbleGroup.userData.orbitAngle) * radius * 0.8 + 
-                   Math.sin(Date.now() * 0.001 * bubbleGroup.userData.floatSpeed + bubbleGroup.userData.floatOffset) * 
-                   bubbleGroup.userData.floatAmplitude;
-          const z = Math.sin(bubbleGroup.userData.orbitAngle) * radius * 0.6;
-          
-          bubbleGroup.position.set(x, y, z);
-          bubbleGroup.lookAt(new THREE.Vector3(0, 0, 0));
-        }
+        bubbleGroup.quaternion.copy(camera.quaternion);
       });
 
       renderer.render(scene, camera);
@@ -212,61 +126,59 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     animate();
 
-    return () => {
-      // Prevent multiple cleanups
-      if (isCleanedUpRef.current) return;
-      isCleanedUpRef.current = true;
+    // Handle resize
+    const handleResize = () => {
+      if (!container || !camera || !renderer) return;
+      
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    };
 
-      // Cancel animation frame
+    window.addEventListener('resize', handleResize);
+
+    // Touch events for mobile
+    container.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleMouseDown(touch);
+    });
+
+    container.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleMouseMove(touch);
+    });
+
+    container.addEventListener('touchend', () => {
+      handleMouseUp();
+    });
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      container.removeEventListener('click', handleClick);
+      container.removeEventListener('touchstart', handleMouseDown as any);
+      container.removeEventListener('touchmove', handleMouseMove as any);
+      container.removeEventListener('touchend', handleMouseUp);
+      
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-
-      // Clean up Three.js resources
+      
       if (rendererRef.current) {
-        // Dispose of renderer
         rendererRef.current.dispose();
-        
-        // Only try to remove if the container and canvas exist
-        const canvas = rendererRef.current.domElement;
-        if (containerRef.current && canvas && containerRef.current.contains(canvas)) {
-          containerRef.current.removeChild(canvas);
-        }
-        rendererRef.current = null;
+        container.removeChild(rendererRef.current.domElement);
       }
-
-      // Clean up scene resources
-      if (sceneRef.current) {
-        sceneRef.current.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-            object.geometry.dispose();
-            if (object.material instanceof THREE.Material) {
-              object.material.dispose();
-            } else if (Array.isArray(object.material)) {
-              object.material.forEach(material => material.dispose());
-            }
-          }
-        });
-        sceneRef.current = null;
-      }
-
-      // Clean up other references
-      bubblesRef.current = {};
-      cameraRef.current = null;
-      planetRef.current = null;
-
-      containerRef.current?.removeEventListener('mousedown', handleMouseDown);
-      containerRef.current?.removeEventListener('mousemove', handleMouseMove);
-      containerRef.current?.removeEventListener('mouseup', handleMouseUp);
-      containerRef.current?.removeEventListener('mouseleave', handleMouseUp);
-      containerRef.current?.removeEventListener('wheel', handleWheel);
     };
   }, [topics, onBubbleClick, handleReflect, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera]);
 
   return (
     <div 
       ref={containerRef} 
-      className="absolute inset-0 touch-none overscroll-none select-none"
+      className="absolute inset-0 touch-none select-none"
       style={{ 
         touchAction: 'none',
         WebkitTapHighlightColor: 'transparent'

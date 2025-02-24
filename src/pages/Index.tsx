@@ -313,15 +313,15 @@ const Index = () => {
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <MainNav />
       
-      <main className="container mx-auto px-4 sm:px-8 pt-24 sm:pt-32 pb-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
-        <div className="text-center mb-8 sm:mb-12 relative z-10">
-          <h1 className="text-4xl sm:text-5xl font-light text-[#ebbd34] mb-4">
+      <main className="flex flex-col items-center justify-start w-full min-h-[calc(100dvh-64px)] pt-20">
+        <div className="text-center mb-6 px-4">
+          <h1 className="text-3xl sm:text-4xl font-light text-[#ebbd34]">
             Bubble Trouble
           </h1>
-          <div className="h-px w-32 sm:w-48 bg-[#ebbd34]/20 mx-auto" />
+          <div className="h-px w-24 sm:w-32 bg-[#ebbd34]/20 mx-auto mt-3" />
         </div>
 
-        <div className="relative w-full sm:w-[90%] h-[calc(100dvh-220px)] sm:h-[700px] max-w-4xl rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm shadow-xl border border-[#ebbd34]/10">
+        <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
           <BubbleWorld 
             topics={bubbles}
             onBubbleClick={handleBubbleClick}
@@ -330,10 +330,10 @@ const Index = () => {
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
-          className="fixed bottom-8 right-8 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white transform transition-all duration-300 hover:scale-105 shadow-lg rounded-full w-16 h-16 p-0 sm:static sm:w-auto sm:h-auto sm:p-6 sm:mt-12 sm:text-lg font-medium"
+          className="fixed bottom-6 right-6 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-lg rounded-full w-14 h-14 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8 sm:rounded-lg"
           size="icon"
         >
-          <Plus className="w-8 h-8 sm:w-6 sm:h-6 sm:mr-2" />
+          <Plus className="w-7 h-7 sm:w-5 sm:h-5 sm:mr-2" />
           <span className="hidden sm:inline">Create Bubble</span>
         </Button>
       </main>
