@@ -83,50 +83,70 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text sprite that always faces camera with black text
-      const createText = (text: string, yOffset: number, fontSize: number) => {
+      // Create text that always faces camera with better readability
+      const createTextTexture = (text: string, fontSize: number) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
+        const size = 512; // Increased canvas size for better text quality
+        canvas.width = size;
+        canvas.height = size;
         const context = canvas.getContext('2d')!;
         
+        // Clear background
+        context.fillStyle = 'rgba(0,0,0,0)';
+        context.fillRect(0, 0, size, size);
+        
+        // Set up text style
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         context.font = `bold ${fontSize}px Inter`;
         
+        // Add white outline for better contrast
+        context.strokeStyle = '#FFFFFF';
+        context.lineWidth = fontSize * 0.1;
+        context.lineJoin = 'round';
+        context.strokeText(text, size / 2, size / 2);
+        
         // Draw black text
         context.fillStyle = '#000000';
-        context.fillText(text, canvas.width / 2, canvas.height / 2 + yOffset);
+        context.fillText(text, size / 2, size / 2);
         
-        return canvas;
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.anisotropy = rendererRef.current!.capabilities.getMaxAnisotropy();
+        texture.needsUpdate = true;
+        return texture;
       };
 
-      const nameCanvas = createText(topic.name, -30, 48);
-      const topicCanvas = createText(topic.topic, 30, 32);
+      // Create separate sprites for name and topic for better positioning
+      const createTextSprite = (text: string, fontSize: number, yOffset: number) => {
+        const texture = createTextTexture(text, fontSize);
+        const spriteMaterial = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+          depthWrite: false,
+          depthTest: false, // Ensures text is always visible
+          sizeAttenuation: true // Maintains consistent size with distance
+        });
+
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(finalSize * 2, finalSize * 0.5, 1);
+        sprite.position.y = yOffset;
+        sprite.renderOrder = 999; // Ensures text renders on top
+        return sprite;
+      };
+
+      // Create text sprites with improved visibility
+      const nameSprite = createTextSprite(topic.name, 64, finalSize * 0.3);
+      const topicSprite = createTextSprite(topic.topic, 48, -finalSize * 0.3);
       
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = 512;
-      finalCanvas.height = 512;
-      const finalContext = finalCanvas.getContext('2d')!;
-      finalContext.drawImage(nameCanvas, 0, 0);
-      finalContext.drawImage(topicCanvas, 0, 0);
+      // Create a text container group that will always face the camera
+      const textGroup = new THREE.Group();
+      textGroup.add(nameSprite);
+      textGroup.add(topicSprite);
+      textGroup.position.z = finalSize * 0.1; // Slight offset from bubble surface
+      bubbleGroup.add(textGroup);
 
-      const textTexture = new THREE.CanvasTexture(finalCanvas);
-      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      
-      const textMaterial = new THREE.SpriteMaterial({
-        map: textTexture,
-        transparent: true,
-        depthWrite: false
-      });
-
-      const textSprite = new THREE.Sprite(textMaterial);
-      textSprite.scale.set(finalSize * 2.5, finalSize * 2.5, 1); // Increased text size
-      textSprite.position.z = finalSize * 1.1;
-      bubbleGroup.add(textSprite);
-
-      // Position bubbles even closer to planet
-      const radius = 4; // Reduced radius
+      // Position bubbles closer to planet
+      const radius = 4;
       const angle = (index / topics.length) * Math.PI * 2;
       const x = Math.cos(angle) * radius;
       const y = Math.sin(angle) * radius * 0.8;
@@ -137,10 +157,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         id: topic.id,
         reflectCount: topic.reflect_count,
         orbitAngle: angle,
-        orbitSpeed: 0.0001 + Math.random() * 0.0002, // Slower orbit
+        orbitSpeed: 0.0001 + Math.random() * 0.0002,
         floatOffset: Math.random() * Math.PI * 2,
-        floatSpeed: 0.0005 + Math.random() * 0.0005, // Slower floating
-        floatAmplitude: 0.15 + Math.random() * 0.15 // More pronounced floating
+        floatSpeed: 0.0005 + Math.random() * 0.0005,
+        floatAmplitude: 0.15 + Math.random() * 0.15
       };
 
       bubbleGroup.lookAt(new THREE.Vector3(0, 0, 0));
@@ -214,9 +234,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     });
 
-    // Animation loop with smoother movement
     const animate = () => {
-      // Only continue animation if not cleaned up
       if (isCleanedUpRef.current) return;
       
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -225,27 +243,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       TWEEN.update();
 
-      // Rotate planet
-      if (planetRef.current) {
-        planetRef.current.rotation.y += 0.001;
-      }
-
-      sceneRef.current.rotation.x += (targetRotationRef.current.x - sceneRef.current.rotation.x) * 0.1;
-      sceneRef.current.rotation.y += (targetRotationRef.current.y - sceneRef.current.rotation.y) * 0.1;
-
-      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
-      if (cameraRef.current) {
-        cameraRef.current.position.z = zoomRef.current.current;
-      }
-
-      const time = Date.now() * 0.001;
+      // Update text orientation to always face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
+        // Make text always face camera
+        bubbleGroup.children.forEach(child => {
+          if (child instanceof THREE.Group && child.children.some(c => c instanceof THREE.Sprite)) {
+            child.quaternion.copy(cameraRef.current!.quaternion);
+          }
+        });
+
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
-          const radius = 4; // Keep same reduced radius
+          const radius = 4;
           const x = Math.cos(bubbleGroup.userData.orbitAngle) * radius;
           const y = Math.sin(bubbleGroup.userData.orbitAngle) * radius * 0.8 + 
-                   Math.sin(time * bubbleGroup.userData.floatSpeed + bubbleGroup.userData.floatOffset) * 
+                   Math.sin(Date.now() * 0.001 * bubbleGroup.userData.floatSpeed + bubbleGroup.userData.floatOffset) * 
                    bubbleGroup.userData.floatAmplitude;
           const z = Math.sin(bubbleGroup.userData.orbitAngle) * radius * 0.6;
           
