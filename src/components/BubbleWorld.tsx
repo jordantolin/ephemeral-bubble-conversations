@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
@@ -101,9 +100,9 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text canvas
+      // Create text canvas with improved visibility
       const canvas = document.createElement('canvas');
-      canvas.width = 2048; // Increased resolution
+      canvas.width = 2048;
       canvas.height = 2048;
       const context = canvas.getContext('2d');
       
@@ -112,53 +111,61 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        // Increased text sizes for better visibility
-        const nameSize = Math.floor(canvas.height * 0.1);
-        const topicSize = Math.floor(canvas.height * 0.09);
-        const usernameSize = Math.floor(canvas.height * 0.08);
+        // Larger text sizes for better readability
+        const nameSize = Math.floor(canvas.height * 0.12);
+        const topicSize = Math.floor(canvas.height * 0.11);
+        const usernameSize = Math.floor(canvas.height * 0.10);
         
         const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
 
-        // Add text shadow for better visibility
-        context.shadowColor = 'white';
-        context.shadowBlur = 15;
-        context.shadowOffsetX = 0;
-        context.shadowOffsetY = 0;
-
+        // Create semi-transparent white background for better contrast
+        context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        const padding = canvas.height * 0.1;
+        const rectHeight = spacing * 3.5;
+        context.fillRect(
+          padding, 
+          (canvas.height - rectHeight) / 2, 
+          canvas.width - (padding * 2), 
+          rectHeight
+        );
+        
+        // Draw text elements with enhanced visibility
+        context.fillStyle = '#000000';
         context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = '#344ceb';
         context.fillText(topicData.name, canvas.width/2, startY);
 
         context.font = `${topicSize}px Inter`;
-        context.fillStyle = '#344ceb';
         context.fillText(topicData.topic, canvas.width/2, startY + spacing);
 
         context.font = `bold ${usernameSize}px Inter`;
-        context.fillStyle = '#000000';
         const usernameText = topicData.username.startsWith('@') ? topicData.username : `@${topicData.username}`;
         context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
       }
 
+      // Create and configure text texture
       const textTexture = new THREE.CanvasTexture(canvas);
       textTexture.needsUpdate = true;
       textTexture.minFilter = THREE.LinearFilter;
       textTexture.magFilter = THREE.LinearFilter;
       textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 2.5, bubbleSize * 2.5);
+      // Create larger text plane for better visibility
+      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 3.2, bubbleSize * 3.2);
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
         side: THREE.DoubleSide,
-        depthWrite: false, // Ensures text is always visible
-        alphaTest: 0.1 // Helps with transparency issues
+        depthWrite: false,
+        depthTest: false, // Ensures text always renders on top
+        alphaTest: 0.1
       });
 
       const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-      textPlane.position.z = bubbleSize * 1.1;
+      textPlane.position.z = bubbleSize * 1.2; // Slightly further from bubble
       bubbleGroup.add(textPlane);
 
+      // Position the bubble
       const radius = 6;
       const angle = (index / topics.length) * Math.PI * 2;
       const x = radius * Math.cos(angle);
@@ -250,7 +257,7 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
       }
     };
 
-    // Animation loop
+    // Animation loop with improved text orientation
     const animate = () => {
       requestAnimationFrame(animate);
 
@@ -258,7 +265,18 @@ const BubbleWorld = ({ topics, onBubbleClick, onBubbleCreate }: BubbleWorldProps
 
       bubbles.forEach(bubbleGroup => {
         if (bubbleGroup.userData.textPlane) {
+          // Make text always face the camera
           bubbleGroup.userData.textPlane.quaternion.copy(camera.quaternion);
+          
+          // Ensure text maintains upright orientation
+          const textPlane = bubbleGroup.userData.textPlane;
+          const up = new THREE.Vector3(0, 1, 0);
+          const cameraDirection = new THREE.Vector3();
+          camera.getWorldDirection(cameraDirection);
+          
+          // Adjust text rotation to stay upright
+          textPlane.up.copy(up);
+          textPlane.lookAt(camera.position);
         }
 
         if (bubbleGroup.userData.orbitAngle !== undefined) {
