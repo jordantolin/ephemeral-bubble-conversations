@@ -19,7 +19,6 @@ interface BubbleWorldProps {
   onBubbleClick: (id: string) => void;
 }
 
-// Type guard to check if an object is a valid BubbleData
 const isBubbleData = (data: any): data is BubbleData => {
   return (
     data &&
@@ -37,6 +36,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const { toast } = useToast();
   const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
   const sceneRef = useRef<THREE.Scene | null>(null);
+  const animationFrameRef = useRef<number>();
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   
   useEffect(() => {
     if (!containerRef.current) return;
@@ -50,13 +52,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup
+    // Camera setup with persistent reference
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.z = 15;
-    const minDistance = 8;
-    const maxDistance = 20;
+    cameraRef.current = camera;
 
-    // Renderer setup
+    // Renderer setup with persistent reference
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -65,6 +66,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     containerRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
 
     // Create central planet
     const planetGeometry = new THREE.SphereGeometry(4, 64, 64);
@@ -103,21 +105,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Initialize bubbles array
     const bubbles: THREE.Group[] = [];
 
-    // Create bubble function with explosion animation
+    // Optimized bubble creation function
     const createBubble = (topicData: BubbleData, index: number) => {
-      console.log('Creating bubble:', topicData); // Debug log
       const bubbleGroup = new THREE.Group();
       
-      // Calculate bubble age and scale
       const createdAt = topicData.created_at ? new Date(topicData.created_at) : new Date();
       const ageInHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
       const remainingLife = Math.max(0, 24 - ageInHours);
       
-      // Set bubble size based on topicData.size and remaining life
       const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
       const bubbleSize = baseSize * (remainingLife / 24);
 
-      // Create the bubble sphere
       const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
       const material = new THREE.MeshBasicMaterial({
         color: '#ebbd34',
@@ -165,7 +163,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       textTexture.needsUpdate = true;
       textTexture.minFilter = THREE.LinearFilter;
       textTexture.magFilter = THREE.LinearFilter;
-      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      textTexture.anisotropy = rendererRef.current ? rendererRef.current.capabilities.getMaxAnisotropy() : 1;
 
       // Create larger text plane for better visibility
       const textGeometry = new THREE.PlaneGeometry(bubbleSize * 3.2, bubbleSize * 3.2);
@@ -195,18 +193,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         orbitRadius: radius,
         orbitSpeed: 0.001 + Math.random() * 0.0005,
         orbitAngle: angle,
-        textPlane,
         initialY: y
       };
 
-      // Store reference to the bubble
       bubblesRef.current[topicData.id] = bubbleGroup;
 
-      // Schedule explosion if needed
+      // Handle bubble expiration asynchronously
       if (remainingLife > 0) {
         const timeUntilExplosion = remainingLife * 60 * 60 * 1000;
         setTimeout(() => {
-          explodeBubble(topicData.id);
+          requestAnimationFrame(() => explodeBubble(topicData.id));
         }, timeUntilExplosion);
       }
 
@@ -276,14 +272,44 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         .start();
     };
 
-    // Initialize bubbles and set up real-time subscription
-    console.log('Initializing bubbles:', topics.length); // Debug log
+    // Initialize bubbles
     topics.forEach((topic, index) => {
       const bubbleGroup = createBubble(topic, index);
       scene.add(bubbleGroup);
     });
 
-    // Subscribe to real-time updates with proper type checking and error handling
+    // Optimized animation loop
+    const animate = () => {
+      animationFrameRef.current = requestAnimationFrame(animate);
+      
+      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+
+      TWEEN.update();
+
+      // Update bubble positions
+      Object.values(bubblesRef.current).forEach(bubbleGroup => {
+        if (bubbleGroup.userData.orbitAngle !== undefined) {
+          bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
+          const radius = bubbleGroup.userData.orbitRadius;
+          const x = radius * Math.cos(bubbleGroup.userData.orbitAngle);
+          const z = radius * Math.sin(bubbleGroup.userData.orbitAngle);
+          const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
+          bubbleGroup.position.set(x, y, z);
+
+          // Update text orientation
+          if (bubbleGroup.userData.textPlane) {
+            bubbleGroup.userData.textPlane.quaternion.copy(cameraRef.current.quaternion);
+          }
+        }
+      });
+
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    };
+
+    // Start animation loop
+    animate();
+
+    // Handle real-time updates asynchronously
     const channel = supabase
       .channel('public:bubbles')
       .on(
@@ -294,54 +320,24 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           table: 'bubbles'
         },
         (payload: RealtimePostgresChangesPayload<BubbleData>) => {
-          console.log('Received realtime payload:', payload); // Debug log
+          if (!payload.new || !isBubbleData(payload.new)) return;
 
-          // Use the type guard to ensure payload.new is a valid BubbleData
-          if (!payload.new) {
-            console.error('No payload.new data received');
-            return;
-          }
-
-          if (!isBubbleData(payload.new)) {
-            console.error('Invalid bubble data received:', payload.new);
-            return;
-          }
-
-          console.log('Creating new bubble from payload:', payload.new); // Debug log
-          
-          const index = Object.keys(bubblesRef.current).length;
-          const bubbleGroup = createBubble(payload.new, index);
-          
-          if (!sceneRef.current) {
-            console.error('Scene reference is null');
-            return;
-          }
-
-          if (!bubbleGroup) {
-            console.error('Failed to create bubble group');
-            return;
-          }
-
-          sceneRef.current.add(bubbleGroup);
-          toast({
-            title: "New Bubble Created",
-            description: `${payload.new.name} has joined the conversation!`,
+          // Create new bubble in the next animation frame
+          requestAnimationFrame(() => {
+            if (!sceneRef.current) return;
+            
+            const index = Object.keys(bubblesRef.current).length;
+            const bubbleGroup = createBubble(payload.new as BubbleData, index);
+            sceneRef.current.add(bubbleGroup);
+            
+            toast({
+              title: "New Bubble Created",
+              description: `${payload.new.name} has joined the conversation!`,
+            });
           });
         }
       )
-      .subscribe((status) => {
-        console.log('Subscription status:', status); // Debug log
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to realtime updates');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Failed to subscribe to realtime updates');
-          toast({
-            title: "Connection Error",
-            description: "Failed to connect to real-time updates",
-            variant: "destructive"
-          });
-        }
-      });
+      .subscribe();
 
     // Interaction state
     let isRotating = false;
@@ -384,7 +380,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       event.preventDefault();
       const zoomSpeed = 0.001;
       const newZ = camera.position.z + event.deltaY * zoomSpeed;
-      camera.position.z = Math.max(minDistance, Math.min(maxDistance, newZ));
+      camera.position.z = Math.max(8, Math.min(20, newZ));
     };
 
     const onClick = (event: MouseEvent) => {
@@ -407,63 +403,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Animation loop with improved text orientation
-    const animate = () => {
-      requestAnimationFrame(animate);
+    // Enhanced cleanup
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (rendererRef.current && containerRef.current) {
+        rendererRef.current.dispose();
+        containerRef.current.removeChild(rendererRef.current.domElement);
+      }
 
-      TWEEN.update();
+      // Clear all tweens
+      TWEEN.removeAll();
 
-      bubbles.forEach(bubbleGroup => {
-        if (bubbleGroup.userData.textPlane) {
-          // Make text always face the camera
-          bubbleGroup.userData.textPlane.quaternion.copy(camera.quaternion);
-          
-          // Ensure text maintains upright orientation
-          const textPlane = bubbleGroup.userData.textPlane;
-          const up = new THREE.Vector3(0, 1, 0);
-          const cameraDirection = new THREE.Vector3();
-          camera.getWorldDirection(cameraDirection);
-          
-          // Adjust text rotation to stay upright
-          textPlane.up.copy(up);
-          textPlane.lookAt(camera.position);
-        }
-
-        if (bubbleGroup.userData.orbitAngle !== undefined) {
-          bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
-          const x = bubbleGroup.userData.orbitRadius * Math.cos(bubbleGroup.userData.orbitAngle);
-          const z = bubbleGroup.userData.orbitRadius * Math.sin(bubbleGroup.userData.orbitAngle);
-          const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
-          bubbleGroup.position.set(x, y, z);
+      // Clear all timeouts
+      Object.values(bubblesRef.current).forEach(bubble => {
+        if (bubble.userData.explosionTimeout) {
+          clearTimeout(bubble.userData.explosionTimeout);
         }
       });
 
-      currentRotation.x += (targetRotation.x - currentRotation.x) * 0.1;
-      currentRotation.y += (targetRotation.y - currentRotation.y) * 0.1;
-
-      bubbleContainer.rotation.x = currentRotation.x;
-      bubbleContainer.rotation.y = currentRotation.y;
-
-      renderer.render(scene, camera);
-    };
-
-    // Event listeners
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('click', onClick);
-    renderer.domElement.addEventListener('wheel', onWheel); // Add zoom listener
-
-    // Start animation
-    animate();
-
-    // Cleanup
-    return () => {
-      console.log('Cleaning up BubbleWorld'); // Debug log
-      if (containerRef.current) {
-        renderer.dispose();
-        containerRef.current.removeChild(renderer.domElement);
-      }
       supabase.removeChannel(channel);
     };
   }, [topics, onBubbleClick, selectedBubbleId]);
