@@ -38,33 +38,28 @@ const Feed = () => {
         </div>
 
         <ScrollArea className="h-[calc(100vh-200px)] w-full max-w-2xl mx-auto rounded-xl">
-          <div className="space-y-4 p-4">
+          <div className="space-y-8 p-4">
             {bubbles.map((bubble) => (
               <div 
                 key={bubble.id}
-                className="bg-white/80 backdrop-blur-sm border border-primary/20 rounded-xl p-6 hover:shadow-lg transition-shadow"
+                className="relative w-full aspect-square max-w-[200px] mx-auto animate-float-slow"
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-xl font-medium text-primary mb-1">
+                <div className="absolute inset-0 bg-[#ebc942] rounded-full flex items-center justify-center p-6 hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <h3 className="text-primary-foreground font-medium mb-1">
                       {bubble.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs text-primary-foreground/80 mb-2">
                       {bubble.topic}
                     </p>
-                    {bubble.description && (
-                      <p className="text-sm text-foreground/80">
-                        {bubble.description}
-                      </p>
-                    )}
+                    <div className="flex items-center justify-center space-x-1 text-primary-foreground">
+                      <Star className="w-4 h-4" />
+                      <span className="text-sm">{bubble.reflect_count}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-primary-foreground/80">
+                      by {bubble.username}
+                    </p>
                   </div>
-                  <div className="flex items-center space-x-1 text-primary">
-                    <Star className="w-4 h-4 fill-current" />
-                    <span className="text-sm font-medium">{bubble.reflect_count}</span>
-                  </div>
-                </div>
-                <div className="mt-4 text-xs text-muted-foreground">
-                  by {bubble.username}
                 </div>
               </div>
             ))}

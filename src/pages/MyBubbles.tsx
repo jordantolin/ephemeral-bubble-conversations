@@ -4,8 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { Star } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 const MyBubbles = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles', 'my-reflected'],
     queryFn: async () => {
@@ -34,6 +37,39 @@ const MyBubbles = () => {
     }
   });
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updatePositions = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const bubbleElements = container.getElementsByClassName('bubble');
+      const centerX = container.clientWidth / 2;
+      const centerY = container.clientHeight / 2;
+      const radius = Math.min(centerX, centerY) - 100; // Smaller radius to keep bubbles inside
+
+      Array.from(bubbleElements).forEach((bubble, index) => {
+        const element = bubble as HTMLElement;
+        const angle = (index / bubbleElements.length) * Math.PI * 2;
+        
+        // Add some random variation to make it more organic
+        const randomRadius = radius * (0.7 + Math.random() * 0.3);
+        const x = centerX + Math.cos(angle) * randomRadius - element.clientWidth / 2;
+        const y = centerY + Math.sin(angle) * randomRadius - element.clientHeight / 2;
+
+        element.style.transform = `translate(${x}px, ${y}px)`;
+      });
+    };
+
+    updatePositions();
+    window.addEventListener('resize', updatePositions);
+
+    return () => {
+      window.removeEventListener('resize', updatePositions);
+    };
+  }, [bubbles]);
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
@@ -46,30 +82,24 @@ const MyBubbles = () => {
           <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <div className="relative w-[600px] h-[600px] mx-auto">
-          {bubbles.map((bubble, index) => {
-            const angle = (index / bubbles.length) * Math.PI * 2;
-            const radius = 250; // Circle radius
-            const x = Math.cos(angle) * radius;
-            const y = Math.sin(angle) * radius;
-            
-            return (
-              <div
-                key={bubble.id}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-[#ebc942] rounded-full p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 float-bubble-1"
-                style={{
-                  left: `calc(50% + ${x}px)`,
-                  top: `calc(50% + ${y}px)`,
-                  width: `${Math.max(100, bubble.reflect_count * 10 + 100)}px`,
-                  height: `${Math.max(100, bubble.reflect_count * 10 + 100)}px`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                  textAlign: 'center',
-                }}
-              >
-                <h3 className="text-primary-foreground font-medium mb-1 text-sm">
+        <div 
+          ref={containerRef}
+          className="relative w-[600px] h-[600px] mx-auto"
+        >
+          {/* Circle container */}
+          <div className="absolute inset-4 border-4 border-primary/20 rounded-full" />
+          
+          {bubbles.map((bubble) => (
+            <div
+              key={bubble.id}
+              className="bubble absolute bg-[#ebc942] rounded-full p-4 hover:scale-105 transition-transform duration-300 ease-out animate-float-slow"
+              style={{
+                width: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
+                height: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
+              }}
+            >
+              <div className="h-full w-full flex flex-col items-center justify-center">
+                <h3 className="text-primary-foreground font-medium mb-1 text-sm line-clamp-2">
                   {bubble.name}
                 </h3>
                 <div className="flex items-center space-x-1 text-primary-foreground/80">
@@ -77,8 +107,8 @@ const MyBubbles = () => {
                   <span className="text-xs">{bubble.reflect_count}</span>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </main>
     </div>
