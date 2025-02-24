@@ -36,6 +36,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const momentumRef = useRef({ x: 0, y: 0 });
   const lastFrameTimeRef = useRef(Date.now());
 
+  // Add zoom state
+  const zoomRef = useRef({
+    current: 16,
+    target: 16,
+    min: 8,
+    max: 24
+  });
+
+  // Track pinch gesture
+  const pinchRef = useRef({
+    startDistance: 0,
+    initialZoom: 16
+  });
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -230,6 +244,58 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleContainer.add(bubbleGroup);
     });
 
+    // Enhanced zoom handler for mouse wheel
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      
+      const zoomSpeed = 0.5;
+      const delta = event.deltaY * 0.001 * zoomSpeed;
+      
+      zoomRef.current.target = Math.max(
+        zoomRef.current.min,
+        Math.min(zoomRef.current.max,
+          zoomRef.current.target + delta * zoomRef.current.target
+        )
+      );
+    };
+
+    // Touch handlers for pinch zoom
+    const handleTouchStart = (event: TouchEvent) => {
+      event.preventDefault();
+      
+      if (event.touches.length === 2) {
+        // Get the distance between two fingers
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        pinchRef.current.startDistance = Math.sqrt(dx * dx + dy * dy);
+        pinchRef.current.initialZoom = zoomRef.current.target;
+      } else if (event.touches.length === 1) {
+        // Single touch for rotation
+        startInteraction(event.touches[0].clientX, event.touches[0].clientY);
+      }
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        // Handle pinch zoom
+        const dx = event.touches[0].clientX - event.touches[1].clientX;
+        const dy = event.touches[0].clientY - event.touches[1].clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Calculate zoom based on pinch gesture
+        const scale = distance / pinchRef.current.startDistance;
+        const newZoom = pinchRef.current.initialZoom / scale;
+        
+        zoomRef.current.target = Math.max(
+          zoomRef.current.min,
+          Math.min(zoomRef.current.max, newZoom)
+        );
+      } else if (event.touches.length === 1) {
+        // Single touch for rotation
+        moveInteraction(event.touches[0].clientX, event.touches[0].clientY);
+      }
+    };
+
     // Enhanced interaction handlers
     const startInteraction = (x: number, y: number) => {
       isInteractingRef.current = true;
@@ -293,6 +359,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     // Add event listeners
+    containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
+    containerRef.current.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
     containerRef.current.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
@@ -301,15 +370,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     window.addEventListener('touchend', onTouchEnd);
     window.addEventListener('resize', updateSize);
 
-    // Enhanced animation loop with smooth momentum
+    // Enhanced animation loop with zoom
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
 
       const currentTime = Date.now();
-      const deltaTime = (currentTime - lastFrameTimeRef.current) / 16; // Normalize to 60fps
+      const deltaTime = (currentTime - lastFrameTimeRef.current) / 16;
       lastFrameTimeRef.current = currentTime;
+
+      // Smooth zoom animation
+      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
+      if (cameraRef.current) {
+        cameraRef.current.position.z = zoomRef.current.current;
+      }
 
       // Apply momentum decay
       if (!isInteractingRef.current) {
@@ -364,13 +439,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         containerRef.current.removeChild(rendererRef.current.domElement);
       }
 
+      // Remove all event listeners
       if (containerRef.current) {
+        containerRef.current.removeEventListener('wheel', handleWheel);
+        containerRef.current.removeEventListener('touchstart', handleTouchStart);
         containerRef.current.removeEventListener('mousedown', onMouseDown);
-        containerRef.current.removeEventListener('touchstart', onTouchStart);
       }
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('resize', updateSize);
     };
