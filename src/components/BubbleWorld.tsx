@@ -39,7 +39,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -52,12 +52,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Camera setup with proper perspective for interaction
+    // Camera setup
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
     camera.position.z = 15;
     cameraRef.current = camera;
 
-    // Enhanced renderer setup
+    // Renderer setup
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -82,17 +82,137 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const planet = new THREE.Mesh(planetGeometry, planetMaterial);
     scene.add(planet);
 
-    // Lighting setup
-    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
+    // Enhanced lighting setup
+    const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.6); // Increased intensity
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xFFFAF0, 1);
+    const mainLight = new THREE.DirectionalLight(0xFFFAF0, 1.2); // Increased intensity
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    const fillLight = new THREE.PointLight(0xFFF5E0, 0.8, 20);
+    const fillLight = new THREE.PointLight(0xFFF5E0, 1.0, 20); // Increased intensity
     fillLight.position.set(-5, -2, 8);
     scene.add(fillLight);
+
+    // Bubble container
+    const bubbleContainer = new THREE.Group();
+    scene.add(bubbleContainer);
+
+    // Enhanced bubble creation function
+    const createBubble = (topicData: BubbleData, index: number) => {
+      const bubbleGroup = new THREE.Group();
+      
+      const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
+      
+      // Fixed bubble material settings for better visibility
+      const geometry = new THREE.SphereGeometry(baseSize, 32, 32);
+      const material = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color('#ebbd34'),
+        transparent: true,
+        opacity: 0.85, // Reduced transparency
+        metalness: 0.3,
+        roughness: 0.4,
+        transmission: 0.1, // Reduced transmission
+        thickness: 1.0, // Increased thickness
+        clearcoat: 0.5,
+        clearcoatRoughness: 0.3,
+        side: THREE.FrontSide // Ensure proper rendering
+      });
+
+      const bubble = new THREE.Mesh(geometry, material);
+      bubble.castShadow = true;
+      bubble.receiveShadow = true;
+      bubbleGroup.add(bubble);
+
+      // Text creation
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; // Reduced for performance
+      canvas.height = 1024;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        context.fillStyle = '#000000';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'destination-out';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'source-over';
+        
+        const nameSize = Math.floor(canvas.height * 0.12);
+        const topicSize = Math.floor(canvas.height * 0.11);
+        const usernameSize = Math.floor(canvas.height * 0.10);
+        
+        const spacing = canvas.height * 0.15;
+        const startY = canvas.height/2 - spacing;
+        
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        // Name with shadow
+        context.font = `bold ${nameSize}px Inter`;
+        context.fillStyle = 'rgba(0,0,0,0.2)';
+        context.fillText(topicData.name, canvas.width/2 + 2, startY + 2);
+        context.fillStyle = '#000000';
+        context.fillText(topicData.name, canvas.width/2, startY);
+
+        // Topic with shadow
+        context.font = `${topicSize}px Inter`;
+        context.fillStyle = 'rgba(0,0,0,0.2)';
+        context.fillText(topicData.topic, canvas.width/2 + 2, startY + spacing + 2);
+        context.fillStyle = '#000000';
+        context.fillText(topicData.topic, canvas.width/2, startY + spacing);
+
+        // Username with shadow
+        context.font = `bold ${usernameSize}px Inter`;
+        const usernameText = topicData.username.startsWith('@') ? topicData.username : `@${topicData.username}`;
+        context.fillStyle = 'rgba(0,0,0,0.2)';
+        context.fillText(usernameText, canvas.width/2 + 2, startY + spacing * 2 + 2);
+        context.fillStyle = '#000000';
+        context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
+      }
+
+      // Create text mesh
+      const textTexture = new THREE.CanvasTexture(canvas);
+      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      
+      const textMaterial = new THREE.MeshBasicMaterial({
+        map: textTexture,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      const textGeometry = new THREE.PlaneGeometry(baseSize * 3, baseSize * 3);
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.z = baseSize * 1.1;
+      textMesh.renderOrder = 1; // Ensure text renders on top
+      bubbleGroup.add(textMesh);
+
+      // Position bubble
+      const radius = 6;
+      const angle = (index / topics.length) * Math.PI * 2;
+      const x = radius * Math.cos(angle);
+      const y = Math.sin(angle * 2) * 1.5;
+      const z = radius * Math.sin(angle);
+      bubbleGroup.position.set(x, y, z);
+
+      bubbleGroup.userData = {
+        id: topicData.id,
+        orbitRadius: radius,
+        orbitSpeed: 0.001 + Math.random() * 0.0005,
+        orbitAngle: angle,
+        initialY: y
+      };
+
+      // Store reference and add to scene
+      bubblesRef.current[topicData.id] = bubbleGroup;
+      return bubbleGroup;
+    };
+
+    // Initialize all bubbles
+    topics.forEach((topic, index) => {
+      const bubbleGroup = createBubble(topic, index);
+      bubbleContainer.add(bubbleGroup);
+    });
 
     // Interaction state
     let isRotating = false;
@@ -235,123 +355,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     renderer.domElement.addEventListener('touchmove', onTouchMove);
     renderer.domElement.addEventListener('touchend', onTouchEnd);
 
-    // Bubble container
-    const bubbleContainer = new THREE.Group();
-    scene.add(bubbleContainer);
-
-    // Raycaster setup
-    const raycaster2 = new THREE.Raycaster();
-    const mouse2 = new THREE.Vector2();
-
-    // Initialize bubbles array
-    const bubbles: THREE.Group[] = [];
-
-    // Optimized bubble creation function
-    const createBubble = (topicData: BubbleData, index: number) => {
-      const bubbleGroup = new THREE.Group();
-      
-      const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
-      
-      // Create bubble sphere with improved material
-      const geometry = new THREE.SphereGeometry(baseSize, 32, 32);
-      const material = new THREE.MeshPhysicalMaterial({
-        color: '#ebbd34',
-        transparent: true,
-        opacity: 0.9,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
-        transmission: 0.2,
-        thickness: 0.5,
-      });
-
-      const bubble = new THREE.Mesh(geometry, material);
-      bubbleGroup.add(bubble);
-
-      // Improved text rendering
-      const canvas = document.createElement('canvas');
-      canvas.width = 2048;
-      canvas.height = 2048;
-      const context = canvas.getContext('2d');
-      
-      if (context) {
-        context.fillStyle = '#000000';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.globalCompositeOperation = 'destination-out';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.globalCompositeOperation = 'source-over';
-        
-        // Enhanced text rendering with better contrast
-        const nameSize = Math.floor(canvas.height * 0.12);
-        const topicSize = Math.floor(canvas.height * 0.11);
-        const usernameSize = Math.floor(canvas.height * 0.10);
-        
-        const spacing = canvas.height * 0.15;
-        const startY = canvas.height/2 - spacing;
-        
-        // Draw text with shadow for better visibility
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        
-        // Name
-        context.font = `bold ${nameSize}px Inter`;
-        context.fillStyle = 'rgba(0,0,0,0.2)';
-        context.fillText(topicData.name, canvas.width/2 + 2, startY + 2);
-        context.fillStyle = '#000000';
-        context.fillText(topicData.name, canvas.width/2, startY);
-
-        // Topic
-        context.font = `${topicSize}px Inter`;
-        context.fillStyle = 'rgba(0,0,0,0.2)';
-        context.fillText(topicData.topic, canvas.width/2 + 2, startY + spacing + 2);
-        context.fillStyle = '#000000';
-        context.fillText(topicData.topic, canvas.width/2, startY + spacing);
-
-        // Username
-        context.font = `bold ${usernameSize}px Inter`;
-        const usernameText = topicData.username.startsWith('@') ? topicData.username : `@${topicData.username}`;
-        context.fillStyle = 'rgba(0,0,0,0.2)';
-        context.fillText(usernameText, canvas.width/2 + 2, startY + spacing * 2 + 2);
-        context.fillStyle = '#000000';
-        context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
-      }
-
-      // Create billboard text that always faces camera
-      const textTexture = new THREE.CanvasTexture(canvas);
-      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      
-      const textMaterial = new THREE.MeshBasicMaterial({
-        map: textTexture,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-
-      const textGeometry = new THREE.PlaneGeometry(baseSize * 3, baseSize * 3);
-      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.z = baseSize * 1.1;
-      bubbleGroup.add(textMesh);
-
-      // Position bubble
-      const radius = 6;
-      const angle = (index / topics.length) * Math.PI * 2;
-      const x = radius * Math.cos(angle);
-      const y = Math.sin(angle * 2) * 1.5;
-      const z = radius * Math.sin(angle);
-      bubbleGroup.position.set(x, y, z);
-
-      bubbleGroup.userData = {
-        id: topicData.id,
-        orbitRadius: radius,
-        orbitSpeed: 0.001 + Math.random() * 0.0005,
-        orbitAngle: angle,
-        initialY: y
-      };
-
-      bubblesRef.current[topicData.id] = bubbleGroup;
-      return bubbleGroup;
-    };
-
-    // Enhanced animation loop with smooth camera movement and text billboarding
+    // Enhanced animation loop
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
@@ -364,7 +368,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.rotation.x = currentRotation.x;
       scene.rotation.y = currentRotation.y;
 
-      // Update bubble positions and text orientation
+      // Update bubbles and text
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
@@ -374,7 +378,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
           bubbleGroup.position.set(x, y, z);
 
-          // Make text always face camera (billboarding)
+          // Billboard text
           if (bubbleGroup.children[1]) {
             const textMesh = bubbleGroup.children[1];
             textMesh.quaternion.copy(camera.quaternion);
@@ -421,7 +425,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             
             const index = Object.keys(bubblesRef.current).length;
             const bubbleGroup = createBubble(newBubbleData, index);
-            sceneRef.current.add(bubbleGroup);
+            bubbleContainer.add(bubbleGroup);
             
             toast({
               title: "New Bubble Created",
@@ -464,7 +468,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       supabase.removeChannel(channel);
     };
-  }, [topics, onBubbleClick, selectedBubbleId]);
+  }, [topics, onBubbleClick]);
 
   return (
     <div 
