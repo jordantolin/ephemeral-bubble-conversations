@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +18,18 @@ interface BubbleWorldProps {
   topics: BubbleData[];
   onBubbleClick: (id: string) => void;
 }
+
+// Type guard to check if an object is a valid BubbleData
+const isBubbleData = (data: any): data is BubbleData => {
+  return (
+    data &&
+    typeof data.id === 'string' &&
+    typeof data.topic === 'string' &&
+    typeof data.username === 'string' &&
+    typeof data.name === 'string' &&
+    (data.size === 'sm' || data.size === 'md' || data.size === 'lg')
+  );
+};
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -281,24 +292,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           table: 'bubbles'
         },
         (payload: RealtimePostgresChangesPayload<BubbleData>) => {
-          if (payload.new && 
-              typeof payload.new.id === 'string' &&
-              typeof payload.new.topic === 'string' &&
-              typeof payload.new.username === 'string' &&
-              typeof payload.new.name === 'string' &&
-              (payload.new.size === 'sm' || payload.new.size === 'md' || payload.new.size === 'lg')) {
-            
-            const newBubble: BubbleData = {
-              id: payload.new.id,
-              topic: payload.new.topic,
-              username: payload.new.username,
-              name: payload.new.name,
-              size: payload.new.size,
-              created_at: payload.new.created_at
-            };
-
+          // Use the type guard to ensure payload.new is a valid BubbleData
+          if (payload.new && isBubbleData(payload.new)) {
             const index = Object.keys(bubblesRef.current).length;
-            const bubbleGroup = createBubble(newBubble, index);
+            const bubbleGroup = createBubble(payload.new, index);
             if (sceneRef.current && bubbleGroup) {
               sceneRef.current.add(bubbleGroup);
             }
