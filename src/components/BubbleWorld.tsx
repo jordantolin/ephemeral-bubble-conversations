@@ -29,7 +29,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   
-  // Interaction state with better touch support
   const isInteractingRef = useRef(false);
   const lastInteractionRef = useRef({ x: 0, y: 0 });
   const rotationRef = useRef({ x: 0, y: 0 });
@@ -94,13 +93,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Create enhanced central world sphere
     const worldGeometry = new THREE.SphereGeometry(4, 64, 64);
     const worldMaterial = new THREE.MeshStandardMaterial({
-      color: 0xFFFFFF, // Pure white
+      color: 0xFFFFFF,
       metalness: 0.2,
       roughness: 0.3,
       transparent: true,
       opacity: 0.8
     });
     const worldSphere = new THREE.Mesh(worldGeometry, worldMaterial);
+    scene.add(worldSphere);
     
     // Add glow effect to the central sphere
     const glowGeometry = new THREE.SphereGeometry(4.2, 64, 64);
@@ -111,8 +111,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     });
     const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
     worldSphere.add(glowSphere);
-    
-    scene.add(worldSphere);
 
     // Enhanced lighting setup
     const ambientLight = new THREE.AmbientLight(0xFFFFFF, 1.0);
@@ -122,7 +120,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Add point lights for better depth
     const pointLight1 = new THREE.PointLight(0xFFFFFF, 0.5);
     pointLight1.position.set(-10, 5, -5);
     scene.add(pointLight1);
@@ -131,20 +128,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     pointLight2.position.set(10, -5, 5);
     scene.add(pointLight2);
 
-    // Bubble container
-    const bubbleContainer = new THREE.Group();
-    scene.add(bubbleContainer);
+    // Create and add bubbles to the scene
+    topics.forEach((topic, index) => {
+      const bubble = createBubble(topic, index);
+      scene.add(bubble); // Add each bubble to the scene
+    });
 
     const createBubble = (topicData: BubbleData, index: number) => {
       const bubbleGroup = new THREE.Group();
       
-      // Scale based on reflect count
       const baseSize = topicData.size === 'lg' ? 0.8 : 
                       topicData.size === 'md' ? 0.6 : 0.4;
-      const reflectScale = 1 + (topicData.reflect_count * 0.1); // Grow with reflects
+      const reflectScale = 1 + (topicData.reflect_count * 0.1);
       const finalSize = baseSize * reflectScale;
       
-      // Create bubble with refined appearance
       const geometry = new THREE.SphereGeometry(finalSize, 32, 32);
       const material = new THREE.MeshStandardMaterial({
         color: 0xebc942,
@@ -159,7 +156,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Add subtle glow effect
       const glowGeometry = new THREE.SphereGeometry(finalSize * 1.1, 32, 32);
       const glowMaterial = new THREE.MeshStandardMaterial({
         color: 0xebc942,
@@ -169,7 +165,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const glow = new THREE.Mesh(glowGeometry, glowMaterial);
       bubble.add(glow);
 
-      // Improved text rendering
+      // Text rendering
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
       canvas.height = 1024;
@@ -182,7 +178,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.globalCompositeOperation = 'source-over';
         
-        // Scale text sizes based on bubble size
         const nameSize = Math.floor(canvas.height * 0.12 * reflectScale);
         const topicSize = Math.floor(canvas.height * 0.11 * reflectScale);
         const usernameSize = Math.floor(canvas.height * 0.10 * reflectScale);
@@ -194,7 +189,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           context.textAlign = 'center';
           context.textBaseline = 'middle';
           
-          // Enhanced text appearance
           context.strokeStyle = '#000000';
           context.lineWidth = fontSize * 0.2;
           context.lineJoin = 'round';
@@ -225,8 +219,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       textMesh.position.z = finalSize * 1.1;
       bubbleGroup.add(textMesh);
 
-      // Position bubble with slight randomization
-      const radius = 4.8;
+      // Position bubble
+      const radius = 6; // Increased radius for better visibility
       const angle = (index / topics.length) * Math.PI * 2;
       const phi = Math.acos(-1 + (2 * index) / topics.length);
       const theta = Math.sqrt(topics.length * Math.PI) * phi;
@@ -243,6 +237,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         orbitAngle: angle,
         orbitHeight: y
       };
+
+      // Look at camera
+      bubbleGroup.lookAt(camera.position);
 
       bubblesRef.current[topicData.id] = bubbleGroup;
       return bubbleGroup;
@@ -399,7 +396,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     containerRef.current.addEventListener('touchstart', onTouchStart, { passive: false });
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchmove', onTouchMove);
     window.addEventListener('touchend', onTouchEnd);
     window.addEventListener('resize', updateSize);
 
@@ -413,7 +410,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const deltaTime = (currentTime - lastFrameTimeRef.current) / 16;
       lastFrameTimeRef.current = currentTime;
 
-      // Smooth zoom animation
+      // Animation updates
       zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
       if (cameraRef.current) {
         cameraRef.current.position.z = zoomRef.current.current;
@@ -437,7 +434,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       worldSphere.rotation.x = Math.sin(time * 0.2) * 0.1;
       glowSphere.rotation.y -= 0.0003;
 
-      // Update bubbles with smooth motion
+      // Update bubbles
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
@@ -446,14 +443,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           
           const x = radius * Math.cos(angle);
           const z = radius * Math.sin(angle);
-          const y = bubbleGroup.userData.orbitHeight + Math.sin(time + angle) * 0.2;
+          const y = bubbleGroup.userData.orbitHeight + Math.sin(currentTime * 0.001 + angle) * 0.2;
           
           bubbleGroup.position.set(x, y, z);
-
-          // Make text face camera
-          if (bubbleGroup.children[1]) {
-            bubbleGroup.children[1].lookAt(camera.position);
-          }
+          bubbleGroup.lookAt(camera.position);
         }
       });
 
