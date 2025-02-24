@@ -1,9 +1,10 @@
 
 import MainNav from "@/components/MainNav";
-import BubbleWorld from "@/components/BubbleWorld";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Star } from "lucide-react";
 
 const Feed = () => {
   const { data: bubbles = [] } = useQuery({
@@ -17,7 +18,6 @@ const Feed = () => {
       
       if (error) throw error;
       
-      // Convert size to correct type
       return data.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
@@ -25,28 +25,51 @@ const Feed = () => {
     }
   });
 
-  const handleBubbleClick = (id: string) => {
-    // Handle bubble click
-  };
-
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container relative mx-auto px-2 sm:px-4 py-4 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
-        <div className="text-center mb-4 sm:mb-8 relative z-10">
-          <h1 className="text-2xl sm:text-4xl font-light text-primary mb-2">
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-light text-primary mb-2">
             Top Bubbles
           </h1>
           <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
-          <BubbleWorld 
-            topics={bubbles}
-            onBubbleClick={handleBubbleClick}
-          />
-        </div>
+        <ScrollArea className="h-[calc(100vh-200px)] w-full max-w-2xl mx-auto rounded-xl">
+          <div className="space-y-4 p-4">
+            {bubbles.map((bubble) => (
+              <div 
+                key={bubble.id}
+                className="bg-white/80 backdrop-blur-sm border border-primary/20 rounded-xl p-6 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-xl font-medium text-primary mb-1">
+                      {bubble.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {bubble.topic}
+                    </p>
+                    {bubble.description && (
+                      <p className="text-sm text-foreground/80">
+                        {bubble.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-1 text-primary">
+                    <Star className="w-4 h-4 fill-current" />
+                    <span className="text-sm font-medium">{bubble.reflect_count}</span>
+                  </div>
+                </div>
+                <div className="mt-4 text-xs text-muted-foreground">
+                  by {bubble.username}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
       </main>
     </div>
   );

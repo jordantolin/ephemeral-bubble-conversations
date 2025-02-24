@@ -1,9 +1,9 @@
 
 import MainNav from "@/components/MainNav";
-import BubbleWorld from "@/components/BubbleWorld";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
+import { Star } from "lucide-react";
 
 const MyBubbles = () => {
   const { data: bubbles = [] } = useQuery({
@@ -27,7 +27,6 @@ const MyBubbles = () => {
       
       if (error) throw error;
 
-      // Convert size to correct type
       return data.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
@@ -35,31 +34,55 @@ const MyBubbles = () => {
     }
   });
 
-  const handleBubbleClick = (id: string) => {
-    // Handle bubble click
-  };
-
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       <MainNav />
       
-      <main className="container relative mx-auto px-2 sm:px-4 py-4 sm:py-8 flex flex-col items-center justify-center min-h-[calc(100dvh-64px)]">
-        <div className="text-center mb-4 sm:mb-8 relative z-10">
-          <h1 className="text-2xl sm:text-4xl font-light text-primary mb-2">
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-light text-primary mb-2">
             My Reflected Bubbles
           </h1>
           <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        <div className="relative w-full h-[calc(100dvh-240px)] sm:h-[600px] max-w-3xl rounded-2xl overflow-hidden bg-transparent">
-          <BubbleWorld 
-            topics={bubbles}
-            onBubbleClick={handleBubbleClick}
-          />
+        <div className="relative w-[600px] h-[600px] mx-auto">
+          {bubbles.map((bubble, index) => {
+            const angle = (index / bubbles.length) * Math.PI * 2;
+            const radius = 250; // Circle radius
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            
+            return (
+              <div
+                key={bubble.id}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 bg-[#ebc942] rounded-full p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 float-bubble-1"
+                style={{
+                  left: `calc(50% + ${x}px)`,
+                  top: `calc(50% + ${y}px)`,
+                  width: `${Math.max(100, bubble.reflect_count * 10 + 100)}px`,
+                  height: `${Math.max(100, bubble.reflect_count * 10 + 100)}px`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  textAlign: 'center',
+                }}
+              >
+                <h3 className="text-primary-foreground font-medium mb-1 text-sm">
+                  {bubble.name}
+                </h3>
+                <div className="flex items-center space-x-1 text-primary-foreground/80">
+                  <Star className="w-3 h-3" />
+                  <span className="text-xs">{bubble.reflect_count}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </main>
     </div>
   );
 };
 
-export default MyBubbles; // Fix export
+export default MyBubbles;

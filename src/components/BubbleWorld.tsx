@@ -81,11 +81,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const position = calculateBubblePosition(index, topics.length, 6);
       bubbleGroup.position.set(position.x, position.y, position.z);
       
+      // Add floating animation parameters
       bubbleGroup.userData = {
         id: topic.id,
         reflectCount: topic.reflect_count,
         orbitAngle: position.angle,
-        orbitSpeed: 0.0005
+        orbitSpeed: 0.0005,
+        floatOffset: Math.random() * Math.PI * 2,
+        floatSpeed: 0.001 + Math.random() * 0.001,
+        floatAmplitude: 0.1 + Math.random() * 0.1
       };
 
       bubbleGroup.lookAt(camera.position);
@@ -174,10 +178,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         cameraRef.current.position.z = zoomRef.current.current;
       }
 
-      const currentTime = Date.now();
+      const time = Date.now() * 0.001;
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
+        // Update floating animation
+        const floatY = Math.sin(time * bubbleGroup.userData.floatSpeed + bubbleGroup.userData.floatOffset) * bubbleGroup.userData.floatAmplitude;
+        const originalY = bubbleGroup.position.y;
+        bubbleGroup.position.y = originalY + floatY;
+
+        // Update orbital rotation
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
+          const radius = bubbleGroup.position.length();
+          bubbleGroup.position.x = Math.cos(bubbleGroup.userData.orbitAngle) * radius;
+          bubbleGroup.position.z = Math.sin(bubbleGroup.userData.orbitAngle) * radius;
           bubbleGroup.lookAt(camera.position);
         }
       });
