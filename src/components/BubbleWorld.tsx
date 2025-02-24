@@ -250,35 +250,37 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const createBubble = (topicData: BubbleData, index: number) => {
       const bubbleGroup = new THREE.Group();
       
-      const createdAt = topicData.created_at ? new Date(topicData.created_at) : new Date();
-      const ageInHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-      const remainingLife = Math.max(0, 24 - ageInHours);
-      
       const baseSize = topicData.size === 'lg' ? 0.8 : topicData.size === 'md' ? 0.6 : 0.4;
-      const bubbleSize = baseSize * (remainingLife / 24);
-
-      const geometry = new THREE.SphereGeometry(bubbleSize, 32, 32);
-      const material = new THREE.MeshBasicMaterial({
+      
+      // Create bubble sphere with improved material
+      const geometry = new THREE.SphereGeometry(baseSize, 32, 32);
+      const material = new THREE.MeshPhysicalMaterial({
         color: '#ebbd34',
         transparent: true,
-        opacity: remainingLife / 24,
+        opacity: 0.9,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1,
+        transmission: 0.2,
+        thickness: 0.5,
       });
 
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Create text canvas with improved visibility
+      // Improved text rendering
       const canvas = document.createElement('canvas');
       canvas.width = 2048;
       canvas.height = 2048;
       const context = canvas.getContext('2d');
       
       if (context) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
+        context.fillStyle = '#000000';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'destination-out';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'source-over';
         
-        // Larger text sizes for better readability
+        // Enhanced text rendering with better contrast
         const nameSize = Math.floor(canvas.height * 0.12);
         const topicSize = Math.floor(canvas.height * 0.11);
         const usernameSize = Math.floor(canvas.height * 0.10);
@@ -286,42 +288,50 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const spacing = canvas.height * 0.15;
         const startY = canvas.height/2 - spacing;
         
-        // Draw text elements with pure black color for maximum contrast
-        context.fillStyle = '#000000';
+        // Draw text with shadow for better visibility
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        // Name
         context.font = `bold ${nameSize}px Inter`;
+        context.fillStyle = 'rgba(0,0,0,0.2)';
+        context.fillText(topicData.name, canvas.width/2 + 2, startY + 2);
+        context.fillStyle = '#000000';
         context.fillText(topicData.name, canvas.width/2, startY);
 
+        // Topic
         context.font = `${topicSize}px Inter`;
+        context.fillStyle = 'rgba(0,0,0,0.2)';
+        context.fillText(topicData.topic, canvas.width/2 + 2, startY + spacing + 2);
+        context.fillStyle = '#000000';
         context.fillText(topicData.topic, canvas.width/2, startY + spacing);
 
+        // Username
         context.font = `bold ${usernameSize}px Inter`;
         const usernameText = topicData.username.startsWith('@') ? topicData.username : `@${topicData.username}`;
+        context.fillStyle = 'rgba(0,0,0,0.2)';
+        context.fillText(usernameText, canvas.width/2 + 2, startY + spacing * 2 + 2);
+        context.fillStyle = '#000000';
         context.fillText(usernameText, canvas.width/2, startY + spacing * 2);
       }
 
-      // Create and configure text texture with improved alpha handling
+      // Create billboard text that always faces camera
       const textTexture = new THREE.CanvasTexture(canvas);
-      textTexture.needsUpdate = true;
-      textTexture.minFilter = THREE.LinearFilter;
-      textTexture.magFilter = THREE.LinearFilter;
-      textTexture.anisotropy = rendererRef.current ? rendererRef.current.capabilities.getMaxAnisotropy() : 1;
-
-      // Create larger text plane for better visibility
-      const textGeometry = new THREE.PlaneGeometry(bubbleSize * 3.2, bubbleSize * 3.2);
+      textTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      
       const textMaterial = new THREE.MeshBasicMaterial({
         map: textTexture,
         transparent: true,
-        side: THREE.DoubleSide,
         depthWrite: false,
-        depthTest: false, // Ensures text always renders on top
-        alphaTest: 0.01  // Reduced for smoother text edges
+        side: THREE.DoubleSide,
       });
 
-      const textPlane = new THREE.Mesh(textGeometry, textMaterial);
-      textPlane.position.z = bubbleSize * 1.2; // Slightly further from bubble
-      bubbleGroup.add(textPlane);
+      const textGeometry = new THREE.PlaneGeometry(baseSize * 3, baseSize * 3);
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.z = baseSize * 1.1;
+      bubbleGroup.add(textMesh);
 
-      // Position the bubble
+      // Position bubble
       const radius = 6;
       const angle = (index / topics.length) * Math.PI * 2;
       const x = radius * Math.cos(angle);
@@ -338,88 +348,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       };
 
       bubblesRef.current[topicData.id] = bubbleGroup;
-
-      // Handle bubble expiration asynchronously
-      if (remainingLife > 0) {
-        const timeUntilExplosion = remainingLife * 60 * 60 * 1000;
-        setTimeout(() => {
-          requestAnimationFrame(() => explodeBubble(topicData.id));
-        }, timeUntilExplosion);
-      }
-
       return bubbleGroup;
     };
 
-    // Explosion animation function
-    const explodeBubble = (bubbleId: string) => {
-      const bubbleGroup = bubblesRef.current[bubbleId];
-      if (!bubbleGroup || !sceneRef.current) return;
-
-      const bubble = bubbleGroup.children[0] as THREE.Mesh;
-      const originalScale = bubble.scale.clone();
-      const originalOpacity = (bubble.material as THREE.MeshBasicMaterial).opacity;
-
-      // Create particle system for explosion effect
-      const particleCount = 50;
-      const particles = new THREE.Points(
-        new THREE.BufferGeometry(),
-        new THREE.PointsMaterial({
-          color: '#ebbd34',
-          size: 0.05,
-          transparent: true,
-          opacity: 0.8,
-        })
-      );
-
-      const positions = new Float32Array(particleCount * 3);
-      for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = 0;
-        positions[i * 3 + 1] = 0;
-        positions[i * 3 + 2] = 0;
-      }
-      particles.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      bubbleGroup.add(particles);
-
-      // Animate explosion
-      new TWEEN.Tween({ scale: 1, opacity: originalOpacity })
-        .to({ scale: 0, opacity: 0 }, 2000)
-        .easing(TWEEN.Easing.Quadratic.Out)
-        .onUpdate(({ scale, opacity }) => {
-          if (bubble.material) {
-            bubble.scale.set(scale, scale, scale);
-            (bubble.material as THREE.MeshBasicMaterial).opacity = opacity;
-          }
-
-          // Animate particles
-          const positions = particles.geometry.attributes.position.array as Float32Array;
-          for (let i = 0; i < particleCount; i++) {
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.random() * Math.PI;
-            const r = 0.5 * (1 - scale);
-
-            positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-            positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-            positions[i * 3 + 2] = r * Math.cos(phi);
-          }
-          particles.geometry.attributes.position.needsUpdate = true;
-          (particles.material as THREE.PointsMaterial).opacity = opacity;
-        })
-        .onComplete(() => {
-          if (sceneRef.current) {
-            sceneRef.current.remove(bubbleGroup);
-            delete bubblesRef.current[bubbleId];
-          }
-        })
-        .start();
-    };
-
-    // Initialize bubbles
-    topics.forEach((topic, index) => {
-      const bubbleGroup = createBubble(topic, index);
-      scene.add(bubbleGroup);
-    });
-
-    // Enhanced animation loop with smooth camera movement
+    // Enhanced animation loop with smooth camera movement and text billboarding
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
@@ -432,9 +364,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.rotation.x = currentRotation.x;
       scene.rotation.y = currentRotation.y;
 
-      TWEEN.update();
-
-      // Update bubble positions with smooth movement
+      // Update bubble positions and text orientation
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         if (bubbleGroup.userData.orbitAngle !== undefined) {
           bubbleGroup.userData.orbitAngle += bubbleGroup.userData.orbitSpeed;
@@ -444,13 +374,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const y = bubbleGroup.userData.initialY + Math.sin(Date.now() * 0.001) * 0.3;
           bubbleGroup.position.set(x, y, z);
 
-          // Always face camera
+          // Make text always face camera (billboarding)
           if (bubbleGroup.children[1]) {
-            bubbleGroup.children[1].quaternion.copy(camera.quaternion);
+            const textMesh = bubbleGroup.children[1];
+            textMesh.quaternion.copy(camera.quaternion);
           }
         }
       });
 
+      TWEEN.update();
       renderer.render(scene, camera);
     };
 

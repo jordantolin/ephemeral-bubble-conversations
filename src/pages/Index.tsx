@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import MainNav from "@/components/MainNav";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { Plus, Send, Image, Video, Mic, SmilePlus, Heart } from "lucide-react";
+import { Plus, Send, Image, Video, Mic, SmilePlus, Heart, Star } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -352,10 +351,10 @@ const Index = () => {
             <Button
               variant="outline"
               size="icon"
-              className="ml-4"
+              className="ml-4 hover:text-yellow-500 transition-colors"
               onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
             >
-              <Heart className="h-4 w-4" />
+              <Star className="h-4 w-4" />
             </Button>
           </DialogHeader>
 
