@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useBubbleInteraction = () => {
-  const toast = useToast();
+  // Destructure the toast function from the hook
+  const { toast } = useToast();
   const isInteractingRef = useRef(false);
   const targetRotationRef = useRef({ x: 0, y: 0, z: 0 });
   const dragStartRef = useRef({ x: 0, y: 0 });

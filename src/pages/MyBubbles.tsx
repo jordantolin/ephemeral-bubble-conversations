@@ -62,4 +62,4 @@ const MyBubbles = () => {
   );
 };
 
-export default BubbleWorld;
+export default MyBubbles; // Fix export

@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -131,7 +130,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     window.addEventListener('mouseup', handleMouseUp);
     containerRef.current.addEventListener('wheel', handleWheel, { passive: false });
 
-    // Double click to reflect
+    // Update the dblclick handler to use onBubbleClick prop
     containerRef.current.addEventListener('dblclick', (event) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -151,6 +150,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           while (current.parent) {
             if (current.userData?.id) {
               handleReflect(current.userData.id, bubblesRef.current);
+              onBubbleClick(current.userData.id); // Call the provided click handler
               return;
             }
             current = current.parent;
