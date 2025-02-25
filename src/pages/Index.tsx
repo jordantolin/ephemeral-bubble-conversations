@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star } from "lucide-react";
@@ -113,37 +112,6 @@ const Index = () => {
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
 
-  // Fetch messages for selected bubble
-  const { data: messages = [] } = useQuery({
-    queryKey: ['messages', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return [];
-
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .eq('bubble_id', selectedBubbleId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        toast({
-          title: "Error fetching messages",
-          description: error.message,
-          variant: "destructive"
-        });
-        return [];
-      }
-
-      return data.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        username: msg.username,
-        timestamp: msg.created_at
-      }));
-    },
-    enabled: !!selectedBubbleId
-  });
-
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
       toast({
@@ -190,6 +158,157 @@ const Index = () => {
     setNewBubble({ name: "", description: "", topic: "", username: "@user" });
   };
 
+  const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'image' ? 'image/*' : 
+                   type === 'video' ? 'video/*' : 
+                   'image/gif';
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && selectedBubbleId) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const content = e.target?.result as string;
+          await handleSendMessage(content);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleVoiceRecord = () => {
+    let mediaRecorder: MediaRecorder | null = null;
+    const chunks: Blob[] = [];
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (e) => {
+          chunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target?.result as string;
+            if (selectedBubbleId) {
+              await handleSendMessage(content);
+            }
+          };
+          reader.readAsDataURL(audioBlob);
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        
+        toast({
+          title: "Recording...",
+          description: "Click again to stop recording",
+        });
+
+        // Stop recording after 1 minute
+        setTimeout(() => {
+          if (mediaRecorder?.state === 'recording') {
+            mediaRecorder.stop();
+          }
+        }, 60000);
+      })
+      .catch(error => {
+        toast({
+          title: "Error",
+          description: "Could not access microphone",
+          variant: "destructive"
+        });
+      });
+  };
+
+  // Fetch messages for selected bubble
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return [];
+
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error fetching messages",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      return data.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        username: msg.username,
+        timestamp: msg.created_at
+      }));
+    },
+    enabled: !!selectedBubbleId
+  });
+
+  // Subscribe to real-time message updates
+  useEffect(() => {
+    if (!selectedBubbleId) return;
+
+    const channel = supabase.channel('chat-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'bubble_messages',
+          filter: `bubble_id=eq.${selectedBubbleId}`
+        },
+        (payload) => {
+          // Invalidate messages query to trigger a refresh
+          queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedBubbleId, queryClient]);
+
+  const handleSendMessage = async (content?: string) => {
+    if (!selectedBubbleId) return;
+    
+    const messageContent = content || newMessage;
+    if (!messageContent.trim()) return;
+
+    const { error } = await supabase
+      .from('bubble_messages')
+      .insert({
+        bubble_id: selectedBubbleId,
+        content: messageContent,
+        username: "@user"
+      });
+
+    if (error) {
+      toast({
+        title: "Error sending message",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setNewMessage("");
+  };
+
   const handleReflect = async (bubbleId: string) => {
     const { error } = await supabase
       .from('reflects')
@@ -227,63 +346,6 @@ const Index = () => {
   const handleBubbleClick = (id: string) => {
     setSelectedBubbleId(id);
     setIsChatOpen(true);
-  };
-
-  const handleFileUpload = (type: 'image' | 'video' | 'gif') => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = type === 'image' ? 'image/*' : 
-                   type === 'video' ? 'video/*' : 
-                   'image/gif';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        toast({
-          title: "File Selected",
-          description: `${file.name} ready to upload`,
-        });
-        // Here you would typically handle the file upload to Supabase Storage
-      }
-    };
-    input.click();
-  };
-
-  const handleVoiceRecord = () => {
-    toast({
-      title: "Voice Recording",
-      description: "Voice recording feature coming soon!",
-    });
-  };
-
-  const selectedBubble = bubbles.find(bubble => bubble.id === selectedBubbleId);
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedBubbleId) return;
-
-    const { error } = await supabase
-      .from('bubble_messages')
-      .insert({
-        bubble_id: selectedBubbleId,
-        content: newMessage,
-        username: "@user"
-      });
-
-    if (error) {
-      toast({
-        title: "Error sending message",
-        description: error.message,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setNewMessage("");
-    queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
-
-    toast({
-      title: "Message Sent",
-      description: "Your message has been sent successfully",
-    });
   };
 
   // Subscribe to real-time updates for reflects and bubble changes
@@ -407,107 +469,127 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Chat Dialog */}
-      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-2xl">
-          <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10">
-            <div>
-              <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
-              <DialogDescription className="text-[#ebbd34]/70">
-                {selectedBubble?.description}
-              </DialogDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="ml-4 hover:text-[#ebbd34] transition-colors border-[#ebbd34]/20"
-              onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
-            >
-              <Star className="h-5 w-5" />
-            </Button>
-          </DialogHeader>
+            {/* Chat Dialog */}
+            <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+              <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-2xl">
+                <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10">
+                  <div>
+                    <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
+                    <DialogDescription className="text-[#ebbd34]/70">
+                      {selectedBubble?.description}
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="ml-4 hover:text-[#ebbd34] transition-colors border-[#ebbd34]/20"
+                    onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
+                  >
+                    <Star className="h-5 w-5" />
+                  </Button>
+                </DialogHeader>
 
-          <ScrollArea className="flex-1 px-4 py-3 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex flex-col ${
-                  message.username === "@user" ? "items-end" : "items-start"
-                }`}
-              >
-                <div className={`max-w-[80%] rounded-2xl p-3 ${
-                  message.username === "@user"
-                    ? "bg-[#ebbd34] text-white"
-                    : "bg-[#ebbd34]/10 text-[#ebbd34]"
-                }`}>
-                  <p className="text-sm">{message.content}</p>
+                <ScrollArea className="flex-1 px-4 py-3 space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex flex-col ${
+                        message.username === "@user" ? "items-end" : "items-start"
+                      }`}
+                    >
+                      <div className={`max-w-[80%] rounded-2xl p-3 ${
+                        message.username === "@user"
+                          ? "bg-[#ebbd34] text-white"
+                          : "bg-[#ebbd34]/10 text-[#ebbd34]"
+                      }`}>
+                        {message.content.startsWith('data:image/') ? (
+                          <img 
+                            src={message.content} 
+                            alt="Shared image" 
+                            className="rounded-lg max-w-full"
+                          />
+                        ) : message.content.startsWith('data:video/') ? (
+                          <video 
+                            src={message.content} 
+                            controls 
+                            className="rounded-lg max-w-full"
+                          />
+                        ) : message.content.startsWith('data:audio/') ? (
+                          <audio 
+                            src={message.content} 
+                            controls 
+                            className="w-full"
+                          />
+                        ) : (
+                          <p className="text-sm">{message.content}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-[#ebbd34]/50 mt-1">
+                        {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </ScrollArea>
+
+                <div className="flex flex-col gap-2 p-4 border-t border-[#ebbd34]/10 bg-[#FEF7E4]">
+                  <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      onClick={() => handleFileUpload('image')}
+                    >
+                      <Image className="h-5 w-5" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      onClick={() => handleFileUpload('video')}
+                    >
+                      <Video className="h-5 w-5" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      onClick={() => handleFileUpload('gif')}
+                    >
+                      <SmilePlus className="h-5 w-5" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      onClick={handleVoiceRecord}
+                    >
+                      <Mic className="h-5 w-5" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Type your message..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      className="flex-1 bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
+                    />
+                    <Button 
+                      onClick={handleSendMessage} 
+                      size="icon" 
+                      className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                    >
+                      <Send className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
-                <span className="text-xs text-[#ebbd34]/50 mt-1">
-                  {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
-                </span>
-              </div>
-            ))}
-          </ScrollArea>
-
-          <div className="flex flex-col gap-2 p-4 border-t border-[#ebbd34]/10 bg-[#FEF7E4]">
-            <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
-                onClick={() => handleFileUpload('image')}
-              >
-                <Image className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
-                onClick={() => handleFileUpload('video')}
-              >
-                <Video className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
-                onClick={() => handleFileUpload('gif')}
-              >
-                <SmilePlus className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
-                onClick={handleVoiceRecord}
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                className="flex-1 bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
-              />
-              <Button 
-                onClick={handleSendMessage} 
-                size="icon" 
-                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-              >
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+              </DialogContent>
+            </Dialog>
 
       {/* Create Bubble Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
