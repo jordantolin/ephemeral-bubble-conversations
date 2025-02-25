@@ -12,13 +12,13 @@ import {
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
 import { useCameraControls } from '@/hooks/useCameraControls';
 
-// Helper function to convert touch to mouse-like event
-const touchToMouseEvent = (touch: Touch): Partial<MouseEvent> => ({
-  clientX: touch.clientX,
-  clientY: touch.clientY,
-  preventDefault: () => {},
-  stopPropagation: () => {}
-});
+// Helper function to calculate touch distance
+const getTouchDistance = (touch1: Touch, touch2: Touch): number => {
+  return Math.hypot(
+    touch2.clientX - touch1.clientX,
+    touch2.clientY - touch1.clientY
+  );
+};
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,7 +28,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const { isInteractingRef, targetRotationRef, dragStartRef, isDraggingRef, handleReflect } = useBubbleInteraction();
-  const { handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera, handlePinchZoom } = useCameraControls();
+  const { handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera, handlePinchStart, handlePinchZoom, touchRef } = useCameraControls();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -219,50 +219,49 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       e.preventDefault();
       
       if (e.touches.length === 1) {
-        // Single touch for rotation
+        // Single touch rotation
         const touch = e.touches[0];
-        const mouseEventLike = touchToMouseEvent(touch);
-        handleMouseDown(mouseEventLike as MouseEvent);
-        isDraggingRef.current = true;
+        handleMouseDown({
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          preventDefault: () => {}
+        } as MouseEvent);
       } else if (e.touches.length === 2) {
-        // Two fingers for pinch zoom
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const distance = Math.hypot(
-          touch2.clientX - touch1.clientX,
-          touch2.clientY - touch1.clientY
-        );
-        handlePinchZoom(distance);
+        // Initialize pinch zoom
+        const distance = getTouchDistance(e.touches[0], e.touches[1]);
+        handlePinchStart(distance);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       
-      if (e.touches.length === 1 && isDraggingRef.current) {
-        // Single touch movement for rotation
+      if (e.touches.length === 1 && !touchRef.current.isMultiTouch) {
+        // Single touch rotation
         const touch = e.touches[0];
-        const mouseEventLike = touchToMouseEvent(touch);
-        handleMouseMove(mouseEventLike as MouseEvent);
+        handleMouseMove({
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          preventDefault: () => {}
+        } as MouseEvent);
       } else if (e.touches.length === 2) {
-        // Two fingers movement for pinch zoom
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const distance = Math.hypot(
-          touch2.clientX - touch1.clientX,
-          touch2.clientY - touch1.clientY
-        );
+        // Update pinch zoom
+        const distance = getTouchDistance(e.touches[0], e.touches[1]);
         handlePinchZoom(distance);
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
-      isDraggingRef.current = false;
       handleMouseUp();
+      
+      // Reset multi-touch state if no touches remain
+      if (e.touches.length === 0) {
+        touchRef.current.isMultiTouch = false;
+      }
     };
 
-    // Add touch event listeners with passive: false for better mobile performance
+    // Add touch event listeners with improved options
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: false });
@@ -286,50 +285,4 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Make text always face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         const cameraPos = cameraRef.current!.position;
-        bubbleGroup.children.forEach((child, index) => {
-          if (child instanceof THREE.Sprite) {
-            child.lookAt(cameraPos);
-          }
-        });
-      });
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      container.removeEventListener('wheel', handleWheelEvent);
-      container.removeEventListener('click', handleClick);
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('mousedown', handleMouseDown);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseup', handleMouseUp);
-      
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      if (rendererRef.current) {
-        rendererRef.current.dispose();
-        container.removeChild(rendererRef.current.domElement);
-      }
-    };
-  }, [topics, onBubbleClick, handleReflect, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, updateCamera, handlePinchZoom]);
-
-  return (
-    <div 
-      ref={containerRef} 
-      className="absolute inset-0 touch-none select-none"
-      style={{ 
-        touchAction: 'none',
-        WebkitTapHighlightColor: 'transparent'
-      }}
-    />
-  );
-};
-
-export default BubbleWorld;
+        bubbleGroup.children.
