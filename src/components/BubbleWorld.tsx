@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -90,7 +89,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         const spriteMaterial = new THREE.SpriteMaterial({ 
           map: texture,
-          transparent: true
+          transparent: true,
         });
         const sprite = new THREE.Sprite(spriteMaterial);
         sprite.scale.set(finalSize * 2.5, finalSize * 1.25, 1);
