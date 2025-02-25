@@ -92,7 +92,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Touch event handlers
+    // Touch event handlers with type-safe options
+    const touchOptions: AddEventListenerOptions = { capture: false };
+
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       isDraggingRef.current = false;
@@ -130,10 +132,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Add event listeners
-    container.addEventListener('touchstart', handleTouchStart);
-    container.addEventListener('touchmove', handleTouchMove);
-    container.addEventListener('touchend', handleTouchEnd);
+    // Add event listeners with type-safe options
+    container.addEventListener('touchstart', handleTouchStart, touchOptions);
+    container.addEventListener('touchmove', handleTouchMove, touchOptions);
+    container.addEventListener('touchend', handleTouchEnd, touchOptions);
     container.addEventListener('mousedown', handleMouseDown);
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
@@ -297,9 +299,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     // Add touch event listeners with passive: false for better mobile performance
-    container.addEventListener('touchstart', handleTouchStartPinch, { passive: false });
-    container.addEventListener('touchmove', handleTouchMovePinch, { passive: false });
-    container.addEventListener('touchend', handleTouchEndPinch, { passive: false });
+    container.addEventListener('touchstart', handleTouchStartPinch);
+    container.addEventListener('touchmove', handleTouchMovePinch);
+    container.addEventListener('touchend', handleTouchEndPinch);
     container.addEventListener('mousedown', handleMouseDown);
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
@@ -336,15 +338,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     return () => {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('wheel', handleWheelEvent);
-      container.removeEventListener('touchstart', handleTouchStart, { passive: false });
-      container.removeEventListener('touchmove', handleTouchMove, { passive: false });
-      container.removeEventListener('touchend', handleTouchEnd, { passive: false });
+      container.removeEventListener('touchstart', handleTouchStart, touchOptions);
+      container.removeEventListener('touchmove', handleTouchMove, touchOptions);
+      container.removeEventListener('touchend', handleTouchEnd, touchOptions);
       container.removeEventListener('mousedown', handleMouseDown);
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseup', handleMouseUp);
-      container.removeEventListener('touchstart', handleTouchStartPinch, { passive: false });
-      container.removeEventListener('touchmove', handleTouchMovePinch, { passive: false });
-      container.removeEventListener('touchend', handleTouchEndPinch, { passive: false });
+      container.removeEventListener('click', handleMouseClick);
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
