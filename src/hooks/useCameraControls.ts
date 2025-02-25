@@ -6,8 +6,8 @@ export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 6,
-    max: 20,
+    min: 4, // Decreased min zoom to allow closer view
+    max: 25, // Increased max zoom to allow further view
     velocity: 0
   });
 
@@ -61,7 +61,7 @@ export const useCameraControls = () => {
 
   const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
-    const zoomSpeed = 0.001;
+    const zoomSpeed = 0.002; // Increased zoom speed slightly
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
       Math.min(zoomRef.current.max,
@@ -84,7 +84,7 @@ export const useCameraControls = () => {
     const scale = distance / touchRef.current.initialPinchDistance;
     const newZoom = touchRef.current.initialZoom / scale;
     
-    // Enhanced zoom smoothing
+    // Enhanced zoom smoothing with wider range
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
       Math.min(zoomRef.current.max, newZoom)

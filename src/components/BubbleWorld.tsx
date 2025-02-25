@@ -170,20 +170,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       reflectSprite.position.y = finalSize * -0.2;
       bubbleGroup.add(reflectSprite);
 
-      // Position bubbles very close to the central world
+      // Position bubbles with initial positions
       const totalBubbles = topics.length;
-      const radius = isMobile ? 2.5 : 3; // Even closer to the central world
+      const baseRadius = isMobile ? 2.5 : 3;
       const phi = Math.acos(-1 + (2 * index) / totalBubbles);
       const theta = Math.sqrt(totalBubbles * Math.PI) * phi;
 
-      const x = radius * Math.cos(theta) * Math.sin(phi);
-      const y = radius * Math.sin(theta) * Math.sin(phi);
-      const z = radius * Math.cos(phi);
+      const x = baseRadius * Math.cos(theta) * Math.sin(phi);
+      const y = baseRadius * Math.sin(theta) * Math.sin(phi);
+      const z = baseRadius * Math.cos(phi);
 
       bubbleGroup.position.set(x, y, z);
       bubbleGroup.userData = {
         id: topic.id,
-        reflectCount: topic.reflect_count
+        reflectCount: topic.reflect_count,
+        basePosition: { x, y, z },
+        floatOffset: Math.random() * Math.PI * 2, // Random starting phase
+        floatSpeed: 0.0005 + Math.random() * 0.0005, // Random speed
+        orbitOffset: Math.random() * Math.PI * 2, // Random orbit starting position
+        orbitSpeed: 0.0002 + Math.random() * 0.0002 // Random orbit speed
       };
 
       // Make bubble group always face camera
@@ -269,7 +274,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
 
-    // Animation loop with smooth rotation
+    // Animation loop with floating bubbles
     const animate = () => {
       if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
       
@@ -282,10 +287,29 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       TWEEN.update();
 
-      // Make text always face camera
+      // Animate bubbles floating and orbiting
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
+        const { basePosition, floatOffset, floatSpeed, orbitOffset, orbitSpeed } = bubbleGroup.userData;
+        const time = Date.now();
+
+        // Floating motion (up/down)
+        const floatY = Math.sin(time * floatSpeed + floatOffset) * 0.2;
+        
+        // Orbital motion (slight circular movement)
+        const orbitAngle = time * orbitSpeed + orbitOffset;
+        const orbitRadius = 0.2;
+        const orbitX = Math.cos(orbitAngle) * orbitRadius;
+        const orbitZ = Math.sin(orbitAngle) * orbitRadius;
+
+        // Combine base position with floating and orbital motion
+        bubbleGroup.position.set(
+          basePosition.x + orbitX,
+          basePosition.y + floatY,
+          basePosition.z + orbitZ
+        );
+
+        // Make text sprites face camera
         const cameraPos = cameraRef.current!.position;
-        // Make each child (text sprites) face the camera
         bubbleGroup.children.forEach(child => {
           if (child instanceof THREE.Sprite) {
             child.lookAt(cameraPos);
