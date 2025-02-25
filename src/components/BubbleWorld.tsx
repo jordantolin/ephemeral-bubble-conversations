@@ -65,12 +65,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Bubble creation and positioning
     topics.forEach((topic, index) => {
-      const bubbleGeometry = createBubbleGeometry(topic.size);
+      const bubbleGeometry = createBubbleGeometry(typeof topic.size === 'number' ? topic.size : 1);
       const bubbleMaterial = createBubbleMaterial();
       const textCanvas = createTextCanvas(topic.topic);
 
-      const texture = new THREE.CanvasTexture(textCanvas);
-      const textMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+      // Create a material using the canvas directly
+      const textMaterial = new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(textCanvas),
+        transparent: true
+      });
+
       const textGeometry = new THREE.PlaneGeometry(5, 1);
       const textMesh = new THREE.Mesh(textGeometry, textMaterial);
       textMesh.position.set(0, 0, 2);
