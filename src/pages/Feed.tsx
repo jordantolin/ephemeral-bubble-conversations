@@ -1,4 +1,6 @@
-import { useQuery, useState } from "@tanstack/react-query";
+
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
