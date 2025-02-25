@@ -41,9 +41,9 @@ export const createCentralWorldMaterial = () => {
   });
 };
 
-export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanvasElement => {
+export const createTextCanvas = (text: string, fontSize: number = 48): THREE.Texture => {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
+  canvas.width = 512; // Increased canvas size for better text quality
   canvas.height = 256;
   const context = canvas.getContext('2d');
 
@@ -55,13 +55,16 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     
+    // Even thicker black outline for maximum contrast
     context.strokeStyle = '#000000';
     context.lineWidth = 12;
     context.strokeText(text, canvas.width / 2, canvas.height / 2);
     
+    // Bright white text
     context.fillStyle = '#FFFFFF';
     context.fillText(text, canvas.width / 2, canvas.height / 2);
     
+    // Multiple passes for stronger glow effect
     context.shadowColor = 'rgba(0, 0, 0, 0.9)';
     context.shadowBlur = 20;
     context.shadowOffsetX = 4;
@@ -69,5 +72,7 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
     context.fillText(text, canvas.width / 2, canvas.height / 2);
   }
 
-  return canvas;
+  const texture = new THREE.Texture(canvas);
+  texture.needsUpdate = true;
+  return texture;
 };
