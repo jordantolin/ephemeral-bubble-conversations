@@ -497,8 +497,8 @@ const Index = () => {
 
             {/* Chat Dialog */}
             <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-              <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-2xl">
-                <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10">
+              <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-[2rem] overflow-hidden shadow-2xl">
+                <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10">
                   <div>
                     <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
                     <DialogDescription className="text-[#ebbd34]/70">
@@ -508,10 +508,10 @@ const Index = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="ml-4 hover:text-[#ebbd34] transition-colors border-[#ebbd34]/20"
+                    className="ml-4 hover:bg-[#ebbd34]/10 transition-colors border-[#ebbd34]/20 text-[#ebbd34]"
                     onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
                   >
-                    <Star className="h-5 w-5" />
+                    <Sparkles className="h-5 w-5" />
                   </Button>
                 </DialogHeader>
 
@@ -523,7 +523,7 @@ const Index = () => {
                         message.username === "@user" ? "items-end" : "items-start"
                       }`}
                     >
-                      <div className={`max-w-[80%] rounded-2xl p-3 ${
+                      <div className={`max-w-[80%] rounded-3xl p-3 ${
                         message.username === "@user"
                           ? "bg-[#ebbd34] text-white"
                           : "bg-[#ebbd34]/10 text-[#ebbd34]"
@@ -532,37 +532,37 @@ const Index = () => {
                           <img 
                             src={message.content} 
                             alt="Shared image" 
-                            className="rounded-lg max-w-full"
+                            className="rounded-2xl max-w-full"
                           />
                         ) : message.content.startsWith('data:video/') ? (
                           <video 
                             src={message.content} 
                             controls 
-                            className="rounded-lg max-w-full"
+                            className="rounded-2xl max-w-full"
                           />
                         ) : message.content.startsWith('data:audio/') ? (
                           <audio 
                             src={message.content} 
                             controls 
-                            className="w-full"
+                            className="w-full rounded-full bg-[#ebbd34]/5 p-2"
                           />
                         ) : (
                           <p className="text-sm">{message.content}</p>
                         )}
                       </div>
-                      <span className="text-xs text-[#ebbd34]/50 mt-1">
+                      <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
                         {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
                   ))}
                 </ScrollArea>
 
-                <div className="flex flex-col gap-2 p-4 border-t border-[#ebbd34]/10 bg-[#FEF7E4]">
+                <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
                   <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
                     <Button 
                       variant="outline" 
                       size="icon"
-                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                       onClick={() => handleFileUpload('image')}
                     >
                       <Image className="h-5 w-5" />
@@ -570,7 +570,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="icon"
-                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                       onClick={() => handleFileUpload('video')}
                     >
                       <Video className="h-5 w-5" />
@@ -578,7 +578,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="icon"
-                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                       onClick={() => handleFileUpload('gif')}
                     >
                       <SmilePlus className="h-5 w-5" />
@@ -586,7 +586,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="icon"
-                      className="shrink-0 border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
+                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                       onClick={handleVoiceRecord}
                     >
                       <Mic className="h-5 w-5" />
@@ -603,12 +603,12 @@ const Index = () => {
                           handleSendMessage();
                         }
                       }}
-                      className="flex-1 bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
+                      className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
                     />
                     <Button 
                       onClick={() => handleSendMessage()}
                       size="icon" 
-                      className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                      className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
                     >
                       <Send className="h-5 w-5" />
                     </Button>
