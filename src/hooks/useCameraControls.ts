@@ -6,62 +6,54 @@ export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 4, // Decreased min zoom to allow closer view
-    max: 25, // Increased max zoom to allow further view
-    velocity: 0
+    min: 6, // Reduced min zoom for mobile to get closer
+    max: 20
   });
 
   const rotationRef = useRef({
     x: 0,
     y: 0,
     targetX: 0,
-    targetY: 0,
-    velocity: { x: 0, y: 0 }
+    targetY: 0
   });
 
-  const touchRef = useRef({
+  const mouseRef = useRef({
     startX: 0,
     startY: 0,
     isDragging: false,
-    initialPinchDistance: 0,
-    lastPinchDistance: 0,
-    initialZoom: 16,
-    isMultiTouch: false
+    lastPinchDistance: 0
   });
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
     event.preventDefault();
-    touchRef.current.isDragging = true;
-    touchRef.current.startX = event.clientX;
-    touchRef.current.startY = event.clientY;
+    mouseRef.current.isDragging = true;
+    mouseRef.current.startX = event.clientX;
+    mouseRef.current.startY = event.clientY;
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!touchRef.current.isDragging) return;
+    if (!mouseRef.current.isDragging) return;
 
-    const deltaX = event.clientX - touchRef.current.startX;
-    const deltaY = event.clientY - touchRef.current.startY;
+    const deltaX = event.clientX - mouseRef.current.startX;
+    const deltaY = event.clientY - mouseRef.current.startY;
 
-    // Enhanced rotation sensitivity for touch
-    const sensitivity = 0.004;
-    rotationRef.current.targetY += deltaX * sensitivity;
-    rotationRef.current.targetX += deltaY * sensitivity;
+    rotationRef.current.targetY += deltaX * 0.005;
+    rotationRef.current.targetX += deltaY * 0.005;
 
-    // Limit vertical rotation to prevent flipping
-    rotationRef.current.targetX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.targetX));
+    // Limit vertical rotation for better mobile experience
+    rotationRef.current.targetX = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, rotationRef.current.targetX));
 
-    touchRef.current.startX = event.clientX;
-    touchRef.current.startY = event.clientY;
+    mouseRef.current.startX = event.clientX;
+    mouseRef.current.startY = event.clientY;
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    touchRef.current.isDragging = false;
-    touchRef.current.isMultiTouch = false;
+    mouseRef.current.isDragging = false;
   }, []);
 
   const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
-    const zoomSpeed = 0.002; // Increased zoom speed slightly
+    const zoomSpeed = 0.001;
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
       Math.min(zoomRef.current.max,
@@ -70,45 +62,35 @@ export const useCameraControls = () => {
     );
   }, []);
 
-  // Enhanced pinch zoom handling
-  const handlePinchStart = useCallback((distance: number) => {
-    touchRef.current.isMultiTouch = true;
-    touchRef.current.initialPinchDistance = distance;
-    touchRef.current.lastPinchDistance = distance;
-    touchRef.current.initialZoom = zoomRef.current.current;
-  }, []);
-
+  // New function to handle pinch zoom
   const handlePinchZoom = useCallback((distance: number) => {
-    if (!touchRef.current.isMultiTouch) return;
-
-    const scale = distance / touchRef.current.initialPinchDistance;
-    const newZoom = touchRef.current.initialZoom / scale;
+    const pinchDelta = mouseRef.current.lastPinchDistance - distance;
+    const zoomSpeed = 0.02;
     
-    // Enhanced zoom smoothing with wider range
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
-      Math.min(zoomRef.current.max, newZoom)
+      Math.min(zoomRef.current.max,
+        zoomRef.current.target + pinchDelta * zoomSpeed
+      )
     );
     
-    touchRef.current.lastPinchDistance = distance;
+    mouseRef.current.lastPinchDistance = distance;
   }, []);
 
   const updateCamera = useCallback((camera: THREE.Camera) => {
-    // Smoothly update rotation with enhanced inertia
-    const rotationDamping = 0.12;
-    rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * rotationDamping;
-    rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * rotationDamping;
+    // Smoothly update rotation with increased damping for mobile
+    rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.15;
+    rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.15;
 
-    // Apply rotation to camera with smooth interpolation
+    // Apply rotation to camera
     camera.position.x = Math.sin(rotationRef.current.y) * zoomRef.current.current;
     camera.position.z = Math.cos(rotationRef.current.y) * zoomRef.current.current;
     camera.position.y = Math.sin(rotationRef.current.x) * zoomRef.current.current;
 
-    // Enhanced zoom smoothing
-    const zoomDamping = 0.1;
-    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * zoomDamping;
+    // Smooth zoom with increased damping for mobile
+    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.15;
 
-    // Ensure camera always looks at center
+    // Make camera look at center
     camera.lookAt(new THREE.Vector3(0, 0, 0));
   }, []);
 
@@ -117,11 +99,9 @@ export const useCameraControls = () => {
     handleMouseMove,
     handleMouseUp,
     handleWheel,
-    handlePinchStart,
     handlePinchZoom,
     updateCamera,
     zoomRef,
-    rotationRef,
-    touchRef
+    rotationRef
   };
 };
