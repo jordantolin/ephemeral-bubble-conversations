@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -103,12 +102,23 @@ const MyBubbles = () => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create container ring
+    // Create container circle (solid filled)
+    const circleGeometry = new THREE.CircleGeometry(radius, 64);
+    const circleMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xebbd34,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide
+    });
+    const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+    scene.add(circle);
+
+    // Create border ring
     const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius, 64);
     const ringMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.3,
       side: THREE.DoubleSide
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
@@ -121,8 +131,8 @@ const MyBubbles = () => {
                    bubble.size === 'md' ? 1 : 0.8;
       const scaledSize = size * (1 + bubble.reflect_count * 0.1);
       
-      // Create bubble sphere
-      const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
+      // Create bubble sphere with slightly smaller size to fit inside circle
+      const geometry = new THREE.SphereGeometry(scaledSize * 0.8, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xebbd34,
         transparent: true,
@@ -170,16 +180,17 @@ const MyBubbles = () => {
       group.add(createSprite(bubble.name, 1.5));
       group.add(createSprite(`⭐ ${bubble.reflect_count}`, -1.5));
 
-      // Random position within circle
-      const angle = (index / bubbles.length) * Math.PI * 2;
-      const distance = radius * 0.7 * Math.random();
-      group.position.x = Math.cos(angle) * distance;
-      group.position.y = Math.sin(angle) * distance;
+      // Position bubbles in a spiral pattern inside the circle
+      const t = index / bubbles.length;
+      const spiralRadius = radius * 0.8 * t; // Keep within 80% of the circle radius
+      const angle = 2 * Math.PI * t * 5; // 5 spiral turns
+      group.position.x = Math.cos(angle) * spiralRadius;
+      group.position.y = Math.sin(angle) * spiralRadius;
       
-      // Store velocity for physics
+      // Store velocity for physics with reduced initial speed
       group.userData = {
-        vx: (Math.random() - 0.5) * 0.02,
-        vy: (Math.random() - 0.5) * 0.02,
+        vx: (Math.random() - 0.5) * 0.01, // Reduced speed
+        vy: (Math.random() - 0.5) * 0.01, // Reduced speed
         id: bubble.id,
         active: !bubble.expires_at || new Date(bubble.expires_at) > new Date()
       };
@@ -195,28 +206,29 @@ const MyBubbles = () => {
         group.position.x += group.userData.vx;
         group.position.y += group.userData.vy;
 
-        // Check boundary collision
+        // Check boundary collision with the containing circle
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
           group.position.y * group.position.y
         );
         
-        if (distance > radius - 2) {
+        const maxRadius = radius * 0.9; // Keep bubbles within 90% of circle radius
+        if (distance > maxRadius) {
           const angle = Math.atan2(group.position.y, group.position.x);
-          group.position.x = (radius - 2) * Math.cos(angle);
-          group.position.y = (radius - 2) * Math.sin(angle);
+          group.position.x = maxRadius * Math.cos(angle);
+          group.position.y = maxRadius * Math.sin(angle);
           
-          // Bounce with damping
+          // Bounce with increased damping for smoother motion
           const normal = new THREE.Vector2(
             group.position.x / distance,
             group.position.y / distance
           );
           const dot = normal.x * group.userData.vx + normal.y * group.userData.vy;
-          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.8;
-          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.8;
+          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.9;
+          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.9;
         }
 
-        // Bubble collisions
+        // Bubble collisions with smoother interaction
         Object.values(bubblesRef.current).forEach(otherGroup => {
           if (group === otherGroup) return;
 
@@ -224,13 +236,13 @@ const MyBubbles = () => {
           const dy = otherGroup.position.y - group.position.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          if (distance < 3) {
+          if (distance < 2.5) { // Reduced collision distance
             const angle = Math.atan2(dy, dx);
-            const tx = group.position.x + Math.cos(angle) * 3;
-            const ty = group.position.y + Math.sin(angle) * 3;
+            const tx = group.position.x + Math.cos(angle) * 2.5;
+            const ty = group.position.y + Math.sin(angle) * 2.5;
             
-            const ax = (tx - otherGroup.position.x) * 0.05;
-            const ay = (ty - otherGroup.position.y) * 0.05;
+            const ax = (tx - otherGroup.position.x) * 0.03; // Reduced force
+            const ay = (ty - otherGroup.position.y) * 0.03; // Reduced force
             
             group.userData.vx -= ax;
             group.userData.vy -= ay;
@@ -239,13 +251,13 @@ const MyBubbles = () => {
           }
         });
 
-        // Add gentle floating effect
-        group.userData.vy += Math.sin(Date.now() / 2000) * 0.0001;
-        group.userData.vx += Math.cos(Date.now() / 2000) * 0.0001;
+        // Add gentler floating effect
+        group.userData.vy += Math.sin(Date.now() / 3000) * 0.00005;
+        group.userData.vx += Math.cos(Date.now() / 3000) * 0.00005;
 
-        // Apply damping
-        group.userData.vx *= 0.99;
-        group.userData.vy *= 0.99;
+        // Apply stronger damping for smoother motion
+        group.userData.vx *= 0.995;
+        group.userData.vy *= 0.995;
 
         // Rotate to face camera
         group.quaternion.copy(camera.quaternion);
