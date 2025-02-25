@@ -102,6 +102,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     container.addEventListener('click', handleClick);
+    container.addEventListener('touchend', (e) => {
+      // Prevent click event from firing after touch
+      e.preventDefault();
+      if (!isDraggingRef.current) {
+        handleClick(e);
+      }
+    });
 
     // Create bubbles with improved spacing and text positioning
     topics.forEach((topic, index) => {

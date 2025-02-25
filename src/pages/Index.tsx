@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, X } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dialog,
@@ -498,7 +498,7 @@ const Index = () => {
 
             {/* Chat Dialog - Mobile Optimized */}
             <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-              <DialogContent className="w-full h-[100dvh] sm:h-[700px] sm:max-w-[600px] flex flex-col p-0 border-none bg-[#FEF7E4] sm:rounded-[2rem] overflow-hidden shadow-2xl fixed top-0 left-0 right-0 bottom-0 sm:relative sm:top-auto sm:left-auto sm:right-auto sm:bottom-auto m-0">
+              <DialogContent className="w-full h-[100dvh] sm:h-[700px] sm:max-w-[600px] flex flex-col p-0 border-none bg-[#FEF7E4] sm:rounded-[2rem] overflow-hidden shadow-2xl fixed top-0 left-0 right-0 bottom-0 sm:relative sm:top-auto sm:left-auto sm:right-auto sm:bottom-auto m-0 translate-x-0 translate-y-0 data-[state=open]:translate-y-0">
                 <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10 safe-top">
                   <div>
                     <DialogTitle className="text-[#ebbd34] text-lg sm:text-xl">{selectedBubble?.name}</DialogTitle>
