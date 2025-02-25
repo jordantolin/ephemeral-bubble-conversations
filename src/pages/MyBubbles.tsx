@@ -6,12 +6,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { Search, User, TrendingUp, Sparkles, Star } from "lucide-react";
 
+interface BubblePhysics {
+  element: HTMLElement;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  mass: number;
+}
+
 const MyBubbles = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number>();
-  const bubblesRef = useRef<{ [key: string]: { element: HTMLElement; offset: number; speed: number } }>({});
+  const bubblesRef = useRef<{ [key: string]: BubblePhysics }>({});
   
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles', 'my-all'],
@@ -63,41 +73,90 @@ const MyBubbles = () => {
     const container = containerRef.current;
     const centerX = container.clientWidth / 2;
     const centerY = container.clientHeight / 2;
-    const baseRadius = Math.min(centerX, centerY) - 100;
+    const containerRadius = Math.min(centerX, centerY) - 100;
 
-    // Initialize random positions and velocities for each bubble
-    bubbles.forEach((bubble, index) => {
+    // Initialize bubble physics
+    bubbles.forEach((bubble) => {
       if (!bubblesRef.current[bubble.id]) {
-        const angle = (index / bubbles.length) * Math.PI * 2;
+        const element = container.querySelector(`[data-bubble-id="${bubble.id}"]`) as HTMLElement;
+        const radius = Math.max(40, bubble.reflect_count * 4 + 40); // Adjust size calculation
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * containerRadius * 0.5;
+        
         bubblesRef.current[bubble.id] = {
-          element: container.querySelector(`[data-bubble-id="${bubble.id}"]`) as HTMLElement,
-          offset: Math.random() * Math.PI * 2,
-          speed: 0.0002 + Math.random() * 0.0002
+          element,
+          x: centerX + Math.cos(angle) * distance,
+          y: centerY + Math.sin(angle) * distance,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          radius,
+          mass: radius / 20
         };
       }
     });
 
     const animate = () => {
-      const time = Date.now() / 1000;
+      const bubblePhysics = Object.values(bubblesRef.current);
       
-      Object.entries(bubblesRef.current).forEach(([id, bubbleData]) => {
-        if (!bubbleData.element) return;
-
-        // Calculate random floating motion
-        const floatX = Math.sin(time * bubbleData.speed + bubbleData.offset) * 30;
-        const floatY = Math.cos(time * bubbleData.speed * 1.5 + bubbleData.offset) * 30;
+      // Update positions with physics
+      bubblePhysics.forEach(bubble => {
+        // Add gentle floating effect
+        bubble.vy += (Math.sin(Date.now() / 2000) * 0.02);
+        bubble.vx += (Math.cos(Date.now() / 2000) * 0.02);
         
-        // Add circular motion
-        const radius = baseRadius * 0.5 + Math.sin(time * bubbleData.speed * 0.5) * 20;
-        const angle = time * bubbleData.speed + bubbleData.offset;
-        const circleX = Math.cos(angle) * radius;
-        const circleY = Math.sin(angle) * radius;
+        // Apply velocity with damping
+        bubble.x += bubble.vx * 0.99;
+        bubble.y += bubble.vy * 0.99;
         
-        const x = centerX + circleX + floatX - bubbleData.element.clientWidth / 2;
-        const y = centerY + circleY + floatY - bubbleData.element.clientHeight / 2;
+        // Contain within circle
+        const dx = bubble.x - centerX;
+        const dy = bubble.y - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance + bubble.radius > containerRadius) {
+          const angle = Math.atan2(dy, dx);
+          const bounceX = centerX + Math.cos(angle) * (containerRadius - bubble.radius);
+          const bounceY = centerY + Math.sin(angle) * (containerRadius - bubble.radius);
+          
+          // Bounce off the container wall
+          bubble.x = bounceX;
+          bubble.y = bounceY;
+          
+          // Reflect velocity with some energy loss
+          const normalX = dx / distance;
+          const normalY = dy / distance;
+          const dotProduct = bubble.vx * normalX + bubble.vy * normalY;
+          bubble.vx = (bubble.vx - 2 * dotProduct * normalX) * 0.8;
+          bubble.vy = (bubble.vy - 2 * dotProduct * normalY) * 0.8;
+        }
 
-        bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
-        bubbleData.element.style.transition = 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+        // Bubble collisions
+        bubblePhysics.forEach(otherBubble => {
+          if (bubble === otherBubble) return;
+
+          const dx = otherBubble.x - bubble.x;
+          const dy = otherBubble.y - bubble.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const minDist = bubble.radius + otherBubble.radius;
+
+          if (distance < minDist) {
+            // Collision response
+            const angle = Math.atan2(dy, dx);
+            const targetX = bubble.x + Math.cos(angle) * minDist;
+            const targetY = bubble.y + Math.sin(angle) * minDist;
+            
+            const ax = (targetX - otherBubble.x) * 0.05;
+            const ay = (targetY - otherBubble.y) * 0.05;
+            
+            bubble.vx -= ax * otherBubble.mass / bubble.mass;
+            bubble.vy -= ay * otherBubble.mass / bubble.mass;
+            otherBubble.vx += ax * bubble.mass / otherBubble.mass;
+            otherBubble.vy += ay * bubble.mass / otherBubble.mass;
+          }
+        });
+
+        // Update bubble position
+        bubble.element.style.transform = `translate(${bubble.x - bubble.radius}px, ${bubble.y - bubble.radius}px)`;
       });
 
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -105,24 +164,7 @@ const MyBubbles = () => {
 
     animate();
 
-    const handleResize = () => {
-      if (container) {
-        const newCenterX = container.clientWidth / 2;
-        const newCenterY = container.clientHeight / 2;
-        Object.values(bubblesRef.current).forEach(bubbleData => {
-          if (bubbleData.element) {
-            const x = newCenterX - bubbleData.element.clientWidth / 2;
-            const y = newCenterY - bubbleData.element.clientHeight / 2;
-            bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
-          }
-        });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -227,30 +269,36 @@ const MyBubbles = () => {
             <div
               key={bubble.id}
               data-bubble-id={bubble.id}
-              className="bubble absolute p-4 cursor-pointer transform transition-all duration-300 hover:scale-110"
+              className="bubble absolute cursor-pointer transform-gpu"
               style={{
                 width: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
                 height: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
+                willChange: 'transform',
               }}
             >
               <div 
                 className="h-full w-full rounded-full flex flex-col items-center justify-center p-2"
                 style={{
-                  background: 'radial-gradient(circle at 30% 30%, rgba(235, 201, 66, 0.9) 0%, rgba(230, 180, 23, 0.8) 100%)',
+                  background: 'radial-gradient(circle at 30% 30%, rgba(235, 201, 66, 0.95) 0%, rgba(230, 180, 23, 0.85) 100%)',
                   backdropFilter: 'blur(4px)',
                   boxShadow: `
-                    inset 2px 2px 4px rgba(255, 255, 255, 0.5),
+                    inset 2px 2px 4px rgba(255, 255, 255, 0.6),
                     inset -2px -2px 4px rgba(0, 0, 0, 0.1),
                     0 4px 8px rgba(0, 0, 0, 0.1),
-                    0 8px 16px rgba(235, 201, 66, 0.2)
+                    0 8px 16px rgba(235, 201, 66, 0.3)
                   `,
-                  border: '1px solid rgba(255, 255, 255, 0.3)'
+                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  transform: 'translateZ(0)'
                 }}
               >
-                <h3 className="text-white font-medium mb-1 text-sm line-clamp-2 text-center px-2">
+                <div className="absolute inset-0 rounded-full"
+                     style={{
+                       background: 'radial-gradient(circle at 70% 70%, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%)',
+                     }} />
+                <h3 className="text-white font-medium mb-1 text-sm line-clamp-2 text-center px-2 relative z-10">
                   {bubble.name}
                 </h3>
-                <div className="flex items-center space-x-1 text-white/90">
+                <div className="flex items-center space-x-1 text-white/90 relative z-10">
                   <Star className="w-3 h-3" />
                   <span className="text-xs">{bubble.reflect_count}</span>
                 </div>
