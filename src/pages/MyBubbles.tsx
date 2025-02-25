@@ -14,8 +14,17 @@ const MyBubbles = () => {
   const bubblesRef = useRef<{ [key: string]: { element: HTMLElement; offset: number; speed: number } }>({});
   
   const { data: bubbles = [] } = useQuery({
-    queryKey: ['bubbles', 'my-reflected'],
+    queryKey: ['bubbles', 'my-all'],
     queryFn: async () => {
+      // Get bubbles created by user
+      const { data: createdBubbles, error: createdError } = await supabase
+        .from('bubbles')
+        .select('*')
+        .eq('username', '@user');
+      
+      if (createdError) throw createdError;
+
+      // Get reflected bubbles
       const { data: reflects, error: reflectsError } = await supabase
         .from('reflects')
         .select('bubble_id')
@@ -23,18 +32,25 @@ const MyBubbles = () => {
       
       if (reflectsError) throw reflectsError;
 
-      const bubbleIds = reflects.map(r => r.bubble_id);
+      const reflectedBubbleIds = reflects.map(r => r.bubble_id);
       
-      if (bubbleIds.length === 0) return [];
+      let reflectedBubbles: any[] = [];
+      if (reflectedBubbleIds.length > 0) {
+        const { data: reflectedData, error: reflectedError } = await supabase
+          .from('bubbles')
+          .select('*')
+          .in('id', reflectedBubbleIds)
+          .not('username', 'eq', '@user'); // Exclude bubbles already included in createdBubbles
+        
+        if (reflectedError) throw reflectedError;
+        reflectedBubbles = reflectedData || [];
+      }
 
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .in('id', bubbleIds);
-      
-      if (error) throw error;
+      // Combine and deduplicate bubbles
+      const allBubbles = [...(createdBubbles || []), ...reflectedBubbles];
+      const uniqueBubbles = Array.from(new Map(allBubbles.map(b => [b.id, b])).values());
 
-      return data.map(bubble => ({
+      return uniqueBubbles.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
@@ -42,57 +58,74 @@ const MyBubbles = () => {
   });
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !bubbles.length) return;
 
-    const updatePositions = () => {
-      const container = containerRef.current;
-      if (!container) return;
+    const container = containerRef.current;
+    const centerX = container.clientWidth / 2;
+    const centerY = container.clientHeight / 2;
+    const baseRadius = Math.min(centerX, centerY) - 100;
 
-      const bubbleElements = container.getElementsByClassName('bubble');
-      const centerX = container.clientWidth / 2;
-      const centerY = container.clientHeight / 2;
-      const radius = Math.min(centerX, centerY) - 100;
+    // Initialize random positions and velocities for each bubble
+    bubbles.forEach((bubble, index) => {
+      if (!bubblesRef.current[bubble.id]) {
+        const angle = (index / bubbles.length) * Math.PI * 2;
+        bubblesRef.current[bubble.id] = {
+          element: container.querySelector(`[data-bubble-id="${bubble.id}"]`) as HTMLElement,
+          offset: Math.random() * Math.PI * 2,
+          speed: 0.0003 + Math.random() * 0.0002
+        };
+      }
+    });
 
-      // Initialize bubble references if not already done
-      Array.from(bubbleElements).forEach((bubble, index) => {
-        const element = bubble as HTMLElement;
-        if (!bubblesRef.current[element.dataset.bubbleId || '']) {
-          bubblesRef.current[element.dataset.bubbleId || ''] = {
-            element,
-            offset: Math.random() * Math.PI * 2,
-            speed: 0.0005 + Math.random() * 0.0005
-          };
-        }
+    const animate = () => {
+      const time = Date.now() / 1000; // Convert to seconds for smoother animation
+      
+      Object.entries(bubblesRef.current).forEach(([id, bubbleData], index) => {
+        if (!bubbleData.element) return;
+
+        // Calculate floating motion
+        const angle = (index / bubbles.length) * Math.PI * 2;
+        const radiusVariation = Math.sin(time * bubbleData.speed + bubbleData.offset) * 30;
+        const radius = baseRadius * 0.6 + radiusVariation;
+        
+        // Add orbital and floating motion
+        const orbitX = Math.cos(time * bubbleData.speed + angle) * radius;
+        const orbitY = Math.sin(time * bubbleData.speed + angle) * radius;
+        
+        // Add floating effect
+        const floatX = Math.sin(time * bubbleData.speed * 2 + bubbleData.offset) * 20;
+        const floatY = Math.cos(time * bubbleData.speed * 3 + bubbleData.offset) * 20;
+        
+        const x = centerX + orbitX + floatX - bubbleData.element.clientWidth / 2;
+        const y = centerY + orbitY + floatY - bubbleData.element.clientHeight / 2;
+
+        bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
+        bubbleData.element.style.transition = 'transform 0.2s ease-out';
       });
 
-      // Animate bubbles
-      const animate = () => {
-        const time = Date.now();
-        
-        Object.values(bubblesRef.current).forEach((bubbleData, index) => {
-          const baseAngle = (index / bubbleElements.length) * Math.PI * 2;
-          const floatAngle = baseAngle + Math.sin(time * bubbleData.speed + bubbleData.offset) * 0.2;
-          
-          // Add some random variation to make it more organic
-          const randomRadius = radius * (0.7 + Math.sin(time * bubbleData.speed * 2 + bubbleData.offset) * 0.1);
-          const x = centerX + Math.cos(floatAngle) * randomRadius - bubbleData.element.clientWidth / 2;
-          const y = centerY + Math.sin(floatAngle) * randomRadius - bubbleData.element.clientHeight / 2;
-
-          bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
-          bubbleData.element.style.transition = 'transform 0.5s ease-out';
-        });
-
-        animationFrameRef.current = requestAnimationFrame(animate);
-      };
-
-      animate();
+      animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    updatePositions();
-    window.addEventListener('resize', updatePositions);
+    animate();
+
+    const handleResize = () => {
+      if (container) {
+        const newCenterX = container.clientWidth / 2;
+        const newCenterY = container.clientHeight / 2;
+        Object.values(bubblesRef.current).forEach(bubbleData => {
+          if (bubbleData.element) {
+            const x = newCenterX - bubbleData.element.clientWidth / 2;
+            const y = newCenterY - bubbleData.element.clientHeight / 2;
+            bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
+          }
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener('resize', updatePositions);
+      window.removeEventListener('resize', handleResize);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -178,30 +211,38 @@ const MyBubbles = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-light text-primary mb-2">
-            My Reflected Bubbles
+            My Bubbles
           </h1>
-          <div className="h-px w-24 bg-primary/20 mx-auto" />
+          <p className="text-primary/60">
+            Bubbles you've created or reflected upon
+          </p>
+          <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
         </div>
 
         <div 
           ref={containerRef}
-          className="relative w-[600px] h-[600px] mx-auto"
+          className="relative w-[600px] h-[600px] mx-auto bg-white/50 rounded-full shadow-inner"
         >
-          {/* Circle container */}
-          <div className="absolute inset-4 border-4 border-primary/20 rounded-full" />
+          {/* Circle container with gradient border */}
+          <div className="absolute inset-4 rounded-full border-4 border-primary/10 backdrop-blur-sm" />
           
           {bubbles.map((bubble) => (
             <div
               key={bubble.id}
               data-bubble-id={bubble.id}
-              className="bubble absolute bg-[#ebc942] rounded-full p-4 hover:scale-105 transition-transform duration-300 ease-out animate-float-slow cursor-pointer"
+              className="bubble absolute p-4 cursor-pointer transform transition-all duration-300 hover:scale-110"
               style={{
                 width: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
                 height: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
               }}
             >
-              <div className="h-full w-full flex flex-col items-center justify-center">
-                <h3 className="text-primary-foreground font-medium mb-1 text-sm line-clamp-2">
+              <div 
+                className="h-full w-full rounded-full bg-[#ebc942] flex flex-col items-center justify-center p-2 shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #ebc942 0%, #e6b417 100%)',
+                }}
+              >
+                <h3 className="text-primary-foreground font-medium mb-1 text-sm line-clamp-2 text-center">
                   {bubble.name}
                 </h3>
                 <div className="flex items-center space-x-1 text-primary-foreground/80">
@@ -211,6 +252,12 @@ const MyBubbles = () => {
               </div>
             </div>
           ))}
+
+          {bubbles.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-primary/40 text-lg">No bubbles yet</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
