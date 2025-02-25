@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +10,8 @@ const MyBubbles = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number>();
+  const bubblesRef = useRef<{ [key: string]: { element: HTMLElement; offset: number; speed: number } }>({});
   
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles', 'my-reflected'],
@@ -48,19 +51,41 @@ const MyBubbles = () => {
       const bubbleElements = container.getElementsByClassName('bubble');
       const centerX = container.clientWidth / 2;
       const centerY = container.clientHeight / 2;
-      const radius = Math.min(centerX, centerY) - 100; // Smaller radius to keep bubbles inside
+      const radius = Math.min(centerX, centerY) - 100;
 
+      // Initialize bubble references if not already done
       Array.from(bubbleElements).forEach((bubble, index) => {
         const element = bubble as HTMLElement;
-        const angle = (index / bubbleElements.length) * Math.PI * 2;
-        
-        // Add some random variation to make it more organic
-        const randomRadius = radius * (0.7 + Math.random() * 0.3);
-        const x = centerX + Math.cos(angle) * randomRadius - element.clientWidth / 2;
-        const y = centerY + Math.sin(angle) * randomRadius - element.clientHeight / 2;
-
-        element.style.transform = `translate(${x}px, ${y}px)`;
+        if (!bubblesRef.current[element.dataset.bubbleId || '']) {
+          bubblesRef.current[element.dataset.bubbleId || ''] = {
+            element,
+            offset: Math.random() * Math.PI * 2,
+            speed: 0.0005 + Math.random() * 0.0005
+          };
+        }
       });
+
+      // Animate bubbles
+      const animate = () => {
+        const time = Date.now();
+        
+        Object.values(bubblesRef.current).forEach((bubbleData, index) => {
+          const baseAngle = (index / bubbleElements.length) * Math.PI * 2;
+          const floatAngle = baseAngle + Math.sin(time * bubbleData.speed + bubbleData.offset) * 0.2;
+          
+          // Add some random variation to make it more organic
+          const randomRadius = radius * (0.7 + Math.sin(time * bubbleData.speed * 2 + bubbleData.offset) * 0.1);
+          const x = centerX + Math.cos(floatAngle) * randomRadius - bubbleData.element.clientWidth / 2;
+          const y = centerY + Math.sin(floatAngle) * randomRadius - bubbleData.element.clientHeight / 2;
+
+          bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
+          bubbleData.element.style.transition = 'transform 0.5s ease-out';
+        });
+
+        animationFrameRef.current = requestAnimationFrame(animate);
+      };
+
+      animate();
     };
 
     updatePositions();
@@ -68,6 +93,10 @@ const MyBubbles = () => {
 
     return () => {
       window.removeEventListener('resize', updatePositions);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      bubblesRef.current = {};
     };
   }, [bubbles]);
 
@@ -164,7 +193,8 @@ const MyBubbles = () => {
           {bubbles.map((bubble) => (
             <div
               key={bubble.id}
-              className="bubble absolute bg-[#ebc942] rounded-full p-4 hover:scale-105 transition-transform duration-300 ease-out animate-float-slow"
+              data-bubble-id={bubble.id}
+              className="bubble absolute bg-[#ebc942] rounded-full p-4 hover:scale-105 transition-transform duration-300 ease-out animate-float-slow cursor-pointer"
               style={{
                 width: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
                 height: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
