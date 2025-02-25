@@ -1,27 +1,15 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
-import { Search, User, TrendingUp, Sparkles, Star } from "lucide-react";
-
-interface BubblePhysics {
-  element: HTMLElement;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-  mass: number;
-}
+import { Search, User, TrendingUp, Sparkles } from "lucide-react";
+import BubbleWorld from "@/components/BubbleWorld";
 
 const MyBubbles = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number>();
-  const bubblesRef = useRef<{ [key: string]: BubblePhysics }>({});
   
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles', 'my-all'],
@@ -50,7 +38,7 @@ const MyBubbles = () => {
           .from('bubbles')
           .select('*')
           .in('id', reflectedBubbleIds)
-          .not('username', 'eq', '@user'); // Exclude bubbles already included in createdBubbles
+          .not('username', 'eq', '@user');
         
         if (reflectedError) throw reflectedError;
         reflectedBubbles = reflectedData || [];
@@ -67,110 +55,10 @@ const MyBubbles = () => {
     }
   });
 
-  useEffect(() => {
-    if (!containerRef.current || !bubbles.length) return;
-
-    const container = containerRef.current;
-    const centerX = container.clientWidth / 2;
-    const centerY = container.clientHeight / 2;
-    const containerRadius = Math.min(centerX, centerY) - 100;
-
-    // Initialize bubble physics
-    bubbles.forEach((bubble) => {
-      if (!bubblesRef.current[bubble.id]) {
-        const element = container.querySelector(`[data-bubble-id="${bubble.id}"]`) as HTMLElement;
-        const radius = Math.max(40, bubble.reflect_count * 4 + 40); // Adjust size calculation
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * containerRadius * 0.5;
-        
-        bubblesRef.current[bubble.id] = {
-          element,
-          x: centerX + Math.cos(angle) * distance,
-          y: centerY + Math.sin(angle) * distance,
-          vx: (Math.random() - 0.5) * 2,
-          vy: (Math.random() - 0.5) * 2,
-          radius,
-          mass: radius / 20
-        };
-      }
-    });
-
-    const animate = () => {
-      const bubblePhysics = Object.values(bubblesRef.current);
-      
-      // Update positions with physics
-      bubblePhysics.forEach(bubble => {
-        // Add gentle floating effect
-        bubble.vy += (Math.sin(Date.now() / 2000) * 0.02);
-        bubble.vx += (Math.cos(Date.now() / 2000) * 0.02);
-        
-        // Apply velocity with damping
-        bubble.x += bubble.vx * 0.99;
-        bubble.y += bubble.vy * 0.99;
-        
-        // Contain within circle
-        const dx = bubble.x - centerX;
-        const dy = bubble.y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance + bubble.radius > containerRadius) {
-          const angle = Math.atan2(dy, dx);
-          const bounceX = centerX + Math.cos(angle) * (containerRadius - bubble.radius);
-          const bounceY = centerY + Math.sin(angle) * (containerRadius - bubble.radius);
-          
-          // Bounce off the container wall
-          bubble.x = bounceX;
-          bubble.y = bounceY;
-          
-          // Reflect velocity with some energy loss
-          const normalX = dx / distance;
-          const normalY = dy / distance;
-          const dotProduct = bubble.vx * normalX + bubble.vy * normalY;
-          bubble.vx = (bubble.vx - 2 * dotProduct * normalX) * 0.8;
-          bubble.vy = (bubble.vy - 2 * dotProduct * normalY) * 0.8;
-        }
-
-        // Bubble collisions
-        bubblePhysics.forEach(otherBubble => {
-          if (bubble === otherBubble) return;
-
-          const dx = otherBubble.x - bubble.x;
-          const dy = otherBubble.y - bubble.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const minDist = bubble.radius + otherBubble.radius;
-
-          if (distance < minDist) {
-            // Collision response
-            const angle = Math.atan2(dy, dx);
-            const targetX = bubble.x + Math.cos(angle) * minDist;
-            const targetY = bubble.y + Math.sin(angle) * minDist;
-            
-            const ax = (targetX - otherBubble.x) * 0.05;
-            const ay = (targetY - otherBubble.y) * 0.05;
-            
-            bubble.vx -= ax * otherBubble.mass / bubble.mass;
-            bubble.vy -= ay * otherBubble.mass / bubble.mass;
-            otherBubble.vx += ax * bubble.mass / otherBubble.mass;
-            otherBubble.vy += ay * bubble.mass / otherBubble.mass;
-          }
-        });
-
-        // Update bubble position
-        bubble.element.style.transform = `translate(${bubble.x - bubble.radius}px, ${bubble.y - bubble.radius}px)`;
-      });
-
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      bubblesRef.current = {};
-    };
-  }, [bubbles]);
+  const handleBubbleClick = (id: string) => {
+    console.log('Bubble clicked:', id);
+    // Handle bubble click - can be expanded later
+  };
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -258,59 +146,11 @@ const MyBubbles = () => {
           <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
         </div>
 
-        <div 
-          ref={containerRef}
-          className="relative w-[600px] h-[600px] mx-auto bg-white/50 rounded-full shadow-inner backdrop-blur-sm"
-        >
-          {/* Circle container with gradient border */}
-          <div className="absolute inset-4 rounded-full border-4 border-primary/10" />
-          
-          {bubbles.map((bubble) => (
-            <div
-              key={bubble.id}
-              data-bubble-id={bubble.id}
-              className="bubble absolute cursor-pointer transform-gpu"
-              style={{
-                width: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
-                height: `${Math.max(80, bubble.reflect_count * 8 + 80)}px`,
-                willChange: 'transform',
-              }}
-            >
-              <div 
-                className="h-full w-full rounded-full flex flex-col items-center justify-center p-2"
-                style={{
-                  background: 'radial-gradient(circle at 30% 30%, rgba(235, 201, 66, 0.95) 0%, rgba(230, 180, 23, 0.85) 100%)',
-                  backdropFilter: 'blur(4px)',
-                  boxShadow: `
-                    inset 2px 2px 4px rgba(255, 255, 255, 0.6),
-                    inset -2px -2px 4px rgba(0, 0, 0, 0.1),
-                    0 4px 8px rgba(0, 0, 0, 0.1),
-                    0 8px 16px rgba(235, 201, 66, 0.3)
-                  `,
-                  border: '1px solid rgba(255, 255, 255, 0.4)',
-                  transform: 'translateZ(0)'
-                }}
-              >
-                <div className="absolute inset-0 rounded-full"
-                     style={{
-                       background: 'radial-gradient(circle at 70% 70%, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%)',
-                     }} />
-                <h3 className="text-white font-medium mb-1 text-sm line-clamp-2 text-center px-2 relative z-10">
-                  {bubble.name}
-                </h3>
-                <div className="flex items-center space-x-1 text-white/90 relative z-10">
-                  <Star className="w-3 h-3" />
-                  <span className="text-xs">{bubble.reflect_count}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {bubbles.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-primary/40 text-lg">No bubbles yet</p>
-            </div>
-          )}
+        <div className="relative h-[600px] mx-auto">
+          <BubbleWorld
+            topics={bubbles}
+            onBubbleClick={handleBubbleClick}
+          />
         </div>
       </main>
     </div>
