@@ -28,41 +28,17 @@ const MyBubbles = () => {
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles', 'my-all'],
     queryFn: async () => {
-      // Get bubbles created by user
-      const { data: createdBubbles, error: createdError } = await supabase
+      // Get all bubbles created in the last 24 hours
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentBubbles, error: recentError } = await supabase
         .from('bubbles')
         .select('*')
-        .eq('username', '@user');
+        .gte('created_at', yesterday)
+        .order('created_at', { ascending: false });
       
-      if (createdError) throw createdError;
+      if (recentError) throw recentError;
 
-      // Get reflected bubbles
-      const { data: reflects, error: reflectsError } = await supabase
-        .from('reflects')
-        .select('bubble_id')
-        .eq('username', '@user');
-      
-      if (reflectsError) throw reflectsError;
-
-      const reflectedBubbleIds = reflects.map(r => r.bubble_id);
-      
-      let reflectedBubbles: any[] = [];
-      if (reflectedBubbleIds.length > 0) {
-        const { data: reflectedData, error: reflectedError } = await supabase
-          .from('bubbles')
-          .select('*')
-          .in('id', reflectedBubbleIds)
-          .not('username', 'eq', '@user');
-        
-        if (reflectedError) throw reflectedError;
-        reflectedBubbles = reflectedData || [];
-      }
-
-      // Combine and deduplicate bubbles
-      const allBubbles = [...(createdBubbles || []), ...reflectedBubbles];
-      const uniqueBubbles = Array.from(new Map(allBubbles.map(b => [b.id, b])).values());
-
-      return uniqueBubbles.map(bubble => ({
+      return recentBubbles.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
@@ -178,7 +154,7 @@ const MyBubbles = () => {
       };
 
       group.add(createSprite(bubble.name, 1.5));
-      group.add(createSprite(`⭐ ${bubble.reflect_count}`, -1.5));
+      group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
 
       // Position bubbles in a spiral pattern inside the circle
       const t = index / bubbles.length;
@@ -389,10 +365,10 @@ const MyBubbles = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-light text-primary mb-2">
-            My Bubbles
+            Recent Bubbles
           </h1>
           <p className="text-primary/60">
-            Bubbles you've created or reflected upon
+            All bubbles created in the last 24 hours
           </p>
           <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
         </div>
