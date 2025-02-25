@@ -6,8 +6,8 @@ export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 2, // Even closer min zoom for better mobile experience
-    max: 40  // Increased max zoom for more range
+    min: 2,
+    max: 40
   });
 
   const rotationRef = useRef({
@@ -68,14 +68,11 @@ export const useCameraControls = () => {
     }
 
     const pinchDelta = distance - mouseRef.current.lastPinchDistance;
-    const zoomSpeed = 0.05; // Increased zoom speed for mobile
-    
-    // Calculate new target zoom based on pinch gesture
+    const zoomSpeed = 0.05;
     const zoomDelta = pinchDelta * zoomSpeed;
     const currentZoom = zoomRef.current.target;
     const newZoom = currentZoom - zoomDelta;
 
-    // Apply zoom with limits
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
       Math.min(zoomRef.current.max, newZoom)
@@ -84,7 +81,9 @@ export const useCameraControls = () => {
     mouseRef.current.lastPinchDistance = distance;
   }, []);
 
-  const updateCamera = useCallback((camera: THREE.Camera) => {
+  const updateCamera = useCallback((camera?: THREE.Camera) => {
+    if (!camera) return;
+
     // Smoothly update rotation
     rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.15;
     rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.15;
@@ -94,7 +93,7 @@ export const useCameraControls = () => {
     camera.position.z = Math.cos(rotationRef.current.y) * zoomRef.current.current;
     camera.position.y = Math.sin(rotationRef.current.x) * zoomRef.current.current;
 
-    // Smoother zoom transition for mobile
+    // Smoother zoom transition
     zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
 
     // Make camera look at center

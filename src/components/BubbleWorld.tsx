@@ -190,8 +190,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Set up the animation loop
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
+      if (camera) {
+        updateCamera(camera);
+      }
       TWEEN.update();
-      updateCamera();
       renderer.render(scene, camera);
     };
 
