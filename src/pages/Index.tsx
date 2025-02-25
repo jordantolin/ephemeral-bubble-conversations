@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -315,16 +316,16 @@ const Index = () => {
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
-          <div className="flex items-center justify-between h-16 px-4">
+          <div className="flex items-center justify-between h-16 px-2 sm:px-4">
             {/* Logo and Search Section */}
-            <div className="flex items-center gap-6 flex-1">
+            <div className="flex items-center gap-2 sm:gap-6 flex-1">
               <div className="flex items-center gap-2 shrink-0">
                 <img 
                   src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
                   alt="Bubble Trouble"
-                  className="w-8 h-8"
+                  className="w-7 h-7 sm:w-8 sm:h-8"
                 />
-                <span className="text-lg sm:text-xl font-semibold text-[#ebbd34]">
+                <span className="text-sm sm:text-xl font-semibold text-[#ebbd34] whitespace-nowrap">
                   Bubble Trouble
                 </span>
               </div>
@@ -345,7 +346,7 @@ const Index = () => {
             <div className="flex items-center gap-1">
               <Link 
                 to="/my-bubbles" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                className={`nav-link flex items-center gap-1 px-2 sm:px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
                   location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
                 }`}
               >
@@ -354,7 +355,7 @@ const Index = () => {
               </Link>
               <Link 
                 to="/feed" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                className={`nav-link flex items-center gap-1 px-2 sm:px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
                   location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
                 }`}
               >
