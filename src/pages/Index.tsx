@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -319,16 +318,16 @@ const Index = () => {
           <div className="flex items-center justify-between h-16 px-4">
             {/* Logo and Search Section */}
             <div className="flex items-center gap-6 flex-1">
-              <Link to="/" className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <img 
                   src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
                   alt="Bubble Trouble"
                   className="w-8 h-8"
                 />
-                <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
+                <span className="text-lg sm:text-xl font-semibold text-[#ebbd34]">
                   Bubble Trouble
                 </span>
-              </Link>
+              </div>
               
               <div className="relative flex-1 max-w-md hidden sm:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
@@ -373,7 +372,7 @@ const Index = () => {
         </div>
       </nav>
       
-      {/* Mobile Search Bar - Moved outside navbar */}
+      {/* Mobile Search Bar */}
       <div className="fixed top-16 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 sm:hidden">
         <div className="px-4 py-3">
           <div className="relative">
@@ -390,13 +389,6 @@ const Index = () => {
       </div>
       
       <main className="flex flex-col items-center justify-start w-full min-h-[calc(100dvh-64px)] pt-28 sm:pt-20">
-        <div className="text-center mb-6 px-4">
-          <h1 className="text-3xl sm:text-4xl font-light text-[#ebbd34]">
-            Bubble Trouble
-          </h1>
-          <div className="h-px w-24 sm:w-32 bg-[#ebbd34]/20 mx-auto mt-3" />
-        </div>
-
         <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
           <BubbleWorld 
             topics={bubbles}
