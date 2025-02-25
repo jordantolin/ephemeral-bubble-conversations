@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
@@ -74,6 +75,14 @@
   .animate-float-slow {
     animation: float 6s ease-in-out infinite;
   }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 @keyframes float {
@@ -88,4 +97,25 @@
 /* Add default font family */
 body {
   font-family: 'Montserrat', sans-serif;
+}
+
+/* Improve mobile touch interactions */
+@media (max-width: 640px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  input, button {
+    font-size: 16px; /* Prevent auto-zoom on iOS */
+  }
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
