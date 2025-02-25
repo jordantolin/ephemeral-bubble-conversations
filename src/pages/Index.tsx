@@ -374,6 +374,32 @@ const Index = () => {
     };
   }, [selectedBubbleId, queryClient]);
 
+  // Add this query to fetch the selected bubble details
+  const { data: selectedBubble } = useQuery({
+    queryKey: ['bubble', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return null;
+
+      const { data, error } = await supabase
+        .from('bubbles')
+        .select('*')
+        .eq('id', selectedBubbleId)
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error fetching bubble",
+          description: error.message,
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      return data as Bubble;
+    },
+    enabled: !!selectedBubbleId
+  });
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
@@ -483,7 +509,7 @@ const Index = () => {
                     variant="outline"
                     size="icon"
                     className="ml-4 hover:text-[#ebbd34] transition-colors border-[#ebbd34]/20"
-                    onClick={() => selectedBubble && handleReflect(selectedBubble.id)}
+                    onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
                   >
                     <Star className="h-5 w-5" />
                   </Button>
@@ -580,7 +606,7 @@ const Index = () => {
                       className="flex-1 bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
                     />
                     <Button 
-                      onClick={handleSendMessage} 
+                      onClick={() => handleSendMessage()}
                       size="icon" 
                       className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
                     >
