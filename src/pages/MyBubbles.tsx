@@ -52,27 +52,28 @@ const MyBubbles = () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
     
-    // Smaller radius to ensure bubbles stay inside the visible container
+    // Use a smaller radius to ensure bubbles stay inside the visible container
     const radius = Math.min(width, height) / 2.5;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#FEF7E4');
+    scene.background = null; // Make scene background transparent
     sceneRef.current = scene;
     
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 20; // Move camera back to see full circle
+    camera.position.z = 20;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      alpha: true
+      alpha: true // Enable transparency
     });
     renderer.setSize(width, height);
+    renderer.setClearColor(0x000000, 0); // Make renderer background transparent
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Stronger lighting
+    // Enhanced lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
 
@@ -80,7 +81,7 @@ const MyBubbles = () => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create a more visible container circle
+    // Create a visible container circle with solid fill
     const circleGeometry = new THREE.CircleGeometry(radius, 64);
     const circleMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
@@ -91,7 +92,7 @@ const MyBubbles = () => {
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
     scene.add(circle);
 
-    // Add a more pronounced border ring
+    // Add a visible border ring
     const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius, 64);
     const ringMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
@@ -102,14 +103,14 @@ const MyBubbles = () => {
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
 
-    // Create and position bubbles
+    // Create and position bubbles with proper containment
     bubbles.forEach((bubble) => {
       const group = new THREE.Group();
       const size = bubble.size === 'lg' ? 0.8 : 
                    bubble.size === 'md' ? 0.6 : 0.4;
       const scaledSize = size * (1 + bubble.reflect_count * 0.1);
       
-      // Create bubble sphere
+      // Create bubble sphere with enhanced materials
       const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xebbd34,
@@ -124,7 +125,7 @@ const MyBubbles = () => {
       const bubble3D = new THREE.Mesh(geometry, material);
       group.add(bubble3D);
 
-      // Add text sprites
+      // Text sprites with improved visibility
       const createSprite = (text: string, yOffset: number) => {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
@@ -156,7 +157,7 @@ const MyBubbles = () => {
       group.add(createSprite(bubble.name, 1.5));
       group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
 
-      // Random position inside circle
+      // Position bubbles inside circle bounds
       const angle = Math.random() * Math.PI * 2;
       const distance = Math.random() * radius * 0.7; // Keep within 70% of radius
       group.position.x = Math.cos(angle) * distance;
@@ -175,14 +176,14 @@ const MyBubbles = () => {
       scene.add(group);
     });
 
-    // Animation loop
+    // Animation loop with improved containment
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
         // Update position
         group.position.x += group.userData.vx;
         group.position.y += group.userData.vy;
 
-        // Circle boundary collision
+        // Circle boundary collision with proper containment
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
           group.position.y * group.position.y
@@ -380,7 +381,7 @@ const MyBubbles = () => {
 
         <div 
           ref={containerRef}
-          className="relative w-[600px] h-[600px] mx-auto rounded-full border-4 border-[#ebbd34]/30 bg-[#ebbd34]/5"
+          className="relative w-[600px] h-[600px] mx-auto"
         />
 
         <Dialog open={!!selectedBubble} onOpenChange={() => setSelectedBubble(null)}>
