@@ -72,35 +72,32 @@ const MyBubbles = () => {
         bubblesRef.current[bubble.id] = {
           element: container.querySelector(`[data-bubble-id="${bubble.id}"]`) as HTMLElement,
           offset: Math.random() * Math.PI * 2,
-          speed: 0.0003 + Math.random() * 0.0002
+          speed: 0.0002 + Math.random() * 0.0002
         };
       }
     });
 
     const animate = () => {
-      const time = Date.now() / 1000; // Convert to seconds for smoother animation
+      const time = Date.now() / 1000;
       
-      Object.entries(bubblesRef.current).forEach(([id, bubbleData], index) => {
+      Object.entries(bubblesRef.current).forEach(([id, bubbleData]) => {
         if (!bubbleData.element) return;
 
-        // Calculate floating motion
-        const angle = (index / bubbles.length) * Math.PI * 2;
-        const radiusVariation = Math.sin(time * bubbleData.speed + bubbleData.offset) * 30;
-        const radius = baseRadius * 0.6 + radiusVariation;
+        // Calculate random floating motion
+        const floatX = Math.sin(time * bubbleData.speed + bubbleData.offset) * 30;
+        const floatY = Math.cos(time * bubbleData.speed * 1.5 + bubbleData.offset) * 30;
         
-        // Add orbital and floating motion
-        const orbitX = Math.cos(time * bubbleData.speed + angle) * radius;
-        const orbitY = Math.sin(time * bubbleData.speed + angle) * radius;
+        // Add circular motion
+        const radius = baseRadius * 0.5 + Math.sin(time * bubbleData.speed * 0.5) * 20;
+        const angle = time * bubbleData.speed + bubbleData.offset;
+        const circleX = Math.cos(angle) * radius;
+        const circleY = Math.sin(angle) * radius;
         
-        // Add floating effect
-        const floatX = Math.sin(time * bubbleData.speed * 2 + bubbleData.offset) * 20;
-        const floatY = Math.cos(time * bubbleData.speed * 3 + bubbleData.offset) * 20;
-        
-        const x = centerX + orbitX + floatX - bubbleData.element.clientWidth / 2;
-        const y = centerY + orbitY + floatY - bubbleData.element.clientHeight / 2;
+        const x = centerX + circleX + floatX - bubbleData.element.clientWidth / 2;
+        const y = centerY + circleY + floatY - bubbleData.element.clientHeight / 2;
 
         bubbleData.element.style.transform = `translate(${x}px, ${y}px)`;
-        bubbleData.element.style.transition = 'transform 0.2s ease-out';
+        bubbleData.element.style.transition = 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
       });
 
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -221,10 +218,10 @@ const MyBubbles = () => {
 
         <div 
           ref={containerRef}
-          className="relative w-[600px] h-[600px] mx-auto bg-white/50 rounded-full shadow-inner"
+          className="relative w-[600px] h-[600px] mx-auto bg-white/50 rounded-full shadow-inner backdrop-blur-sm"
         >
           {/* Circle container with gradient border */}
-          <div className="absolute inset-4 rounded-full border-4 border-primary/10 backdrop-blur-sm" />
+          <div className="absolute inset-4 rounded-full border-4 border-primary/10" />
           
           {bubbles.map((bubble) => (
             <div
@@ -237,15 +234,23 @@ const MyBubbles = () => {
               }}
             >
               <div 
-                className="h-full w-full rounded-full bg-[#ebc942] flex flex-col items-center justify-center p-2 shadow-lg"
+                className="h-full w-full rounded-full flex flex-col items-center justify-center p-2"
                 style={{
-                  background: 'linear-gradient(135deg, #ebc942 0%, #e6b417 100%)',
+                  background: 'radial-gradient(circle at 30% 30%, rgba(235, 201, 66, 0.9) 0%, rgba(230, 180, 23, 0.8) 100%)',
+                  backdropFilter: 'blur(4px)',
+                  boxShadow: `
+                    inset 2px 2px 4px rgba(255, 255, 255, 0.5),
+                    inset -2px -2px 4px rgba(0, 0, 0, 0.1),
+                    0 4px 8px rgba(0, 0, 0, 0.1),
+                    0 8px 16px rgba(235, 201, 66, 0.2)
+                  `,
+                  border: '1px solid rgba(255, 255, 255, 0.3)'
                 }}
               >
-                <h3 className="text-primary-foreground font-medium mb-1 text-sm line-clamp-2 text-center">
+                <h3 className="text-white font-medium mb-1 text-sm line-clamp-2 text-center px-2">
                   {bubble.name}
                 </h3>
-                <div className="flex items-center space-x-1 text-primary-foreground/80">
+                <div className="flex items-center space-x-1 text-white/90">
                   <Star className="w-3 h-3" />
                   <span className="text-xs">{bubble.reflect_count}</span>
                 </div>
