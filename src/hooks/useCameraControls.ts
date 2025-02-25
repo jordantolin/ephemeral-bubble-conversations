@@ -6,8 +6,8 @@ export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 4, // Reduced min zoom to get closer
-    max: 30  // Increased max zoom to get further
+    min: 2, // Even closer min zoom for better mobile experience
+    max: 40  // Increased max zoom for more range
   });
 
   const rotationRef = useRef({
@@ -37,11 +37,9 @@ export const useCameraControls = () => {
     const deltaX = event.clientX - mouseRef.current.startX;
     const deltaY = event.clientY - mouseRef.current.startY;
 
-    // Regular rotation for mouse movement
     rotationRef.current.targetY += deltaX * 0.005;
     rotationRef.current.targetX += deltaY * 0.005;
 
-    // Limit vertical rotation for better experience
     rotationRef.current.targetX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.targetX));
 
     mouseRef.current.startX = event.clientX;
@@ -63,17 +61,24 @@ export const useCameraControls = () => {
     );
   }, []);
 
-  // Updated pinch zoom handler with corrected direction
   const handlePinchZoom = useCallback((distance: number) => {
+    if (mouseRef.current.lastPinchDistance === 0) {
+      mouseRef.current.lastPinchDistance = distance;
+      return;
+    }
+
     const pinchDelta = distance - mouseRef.current.lastPinchDistance;
-    const zoomSpeed = 0.02;
+    const zoomSpeed = 0.05; // Increased zoom speed for mobile
     
-    // Inverted the direction by changing the sign
+    // Calculate new target zoom based on pinch gesture
+    const zoomDelta = pinchDelta * zoomSpeed;
+    const currentZoom = zoomRef.current.target;
+    const newZoom = currentZoom - zoomDelta;
+
+    // Apply zoom with limits
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
-      Math.min(zoomRef.current.max,
-        zoomRef.current.target - pinchDelta * zoomSpeed
-      )
+      Math.min(zoomRef.current.max, newZoom)
     );
     
     mouseRef.current.lastPinchDistance = distance;
@@ -89,8 +94,8 @@ export const useCameraControls = () => {
     camera.position.z = Math.cos(rotationRef.current.y) * zoomRef.current.current;
     camera.position.y = Math.sin(rotationRef.current.x) * zoomRef.current.current;
 
-    // Smooth zoom with increased damping for mobile
-    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.15;
+    // Smoother zoom transition for mobile
+    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
 
     // Make camera look at center
     camera.lookAt(new THREE.Vector3(0, 0, 0));
