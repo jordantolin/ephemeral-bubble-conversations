@@ -67,7 +67,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
     scene.add(centralWorld);
 
-    // Create bubbles
+    // Create bubbles with floating animation
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -103,7 +103,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.add(createSprite(topic.topic, 0.2));
       bubbleGroup.add(createSprite(`⭐ ${topic.reflect_count}`, -0.2));
 
-      // Position bubble
+      // Initial bubble position
       const totalBubbles = topics.length;
       const radius = isMobile ? 3 : 4;
       const phi = Math.acos(-1 + (2 * index) / totalBubbles);
@@ -116,15 +116,116 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.position.set(x, y, z);
       bubbleGroup.userData = {
         id: topic.id,
-        reflectCount: topic.reflect_count
+        initialPosition: { x, y, z },
+        floatOffset: Math.random() * Math.PI * 2,
+        floatSpeed: 0.0005 + Math.random() * 0.0005,
+        floatRadius: 0.2 + Math.random() * 0.3,
+        rotationOffset: Math.random() * Math.PI * 2,
+        rotationSpeed: 0.0003 + Math.random() * 0.0003
       };
 
       bubbleGroup.lookAt(new THREE.Vector3(0, 0, 0));
       bubblesRef.current[topic.id] = bubbleGroup;
       scene.add(bubbleGroup);
+
+      // Add initial animation
+      new TWEEN.Tween({ scale: 0 })
+        .to({ scale: 1 }, 1000)
+        .easing(TWEEN.Easing.Elastic.Out)
+        .onUpdate(({ scale }) => {
+          bubbleGroup.scale.set(scale, scale, scale);
+        })
+        .delay(index * 100)
+        .start();
     });
 
-    // Raycaster for bubble interaction
+    // Enhanced touch handling
+    let touchStartTime = 0;
+    let touchStartPos = { x: 0, y: 0 };
+    let lastTouchDistance = 0;
+    let isMultiTouch = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      touchStartTime = Date.now();
+      
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        touchStartPos = { x: touch.clientX, y: touch.clientY };
+        handleMouseDown(touch as unknown as MouseEvent);
+        isMultiTouch = false;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+        isMultiTouch = true;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      
+      if (e.touches.length === 1 && !isMultiTouch) {
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - touchStartPos.x;
+        const deltaY = touch.clientY - touchStartPos.y;
+        
+        if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+          handleMouseMove(touch as unknown as MouseEvent);
+          touchStartPos = { x: touch.clientX, y: touch.clientY };
+        }
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (lastTouchDistance > 0) {
+          const delta = distance - lastTouchDistance;
+          handlePinchZoom(distance);
+        }
+        lastTouchDistance = distance;
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      const touchEndTime = Date.now();
+      const touchDuration = touchEndTime - touchStartTime;
+
+      if (e.touches.length === 0 && !isMultiTouch) {
+        if (touchDuration < 200) {
+          const touch = e.changedTouches[0];
+          const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+          const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+
+          if (deltaX < 10 && deltaY < 10) {
+            const rect = container.getBoundingClientRect();
+            const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+            
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+              let bubbleGroup = intersects[0].object;
+              while (bubbleGroup && !(bubbleGroup instanceof THREE.Group)) {
+                bubbleGroup = bubbleGroup.parent!;
+              }
+              
+              if (bubbleGroup?.userData?.id) {
+                onBubbleClick(bubbleGroup.userData.id);
+              }
+            }
+          }
+        }
+      }
+
+      handleMouseUp();
+      lastTouchDistance = 0;
+      isMultiTouch = false;
+    };
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -147,56 +248,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           onBubbleClick(bubbleGroup.userData.id);
         }
       }
-    };
-
-    // Touch event handlers
-    let touchStartTime = 0;
-    let touchStartPos = { x: 0, y: 0 };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      touchStartTime = Date.now();
-      if (e.touches.length === 1) {
-        const touch = e.touches[0];
-        touchStartPos = { x: touch.clientX, y: touch.clientY };
-        handleMouseDown(touch as unknown as MouseEvent);
-      } else if (e.touches.length === 2) {
-        const dx = e.touches[1].clientX - e.touches[0].clientX;
-        const dy = e.touches[1].clientY - e.touches[0].clientY;
-        mouseRef.current.lastPinchDistance = Math.sqrt(dx * dx + dy * dy);
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      if (e.touches.length === 1) {
-        handleMouseMove(e.touches[0] as unknown as MouseEvent);
-      } else if (e.touches.length === 2) {
-        const dx = e.touches[1].clientX - e.touches[0].clientX;
-        const dy = e.touches[1].clientY - e.touches[0].clientY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        handlePinchZoom(distance);
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      const touchEndTime = Date.now();
-      const touchDuration = touchEndTime - touchStartTime;
-
-      if (e.changedTouches.length === 1) {
-        const touch = e.changedTouches[0];
-        const deltaX = Math.abs(touch.clientX - touchStartPos.x);
-        const deltaY = Math.abs(touch.clientY - touchStartPos.y);
-
-        // If it was a short touch and didn't move much, treat it as a tap
-        if (touchDuration < 300 && deltaX < 10 && deltaY < 10) {
-          handleInteraction(touch);
-        }
-      }
-
-      handleMouseUp();
-      mouseRef.current.lastPinchDistance = 0;
     };
 
     // Mouse event handlers
@@ -230,7 +281,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     window.addEventListener('resize', handleResize);
 
-    // Animation loop
+    // Animation loop with floating effect
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
@@ -238,9 +289,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         updateCamera(camera);
       }
 
-      // Make text sprites face camera
+      // Floating animation for bubbles
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        bubbleGroup.children.forEach((child, index) => {
+        const { initialPosition, floatOffset, floatSpeed, floatRadius, rotationOffset, rotationSpeed } = bubbleGroup.userData;
+        const time = Date.now();
+
+        // Calculate floating motion
+        bubbleGroup.position.x = initialPosition.x + Math.sin(time * floatSpeed + floatOffset) * floatRadius;
+        bubbleGroup.position.y = initialPosition.y + Math.cos(time * floatSpeed + floatOffset) * floatRadius;
+        bubbleGroup.position.z = initialPosition.z + Math.sin(time * floatSpeed + floatOffset + Math.PI/2) * floatRadius;
+
+        // Gentle rotation
+        bubbleGroup.rotation.y = (time * rotationSpeed + rotationOffset) % (Math.PI * 2);
+
+        // Make text sprites face camera
+        bubbleGroup.children.forEach(child => {
           if (child instanceof THREE.Sprite) {
             child.lookAt(camera.position);
           }
