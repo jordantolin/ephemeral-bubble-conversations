@@ -51,62 +51,65 @@ const MyBubbles = () => {
     const container = containerRef.current;
     const width = container.clientWidth;
     const height = container.clientHeight;
-    const radius = Math.min(width, height) / 2.2; // Slightly smaller radius to ensure visibility
+    
+    // Smaller radius to ensure bubbles stay inside the visible container
+    const radius = Math.min(width, height) / 2.5;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#FEF7E4'); // Match background color
+    scene.background = new THREE.Color('#FEF7E4');
     sceneRef.current = scene;
     
-    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    camera.position.z = 15;
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera.position.z = 20; // Move camera back to see full circle
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
+      alpha: true
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Enhanced lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    // Stronger lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
 
     const mainLight = new THREE.DirectionalLight(0xffffff, 2);
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create more visible container circle
+    // Create a more visible container circle
     const circleGeometry = new THREE.CircleGeometry(radius, 64);
     const circleMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.2,
       side: THREE.DoubleSide
     });
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
     scene.add(circle);
 
-    // Add a more pronounced border
+    // Add a more pronounced border ring
     const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius, 64);
     const ringMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.5,
       side: THREE.DoubleSide
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
 
-    // Create and position bubbles with improved initial positioning
-    bubbles.forEach((bubble, index) => {
+    // Create and position bubbles
+    bubbles.forEach((bubble) => {
       const group = new THREE.Group();
-      const size = bubble.size === 'lg' ? 1 : 
-                   bubble.size === 'md' ? 0.8 : 0.6;
+      const size = bubble.size === 'lg' ? 0.8 : 
+                   bubble.size === 'md' ? 0.6 : 0.4;
       const scaledSize = size * (1 + bubble.reflect_count * 0.1);
       
-      // Create bubble sphere with enhanced materials
+      // Create bubble sphere
       const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xebbd34,
@@ -115,9 +118,7 @@ const MyBubbles = () => {
         metalness: 0.1,
         roughness: 0.2,
         transmission: 0.3,
-        thickness: 0.5,
         clearcoat: 1.0,
-        clearcoatRoughness: 0.1
       });
       
       const bubble3D = new THREE.Mesh(geometry, material);
@@ -133,7 +134,7 @@ const MyBubbles = () => {
         context.fillStyle = 'transparent';
         context.fillRect(0, 0, canvas.width, canvas.height);
         
-        context.font = 'bold 32px Arial';
+        context.font = 'bold 24px Arial';
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
@@ -155,56 +156,55 @@ const MyBubbles = () => {
       group.add(createSprite(bubble.name, 1.5));
       group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
 
-      // Random initial position within 80% of the circle radius
+      // Random position inside circle
       const angle = Math.random() * Math.PI * 2;
-      const distance = Math.random() * radius * 0.8;
+      const distance = Math.random() * radius * 0.7; // Keep within 70% of radius
       group.position.x = Math.cos(angle) * distance;
       group.position.y = Math.sin(angle) * distance;
       
-      // Random initial velocity with reduced speed
-      const speed = 0.015;
+      // Random initial velocity
+      const speed = 0.02;
       const randomAngle = Math.random() * Math.PI * 2;
       group.userData = {
         vx: Math.cos(randomAngle) * speed,
         vy: Math.sin(randomAngle) * speed,
-        id: bubble.id,
-        active: !bubble.expires_at || new Date(bubble.expires_at) > new Date()
+        id: bubble.id
       };
 
       bubblesRef.current[bubble.id] = group;
       scene.add(group);
     });
 
-    // Animation loop with improved physics
+    // Animation loop
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
         // Update position
         group.position.x += group.userData.vx;
         group.position.y += group.userData.vy;
 
-        // Circle boundary check with smooth bounce
+        // Circle boundary collision
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
           group.position.y * group.position.y
         );
         
-        const maxRadius = radius * 0.85; // Keep within 85% of circle radius
+        const maxRadius = radius * 0.8; // Keep within 80% of circle radius
         if (distance > maxRadius) {
           const angle = Math.atan2(group.position.y, group.position.x);
           group.position.x = maxRadius * Math.cos(angle);
           group.position.y = maxRadius * Math.sin(angle);
           
-          // Smoother bounce with increased damping
+          // Bounce with damping
           const normal = new THREE.Vector2(
             group.position.x / distance,
             group.position.y / distance
           );
           const dot = normal.x * group.userData.vx + normal.y * group.userData.vy;
-          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.95;
-          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.95;
+          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.8;
+          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.8;
         }
 
-        // Bubble collisions with smoother interaction
+        // Bubble collisions
         Object.values(bubblesRef.current).forEach(otherGroup => {
           if (group === otherGroup) return;
 
@@ -218,7 +218,6 @@ const MyBubbles = () => {
             const pushX = Math.cos(angle) * (minDistance - distance) * 0.5;
             const pushY = Math.sin(angle) * (minDistance - distance) * 0.5;
             
-            // Smoother collision response
             group.position.x -= pushX;
             group.position.y -= pushY;
             otherGroup.position.x += pushX;
@@ -227,23 +226,23 @@ const MyBubbles = () => {
             // Exchange velocities with damping
             const tempVx = group.userData.vx;
             const tempVy = group.userData.vy;
-            group.userData.vx = otherGroup.userData.vx * 0.95;
-            group.userData.vy = otherGroup.userData.vy * 0.95;
-            otherGroup.userData.vx = tempVx * 0.95;
-            otherGroup.userData.vy = tempVy * 0.95;
+            group.userData.vx = otherGroup.userData.vx * 0.9;
+            group.userData.vy = otherGroup.userData.vy * 0.9;
+            otherGroup.userData.vx = tempVx * 0.9;
+            otherGroup.userData.vy = tempVy * 0.9;
           }
         });
 
-        // Add very subtle floating effect
-        group.userData.vy += Math.sin(Date.now() / 2000) * 0.00002;
-        group.userData.vx += Math.cos(Date.now() / 2000) * 0.00002;
-
-        // Constant but very gentle damping for smooth motion
-        group.userData.vx *= 0.999;
-        group.userData.vy *= 0.999;
-
         // Keep bubbles facing camera
         group.quaternion.copy(camera.quaternion);
+
+        // Add gentle floating effect
+        group.userData.vy += Math.sin(Date.now() / 2000) * 0.0001;
+        group.userData.vx += Math.cos(Date.now() / 2000) * 0.0001;
+
+        // Damping
+        group.userData.vx *= 0.99;
+        group.userData.vy *= 0.99;
       });
 
       renderer.render(scene, camera);
@@ -251,15 +250,15 @@ const MyBubbles = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    // Add click handling
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
+    // Click handling
     const onClick = (event: MouseEvent) => {
       const rect = container.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / height) * 2 + 1;
+      const mouse = new THREE.Vector2(
+        ((event.clientX - rect.left) / width) * 2 - 1,
+        -((event.clientY - rect.top) / height) * 2 + 1
+      );
 
+      const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
 
@@ -281,7 +280,6 @@ const MyBubbles = () => {
     container.addEventListener('click', onClick);
     animate();
 
-    // Cleanup
     return () => {
       container.removeEventListener('click', onClick);
       if (animationFrameRef.current) {
@@ -289,7 +287,7 @@ const MyBubbles = () => {
       }
       if (renderer) {
         renderer.dispose();
-        container?.removeChild(renderer.domElement);
+        container.removeChild(renderer.domElement);
       }
     };
   }, [bubbles]);
@@ -382,7 +380,7 @@ const MyBubbles = () => {
 
         <div 
           ref={containerRef}
-          className="relative w-[600px] h-[600px] mx-auto rounded-full border-4 border-[#ebbd34]/20"
+          className="relative w-[600px] h-[600px] mx-auto rounded-full border-4 border-[#ebbd34]/30 bg-[#ebbd34]/5"
         />
 
         <Dialog open={!!selectedBubble} onOpenChange={() => setSelectedBubble(null)}>
