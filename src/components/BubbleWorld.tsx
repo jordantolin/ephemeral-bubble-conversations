@@ -68,73 +68,76 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const handleInteraction = (event: MouseEvent | Touch) => {
-      event.preventDefault();
+    const handleBubbleClick = (x: number, y: number) => {
       const rect = container.getBoundingClientRect();
-      const clientX = 'touches' in event ? event.clientX : event.clientX;
-      const clientY = 'touches' in event ? event.clientY : event.clientY;
+      mouse.x = ((x - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((y - rect.top) / rect.height) * 2 + 1;
 
-      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      if (cameraRef.current) {
+        raycaster.setFromCamera(mouse, cameraRef.current);
+        const intersects = raycaster.intersectObjects(scene.children, true);
 
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children, true);
-
-      if (intersects.length > 0) {
-        const bubble = intersects[0].object;
-        let bubbleGroup = bubble;
-        
-        // Traverse up to find the Group parent
-        while (bubbleGroup && !(bubbleGroup instanceof THREE.Group)) {
-          bubbleGroup = bubbleGroup.parent as THREE.Object3D;
-        }
-        
-        if (bubbleGroup && bubbleGroup.userData.id) {
-          onBubbleClick(bubbleGroup.userData.id);
+        if (intersects.length > 0) {
+          const bubble = intersects[0].object;
+          let bubbleGroup = bubble;
+          
+          while (bubbleGroup && !(bubbleGroup instanceof THREE.Group)) {
+            bubbleGroup = bubbleGroup.parent as THREE.Object3D;
+          }
+          
+          if (bubbleGroup && bubbleGroup.userData.id) {
+            onBubbleClick(bubbleGroup.userData.id);
+          }
         }
       }
     };
 
-    // Handle both mouse and touch events
+    // Touch event handlers
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       isDraggingRef.current = false;
-      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      if (e.touches.length > 0) {
+        dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       if (e.touches.length === 1) {
-        const deltaX = Math.abs(e.touches[0].clientX - dragStartRef.current.x);
-        const deltaY = Math.abs(e.touches[0].clientY - dragStartRef.current.y);
+        const touch = e.touches[0];
+        const deltaX = Math.abs(touch.clientX - dragStartRef.current.x);
+        const deltaY = Math.abs(touch.clientY - dragStartRef.current.y);
         if (deltaX > 10 || deltaY > 10) {
           isDraggingRef.current = true;
         }
-        handleMouseMove(e.touches[0] as unknown as MouseEvent);
+        handleMouseMove(touch as unknown as MouseEvent);
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
-      if (!isDraggingRef.current) {
-        handleInteraction(e.changedTouches[0]);
+      if (!isDraggingRef.current && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        handleBubbleClick(touch.clientX, touch.clientY);
       }
       handleMouseUp();
       isDraggingRef.current = false;
     };
 
+    const handleMouseClick = (e: MouseEvent) => {
+      if (!isDraggingRef.current) {
+        handleBubbleClick(e.clientX, e.clientY);
+      }
+    };
+
     // Add event listeners
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: false });
+    container.addEventListener('touchstart', handleTouchStart);
+    container.addEventListener('touchmove', handleTouchMove);
+    container.addEventListener('touchend', handleTouchEnd);
     container.addEventListener('mousedown', handleMouseDown);
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('click', (e) => {
-      if (!isDraggingRef.current) {
-        handleInteraction(e);
-      }
-    });
+    container.addEventListener('click', handleMouseClick);
 
     // Create bubbles with improved spacing and text positioning
     topics.forEach((topic, index) => {
@@ -329,7 +332,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     animate();
 
-    // Cleanup event listeners
+    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('wheel', handleWheelEvent);
@@ -339,6 +342,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       container.removeEventListener('mousedown', handleMouseDown);
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('touchstart', handleTouchStartPinch, { passive: false });
+      container.removeEventListener('touchmove', handleTouchMovePinch, { passive: false });
+      container.removeEventListener('touchend', handleTouchEndPinch, { passive: false });
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
