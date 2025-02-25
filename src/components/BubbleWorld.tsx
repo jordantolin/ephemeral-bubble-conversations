@@ -285,4 +285,63 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Make text always face camera
       Object.values(bubblesRef.current).forEach(bubbleGroup => {
         const cameraPos = cameraRef.current!.position;
-        bubbleGroup.children.
+        // Make each child (text sprites) face the camera
+        bubbleGroup.children.forEach(child => {
+          if (child instanceof THREE.Sprite) {
+            child.lookAt(cameraPos);
+          }
+        });
+      });
+
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    };
+
+    animate();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      // Cleanup event listeners
+      container.removeEventListener('click', handleClick);
+      container.removeEventListener('wheel', handleWheelEvent);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('resize', handleResize);
+
+      // Dispose of Three.js resources
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+      }
+      Object.values(bubblesRef.current).forEach(group => {
+        group.children.forEach(child => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            (child.material as THREE.Material).dispose();
+          } else if (child instanceof THREE.Sprite) {
+            (child.material as THREE.SpriteMaterial).map?.dispose();
+            child.material.dispose();
+          }
+        });
+      });
+    };
+  }, [topics, onBubbleClick, handleReflect, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handlePinchStart, handlePinchZoom, updateCamera, touchRef]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="absolute inset-0 touch-none select-none"
+      style={{ 
+        touchAction: 'none',
+        WebkitTapHighlightColor: 'transparent'
+      }}
+    />
+  );
+};
+
+export default BubbleWorld;
