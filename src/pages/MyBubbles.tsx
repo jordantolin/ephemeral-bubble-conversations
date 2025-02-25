@@ -51,10 +51,10 @@ const MyBubbles = () => {
     const container = containerRef.current;
     const width = container.clientWidth;
     const height = container.clientHeight;
-    const radius = Math.min(width, height) / 2 - 100;
+    const radius = Math.min(width, height) / 2.2; // Slightly smaller radius to ensure visibility
 
-    // Setup Three.js scene
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#FEF7E4'); // Match background color
     sceneRef.current = scene;
     
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
@@ -63,14 +63,13 @@ const MyBubbles = () => {
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      alpha: true 
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Lighting
+    // Enhanced lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
@@ -78,37 +77,37 @@ const MyBubbles = () => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create container circle (solid filled)
+    // Create more visible container circle
     const circleGeometry = new THREE.CircleGeometry(radius, 64);
     const circleMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.15,
       side: THREE.DoubleSide
     });
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
     scene.add(circle);
 
-    // Create border ring
+    // Add a more pronounced border
     const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius, 64);
     const ringMaterial = new THREE.MeshBasicMaterial({ 
       color: 0xebbd34,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.4,
       side: THREE.DoubleSide
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
 
-    // Create and position bubbles
+    // Create and position bubbles with improved initial positioning
     bubbles.forEach((bubble, index) => {
       const group = new THREE.Group();
-      const size = bubble.size === 'lg' ? 1.2 : 
-                   bubble.size === 'md' ? 1 : 0.8;
+      const size = bubble.size === 'lg' ? 1 : 
+                   bubble.size === 'md' ? 0.8 : 0.6;
       const scaledSize = size * (1 + bubble.reflect_count * 0.1);
       
-      // Create bubble sphere with slightly smaller size to fit inside circle
-      const geometry = new THREE.SphereGeometry(scaledSize * 0.8, 32, 32);
+      // Create bubble sphere with enhanced materials
+      const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xebbd34,
         transparent: true,
@@ -156,17 +155,18 @@ const MyBubbles = () => {
       group.add(createSprite(bubble.name, 1.5));
       group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
 
-      // Position bubbles in a spiral pattern inside the circle
-      const t = index / bubbles.length;
-      const spiralRadius = radius * 0.8 * t; // Keep within 80% of the circle radius
-      const angle = 2 * Math.PI * t * 5; // 5 spiral turns
-      group.position.x = Math.cos(angle) * spiralRadius;
-      group.position.y = Math.sin(angle) * spiralRadius;
+      // Random initial position within 80% of the circle radius
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * radius * 0.8;
+      group.position.x = Math.cos(angle) * distance;
+      group.position.y = Math.sin(angle) * distance;
       
-      // Store velocity for physics with reduced initial speed
+      // Random initial velocity with reduced speed
+      const speed = 0.015;
+      const randomAngle = Math.random() * Math.PI * 2;
       group.userData = {
-        vx: (Math.random() - 0.5) * 0.01, // Reduced speed
-        vy: (Math.random() - 0.5) * 0.01, // Reduced speed
+        vx: Math.cos(randomAngle) * speed,
+        vy: Math.sin(randomAngle) * speed,
         id: bubble.id,
         active: !bubble.expires_at || new Date(bubble.expires_at) > new Date()
       };
@@ -175,33 +175,33 @@ const MyBubbles = () => {
       scene.add(group);
     });
 
-    // Animation loop
+    // Animation loop with improved physics
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
         // Update position
         group.position.x += group.userData.vx;
         group.position.y += group.userData.vy;
 
-        // Check boundary collision with the containing circle
+        // Circle boundary check with smooth bounce
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
           group.position.y * group.position.y
         );
         
-        const maxRadius = radius * 0.9; // Keep bubbles within 90% of circle radius
+        const maxRadius = radius * 0.85; // Keep within 85% of circle radius
         if (distance > maxRadius) {
           const angle = Math.atan2(group.position.y, group.position.x);
           group.position.x = maxRadius * Math.cos(angle);
           group.position.y = maxRadius * Math.sin(angle);
           
-          // Bounce with increased damping for smoother motion
+          // Smoother bounce with increased damping
           const normal = new THREE.Vector2(
             group.position.x / distance,
             group.position.y / distance
           );
           const dot = normal.x * group.userData.vx + normal.y * group.userData.vy;
-          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.9;
-          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.9;
+          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.95;
+          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.95;
         }
 
         // Bubble collisions with smoother interaction
@@ -212,30 +212,37 @@ const MyBubbles = () => {
           const dy = otherGroup.position.y - group.position.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          if (distance < 2.5) { // Reduced collision distance
+          const minDistance = 2;
+          if (distance < minDistance) {
             const angle = Math.atan2(dy, dx);
-            const tx = group.position.x + Math.cos(angle) * 2.5;
-            const ty = group.position.y + Math.sin(angle) * 2.5;
+            const pushX = Math.cos(angle) * (minDistance - distance) * 0.5;
+            const pushY = Math.sin(angle) * (minDistance - distance) * 0.5;
             
-            const ax = (tx - otherGroup.position.x) * 0.03; // Reduced force
-            const ay = (ty - otherGroup.position.y) * 0.03; // Reduced force
+            // Smoother collision response
+            group.position.x -= pushX;
+            group.position.y -= pushY;
+            otherGroup.position.x += pushX;
+            otherGroup.position.y += pushY;
             
-            group.userData.vx -= ax;
-            group.userData.vy -= ay;
-            otherGroup.userData.vx += ax;
-            otherGroup.userData.vy += ay;
+            // Exchange velocities with damping
+            const tempVx = group.userData.vx;
+            const tempVy = group.userData.vy;
+            group.userData.vx = otherGroup.userData.vx * 0.95;
+            group.userData.vy = otherGroup.userData.vy * 0.95;
+            otherGroup.userData.vx = tempVx * 0.95;
+            otherGroup.userData.vy = tempVy * 0.95;
           }
         });
 
-        // Add gentler floating effect
-        group.userData.vy += Math.sin(Date.now() / 3000) * 0.00005;
-        group.userData.vx += Math.cos(Date.now() / 3000) * 0.00005;
+        // Add very subtle floating effect
+        group.userData.vy += Math.sin(Date.now() / 2000) * 0.00002;
+        group.userData.vx += Math.cos(Date.now() / 2000) * 0.00002;
 
-        // Apply stronger damping for smoother motion
-        group.userData.vx *= 0.995;
-        group.userData.vy *= 0.995;
+        // Constant but very gentle damping for smooth motion
+        group.userData.vx *= 0.999;
+        group.userData.vy *= 0.999;
 
-        // Rotate to face camera
+        // Keep bubbles facing camera
         group.quaternion.copy(camera.quaternion);
       });
 
@@ -375,7 +382,7 @@ const MyBubbles = () => {
 
         <div 
           ref={containerRef}
-          className="relative w-[600px] h-[600px] mx-auto"
+          className="relative w-[600px] h-[600px] mx-auto rounded-full border-4 border-[#ebbd34]/20"
         />
 
         <Dialog open={!!selectedBubble} onOpenChange={() => setSelectedBubble(null)}>
