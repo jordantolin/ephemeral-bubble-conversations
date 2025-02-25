@@ -1,17 +1,49 @@
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const useBubbleInteraction = () => {
-  // Destructure the toast function from the hook
   const { toast } = useToast();
   const isInteractingRef = useRef(false);
   const targetRotationRef = useRef({ x: 0, y: 0, z: 0 });
   const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
+  const queryClient = useQueryClient();
+
+  // Subscribe to real-time bubble updates
+  useEffect(() => {
+    const channel = supabase.channel('bubble-changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'bubbles' 
+        },
+        (payload) => {
+          // Invalidate bubbles query to trigger a refresh
+          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+
+          // Show toast for new bubbles
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "New Bubble Created!",
+              description: `${payload.new.name} has joined the bubble world`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, toast]);
 
   const handleReflect = useCallback(async (bubbleId: string, bubbleRefs: { [key: string]: THREE.Group }) => {
     const { error } = await supabase
