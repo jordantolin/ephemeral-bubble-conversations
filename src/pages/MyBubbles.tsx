@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +6,15 @@ import { BubbleData } from "@/types/bubble";
 import { Search, User, TrendingUp, Sparkles } from "lucide-react";
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
+import {
+  createBubbleGeometry,
+  createBubbleMaterial,
+  createTextCanvas,
+  createContainerCircleGeometry,
+  createContainerCircleMaterial,
+  createContainerRingGeometry,
+  createContainerRingMaterial
+} from "@/utils/bubbleUtils";
 import {
   Dialog,
   DialogContent,
@@ -82,25 +90,15 @@ const MyBubbles = () => {
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create circular container with glowing effect
-    const circleGeometry = new THREE.CircleGeometry(radius, 64);
-    const circleMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xebbd34,
-      transparent: true,
-      opacity: 0.15,
-      side: THREE.DoubleSide
-    });
+    // Create container circle with glowing effect
+    const circleGeometry = createContainerCircleGeometry(radius);
+    const circleMaterial = createContainerCircleMaterial();
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
     scene.add(circle);
 
-    // Add visible border ring with glow
-    const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius, 64);
-    const ringMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xebbd34,
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide
-    });
+    // Add visible border ring
+    const ringGeometry = createContainerRingGeometry(radius);
+    const ringMaterial = createContainerRingMaterial();
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
 
@@ -111,67 +109,37 @@ const MyBubbles = () => {
                    bubble.size === 'md' ? 0.6 : 0.4;
       const scaledSize = size * (1 + bubble.reflect_count * 0.1);
       
-      // Enhanced 3D bubble with better materials
-      const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
-      const material = new THREE.MeshPhysicalMaterial({
-        color: 0xebbd34,
-        transparent: true,
-        opacity: bubble.expires_at && new Date(bubble.expires_at) <= new Date() ? 0.4 : 0.7,
-        metalness: 0.1,
-        roughness: 0.2,
-        transmission: 0.3,
-        clearcoat: 1.0,
-      });
-      
+      const geometry = createBubbleGeometry(scaledSize);
+      const material = createBubbleMaterial();
       const bubble3D = new THREE.Mesh(geometry, material);
       group.add(bubble3D);
 
-      // Text sprites with enhanced visibility
-      const createSprite = (text: string, yOffset: number) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 256;
-        const context = canvas.getContext('2d')!;
-        
-        context.fillStyle = 'transparent';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.font = `bold ${48}px Arial`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        
-        context.strokeStyle = '#000000';
-        context.lineWidth = 8;
-        context.strokeText(text, canvas.width / 2, canvas.height / 2);
-        
-        context.fillStyle = '#FFFFFF';
-        context.fillText(text, canvas.width / 2, canvas.height / 2);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
-        sprite.position.y = yOffset * scaledSize;
-        return sprite;
-      };
+      // Add text sprites
+      const nameTexture = new THREE.CanvasTexture(createTextCanvas(bubble.name));
+      const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTexture }));
+      nameSprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
+      nameSprite.position.y = 1.2 * scaledSize;
+      group.add(nameSprite);
 
-      group.add(createSprite(bubble.name, 1.5));
-      group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
+      const countTexture = new THREE.CanvasTexture(createTextCanvas(`✨ ${bubble.reflect_count}`));
+      const countSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: countTexture }));
+      countSprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
+      countSprite.position.y = -1.2 * scaledSize;
+      group.add(countSprite);
 
-      // Position bubbles with proper spacing
+      // Position within circle
       const angle = Math.random() * Math.PI * 2;
       const distance = Math.random() * radius * 0.7;
       group.position.x = Math.cos(angle) * distance;
       group.position.y = Math.sin(angle) * distance;
       
-      // Slower initial velocity for gentler movement
+      // Initial velocity
       const speed = 0.01;
       const randomAngle = Math.random() * Math.PI * 2;
       group.userData = {
         vx: Math.cos(randomAngle) * speed,
         vy: Math.sin(randomAngle) * speed,
-        id: bubble.id,
-        isExpired: bubble.expires_at && new Date(bubble.expires_at) <= new Date()
+        id: bubble.id
       };
 
       bubblesRef.current[bubble.id] = group;
@@ -181,11 +149,11 @@ const MyBubbles = () => {
     // Animation loop with smooth collisions
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
-        // Update position with smoother movement
+        // Update position
         group.position.x += group.userData.vx;
         group.position.y += group.userData.vy;
 
-        // Gentle circle boundary collision
+        // Circle boundary collision
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
           group.position.y * group.position.y
@@ -197,7 +165,7 @@ const MyBubbles = () => {
           group.position.x = maxRadius * Math.cos(angle);
           group.position.y = maxRadius * Math.sin(angle);
           
-          // Softer bounce
+          // Soft bounce
           const normal = new THREE.Vector2(
             group.position.x / distance,
             group.position.y / distance
@@ -207,7 +175,7 @@ const MyBubbles = () => {
           group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.8;
         }
 
-        // Smooth bubble collisions
+        // Bubble collisions
         Object.values(bubblesRef.current).forEach(otherGroup => {
           if (group === otherGroup) return;
 
@@ -226,7 +194,7 @@ const MyBubbles = () => {
             otherGroup.position.x += pushX;
             otherGroup.position.y += pushY;
             
-            // Gentler velocity exchange
+            // Smooth velocity exchange
             const tempVx = group.userData.vx;
             const tempVy = group.userData.vy;
             group.userData.vx = otherGroup.userData.vx * 0.95;
@@ -236,16 +204,8 @@ const MyBubbles = () => {
           }
         });
 
-        // Face camera
+        // Keep text facing camera
         group.quaternion.copy(camera.quaternion);
-
-        // Very gentle floating effect
-        group.userData.vy += Math.sin(Date.now() / 3000) * 0.00003;
-        group.userData.vx += Math.cos(Date.now() / 3000) * 0.00003;
-
-        // Strong damping for slower movement
-        group.userData.vx *= 0.99;
-        group.userData.vy *= 0.99;
       });
 
       renderer.render(scene, camera);
@@ -254,20 +214,7 @@ const MyBubbles = () => {
     };
 
     // Handle bubble clicks
-    const handleBubbleClick = (bubbleId: string) => {
-      const bubble = bubbles.find(b => b.id === bubbleId);
-      if (!bubble) return;
-
-      if (bubble.expires_at && new Date(bubble.expires_at) <= new Date()) {
-        // Show exploded message
-        setSelectedBubble(bubble);
-      } else {
-        // Navigate to chat for active bubbles
-        navigate(`/chat/${bubbleId}`);
-      }
-    };
-
-    const onClick = (event: MouseEvent) => {
+    const handleClick = (event: MouseEvent) => {
       const rect = container.getBoundingClientRect();
       const mouse = new THREE.Vector2(
         ((event.clientX - rect.left) / width) * 2 - 1,
@@ -285,16 +232,23 @@ const MyBubbles = () => {
         }
         
         if (obj.userData?.id) {
-          handleBubbleClick(obj.userData.id);
+          const bubble = bubbles.find(b => b.id === obj.userData.id);
+          if (bubble) {
+            if (bubble.expires_at && new Date(bubble.expires_at) <= new Date()) {
+              setSelectedBubble(bubble);
+            } else {
+              navigate(`/chat/${bubble.id}`);
+            }
+          }
         }
       }
     };
 
-    container.addEventListener('click', onClick);
+    container.addEventListener('click', handleClick);
     animate();
 
     return () => {
-      container.removeEventListener('click', onClick);
+      container.removeEventListener('click', handleClick);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -380,15 +334,15 @@ const MyBubbles = () => {
         </div>
       </nav>
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 mt-16">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-light text-primary mb-2">
+          <h1 className="text-4xl font-light text-[#ebbd34] mb-2">
             Recent Bubbles
           </h1>
-          <p className="text-primary/60">
+          <p className="text-[#ebbd34]/60">
             All bubbles created in the last 72 hours
           </p>
-          <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
+          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto mt-4" />
         </div>
 
         <div 

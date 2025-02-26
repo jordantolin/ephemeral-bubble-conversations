@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
-const BUBBLE_COLOR = 0xebbd34; // The bright yellow color (#ebbd34)
+const BUBBLE_COLOR = 0xf7d046; // Bright yellow color
 const WORLD_COLOR = 0xffffff; // White color for the central sphere
 
 export const createBubbleGeometry = (size: number) => {
@@ -23,21 +23,30 @@ export const createBubbleMaterial = () => {
   });
 };
 
-export const createCentralWorldGeometry = () => {
-  return new THREE.SphereGeometry(2, 64, 64);
+// Add container circle creation functions
+export const createContainerCircleGeometry = (radius: number) => {
+  return new THREE.CircleGeometry(radius, 64);
 };
 
-export const createCentralWorldMaterial = () => {
-  return new THREE.MeshPhysicalMaterial({
-    color: WORLD_COLOR,
+export const createContainerCircleMaterial = () => {
+  return new THREE.MeshBasicMaterial({
+    color: BUBBLE_COLOR,
     transparent: true,
-    opacity: 0.9,
-    metalness: 0.2,
-    roughness: 0.3,
-    transmission: 0.6,
-    thickness: 0.5,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.1
+    opacity: 0.15,
+    side: THREE.DoubleSide
+  });
+};
+
+export const createContainerRingGeometry = (radius: number) => {
+  return new THREE.RingGeometry(radius - 0.1, radius, 64);
+};
+
+export const createContainerRingMaterial = () => {
+  return new THREE.MeshBasicMaterial({
+    color: BUBBLE_COLOR,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide
   });
 };
 
