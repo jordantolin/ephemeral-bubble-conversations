@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
 const BUBBLE_COLOR = 0xf7d046; // Bright yellow color
-const WORLD_COLOR = 0xffffff; // White color for the central sphere
 
 export const createBubbleGeometry = (size: number) => {
   return new THREE.SphereGeometry(size, 32, 32);
@@ -20,6 +19,23 @@ export const createBubbleMaterial = () => {
     thickness: 0.5,
     clearcoat: 1.0,
     clearcoatRoughness: 0.1
+  });
+};
+
+// Add the missing functions that BubbleWorld needs
+export const createCentralWorldGeometry = (radius: number = 1.5) => {
+  return new THREE.SphereGeometry(radius, 32, 32);
+};
+
+export const createCentralWorldMaterial = () => {
+  return new THREE.MeshPhysicalMaterial({
+    color: BUBBLE_COLOR,
+    transparent: true,
+    opacity: 0.15,
+    metalness: 0.1,
+    roughness: 0.2,
+    transmission: 0.3,
+    thickness: 0.5
   });
 };
 
