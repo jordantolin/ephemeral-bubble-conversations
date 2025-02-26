@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -63,15 +62,15 @@ const MyBubbles = () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
     
-    // Optimized radius for better visibility
-    const radius = Math.min(width, height) * 0.4;
+    // Adjusted radius for better visibility
+    const radius = Math.min(width, height) * 0.35;
     
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     
-    // Improved camera position and settings
-    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 25);
+    // Updated camera position and settings for front horizontal view
+    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+    camera.position.set(0, 0, 15); // Move camera closer and directly in front
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
@@ -85,33 +84,31 @@ const MyBubbles = () => {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Enhanced lighting setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    // Improved lighting for better visibility
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    directionalLight.position.set(5, 5, 5);
-    scene.add(directionalLight);
+    const frontLight = new THREE.DirectionalLight(0xffffff, 2);
+    frontLight.position.set(0, 0, 10);
+    scene.add(frontLight);
 
-    const pointLight = new THREE.PointLight(0xffffff, 1);
-    pointLight.position.set(-5, -5, 5);
-    scene.add(pointLight);
+    const topLight = new THREE.DirectionalLight(0xffffff, 1);
+    topLight.position.set(0, 10, 0);
+    scene.add(topLight);
 
-    // Create container circle with enhanced visibility
+    // Create container circle facing the camera
     const circleGeometry = createContainerCircleGeometry(radius);
     const circleMaterial = createContainerCircleMaterial();
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
-    circle.rotation.x = Math.PI / 2;
     scene.add(circle);
 
-    // Create visible border ring with enhanced appearance
+    // Create visible border ring
     const ringGeometry = createContainerRingGeometry(radius);
     const ringMaterial = createContainerRingMaterial();
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-    ring.rotation.x = Math.PI / 2;
     scene.add(ring);
 
-    // Distribute bubbles evenly around the circle
+    // Distribute bubbles in a circular pattern
     bubbles.forEach((bubble, index) => {
       const group = new THREE.Group();
       const size = bubble.size === 'lg' ? 0.8 : 
@@ -123,7 +120,7 @@ const MyBubbles = () => {
       const bubble3D = new THREE.Mesh(geometry, material);
       group.add(bubble3D);
 
-      // Enhanced text sprites with better visibility
+      // Improved text visibility
       const nameTexture = new THREE.CanvasTexture(createTextCanvas(bubble.name, 32));
       const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ 
         map: nameTexture,
@@ -144,19 +141,19 @@ const MyBubbles = () => {
       countSprite.position.y = -1.2 * scaledSize;
       group.add(countSprite);
 
-      // Distribute bubbles evenly with slight randomization
+      // Position bubbles in a circle with slight randomization
       const angleStep = (2 * Math.PI) / bubbles.length;
-      const angle = angleStep * index + (Math.random() * 0.5 - 0.25);
-      const distance = radius * (0.3 + Math.random() * 0.3); // Between 30% and 60% of radius
+      const angle = angleStep * index;
+      const distance = radius * (0.4 + Math.random() * 0.2); // Between 40% and 60% of radius
       group.position.x = Math.cos(angle) * distance;
-      group.position.z = Math.sin(angle) * distance;
+      group.position.y = Math.sin(angle) * distance; // Use Y instead of Z for horizontal view
       
-      // Initial velocities with controlled randomness
-      const speed = 0.03 + Math.random() * 0.02;
+      // Initial velocities for horizontal movement
+      const speed = 0.02 + Math.random() * 0.01;
       const velocityAngle = Math.random() * Math.PI * 2;
       group.userData = {
         vx: Math.cos(velocityAngle) * speed,
-        vz: Math.sin(velocityAngle) * speed,
+        vy: Math.sin(velocityAngle) * speed, // Use vy for horizontal plane
         id: bubble.id
       };
 
@@ -164,65 +161,65 @@ const MyBubbles = () => {
       scene.add(group);
     });
 
-    // Enhanced animation loop with improved physics
+    // Updated animation loop for horizontal movement
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
-        // Update position with smooth motion
+        // Update position
         group.position.x += group.userData.vx;
-        group.position.z += group.userData.vz;
+        group.position.y += group.userData.vy;
 
-        // Enhanced circle boundary collision
+        // Circle boundary collision
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
-          group.position.z * group.position.z
+          group.position.y * group.position.y
         );
         
-        const maxRadius = radius * 0.65; // Keep bubbles well contained
+        const maxRadius = radius * 0.65; // Keep bubbles contained
         if (distance > maxRadius) {
-          const angle = Math.atan2(group.position.z, group.position.x);
+          const angle = Math.atan2(group.position.y, group.position.x);
           group.position.x = maxRadius * Math.cos(angle);
-          group.position.z = maxRadius * Math.sin(angle);
+          group.position.y = maxRadius * Math.sin(angle);
           
-          // Improved bounce physics
+          // Bounce physics
           const normal = new THREE.Vector2(
             group.position.x / distance,
-            group.position.z / distance
+            group.position.y / distance
           );
-          const dot = normal.x * group.userData.vx + normal.y * group.userData.vz;
-          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.9;
-          group.userData.vz = (group.userData.vz - 2 * dot * normal.y) * 0.9;
+          const dot = normal.x * group.userData.vx + normal.y * group.userData.vy;
+          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.95;
+          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.95;
         }
 
-        // Enhanced bubble collision detection and response
+        // Bubble collisions
         Object.values(bubblesRef.current).forEach(otherGroup => {
           if (group === otherGroup) return;
 
           const dx = otherGroup.position.x - group.position.x;
-          const dz = otherGroup.position.z - group.position.z;
-          const distance = Math.sqrt(dx * dx + dz * dz);
+          const dy = otherGroup.position.y - group.position.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
           
-          const minDistance = 2.2; // Slightly increased for better spacing
+          const minDistance = 2;
           if (distance < minDistance) {
-            const angle = Math.atan2(dz, dx);
+            const angle = Math.atan2(dy, dx);
             const pushX = Math.cos(angle) * (minDistance - distance) * 0.5;
-            const pushZ = Math.sin(angle) * (minDistance - distance) * 0.5;
+            const pushY = Math.sin(angle) * (minDistance - distance) * 0.5;
             
             group.position.x -= pushX;
-            group.position.z -= pushZ;
+            group.position.y -= pushY;
             otherGroup.position.x += pushX;
-            otherGroup.position.z += pushZ;
+            otherGroup.position.y += pushY;
             
-            // Improved velocity exchange
+            // Velocity exchange
             const tempVx = group.userData.vx;
-            const tempVz = group.userData.vz;
-            group.userData.vx = otherGroup.userData.vx * 0.98;
-            group.userData.vz = otherGroup.userData.vz * 0.98;
-            otherGroup.userData.vx = tempVx * 0.98;
-            otherGroup.userData.vz = tempVz * 0.98;
+            const tempVy = group.userData.vy;
+            group.userData.vx = otherGroup.userData.vx * 0.95;
+            group.userData.vy = otherGroup.userData.vy * 0.95;
+            otherGroup.userData.vx = tempVx * 0.95;
+            otherGroup.userData.vy = tempVy * 0.95;
           }
         });
 
-        // Ensure text always faces camera
+        // Keep text facing camera
         group.quaternion.copy(camera.quaternion);
       });
 
