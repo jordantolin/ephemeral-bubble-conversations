@@ -125,18 +125,18 @@ const MyBubbles = () => {
         </div>
       </nav>
       
-      <main className="container mx-auto px-4 py-8 mt-16">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-light text-[#ebbd34] mb-2">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 mt-16">
+        <div className="text-center mb-4 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl font-light text-[#ebbd34] mb-2">
             Recent Bubbles
           </h1>
-          <p className="text-[#ebbd34]/60">
+          <p className="text-sm sm:text-base text-[#ebbd34]/60">
             All bubbles created in the last 72 hours
           </p>
-          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto mt-4" />
+          <div className="h-px w-16 sm:w-24 bg-[#ebbd34]/20 mx-auto mt-3 sm:mt-4" />
         </div>
 
-        <div className="relative h-[600px] w-full max-w-[800px] mx-auto">
+        <div className="relative h-[400px] sm:h-[600px] w-full max-w-[800px] mx-auto">
           {bubbles && bubbles.length > 0 && (
             <BubbleWorld 
               topics={bubbles.map(bubble => ({
@@ -149,10 +149,12 @@ const MyBubbles = () => {
         </div>
 
         <Dialog open={!!selectedBubble} onOpenChange={() => setSelectedBubble(null)}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedBubble?.name}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-lg sm:text-xl text-[#ebbd34]">
+                {selectedBubble?.name}
+              </DialogTitle>
+              <DialogDescription className="text-sm sm:text-base text-[#ebbd34]/70">
                 {selectedBubble?.expires_at && new Date(selectedBubble.expires_at) <= new Date() 
                   ? "This bubble has already exploded"
                   : selectedBubble?.description || "This bubble is still active"}
