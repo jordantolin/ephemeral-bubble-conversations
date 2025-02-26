@@ -5,9 +5,7 @@ import { BubbleWorldProps } from '@/types/bubble';
 import { 
   createBubbleGeometry, 
   createBubbleMaterial, 
-  createTextCanvas,
-  createCentralWorldGeometry,
-  createCentralWorldMaterial 
+  createTextCanvas
 } from '@/utils/bubbleUtils';
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
 import { useCameraControls } from '@/hooks/useCameraControls';
@@ -62,9 +60,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     scene.add(backLight);
 
     // Central world
-    const worldGeometry = createCentralWorldGeometry();
-    const worldMaterial = createCentralWorldMaterial();
-    const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
+    // const worldGeometry = createCentralWorldGeometry();
+    // const worldMaterial = createCentralWorldMaterial();
+    // const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
+    // scene.add(centralWorld);
+    const centralWorld = new THREE.Mesh(new THREE.SphereGeometry(0.01, 32, 32), new THREE.MeshBasicMaterial({color: 0x888888}));
     scene.add(centralWorld);
 
     // Create bubbles with floating animation
