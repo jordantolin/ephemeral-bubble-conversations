@@ -62,14 +62,14 @@ const MyBubbles = () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
     
-    // Use a smaller radius for better visual containment
-    const radius = Math.min(width, height) / 2.5;
-
+    // Smaller radius and adjust camera position for better view
+    const radius = Math.min(width, height) / 3;
+    
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 15;
+    camera.position.set(0, 0, 20); // Moved camera back for better view
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ 
@@ -82,28 +82,30 @@ const MyBubbles = () => {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Enhanced lighting for 3D effect
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    // Enhanced lighting for better visibility
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
-    // Create container circle with glowing effect
+    // Create container circle (background)
     const circleGeometry = createContainerCircleGeometry(radius);
     const circleMaterial = createContainerCircleMaterial();
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+    circle.rotation.x = Math.PI / 2; // Rotate to face camera
     scene.add(circle);
 
-    // Add visible border ring
+    // Create visible border ring
     const ringGeometry = createContainerRingGeometry(radius);
     const ringMaterial = createContainerRingMaterial();
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.rotation.x = Math.PI / 2; // Rotate to face camera
     scene.add(ring);
 
     // Create and position bubbles
-    bubbles.forEach((bubble) => {
+    bubbles.forEach((bubble, index) => {
       const group = new THREE.Group();
       const size = bubble.size === 'lg' ? 0.8 : 
                    bubble.size === 'md' ? 0.6 : 0.4;
@@ -115,30 +117,30 @@ const MyBubbles = () => {
       group.add(bubble3D);
 
       // Add text sprites
-      const nameTexture = new THREE.CanvasTexture(createTextCanvas(bubble.name));
+      const nameTexture = new THREE.CanvasTexture(createTextCanvas(bubble.name, 36));
       const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTexture }));
       nameSprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
       nameSprite.position.y = 1.2 * scaledSize;
       group.add(nameSprite);
 
-      const countTexture = new THREE.CanvasTexture(createTextCanvas(`✨ ${bubble.reflect_count}`));
+      const countTexture = new THREE.CanvasTexture(createTextCanvas(`✨ ${bubble.reflect_count}`, 32));
       const countSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: countTexture }));
       countSprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
       countSprite.position.y = -1.2 * scaledSize;
       group.add(countSprite);
 
-      // Position within circle
-      const angle = Math.random() * Math.PI * 2;
-      const distance = Math.random() * radius * 0.7;
+      // Position within circle with better distribution
+      const angle = (index / bubbles.length) * Math.PI * 2;
+      const distance = (Math.random() * 0.5 + 0.2) * radius; // Between 20% and 70% of radius
       group.position.x = Math.cos(angle) * distance;
-      group.position.y = Math.sin(angle) * distance;
+      group.position.z = Math.sin(angle) * distance; // Use Z instead of Y for proper 3D space
       
-      // Initial velocity
-      const speed = 0.01;
+      // Initial velocity (in XZ plane)
+      const speed = 0.02;
       const randomAngle = Math.random() * Math.PI * 2;
       group.userData = {
         vx: Math.cos(randomAngle) * speed,
-        vy: Math.sin(randomAngle) * speed,
+        vz: Math.sin(randomAngle) * speed, // Use vz instead of vy
         id: bubble.id
       };
 
@@ -151,28 +153,28 @@ const MyBubbles = () => {
       Object.values(bubblesRef.current).forEach(group => {
         // Update position
         group.position.x += group.userData.vx;
-        group.position.y += group.userData.vy;
+        group.position.z += group.userData.vz;
 
         // Circle boundary collision
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
-          group.position.y * group.position.y
+          group.position.z * group.position.z
         );
         
-        const maxRadius = radius * 0.75;
+        const maxRadius = radius * 0.7; // Keep bubbles more contained
         if (distance > maxRadius) {
-          const angle = Math.atan2(group.position.y, group.position.x);
+          const angle = Math.atan2(group.position.z, group.position.x);
           group.position.x = maxRadius * Math.cos(angle);
-          group.position.y = maxRadius * Math.sin(angle);
+          group.position.z = maxRadius * Math.sin(angle);
           
           // Soft bounce
           const normal = new THREE.Vector2(
             group.position.x / distance,
-            group.position.y / distance
+            group.position.z / distance
           );
-          const dot = normal.x * group.userData.vx + normal.y * group.userData.vy;
+          const dot = normal.x * group.userData.vx + normal.y * group.userData.vz;
           group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.8;
-          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.8;
+          group.userData.vz = (group.userData.vz - 2 * dot * normal.y) * 0.8;
         }
 
         // Bubble collisions
@@ -180,27 +182,27 @@ const MyBubbles = () => {
           if (group === otherGroup) return;
 
           const dx = otherGroup.position.x - group.position.x;
-          const dy = otherGroup.position.y - group.position.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+          const dz = otherGroup.position.z - group.position.z;
+          const distance = Math.sqrt(dx * dx + dz * dz);
           
           const minDistance = 2;
           if (distance < minDistance) {
-            const angle = Math.atan2(dy, dx);
+            const angle = Math.atan2(dz, dx);
             const pushX = Math.cos(angle) * (minDistance - distance) * 0.3;
-            const pushY = Math.sin(angle) * (minDistance - distance) * 0.3;
+            const pushZ = Math.sin(angle) * (minDistance - distance) * 0.3;
             
             group.position.x -= pushX;
-            group.position.y -= pushY;
+            group.position.z -= pushZ;
             otherGroup.position.x += pushX;
-            otherGroup.position.y += pushY;
+            otherGroup.position.z += pushZ;
             
             // Smooth velocity exchange
             const tempVx = group.userData.vx;
-            const tempVy = group.userData.vy;
+            const tempVz = group.userData.vz;
             group.userData.vx = otherGroup.userData.vx * 0.95;
-            group.userData.vy = otherGroup.userData.vy * 0.95;
+            group.userData.vz = otherGroup.userData.vz * 0.95;
             otherGroup.userData.vx = tempVx * 0.95;
-            otherGroup.userData.vy = tempVy * 0.95;
+            otherGroup.userData.vz = tempVz * 0.95;
           }
         });
 
