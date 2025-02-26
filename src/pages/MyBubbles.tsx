@@ -62,98 +62,85 @@ const MyBubbles = () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
     
-    // Adjusted radius for better visibility
-    const radius = Math.min(width, height) * 0.35;
+    // Smaller circle for better visibility
+    const radius = Math.min(width, height) * 0.3;
     
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     
-    // Updated camera position and settings for front horizontal view
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 15); // Move camera closer and directly in front
-    camera.lookAt(0, 0, 0);
+    // Camera positioned directly in front
+    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+    camera.position.z = 20;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      alpha: true
+      alpha: true 
     });
     renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Improved lighting for better visibility
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+    // Simple lighting setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
-    const frontLight = new THREE.DirectionalLight(0xffffff, 2);
+    const frontLight = new THREE.DirectionalLight(0xffffff, 1);
     frontLight.position.set(0, 0, 10);
     scene.add(frontLight);
 
-    const topLight = new THREE.DirectionalLight(0xffffff, 1);
-    topLight.position.set(0, 10, 0);
-    scene.add(topLight);
-
-    // Create container circle facing the camera
+    // Create background circle
     const circleGeometry = createContainerCircleGeometry(radius);
     const circleMaterial = createContainerCircleMaterial();
     const circle = new THREE.Mesh(circleGeometry, circleMaterial);
     scene.add(circle);
 
-    // Create visible border ring
+    // Create border ring
     const ringGeometry = createContainerRingGeometry(radius);
     const ringMaterial = createContainerRingMaterial();
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
 
-    // Distribute bubbles in a circular pattern
+    // Create bubbles
     bubbles.forEach((bubble, index) => {
       const group = new THREE.Group();
-      const size = bubble.size === 'lg' ? 0.8 : 
-                   bubble.size === 'md' ? 0.6 : 0.4;
-      const scaledSize = size * (1 + bubble.reflect_count * 0.1);
+      
+      // Smaller bubble sizes for better fit
+      const size = bubble.size === 'lg' ? 0.6 : 
+                   bubble.size === 'md' ? 0.4 : 0.3;
+      const scaledSize = size * (1 + bubble.reflect_count * 0.05);
       
       const geometry = createBubbleGeometry(scaledSize);
       const material = createBubbleMaterial();
       const bubble3D = new THREE.Mesh(geometry, material);
       group.add(bubble3D);
 
-      // Improved text visibility
-      const nameTexture = new THREE.CanvasTexture(createTextCanvas(bubble.name, 32));
-      const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ 
-        map: nameTexture,
-        transparent: true,
-        opacity: 0.9
-      }));
+      // Add text labels
+      const nameTexture = new THREE.CanvasTexture(createTextCanvas(bubble.name, 24));
+      const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTexture }));
       nameSprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
       nameSprite.position.y = 1.2 * scaledSize;
       group.add(nameSprite);
 
-      const countTexture = new THREE.CanvasTexture(createTextCanvas(`✨ ${bubble.reflect_count}`, 28));
-      const countSprite = new THREE.Sprite(new THREE.SpriteMaterial({ 
-        map: countTexture,
-        transparent: true,
-        opacity: 0.9
-      }));
+      const countTexture = new THREE.CanvasTexture(createTextCanvas(`✨ ${bubble.reflect_count}`, 20));
+      const countSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: countTexture }));
       countSprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
       countSprite.position.y = -1.2 * scaledSize;
       group.add(countSprite);
 
-      // Position bubbles in a circle with slight randomization
-      const angleStep = (2 * Math.PI) / bubbles.length;
-      const angle = angleStep * index;
-      const distance = radius * (0.4 + Math.random() * 0.2); // Between 40% and 60% of radius
+      // Initial position in a circle
+      const angle = (index / bubbles.length) * Math.PI * 2;
+      const distance = radius * 0.5;
       group.position.x = Math.cos(angle) * distance;
-      group.position.y = Math.sin(angle) * distance; // Use Y instead of Z for horizontal view
+      group.position.y = Math.sin(angle) * distance;
       
-      // Initial velocities for horizontal movement
-      const speed = 0.02 + Math.random() * 0.01;
+      // Initial velocity
+      const speed = 0.02;
       const velocityAngle = Math.random() * Math.PI * 2;
       group.userData = {
         vx: Math.cos(velocityAngle) * speed,
-        vy: Math.sin(velocityAngle) * speed, // Use vy for horizontal plane
+        vy: Math.sin(velocityAngle) * speed,
         id: bubble.id
       };
 
@@ -161,26 +148,25 @@ const MyBubbles = () => {
       scene.add(group);
     });
 
-    // Updated animation loop for horizontal movement
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
         // Update position
         group.position.x += group.userData.vx;
         group.position.y += group.userData.vy;
 
-        // Circle boundary collision
+        // Contain within circle
         const distance = Math.sqrt(
           group.position.x * group.position.x + 
           group.position.y * group.position.y
         );
         
-        const maxRadius = radius * 0.65; // Keep bubbles contained
+        const maxRadius = radius * 0.7;
         if (distance > maxRadius) {
           const angle = Math.atan2(group.position.y, group.position.x);
           group.position.x = maxRadius * Math.cos(angle);
           group.position.y = maxRadius * Math.sin(angle);
           
-          // Bounce physics
+          // Bounce
           const normal = new THREE.Vector2(
             group.position.x / distance,
             group.position.y / distance
@@ -198,7 +184,7 @@ const MyBubbles = () => {
           const dy = otherGroup.position.y - group.position.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          const minDistance = 2;
+          const minDistance = 1.5;
           if (distance < minDistance) {
             const angle = Math.atan2(dy, dx);
             const pushX = Math.cos(angle) * (minDistance - distance) * 0.5;
@@ -209,7 +195,7 @@ const MyBubbles = () => {
             otherGroup.position.x += pushX;
             otherGroup.position.y += pushY;
             
-            // Velocity exchange
+            // Exchange velocities
             const tempVx = group.userData.vx;
             const tempVy = group.userData.vy;
             group.userData.vx = otherGroup.userData.vx * 0.95;
@@ -228,7 +214,6 @@ const MyBubbles = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    // Handle bubble clicks
     const handleClick = (event: MouseEvent) => {
       const rect = container.getBoundingClientRect();
       const mouse = new THREE.Vector2(
