@@ -67,3 +67,17 @@ export const createRingMaterial = () => {
     side: THREE.DoubleSide
   });
 };
+
+// Add the missing functions
+export const createCentralWorldGeometry = (radius: number = 10) => {
+  return new THREE.CircleGeometry(radius, 64);
+};
+
+export const createCentralWorldMaterial = () => {
+  return new THREE.MeshBasicMaterial({
+    color: BUBBLE_COLOR,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.DoubleSide
+  });
+};
