@@ -1,245 +1,33 @@
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, User, TrendingUp, Sparkles, ArrowUp, MessageCircle, Heart, Star } from "lucide-react";
-import { motion } from "framer-motion";
-import { useToast } from "@/hooks/use-toast";
-import * as THREE from 'three';
-import { createBubbleGeometry, createBubbleMaterial } from '@/utils/bubbleUtils';
+import { Search, User, TrendingUp, Sparkles, Star } from "lucide-react";
 
 const Feed = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<"card" | "tiktok">("tiktok");
-  const { toast } = useToast();
-  const bubbleRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const bubbleCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
-  const bubbleObserver = useRef<IntersectionObserver | null>(null);
   
-  // Fetch bubbles data
-  const { data: bubbles = [], isLoading } = useQuery({
+  const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles', 'top-reflected'],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('bubbles')
-          .select('*')
-          .order('reflect_count', { ascending: false })
-          .limit(20);
-        
-        if (error) {
-          console.error("Supabase error:", error);
-          toast({
-            title: "Error fetching bubbles",
-            description: error.message,
-            variant: "destructive"
-          });
-          return [];
-        }
-        
-        return data.map(bubble => ({
-          ...bubble,
-          size: bubble.reflect_count >= 10 ? "lg" : bubble.reflect_count >= 5 ? "md" : "sm"
-        })) as BubbleData[];
-      } catch (err) {
-        console.error("Unexpected error:", err);
-        toast({
-          title: "Error fetching bubbles",
-          description: "An unexpected error occurred",
-          variant: "destructive"
-        });
-        return [];
-      }
+      const { data, error } = await supabase
+        .from('bubbles')
+        .select('*')
+        .order('reflect_count', { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      
+      return data.map(bubble => ({
+        ...bubble,
+        size: bubble.size as "sm" | "md" | "lg"
+      })) as BubbleData[];
     }
   });
-
-  // Filter bubbles based on search query
-  const filteredBubbles = searchQuery 
-    ? bubbles.filter(bubble => 
-        bubble.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bubble.topic.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : bubbles;
-
-  console.log("Filtered bubbles:", filteredBubbles); // Debug
-
-  // Initialize the 3D bubble in each card
-  useEffect(() => {
-    if (viewMode !== "tiktok" || !filteredBubbles.length) return;
-    console.log("Setting up 3D bubbles");
-
-    bubbleCanvasRefs.current = bubbleCanvasRefs.current.slice(0, filteredBubbles.length);
-    
-    const renderers: THREE.WebGLRenderer[] = [];
-    const scenes: THREE.Scene[] = [];
-    const cameras: THREE.PerspectiveCamera[] = [];
-    const bubbleMeshes: THREE.Mesh[] = [];
-    
-    try {
-      filteredBubbles.forEach((bubble, index) => {
-        const canvas = bubbleCanvasRefs.current[index];
-        if (!canvas) {
-          console.log(`Canvas ${index} not found`);
-          return;
-        }
-        
-        // Setup renderer
-        const renderer = new THREE.WebGLRenderer({
-          canvas,
-          alpha: true,
-          antialias: true
-        });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 300);
-        renderers[index] = renderer;
-        
-        // Setup scene
-        const scene = new THREE.Scene();
-        scenes[index] = scene;
-        
-        // Setup camera
-        const camera = new THREE.PerspectiveCamera(
-          50,
-          (canvas.clientWidth || 300) / (canvas.clientHeight || 300),
-          0.1,
-          1000
-        );
-        camera.position.z = 5;
-        cameras[index] = camera;
-        
-        // Add lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-        scene.add(ambientLight);
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 5, 5);
-        scene.add(directionalLight);
-        
-        // Create bubble with size based on reflects
-        const baseSize = bubble.reflect_count >= 10 ? 1.5 : 
-                        bubble.reflect_count >= 5 ? 1.2 : 0.9;
-        const geometry = createBubbleGeometry(baseSize);
-        const material = createBubbleMaterial();
-        const bubbleMesh = new THREE.Mesh(geometry, material);
-        bubbleMeshes[index] = bubbleMesh;
-        scene.add(bubbleMesh);
-        
-        // Custom color based on reflect count
-        if (bubble.reflect_count >= 15) {
-          (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#FFD700'); // Gold
-        } else if (bubble.reflect_count >= 10) {
-          (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#FFA500'); // Orange
-        } else if (bubble.reflect_count >= 5) {
-          (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#ebbd34'); // Yellow
-        }
-      });
-    } catch (err) {
-      console.error("Error setting up THREE.js:", err);
-    }
-    
-    // Animation loop
-    let animationFrameId: number;
-    
-    const animate = () => {
-      try {
-        animationFrameId = requestAnimationFrame(animate);
-        
-        filteredBubbles.forEach((_, index) => {
-          if (!bubbleMeshes[index] || !renderers[index] || !scenes[index] || !cameras[index]) return;
-          
-          // Add subtle floating animation
-          bubbleMeshes[index].rotation.x = Math.sin(Date.now() * 0.001) * 0.2;
-          bubbleMeshes[index].rotation.y = Math.cos(Date.now() * 0.001) * 0.2;
-          
-          // Render only if canvas is visible (improves performance)
-          if (bubbleRefs.current[index]?.closest('.active-card')) {
-            renderers[index].render(scenes[index], cameras[index]);
-          }
-        });
-      } catch (err) {
-        console.error("Animation error:", err);
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-    
-    animate();
-    
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      renderers.forEach(renderer => {
-        try {
-          renderer.dispose();
-        } catch (err) {
-          console.error("Error disposing renderer:", err);
-        }
-      });
-    };
-  }, [filteredBubbles, viewMode]);
-  
-  // Setup intersection observer for scroll snapping
-  useEffect(() => {
-    if (viewMode !== "tiktok" || !filteredBubbles.length) return;
-    console.log("Setting up observer");
-    
-    bubbleRefs.current = bubbleRefs.current.slice(0, filteredBubbles.length);
-    
-    // Cleanup previous observer
-    if (bubbleObserver.current) {
-      bubbleObserver.current.disconnect();
-    }
-    
-    // Create new observer
-    bubbleObserver.current = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.8) {
-            const index = bubbleRefs.current.findIndex(ref => ref === entry.target);
-            if (index !== -1) {
-              setActiveIndex(index);
-            }
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: "0px",
-        threshold: 0.8
-      }
-    );
-    
-    // Observe all bubble cards
-    bubbleRefs.current.forEach(ref => {
-      if (ref) bubbleObserver.current?.observe(ref);
-    });
-    
-    return () => {
-      if (bubbleObserver.current) {
-        bubbleObserver.current.disconnect();
-      }
-    };
-  }, [filteredBubbles, viewMode]);
-
-  // Handle manual navigation between cards
-  const navigateToCard = (index: number) => {
-    if (index >= 0 && index < filteredBubbles.length) {
-      setActiveIndex(index);
-      bubbleRefs.current[index]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-    }
-  };
-  
-  // Open bubble detail
-  const handleOpenBubble = (bubbleId: string) => {
-    navigate(`/?bubble=${bubbleId}`);
-  };
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -316,195 +104,42 @@ const Feed = () => {
         </div>
       </nav>
       
-      <main className="container mx-auto px-0 pt-28 sm:pt-20 pb-20">
-        <div className="flex items-center justify-between mb-4 px-4">
-          <h1 className="text-2xl font-bold text-[#ebbd34]">
-            Most Reflected Bubbles
+      <main className="container mx-auto px-4 pt-28 sm:pt-20 pb-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-light text-primary mb-2">
+            Top Bubbles
           </h1>
-          
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setViewMode("card")} 
-              className={`p-2 rounded-md ${viewMode === "card" ? "bg-[#ebbd34]/20 text-[#ebbd34]" : "text-[#ebbd34]/50"}`}
-            >
-              <TrendingUp className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={() => setViewMode("tiktok")} 
-              className={`p-2 rounded-md ${viewMode === "tiktok" ? "bg-[#ebbd34]/20 text-[#ebbd34]" : "text-[#ebbd34]/50"}`}
-            >
-              <ArrowUp className="w-5 h-5" />
-            </button>
-          </div>
+          <div className="h-px w-24 bg-primary/20 mx-auto" />
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-16 h-16 border-4 border-[#ebbd34]/30 border-t-[#ebbd34] rounded-full animate-spin"></div>
-          </div>
-        ) : filteredBubbles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64">
-            <div className="text-[#ebbd34]/50 text-xl mb-4">No bubbles found</div>
-            {searchQuery && (
-              <p className="text-[#ebbd34]/70">
-                Try adjusting your search term or explore different topics
-              </p>
-            )}
-          </div>
-        ) : viewMode === "tiktok" ? (
-          // TikTok-style scrollable fullscreen cards
-          <div className="relative w-full h-[calc(100vh-140px)]">
-            <ScrollArea 
-              className="h-full snap-y snap-mandatory"
-              style={{ 
-                scrollSnapType: 'y mandatory',
-                overflow: 'auto',
-                scrollBehavior: 'smooth',
-                WebkitOverflowScrolling: 'touch'
-              }}
-            >
-              {filteredBubbles.map((bubble, index) => (
-                <div
-                  key={bubble.id}
-                  ref={el => bubbleRefs.current[index] = el}
-                  className={`w-full h-full snap-start snap-always flex items-center justify-center p-4 ${
-                    index === activeIndex ? 'active-card' : ''
-                  }`}
-                  onClick={() => handleOpenBubble(bubble.id)}
-                >
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ 
-                      opacity: index === activeIndex ? 1 : 0.5, 
-                      scale: index === activeIndex ? 1 : 0.9
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className="relative w-full max-w-md h-[70vh] bg-gradient-to-br from-[#ebbd34]/5 to-[#ebbd34]/20 rounded-3xl overflow-hidden shadow-xl flex flex-col"
-                  >
-                    {/* 3D Bubble Visualization */}
-                    <div className="relative w-full h-2/3 bg-gradient-to-b from-[#ebbd34]/5 to-transparent flex items-center justify-center">
-                      <canvas 
-                        ref={el => bubbleCanvasRefs.current[index] = el}
-                        className="w-full h-full"
-                      />
-                      <div className="absolute top-4 right-4 bg-[#ebbd34]/10 px-3 py-1 rounded-full flex items-center">
-                        <Star className="w-4 h-4 text-[#ebbd34] mr-1" />
-                        <span className="text-sm font-semibold text-[#ebbd34]">{bubble.reflect_count}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Bubble info */}
-                    <div className="p-6 flex-1 flex flex-col justify-between relative z-10">
-                      <div>
-                        <h3 className="text-xl font-bold text-[#ebbd34] mb-2">{bubble.name}</h3>
-                        <p className="text-[#ebbd34]/80 line-clamp-3">
-                          {bubble.description || "Join the conversation about this topic!"}
-                        </p>
-                      </div>
-                      
-                      <div className="mt-4">
-                        <div className="flex items-center text-sm text-[#ebbd34]/60 mb-2">
-                          <span className="bg-[#ebbd34]/10 rounded-full px-3 py-1">{bubble.topic}</span>
-                          <span className="ml-auto">by {bubble.username}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-sm text-[#ebbd34]/70">
-                          <span>{new Date(bubble.created_at).toLocaleDateString()}</span>
-                          <div className="flex space-x-4">
-                            <button className="flex items-center">
-                              <Heart className="w-5 h-5 mr-1" />
-                              <span>{bubble.reflect_count}</span>
-                            </button>
-                            <button className="flex items-center">
-                              <MessageCircle className="w-5 h-5 mr-1" />
-                              <span>Chat</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-              ))}
-            </ScrollArea>
-            
-            {/* Side navigation dots */}
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-2">
-              {filteredBubbles.map((_, index) => (
-                <button
-                  key={index}
-                  className={`w-3 h-3 rounded-full ${
-                    index === activeIndex ? 'bg-[#ebbd34]' : 'bg-[#ebbd34]/30'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigateToCard(index);
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          // Card grid view
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4">
-            {filteredBubbles.map((bubble, index) => (
+        <ScrollArea className="h-[calc(100vh-200px)] w-full max-w-2xl mx-auto rounded-xl">
+          <div className="space-y-8 p-4">
+            {bubbles.map((bubble) => (
               <div 
                 key={bubble.id}
-                className="relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
-                onClick={() => handleOpenBubble(bubble.id)}
+                className="relative w-full aspect-square max-w-[200px] mx-auto animate-float-slow"
               >
-                {index < 3 && (
-                  <div className={`absolute top-0 right-0 m-2 p-1 px-2 text-xs text-white rounded-md font-medium ${
-                    index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-amber-600'
-                  }`}>
-                    #{index + 1}
-                  </div>
-                )}
-                
-                <div className={`h-2 w-full ${
-                  bubble.reflect_count >= 15 ? 'bg-yellow-500' : 
-                  bubble.reflect_count >= 10 ? 'bg-orange-400' :
-                  bubble.reflect_count >= 5 ? 'bg-amber-300' : 'bg-[#ebbd34]/30'
-                }`}></div>
-                
-                <div className="px-6 py-5">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-bold text-[#ebbd34] truncate">{bubble.name}</h3>
-                    <div className="flex items-center bg-[#ebbd34]/10 px-2 py-1 rounded-full">
-                      <Star className="w-3.5 h-3.5 text-[#ebbd34] mr-1" />
-                      <span className="text-xs font-semibold text-[#ebbd34]">{bubble.reflect_count}</span>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-[#ebbd34]/70 mb-2 line-clamp-2">
-                    {bubble.description || "Join the conversation!"}
-                  </p>
-                  
-                  <div className="flex items-center justify-between text-xs text-[#ebbd34]/60">
-                    <div className="py-1 px-2 bg-[#ebbd34]/5 rounded-full">
+                <div className="absolute inset-0 bg-[#ebc942] rounded-full flex items-center justify-center p-6 hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <h3 className="text-primary-foreground font-medium mb-1">
+                      {bubble.name}
+                    </h3>
+                    <p className="text-xs text-primary-foreground/80 mb-2">
                       {bubble.topic}
+                    </p>
+                    <div className="flex items-center justify-center space-x-1 text-primary-foreground">
+                      <Star className="w-4 h-4" />
+                      <span className="text-sm">{bubble.reflect_count}</span>
                     </div>
-                    <div className="flex items-center">
-                      <span>by {bubble.username}</span>
-                    </div>
+                    <p className="mt-2 text-xs text-primary-foreground/80">
+                      by {bubble.username}
+                    </p>
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between px-6 py-3 bg-[#ebbd34]/5 border-t border-[#ebbd34]/10">
-                  <span className="text-xs text-[#ebbd34]/60">
-                    {new Date(bubble.created_at).toLocaleDateString()}
-                  </span>
-                  <Link 
-                    to={`/?bubble=${bubble.id}`} 
-                    className="flex items-center text-xs font-medium text-[#ebbd34] hover:text-[#ebbd34]/80"
-                  >
-                    View Bubble <ArrowUp className="w-3 h-3 ml-1 rotate-45" />
-                  </Link>
                 </div>
               </div>
             ))}
           </div>
-        )}
+        </ScrollArea>
       </main>
     </div>
   );
