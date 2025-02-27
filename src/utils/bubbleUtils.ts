@@ -3,10 +3,6 @@ import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
 const BUBBLE_COLOR = 0xebbd34; // The bright yellow color (#ebbd34)
-const EARTH_COLORS = {
-  land: 0xF2FCE2,  // Soft green for land
-  water: 0xD3E4FD, // Soft blue for water
-};
 
 export const createBubbleGeometry = (size: number) => {
   return new THREE.SphereGeometry(size, 32, 32);
@@ -27,55 +23,86 @@ export const createBubbleMaterial = () => {
 };
 
 export const createCentralWorldGeometry = () => {
-  return new THREE.SphereGeometry(2.5, 64, 64);
+  return new THREE.SphereGeometry(3, 64, 64); // Slightly larger sphere
 };
 
 export const createCentralWorldMaterial = () => {
-  // Create a canvas to draw the Earth-like texture
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 256;
+  canvas.width = 1024; // Higher resolution
+  canvas.height = 512;
   const ctx = canvas.getContext('2d');
   
   if (ctx) {
-    // Create gradient background (ocean)
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#D3E4FD');
-    gradient.addColorStop(1, '#0EA5E9');
-    ctx.fillStyle = gradient;
+    // Create ocean background
+    ctx.fillStyle = '#0EA5E9';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Add random "continents"
-    ctx.fillStyle = '#F2FCE2';
-    for (let i = 0; i < 8; i++) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
-      const size = 30 + Math.random() * 70;
-      
-      ctx.beginPath();
-      ctx.arc(x, y, size, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Add some "land details"
-      ctx.fillStyle = '#FEF7CD';
-      ctx.beginPath();
-      ctx.arc(x + 10, y + 10, size * 0.7, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    // Draw continents
+    ctx.fillStyle = '#4ADE80';
+    
+    // Antarctica
+    ctx.beginPath();
+    ctx.arc(canvas.width/2, canvas.height - 50, 100, 0, Math.PI * 2);
+    ctx.fill();
+
+    // North America
+    ctx.beginPath();
+    ctx.moveTo(200, 100);
+    ctx.quadraticCurveTo(300, 150, 350, 200);
+    ctx.quadraticCurveTo(250, 250, 200, 100);
+    ctx.fill();
+
+    // South America
+    ctx.beginPath();
+    ctx.moveTo(350, 250);
+    ctx.quadraticCurveTo(400, 350, 300, 400);
+    ctx.quadraticCurveTo(250, 300, 350, 250);
+    ctx.fill();
+
+    // Europe
+    ctx.beginPath();
+    ctx.moveTo(500, 100);
+    ctx.quadraticCurveTo(600, 150, 550, 200);
+    ctx.quadraticCurveTo(500, 150, 500, 100);
+    ctx.fill();
+
+    // Africa
+    ctx.beginPath();
+    ctx.moveTo(500, 200);
+    ctx.quadraticCurveTo(600, 300, 550, 400);
+    ctx.quadraticCurveTo(450, 300, 500, 200);
+    ctx.fill();
+
+    // Asia
+    ctx.beginPath();
+    ctx.moveTo(600, 100);
+    ctx.quadraticCurveTo(800, 200, 750, 300);
+    ctx.quadraticCurveTo(600, 250, 600, 100);
+    ctx.fill();
+
+    // Australia
+    ctx.beginPath();
+    ctx.arc(800, 350, 70, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Add highlights and details
+    ctx.fillStyle = '#86EFAC';
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
   }
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
   
   return new THREE.MeshPhysicalMaterial({
     map: texture,
-    transparent: true,
-    opacity: 0.9,
-    metalness: 0.2,
-    roughness: 0.3,
-    transmission: 0.1,
-    thickness: 1,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.1
+    bumpMap: texture,
+    bumpScale: 0.05,
+    transparent: false,
+    metalness: 0.1,
+    roughness: 0.8,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.2
   });
 };
 
@@ -96,13 +123,13 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     
-    // Create strong outline
-    context.strokeStyle = '#000000';
+    // Strong white outline
+    context.strokeStyle = '#FFFFFF';
     context.lineWidth = 8;
     context.strokeText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
     
-    // Fill with bright color
-    context.fillStyle = '#FFFFFF';
+    // Dark fill for contrast
+    context.fillStyle = '#000000';
     context.fillText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
     
     // Add glow effect
@@ -110,9 +137,9 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
     context.shadowBlur = 15;
     context.shadowOffsetX = 0;
     context.shadowOffsetY = 0;
+    context.fillStyle = '#FFFFFF';
     context.fillText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
   }
 
   return canvas;
 };
-

@@ -10,8 +10,6 @@ import {
   createCentralWorldGeometry,
   createCentralWorldMaterial 
 } from '@/utils/bubbleUtils';
-import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
-import { useCameraControls } from '@/hooks/useCameraControls';
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -20,11 +18,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const centralWorldRef = useRef<THREE.Mesh | null>(null);
   const touchRef = useRef({ 
     isDragging: false,
     lastX: 0,
     lastY: 0,
-    startTime: 0
+    startTime: 0,
+    rotationSpeed: { x: 0, y: 0 }
   });
 
   useEffect(() => {
@@ -38,7 +38,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // Mobile-optimized camera
+    // Optimized camera settings
     const isMobile = width < 768;
     const camera = new THREE.PerspectiveCamera(
       isMobile ? 75 : 60,
@@ -58,25 +58,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Enhanced lighting for better mobile visibility
-    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1.5);
+    // Enhanced lighting setup
+    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1);
     scene.add(ambientLight);
 
     const mainLight = new THREE.DirectionalLight('#FFFFFF', 2);
-    mainLight.position.set(10, 10, 10);
+    mainLight.position.set(5, 5, 5);
     scene.add(mainLight);
 
     const backLight = new THREE.DirectionalLight('#FFFFFF', 1);
-    backLight.position.set(-10, -10, -10);
+    backLight.position.set(-5, -5, -5);
     scene.add(backLight);
 
-    // Add Earth-like central world
+    // Create Earth-like central world
     const worldGeometry = createCentralWorldGeometry();
     const worldMaterial = createCentralWorldMaterial();
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
+    centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
-    // Create bubbles with improved text visibility
+    // Create bubbles with improved positioning
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -90,7 +91,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Add text sprites with better visibility
+      // Add text labels with enhanced visibility
       const createSprite = (text: string, yOffset: number, fontSize: number = 32) => {
         const canvas = createTextCanvas(text, fontSize);
         const texture = new THREE.CanvasTexture(canvas);
@@ -106,12 +107,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         return sprite;
       };
 
-      // Add layered text for better readability
       bubbleGroup.add(createSprite(topic.name, 1.2, isMobile ? 36 : 48));
       bubbleGroup.add(createSprite(topic.topic, 0.2, isMobile ? 28 : 32));
       bubbleGroup.add(createSprite(`⭐ ${topic.reflect_count}`, -0.8, isMobile ? 24 : 28));
 
-      // Position bubbles in a spiral pattern around the central world
+      // Position bubbles in a spiral pattern
       const angle = (index / topics.length) * Math.PI * 2;
       const spiralRadius = 4 + (index * 0.2);
       const x = spiralRadius * Math.cos(angle);
@@ -121,16 +121,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.position.set(x, y, z);
       bubbleGroup.userData = {
         id: topic.id,
-        initialPosition: { x, y, z },
-        floatOffset: Math.random() * Math.PI * 2,
-        floatSpeed: 0.0005 + Math.random() * 0.0005
+        initialPosition: { x, y, z }
       };
 
       bubblesRef.current[topic.id] = bubbleGroup;
       scene.add(bubbleGroup);
     });
 
-    // Touch interaction handlers
+    // Enhanced touch controls
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.touches[0];
@@ -138,7 +136,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         isDragging: false,
         lastX: touch.clientX,
         lastY: touch.clientY,
-        startTime: Date.now()
+        startTime: Date.now(),
+        rotationSpeed: { x: 0, y: 0 }
       };
     };
 
@@ -150,16 +149,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
       if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
         touchRef.current.isDragging = true;
-        
-        // Rotate scene based on touch movement
-        centralWorld.rotation.y += deltaX * 0.005;
-        centralWorld.rotation.x += deltaY * 0.005;
-
-        // Move bubbles with the rotation
-        Object.values(bubblesRef.current).forEach(bubble => {
-          bubble.rotation.y += deltaX * 0.005;
-          bubble.rotation.x += deltaY * 0.005;
-        });
+        touchRef.current.rotationSpeed = {
+          x: deltaY * 0.002,
+          y: deltaX * 0.002
+        };
       }
 
       touchRef.current.lastX = touch.clientX;
@@ -191,9 +184,22 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           }
         }
       }
+
+      // Add inertia to the rotation
+      const decay = 0.95;
+      const animate = () => {
+        if (Math.abs(touchRef.current.rotationSpeed.x) > 0.0001 || 
+            Math.abs(touchRef.current.rotationSpeed.y) > 0.0001) {
+          centralWorld.rotation.x += touchRef.current.rotationSpeed.x;
+          centralWorld.rotation.y += touchRef.current.rotationSpeed.y;
+          touchRef.current.rotationSpeed.x *= decay;
+          touchRef.current.rotationSpeed.y *= decay;
+          requestAnimationFrame(animate);
+        }
+      };
+      animate();
     };
 
-    // Add touch event listeners
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: false });
@@ -202,16 +208,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
-      // Gentle rotation of central world
-      centralWorld.rotation.y += 0.001;
+      // Continuous gentle rotation
+      if (!touchRef.current.isDragging) {
+        centralWorld.rotation.y += 0.001;
+      }
 
-      // Floating animation for bubbles
+      // Update bubble positions
       Object.values(bubblesRef.current).forEach(bubble => {
-        const { initialPosition, floatOffset, floatSpeed } = bubble.userData;
-        const time = Date.now() * floatSpeed;
-        
-        bubble.position.x = initialPosition.x + Math.sin(time + floatOffset) * 0.2;
-        bubble.position.y = initialPosition.y + Math.cos(time + floatOffset) * 0.2;
         bubble.quaternion.copy(camera.quaternion);
       });
 
