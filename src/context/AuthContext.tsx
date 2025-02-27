@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,7 @@ interface Profile {
   display_name: string;
   avatar_url: string | null;
   updated_at: string;
+  created_at: string;
 }
 
 interface AuthContextType {
@@ -50,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      return data;
+      return data as Profile;
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;
@@ -63,7 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile);
+        fetchProfile(session.user.id).then(profileData => {
+          if (profileData) {
+            setProfile(profileData);
+          }
+        });
       }
       setIsLoading(false);
     });
@@ -75,8 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (event === 'SIGNED_IN' && session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setProfile(profile);
+        const profileData = await fetchProfile(session.user.id);
+        if (profileData) {
+          setProfile(profileData);
+        }
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         navigate('/auth');
