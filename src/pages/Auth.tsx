@@ -12,12 +12,7 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Info, CheckCircle2, AlertCircle, Mail } from "lucide-react";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Info, CheckCircle2, AlertCircle } from "lucide-react";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -32,8 +27,6 @@ const Auth = () => {
     color: "text-gray-400",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState(false);
-  const [signupEmail, setSignupEmail] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -191,37 +184,10 @@ const Auth = () => {
       return false;
     }
 
-    if (!fullName.trim()) {
-      toast({
-        title: "Nome completo richiesto",
-        description: "Inserisci il tuo nome completo",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     if (password !== confirmPassword) {
       toast({
         title: "Le password non coincidono",
         description: "Assicurati che le password corrispondano",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    if (passwordStrength.score < 3) {
-      toast({
-        title: "Password non abbastanza forte",
-        description: passwordStrength.message,
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    if (!acceptedTerms) {
-      toast({
-        title: "Termini non accettati",
-        description: "Accetta i termini e le condizioni",
         variant: "destructive",
       });
       return false;
@@ -241,61 +207,59 @@ const Auth = () => {
       // Lowercase the email to ensure consistency
       const lowerCaseEmail = email.toLowerCase();
       
-      // Sign up with Supabase Auth
+      // Sign up with Supabase Auth - we're using emailRedirectTo but not requiring email verification
+      // This allows us to properly set up auto-login which requires this parameter
       const { data, error } = await supabase.auth.signUp({
         email: lowerCaseEmail,
         password,
         options: {
           data: {
             username,
-            full_name: fullName,
+            full_name: fullName || username,
           },
-          emailRedirectTo: window.location.origin, // Redirect to the app after confirmation
+          emailRedirectTo: window.location.origin,
         },
       });
       
       if (error) throw error;
 
-      // Skip profile creation for now due to RLS policy issues
-      // We'll handle it after the user verifies their email
-      
-      // Save the email for the success message
-      setSignupEmail(lowerCaseEmail);
-      setSignupSuccess(true);
-      
-      toast({
-        title: "Account creato!",
-        description: "Controlla la tua email per la verifica.",
-      });
-      
-      console.log("Registration successful, verification email should be sent by Supabase");
-      
-      // Try our custom email function as a backup
-      try {
-        console.log("Trying to send custom welcome email via Edge Function");
-        const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
-          body: { 
-            email: lowerCaseEmail, 
-            name: fullName, 
-            username 
-          }
+      // Auto login immediately after signup for beta testing
+      if (data.user) {
+        // Login automatically - the signup process doesn't automatically log the user in
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: lowerCaseEmail,
+          password,
         });
         
-        if (emailError) {
-          console.error("Error sending custom welcome email:", emailError);
-        } else {
-          console.log("Custom welcome email request sent successfully");
+        if (loginError) {
+          throw loginError;
         }
-      } catch (emailError) {
-        console.error("Failed to call send-welcome-email function:", emailError);
+        
+        // Redirect to homepage - the auth state listener should handle this,
+        // but we'll add it here as a backup
+        toast({
+          title: "Benvenuto!",
+          description: "Registrazione completata con successo",
+        });
+        navigate("/");
       }
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
+      
+      // Special handling for "User already registered" error - offer to log in directly
+      if (error.message.includes("already registered")) {
+        toast({
+          title: "Utente già registrato",
+          description: "Prova ad accedere con le tue credenziali",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Errore",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -314,72 +278,16 @@ const Auth = () => {
         password,
       });
       
-      if (error) {
-        if (error.message.includes("Email not confirmed")) {
-          // Handle the specific case of unconfirmed email
-          toast({
-            title: "Email non confermata",
-            description: "Controlla la tua casella di posta e conferma la tua email prima di accedere.",
-            variant: "destructive",
-          });
-          throw new Error("Verifica la tua email prima di accedere");
-        }
-        throw error;
-      }
-    } catch (error: any) {
-      toast({
-        title: "Errore",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resendConfirmationEmail = async () => {
-    if (!signupEmail) return;
-    
-    setLoading(true);
-    
-    try {
-      console.log("Attempting to resend verification email to:", signupEmail);
-      // Use Supabase built-in resend
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: signupEmail,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      });
-      
       if (error) throw error;
       
-      console.log("Supabase resend successful");
-      
-      // Also try our custom email function
-      try {
-        console.log("Trying to send custom welcome email via Edge Function");
-        await supabase.functions.invoke('send-welcome-email', {
-          body: { 
-            email: signupEmail, 
-            name: fullName || username,
-            username 
-          }
-        });
-        console.log("Custom resend request sent successfully");
-      } catch (customEmailError) {
-        console.error("Error sending custom welcome email:", customEmailError);
-      }
-      
+      // Auth state listener will handle redirect
       toast({
-        title: "Email di conferma inviata",
-        description: "Controlla la tua casella di posta per il link di verifica",
+        title: "Accesso effettuato",
+        description: "Benvenuto in Bubble Trouble!",
       });
     } catch (error: any) {
-      console.error("Error resending verification email:", error);
       toast({
-        title: "Errore",
+        title: "Errore di accesso",
         description: error.message,
         variant: "destructive",
       });
@@ -387,67 +295,6 @@ const Auth = () => {
       setLoading(false);
     }
   };
-
-  // Show success screen after signup
-  if (signupSuccess) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] p-4">
-        <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <Link to="/" className="inline-block">
-              <img
-                src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                alt="Bubble Trouble"
-                className="mx-auto h-16 w-16"
-              />
-              <h1 className="mt-4 text-3xl font-bold text-[#ebbd34]">Bubble Trouble</h1>
-            </Link>
-          </div>
-
-          <div className="rounded-2xl bg-white p-8 shadow-xl">
-            <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-[#ebbd34]/10 rounded-full flex items-center justify-center mb-4">
-                <Mail className="h-8 w-8 text-[#ebbd34]" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#ebbd34]">Verifica la tua Email</h2>
-              <p className="mt-2 text-[#ebbd34]/70">
-                Abbiamo inviato un link di verifica a <span className="font-medium">{signupEmail}</span>
-              </p>
-            </div>
-            
-            <Alert className="mb-6 bg-blue-50 border-blue-200">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-800">Controlla la tua casella di posta</AlertTitle>
-              <AlertDescription className="text-blue-700">
-                Riceverai un'email da noreply@mail.app.supabase.io o bubbletroubleapp@gmail.com con un link di verifica.
-                <br /><br />
-                <strong>Controlla anche nella cartella spam/junk se non la trovi.</strong>
-              </AlertDescription>
-            </Alert>
-            
-            <div className="space-y-4">
-              <Button
-                onClick={resendConfirmationEmail}
-                className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                disabled={loading}
-              >
-                {loading ? "Invio in corso..." : "Invia nuovamente l'email di conferma"}
-              </Button>
-              
-              <div className="text-center">
-                <button
-                  onClick={() => setSignupSuccess(false)}
-                  className="text-sm text-[#ebbd34] hover:underline"
-                >
-                  Torna al login
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] p-4">
@@ -554,7 +401,7 @@ const Auth = () => {
                 
                 <div className="space-y-1">
                   <Label htmlFor="signup-fullname" className="text-[#ebbd34] flex items-center">
-                    Nome Completo <span className="text-red-500 ml-1">*</span>
+                    Nome Completo
                   </Label>
                   <Input
                     id="signup-fullname"
@@ -562,9 +409,11 @@ const Auth = () => {
                     placeholder="Mario Rossi"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    required
                     className="border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]/20"
                   />
+                  <p className="text-xs text-[#ebbd34]/60 mt-1">
+                    Opzionale per la beta
+                  </p>
                 </div>
                 
                 <div className="space-y-1">
