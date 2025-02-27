@@ -115,9 +115,9 @@ serve(async (req) => {
     `;
 
     try {
-      // Send the email using Resend
+      // Send the email using Resend - using bubbletroubleapp@gmail.com after it's verified
       const emailResponse = await resend.emails.send({
-        from: "Bubble Trouble <onboarding@resend.dev>", // This will show as "Bubble Trouble" in the inbox
+        from: "Bubble Trouble <bubbletroubleapp@gmail.com>", // Using verified email address
         to: email,
         subject: "Welcome to Bubble Trouble! Please Verify Your Email",
         html: emailTemplate
