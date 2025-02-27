@@ -35,7 +35,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       max: 25  // Increased max zoom for better close-up view
     },
     pinchDistance: 0,
-    lastPinchTime: 0
+    lastPinchTime: 0,
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    moveThreshold: 5 // Threshold to differentiate between click and drag
   });
 
   useEffect(() => {
@@ -193,7 +197,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       } else if (e.touches.length === 1) {
         e.preventDefault();
         const touch = e.touches[0];
-        startInteraction(touch.clientX, touch.clientY);
+        interactionRef.current.lastX = touch.clientX;
+        interactionRef.current.lastY = touch.clientY;
+        interactionRef.current.isInteracting = true;
+        interactionRef.current.isDragging = false;
+        interactionRef.current.startX = touch.clientX;
+        interactionRef.current.startY = touch.clientY;
       }
     }, { passive: false });
 
@@ -221,15 +230,45 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           );
           interactionRef.current.pinchDistance = currentDistance;
         }
-      } else if (e.touches.length === 1) {
+      } else if (e.touches.length === 1 && interactionRef.current.isInteracting) {
         e.preventDefault();
         const touch = e.touches[0];
-        moveInteraction(touch.clientX, touch.clientY);
+        
+        // Check if we've moved beyond the threshold to consider this a drag
+        const deltaX = Math.abs(touch.clientX - interactionRef.current.startX);
+        const deltaY = Math.abs(touch.clientY - interactionRef.current.startY);
+        
+        if (deltaX > interactionRef.current.moveThreshold || 
+            deltaY > interactionRef.current.moveThreshold) {
+          interactionRef.current.isDragging = true;
+        }
+        
+        // Apply rotation if we're dragging
+        if (interactionRef.current.isDragging && centralWorldRef.current) {
+          const dx = touch.clientX - interactionRef.current.lastX;
+          const dy = touch.clientY - interactionRef.current.lastY;
+          
+          centralWorldRef.current.rotation.y += dx * 0.01;
+          centralWorldRef.current.rotation.x += dy * 0.01;
+          
+          interactionRef.current.momentum = {
+            x: dx * 0.01 * 0.8,
+            y: dy * 0.01 * 0.8
+          };
+        }
+        
+        interactionRef.current.lastX = touch.clientX;
+        interactionRef.current.lastY = touch.clientY;
       }
     }, { passive: false });
 
     // Handle bubble clicks with improved touch detection
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
+      // Skip if we were dragging
+      if (interactionRef.current.isDragging) {
+        return;
+      }
+      
       const rect = container.getBoundingClientRect();
       let clientX: number;
       let clientY: number;
@@ -250,19 +289,84 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       mouseRef.current.set(x, y);
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
 
-      const intersects = raycasterRef.current.intersectObjects(
-        Object.values(bubblesRef.current).map(group => group.children[0]),
-        true
-      );
+      // Get all bubble meshes for intersection testing
+      const bubbleMeshes = Object.values(bubblesRef.current).map(group => group.children[0]);
+      const intersects = raycasterRef.current.intersectObjects(bubbleMeshes, true);
 
       if (intersects.length > 0) {
-        const bubble = intersects[0].object;
-        const bubbleGroup = bubble.parent;
-        if (bubbleGroup && bubbleGroup.userData.id) {
-          onBubbleClick(bubbleGroup.userData.id);
+        const bubbleObject = intersects[0].object;
+        // Navigate up to find the parent group that has the bubble ID
+        let parent = bubbleObject.parent;
+        while (parent && (!parent.userData || !parent.userData.id)) {
+          parent = parent.parent;
+        }
+        
+        if (parent && parent.userData && parent.userData.id) {
+          // Visual feedback - scale bubble slightly
+          const originalScale = { value: 1 };
+          const targetScale = { value: 1.2 };
+          
+          new TWEEN.Tween(originalScale)
+            .to(targetScale, 150)
+            .easing(TWEEN.Easing.Quadratic.Out)
+            .onUpdate(() => {
+              bubbleObject.scale.set(
+                originalScale.value,
+                originalScale.value,
+                originalScale.value
+              );
+            })
+            .chain(
+              new TWEEN.Tween(targetScale)
+                .to({ value: 1 }, 150)
+                .easing(TWEEN.Easing.Quadratic.In)
+                .onUpdate(() => {
+                  bubbleObject.scale.set(
+                    targetScale.value,
+                    targetScale.value,
+                    targetScale.value
+                  );
+                })
+            )
+            .start();
+          
+          // Call the click handler with the bubble ID
+          onBubbleClick(parent.userData.id);
         }
       }
     };
+
+    // Improved touchend handler with better click detection
+    container.addEventListener('touchend', (e) => {
+      if (interactionRef.current.isInteracting) {
+        const wasDragging = interactionRef.current.isDragging;
+        interactionRef.current.isInteracting = false;
+        
+        // Only handle as a click if we didn't drag much
+        if (!wasDragging) {
+          handleBubbleClick(e);
+        }
+        
+        // Apply momentum for smooth deceleration after dragging
+        if (wasDragging && centralWorldRef.current) {
+          const decay = 0.95;
+          const applyMomentum = () => {
+            if (!centralWorldRef.current) return;
+            
+            const momentum = interactionRef.current.momentum;
+            if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
+              centralWorldRef.current.rotation.y += momentum.x;
+              centralWorldRef.current.rotation.x += momentum.y;
+              momentum.x *= decay;
+              momentum.y *= decay;
+              requestAnimationFrame(applyMomentum);
+            }
+          };
+          
+          applyMomentum();
+        }
+      }
+    }, { passive: false });
 
     // Mouse wheel zoom with improved sensitivity and smoother behavior
     const handleWheel = (e: WheelEvent) => {
@@ -280,53 +384,56 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       interactionRef.current.isInteracting = true;
       interactionRef.current.lastX = clientX;
       interactionRef.current.lastY = clientY;
+      interactionRef.current.isDragging = false;
+      interactionRef.current.startX = clientX;
+      interactionRef.current.startY = clientY;
     };
 
     const moveInteraction = (clientX: number, clientY: number) => {
       if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
-      // Adjust sensitivity based on device type
-      const sensitivity = isMobile ? 0.015 : 0.01;
-      const deltaX = (clientX - interactionRef.current.lastX) * sensitivity;
-      const deltaY = (clientY - interactionRef.current.lastY) * sensitivity;
+      // Check if we've moved beyond the threshold to consider this a drag
+      const deltaX = Math.abs(clientX - interactionRef.current.startX);
+      const deltaY = Math.abs(clientY - interactionRef.current.startY);
+      
+      if (deltaX > interactionRef.current.moveThreshold || 
+          deltaY > interactionRef.current.moveThreshold) {
+        interactionRef.current.isDragging = true;
+      }
+      
+      // Only apply rotation if we're now considered to be dragging
+      if (interactionRef.current.isDragging) {
+        // Adjust sensitivity based on device type
+        const sensitivity = isMobile ? 0.015 : 0.01;
+        const dx = clientX - interactionRef.current.lastX;
+        const dy = clientY - interactionRef.current.lastY;
 
-      centralWorldRef.current.rotation.y += deltaX;
-      centralWorldRef.current.rotation.x += deltaY;
+        centralWorldRef.current.rotation.y += dx * sensitivity;
+        centralWorldRef.current.rotation.x += dy * sensitivity;
 
-      // Full rotation range (removed the vertical rotation limit)
-      // This allows complete freedom to view all sides of the central world
-
-      interactionRef.current.momentum = {
-        x: deltaX * 0.8,
-        y: deltaY * 0.8
-      };
+        // Store momentum for inertia
+        interactionRef.current.momentum = {
+          x: dx * sensitivity * 0.8,
+          y: dy * sensitivity * 0.8
+        };
+      }
 
       interactionRef.current.lastX = clientX;
       interactionRef.current.lastY = clientY;
     };
 
-    const endInteraction = (event?: MouseEvent | TouchEvent) => {
-      if (!interactionRef.current.isInteracting) return;
-      
-      const wasInteracting = interactionRef.current.isInteracting;
+    const endInteraction = (event?: MouseEvent) => {
+      const wasDragging = interactionRef.current.isDragging;
       interactionRef.current.isInteracting = false;
-
-      // Handle click only if it wasn't a drag
-      if (event) {
-        const currentX = event instanceof MouseEvent ? 
-          event.clientX : 
-          event.changedTouches[0].clientX;
-        
-        // More lenient threshold for mobile tap detection
-        const clickThreshold = isMobile ? 10 : 5;
-        if (Math.abs(currentX - interactionRef.current.lastX) < clickThreshold) {
-          handleBubbleClick(event);
-        }
+      
+      // Handle as click only if we didn't drag
+      if (event && !wasDragging) {
+        handleBubbleClick(event);
       }
-
-      // Apply momentum with improved physics for smoother deceleration
-      if (wasInteracting) {
-        const decay = isMobile ? 0.92 : 0.95; // Slower decay on mobile for more satisfying momentum
+      
+      // Apply momentum after drag
+      if (wasDragging && centralWorldRef.current) {
+        const decay = 0.95;
         const applyMomentum = () => {
           if (!centralWorldRef.current) return;
           
@@ -339,7 +446,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             requestAnimationFrame(applyMomentum);
           }
         };
-
+        
         applyMomentum();
       }
     };
@@ -359,27 +466,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('mouseleave', () => {
       endInteraction();
-    });
-
-    // Touch events
-    container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        startInteraction(touch.clientX, touch.clientY);
-      }
-    }, { passive: false });
-
-    container.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 1) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        moveInteraction(touch.clientX, touch.clientY);
-      }
-    }, { passive: false });
-
-    container.addEventListener('touchend', (e) => {
-      endInteraction(e);
     });
 
     container.addEventListener('wheel', handleWheel, { passive: false });
