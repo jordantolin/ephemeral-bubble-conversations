@@ -107,6 +107,14 @@ const Index = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useUser();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
 
   // For debugging
   useEffect(() => {
@@ -196,6 +204,11 @@ const Index = () => {
     console.log("Processed bubbles:", bubbles);
   }, [bubbles]);
 
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   const handleCreateBubble = async () => {
     if (!user) {
       toast({
@@ -256,6 +269,127 @@ const Index = () => {
     queryClient.invalidateQueries({ queryKey: ['bubbles'] });
   };
 
+  // New functions for voice recording with WhatsApp-style push-to-talk
+  const startRecording = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to send messages",
+        variant: "destructive"
+      });
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      setIsRecording(true);
+      setRecordingTime(0);
+      mediaRecorder.start();
+      
+      // Start timer for recording duration
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      
+      // Vibrate for feedback on mobile if available
+      if (navigator.vibrate) {
+        navigator.vibrate(100);
+      }
+      
+      toast({
+        title: "Recording...",
+        description: "Release to send the voice message",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast({
+        title: "Error",
+        description: "Could not access microphone",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopRecording = async (shouldSend = true) => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+    
+    try {
+      // Stop timer
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      
+      // Stop recording
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      
+      // Vibrate for feedback on mobile if available
+      if (navigator.vibrate) {
+        navigator.vibrate([50, 50, 50]);
+      }
+      
+      // Only send if shouldSend is true (user didn't cancel)
+      if (shouldSend && audioChunksRef.current.length > 0) {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Don't send if recording is too short (less than 0.5 seconds)
+        if (recordingTime < 1) {
+          toast({
+            title: "Recording too short",
+            description: "Hold longer to record a message",
+            variant: "destructive"
+          });
+          setIsRecording(false);
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const content = e.target?.result as string;
+          if (selectedBubbleId) {
+            await handleSendMessage(content);
+            
+            toast({
+              title: "Voice message sent",
+              description: `${recordingTime} second${recordingTime !== 1 ? 's' : ''} audio`,
+              duration: 2000,
+            });
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+      } else if (!shouldSend) {
+        toast({
+          title: "Recording cancelled",
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+      toast({
+        title: "Error",
+        description: "Problem with audio recording",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRecording(false);
+      setRecordingTime(0);
+    }
+  };
+
   const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
     if (!user) {
       toast({
@@ -276,73 +410,26 @@ const Index = () => {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file && selectedBubbleId) {
+        // Show loading toast
+        toast({
+          title: `Uploading ${type}...`,
+          description: "Please wait while your file is being processed",
+        });
+        
         const reader = new FileReader();
         reader.onload = async (e) => {
           const content = e.target?.result as string;
           await handleSendMessage(content);
+          
+          toast({
+            title: "Success",
+            description: `Your ${type} has been sent`,
+          });
         };
         reader.readAsDataURL(file);
       }
     };
     input.click();
-  };
-
-  const handleVoiceRecord = () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to send messages",
-        variant: "destructive"
-      });
-      navigate("/auth");
-      return;
-    }
-
-    let mediaRecorder: MediaRecorder | null = null;
-    const chunks: Blob[] = [];
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
-        
-        mediaRecorder.ondataavailable = (e) => {
-          chunks.push(e.data);
-        };
-
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            const content = e.target?.result as string;
-            if (selectedBubbleId) {
-              await handleSendMessage(content);
-            }
-          };
-          reader.readAsDataURL(audioBlob);
-          stream.getTracks().forEach(track => track.stop());
-        };
-
-        mediaRecorder.start();
-        
-        toast({
-          title: "Recording...",
-          description: "Click again to stop recording",
-        });
-
-        // Stop recording after 1 minute
-        setTimeout(() => {
-          if (mediaRecorder?.state === 'recording') {
-            mediaRecorder.stop();
-          }
-        }, 60000);
-      })
-      .catch(error => {
-        toast({
-          title: "Error",
-          description: "Could not access microphone",
-          variant: "destructive"
-        });
-      });
   };
 
   // Fetch messages for selected bubble
@@ -483,6 +570,7 @@ const Index = () => {
   };
 
   const handleBubbleClick = (id: string) => {
+    console.log("Bubble clicked:", id);
     setSelectedBubbleId(id);
     setIsChatOpen(true);
   };
@@ -562,6 +650,13 @@ const Index = () => {
     },
     enabled: !!selectedBubbleId && !!user
   });
+
+  // Format recording time as mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
@@ -743,6 +838,8 @@ const Index = () => {
                       </span>
                     </div>
                   ))}
+                  {/* Invisible div for scrolling to bottom */}
+                  <div ref={messagesEndRef} />
                 </ScrollArea>
 
                 <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
@@ -771,16 +868,23 @@ const Index = () => {
                     >
                       <SmilePlus className="h-5 w-5" />
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={handleVoiceRecord}
-                    >
-                      <Mic className="h-5 w-5" />
-                    </Button>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 relative">
+                    {isRecording ? (
+                      <div className="absolute left-0 right-0 top-0 bottom-0 bg-red-50/90 rounded-full flex items-center justify-between px-4 z-10 animate-pulse">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>
+                          <span className="text-red-600 font-medium">Recording {formatTime(recordingTime)}</span>
+                        </div>
+                        <button
+                          onClick={() => stopRecording(false)}
+                          className="text-red-600 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : null}
+                    
                     <Input
                       placeholder={user ? "Type your message..." : "Sign in to chat"}
                       value={newMessage}
@@ -791,17 +895,34 @@ const Index = () => {
                           handleSendMessage();
                         }
                       }}
-                      disabled={!user}
+                      disabled={!user || isRecording}
                       className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
                     />
-                    <Button 
-                      onClick={() => handleSendMessage()}
-                      size="icon" 
-                      disabled={!user || !newMessage.trim()}
-                      className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white disabled:bg-[#ebbd34]/30"
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
+                    
+                    {newMessage.trim() ? (
+                      <Button 
+                        onClick={() => handleSendMessage()}
+                        size="icon" 
+                        disabled={!user || !newMessage.trim() || isRecording}
+                        className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white disabled:bg-[#ebbd34]/30"
+                      >
+                        <Send className="h-5 w-5" />
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="icon"
+                        disabled={!user || isRecording}
+                        className={`rounded-full ${isRecording ? 'bg-red-500' : 'bg-[#ebbd34]'} hover:bg-[#ebbd34]/90 text-white disabled:bg-[#ebbd34]/30`}
+                        onTouchStart={startRecording}
+                        onMouseDown={startRecording}
+                        onTouchEnd={() => stopRecording(true)}
+                        onMouseUp={() => stopRecording(true)}
+                        onTouchCancel={() => stopRecording(false)}
+                        onMouseLeave={() => isRecording && stopRecording(false)}
+                      >
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </DialogContent>
