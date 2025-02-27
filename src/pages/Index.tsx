@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dialog,
@@ -82,6 +82,7 @@ const Index = () => {
   });
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isReflectAnimating, setIsReflectAnimating] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -310,6 +311,9 @@ const Index = () => {
   };
 
   const handleReflect = async (bubbleId: string) => {
+    // Start the animation
+    setIsReflectAnimating(true);
+    
     const { error } = await supabase
       .from('reflects')
       .insert({ 
@@ -331,13 +335,21 @@ const Index = () => {
           variant: "destructive"
         });
       }
+      
+      // Stop animation on error
+      setIsReflectAnimating(false);
       return;
     }
 
     toast({
       title: "Bubble reflected!",
-      description: "This bubble will appear in your profile",
+      description: "This bubble will appear in your feed",
     });
+
+    // Keep animation going for a short while to make it noticeable
+    setTimeout(() => {
+      setIsReflectAnimating(false);
+    }, 1000);
 
     // Invalidate queries to refresh data
     queryClient.invalidateQueries({ queryKey: ['bubbles'] });
@@ -396,6 +408,29 @@ const Index = () => {
       }
 
       return data as Bubble;
+    },
+    enabled: !!selectedBubbleId
+  });
+
+  // Check if user has already reflected this bubble
+  const { data: hasReflected = false } = useQuery({
+    queryKey: ['hasReflected', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return false;
+
+      const { data, error } = await supabase
+        .from('reflects')
+        .select('id')
+        .eq('bubble_id', selectedBubbleId)
+        .eq('username', '@user')
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking reflect status:", error);
+        return false;
+      }
+
+      return !!data;
     },
     enabled: !!selectedBubbleId
   });
@@ -495,127 +530,159 @@ const Index = () => {
         </Button>
       </main>
 
-            {/* Chat Dialog */}
-            <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-              <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-[2rem] overflow-hidden shadow-2xl">
-                <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10">
-                  <div>
-                    <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
-                    <DialogDescription className="text-[#ebbd34]/70">
-                      {selectedBubble?.description}
-                    </DialogDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="ml-4 hover:bg-[#ebbd34]/10 transition-colors border-[#ebbd34]/20 text-[#ebbd34]"
-                    onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-                  >
-                    <Sparkles className="h-5 w-5" />
-                  </Button>
-                </DialogHeader>
+      {/* Chat Dialog with improved reflect button position */}
+      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-[2rem] overflow-hidden shadow-2xl">
+          <DialogHeader className="relative flex flex-col p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10">
+            {/* Close button in top right corner */}
+            <div className="absolute right-4 top-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsChatOpen(false)}
+                className="h-6 w-6 rounded-full bg-[#ebbd34]/10 text-[#ebbd34] hover:bg-[#ebbd34]/20"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </div>
+            
+            <div className="pr-8"> {/* Add padding right to avoid text overlapping with close button */}
+              <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
+              <DialogDescription className="text-[#ebbd34]/70">
+                {selectedBubble?.description}
+              </DialogDescription>
+            </div>
+            
+            {/* Reflect button positioned at the bottom of the header */}
+            <div className={`flex items-center mt-3 ${isReflectAnimating ? 'animate-pulse' : ''}`}>
+              <Button
+                variant="outline"
+                className={`px-4 py-2 flex items-center gap-2 ${
+                  hasReflected 
+                    ? 'bg-[#ebbd34]/20 text-[#ebbd34] border-[#ebbd34]/30' 
+                    : 'hover:bg-[#ebbd34]/10 text-[#ebbd34] border-[#ebbd34]/20'
+                } transition-all rounded-full ${
+                  isReflectAnimating ? 'scale-110' : ''
+                }`}
+                onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
+                disabled={hasReflected}
+                title={hasReflected ? "Already reflected" : "Reflect this bubble"}
+              >
+                <Sparkles className={`h-4 w-4 ${isReflectAnimating ? 'animate-spin' : ''}`} />
+                <span className="text-sm font-medium">
+                  {hasReflected ? 'Reflected' : 'Reflect this bubble'} 
+                </span>
+                {selectedBubble?.reflect_count ? (
+                  <span className="bg-[#ebbd34]/10 px-2 py-0.5 rounded-full text-xs">
+                    {selectedBubble.reflect_count}
+                  </span>
+                ) : null}
+              </Button>
+            </div>
+          </DialogHeader>
 
-                <ScrollArea className="flex-1 px-4 py-3 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex flex-col ${
-                        message.username === "@user" ? "items-end" : "items-start"
-                      }`}
-                    >
-                      <div className={`max-w-[80%] rounded-3xl p-3 ${
-                        message.username === "@user"
-                          ? "bg-[#ebbd34] text-white"
-                          : "bg-[#ebbd34]/10 text-[#ebbd34]"
-                      }`}>
-                        {message.content.startsWith('data:image/') ? (
-                          <img 
-                            src={message.content} 
-                            alt="Shared image" 
-                            className="rounded-2xl max-w-full"
-                          />
-                        ) : message.content.startsWith('data:video/') ? (
-                          <video 
-                            src={message.content} 
-                            controls 
-                            className="rounded-2xl max-w-full"
-                          />
-                        ) : message.content.startsWith('data:audio/') ? (
-                          <audio 
-                            src={message.content} 
-                            controls 
-                            className="w-full rounded-full bg-[#ebbd34]/5 p-2"
-                          />
-                        ) : (
-                          <p className="text-sm">{message.content}</p>
-                        )}
-                      </div>
-                      <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
-                        {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  ))}
-                </ScrollArea>
-
-                <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
-                  <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('image')}
-                    >
-                      <Image className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('video')}
-                    >
-                      <Video className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('gif')}
-                    >
-                      <SmilePlus className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={handleVoiceRecord}
-                    >
-                      <Mic className="h-5 w-5" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
+          <ScrollArea className="flex-1 px-4 py-3 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex flex-col ${
+                  message.username === "@user" ? "items-end" : "items-start"
+                }`}
+              >
+                <div className={`max-w-[80%] rounded-3xl p-3 ${
+                  message.username === "@user"
+                    ? "bg-[#ebbd34] text-white"
+                    : "bg-[#ebbd34]/10 text-[#ebbd34]"
+                }`}>
+                  {message.content.startsWith('data:image/') ? (
+                    <img 
+                      src={message.content} 
+                      alt="Shared image" 
+                      className="rounded-2xl max-w-full"
                     />
-                    <Button 
-                      onClick={() => handleSendMessage()}
-                      size="icon" 
-                      className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
-                  </div>
+                  ) : message.content.startsWith('data:video/') ? (
+                    <video 
+                      src={message.content} 
+                      controls 
+                      className="rounded-2xl max-w-full"
+                    />
+                  ) : message.content.startsWith('data:audio/') ? (
+                    <audio 
+                      src={message.content} 
+                      controls 
+                      className="w-full rounded-full bg-[#ebbd34]/5 p-2"
+                    />
+                  ) : (
+                    <p className="text-sm">{message.content}</p>
+                  )}
                 </div>
-              </DialogContent>
-            </Dialog>
+                <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
+                  {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+          </ScrollArea>
+
+          <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
+            <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => handleFileUpload('image')}
+              >
+                <Image className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => handleFileUpload('video')}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => handleFileUpload('gif')}
+              >
+                <SmilePlus className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={handleVoiceRecord}
+              >
+                <Mic className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Type your message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
+              />
+              <Button 
+                onClick={() => handleSendMessage()}
+                size="icon" 
+                className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Bubble Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
