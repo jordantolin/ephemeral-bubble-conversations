@@ -1,7 +1,8 @@
+
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, X, Volume2, Download, Reply, MoreVertical } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dialog,
@@ -25,6 +26,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const availableTopics = [
   "Art & Design",
@@ -70,6 +77,12 @@ const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
   return "sm";
 };
 
+// Format timestamp to a readable time
+const formatMessageTime = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -82,9 +95,12 @@ const Index = () => {
   });
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
 
   // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
@@ -400,6 +416,45 @@ const Index = () => {
     enabled: !!selectedBubbleId
   });
 
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Play/pause audio messages
+  const togglePlayAudio = (messageId: string, audioSrc: string) => {
+    if (!audioRefs.current[messageId]) {
+      audioRefs.current[messageId] = new Audio(audioSrc);
+      
+      audioRefs.current[messageId].addEventListener('ended', () => {
+        setPlayingAudioId(null);
+      });
+    }
+
+    if (playingAudioId === messageId) {
+      audioRefs.current[messageId].pause();
+      setPlayingAudioId(null);
+    } else {
+      // Pause any currently playing audio
+      if (playingAudioId && audioRefs.current[playingAudioId]) {
+        audioRefs.current[playingAudioId].pause();
+      }
+      
+      audioRefs.current[messageId].play();
+      setPlayingAudioId(messageId);
+    }
+  };
+
+  // Download media from message
+  const handleDownloadMedia = (content: string, type: string) => {
+    const link = document.createElement('a');
+    link.href = content;
+    link.download = `bubble-media-${Date.now()}.${type}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
@@ -495,127 +550,228 @@ const Index = () => {
         </Button>
       </main>
 
-            {/* Chat Dialog */}
-            <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-              <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-[2rem] overflow-hidden shadow-2xl">
-                <DialogHeader className="flex flex-row items-center justify-between p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10">
-                  <div>
-                    <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
-                    <DialogDescription className="text-[#ebbd34]/70">
-                      {selectedBubble?.description}
-                    </DialogDescription>
-                  </div>
+      {/* Enhanced WhatsApp-style Chat Dialog */}
+      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#E5DDD5] dark:bg-[#0B141A] rounded-[1.5rem] overflow-hidden shadow-2xl">
+          <DialogHeader className="flex flex-row items-center justify-between p-3 bg-[#ebbd34] dark:bg-[#075E54] text-white">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/10 rounded-full"
+                onClick={() => setIsChatOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              
+              <div>
+                <DialogTitle className="text-white text-xl font-semibold tracking-tight">
+                  {selectedBubble?.name}
+                </DialogTitle>
+                <DialogDescription className="text-white/70 text-sm mt-0">
+                  {selectedBubble?.description || selectedBubble?.topic}
+                </DialogDescription>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
-                    className="ml-4 hover:bg-[#ebbd34]/10 transition-colors border-[#ebbd34]/20 text-[#ebbd34]"
+                    className="hover:bg-white/10 text-white rounded-full"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white dark:bg-[#2A2C31] border-none shadow-lg">
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-sm hover:bg-[#ebbd34]/10"
                     onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
                   >
-                    <Sparkles className="h-5 w-5" />
-                  </Button>
-                </DialogHeader>
+                    <Sparkles className="h-4 w-4 mr-2 text-[#ebbd34]" />
+                    <span>Reflect Bubble</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer text-sm hover:bg-[#ebbd34]/10">
+                    <Star className="h-4 w-4 mr-2 text-[#ebbd34]" />
+                    <span>Star Bubble</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </DialogHeader>
 
-                <ScrollArea className="flex-1 px-4 py-3 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex flex-col ${
-                        message.username === "@user" ? "items-end" : "items-start"
-                      }`}
-                    >
-                      <div className={`max-w-[80%] rounded-3xl p-3 ${
-                        message.username === "@user"
-                          ? "bg-[#ebbd34] text-white"
-                          : "bg-[#ebbd34]/10 text-[#ebbd34]"
-                      }`}>
-                        {message.content.startsWith('data:image/') ? (
-                          <img 
-                            src={message.content} 
-                            alt="Shared image" 
-                            className="rounded-2xl max-w-full"
-                          />
-                        ) : message.content.startsWith('data:video/') ? (
-                          <video 
-                            src={message.content} 
-                            controls 
-                            className="rounded-2xl max-w-full"
-                          />
-                        ) : message.content.startsWith('data:audio/') ? (
-                          <audio 
-                            src={message.content} 
-                            controls 
-                            className="w-full rounded-full bg-[#ebbd34]/5 p-2"
-                          />
-                        ) : (
-                          <p className="text-sm">{message.content}</p>
-                        )}
+          {/* Chat Background with Pattern (WhatsApp style) */}
+          <div 
+            className="flex-1 overflow-hidden relative"
+            style={{
+              backgroundImage: "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAApgAAAKYB3X3/OAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAANCSURBVEiJtZZPbBtFFMZ/M7ubXdtdb1xSFyeilBapySVU8h8OoFaooFSqiihIVIpQBKci6KEg9Q6H9kovIHoCIVQJJCKE1ENFjnAgcaSGC6rEnxBwA04Tx43t2FnvDAfjkNibxgHxnWb2e/u992bee7tCa00YFsffekFY+nUzFtjW0LrvjRXrCDIAaPLlW0nHL0SsZtVoaF98mLrx3pdhOqLtYPHChahZcYYO7KvPFxvRl5XPp1sN3adWiD1ZAqD6XYK1b/dvE5IWryTt2udLFedwc1+9kLp+vbbpoDh+6TklxBeAi9TL0taeWpdmZzQDry0AcO+jQ12RyohqqoYoo8RDwJrU+qXkjWtfi8Xxt58BdQuwQs9qC/afLwCw8tnQbqYAPsgxE1S6F3EAIXux2oQFKm0ihMsOF71dHYx+f3NND68ghCu1YIoePPQN1pGRABkJ6Bus96CutRZMydTl+TvuiRW1m3n0eDl0vRPcEysqdXn+jsQPsrHMquGeXEaY4Yk4wxWcY5V/9scqOMOVUFthatyTy8QyqwZ+kDURKoMWxNKr2EeqVKcTNOajqKoBgOE28U4tdQl5p5bwCw7BWquaZSzAPlwjlithJtp3pTImSqQRrb2Z8PHGigD4RZuNX6JYj6wj7O4TFLbCO/Mn/m8R+h6rYSUb3ekokRY6f/YukArN979jcW+V/S8g0eT/N3VN3kTqWbQ428m9/8k0P/1aIhF36PccEl6EhOcAUCrXKZXXWS3XKd2vc/TRBG9O5ELC17MmWubD2nKhUKZa26Ba2+D3P+4/MNCFwg59oWVeYhkzgN/JDR8deKBoD7Y+ljEjGZ0sosXVTvbc6RHirr2reNy1OXd6pJsQ+gqjk8VWFYmHrwBzW/n+uMPFiRwHB2I7ih8ciHFxIkd/3Omk5tCDV1t+2nNu5sxxpDFNx+huNhVT3/zMDz8usXC3ddaHBj1GHj/As08fwTS7Kt1HBTmyN29vdwAw+/wbwLVOJ3uAD1wi/dUH7Qei66PfyuRj4Ik9is+hglfbkbfR3cnZm7chlUWLdwmprtCohX4HUtlOcQjLYCu+fzGJH2QRKvP3UNz8bWk1qMxjGTOMThZ3kvgLI5AzFfo379UAAAAASUVORK5CYII=')",
+              backgroundRepeat: "repeat",
+              backgroundSize: "auto"
+            }}
+          >
+            <ScrollArea className="h-full p-4 space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex flex-col mb-4 ${
+                    message.username === "@user" ? "items-end" : "items-start"
+                  }`}
+                >
+                  <div className={`max-w-[80%] rounded-2xl p-2 pb-1 shadow-md ${
+                    message.username === "@user"
+                      ? "bg-[#DCF8C6] dark:bg-[#005C4B] text-black dark:text-white"
+                      : "bg-white dark:bg-[#202C33] text-black dark:text-white"
+                  }`}>
+                    {message.content.startsWith('data:image/') ? (
+                      <div className="relative group">
+                        <img 
+                          src={message.content} 
+                          alt="Shared image" 
+                          className="rounded-xl max-w-full cursor-pointer"
+                          onClick={() => window.open(message.content, '_blank')}
+                        />
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                            onClick={() => handleDownloadMedia(message.content, 'jpg')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
-                        {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
+                    ) : message.content.startsWith('data:video/') ? (
+                      <div className="relative group">
+                        <video 
+                          src={message.content} 
+                          controls 
+                          className="rounded-xl max-w-full"
+                        />
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                            onClick={() => handleDownloadMedia(message.content, 'mp4')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : message.content.startsWith('data:audio/') ? (
+                      <div className="flex items-center gap-3 p-1 min-w-[160px]">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-10 w-10 rounded-full ${
+                            playingAudioId === message.id ? 
+                            "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : 
+                            "bg-[#ebbd34]/10 text-[#ebbd34] dark:bg-[#ebbd34]/30"
+                          }`}
+                          onClick={() => togglePlayAudio(message.id, message.content)}
+                        >
+                          {playingAudioId === message.id ? 
+                            <X className="h-5 w-5" /> : 
+                            <Volume2 className="h-5 w-5" />
+                          }
+                        </Button>
+                        <div className="flex-1">
+                          <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full bg-[#ebbd34] rounded-full ${
+                                playingAudioId === message.id ? "animate-pulse" : ""
+                              }`} 
+                              style={{ width: playingAudioId === message.id ? "70%" : "0%" }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {playingAudioId === message.id ? "Playing..." : "Voice message"}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm px-1">{message.content}</p>
+                    )}
+                    <div className="flex justify-end items-center gap-1 mt-1 px-1">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        {formatMessageTime(message.timestamp)}
                       </span>
+                      {message.username === "@user" && (
+                        <svg className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 ml-0.5" viewBox="0 0 16 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512z" />
+                          <path d="M8.666 9.879a.32.32 0 0 0 .484-.033l5.356-6.872a.365.365 0 0 1 .51-.063l.478.372a.365.365 0 0 1 .063.51l-6.272 8.048a.36.36 0 0 1-.484.033L7.48 10.608a.418.418 0 0 1-.036-.541l.378-.483a.319.319 0 0 1 .484-.032l.358.325z" />
+                        </svg>
+                      )}
                     </div>
-                  ))}
-                </ScrollArea>
-
-                <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
-                  <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('image')}
-                    >
-                      <Image className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('video')}
-                    >
-                      <Video className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('gif')}
-                    >
-                      <SmilePlus className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={handleVoiceRecord}
-                    >
-                      <Mic className="h-5 w-5" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
-                    />
-                    <Button 
-                      onClick={() => handleSendMessage()}
-                      size="icon" 
-                      className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+              ))}
+              <div ref={messagesEndRef} />
+            </ScrollArea>
+          </div>
+
+          <div className="flex flex-col gap-1 p-3 bg-[#F0F2F5] dark:bg-[#1F2C34] border-t border-[#ebbd34]/10">
+            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => handleFileUpload('image')}
+              >
+                <Image className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => handleFileUpload('video')}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => handleFileUpload('gif')}
+              >
+                <SmilePlus className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={handleVoiceRecord}
+              >
+                <Mic className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Type your message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-1 rounded-full bg-white dark:bg-[#2A3942] border-none text-black dark:text-white placeholder-gray-500 focus-visible:ring-[#ebbd34]/20 px-4 py-2"
+              />
+              <Button 
+                onClick={() => handleSendMessage()}
+                size="icon" 
+                className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Bubble Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
