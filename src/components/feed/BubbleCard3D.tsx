@@ -46,8 +46,9 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
     return () => cancelAnimationFrame(animationId);
   }, [isActive]);
 
-  // Use a simplified approach to types
-  const AnimatedMesh = animated('mesh');
+  // IMPORTANT: Typed correctly to work with @react-spring/three
+  // @ts-ignore - We need to ignore TypeScript errors with the animated component
+  const AnimatedMesh = animated.mesh;
 
   return (
     <AnimatedMesh

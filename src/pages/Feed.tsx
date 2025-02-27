@@ -1,29 +1,26 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Search, Sparkles, TrendingUp, User, ArrowLeft } from "lucide-react";
+import { Sparkles, TrendingUp, User, ArrowLeft, Sparkle } from "lucide-react";
 import Feed3DContainer from "@/components/feed/Feed3DContainer";
 import { BubbleData } from "@/types/bubble";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sparkle } from "lucide-react";
 
 const Feed = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const { toast } = useToast();
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch trending bubbles
   const { data: bubbles = [], isLoading: isLoadingBubbles } = useQuery({
@@ -59,10 +56,12 @@ const Feed = () => {
     navigate(`/feed?bubbleId=${id}`);
   };
 
+  console.log("Feed rendering with bubbles:", bubbles);
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-[#1a1a1a] to-[#121212]">
+    <div className="min-h-screen w-full overflow-hidden bg-gradient-to-b from-[#1a1a1a] to-[#121212]">
       {/* Navigation */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-md border-b border-white/10">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-md border-b border-white/10">
         <div className="container mx-auto">
           <div className="flex items-center justify-between h-16 px-4">
             {/* Logo and Back Button */}
@@ -127,17 +126,17 @@ const Feed = () => {
             </div>
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Main Feed Area */}
-      <div className="pt-16">
+      <div className="pt-16 h-[calc(100vh-4rem)]">
         {isLoadingBubbles ? (
-          <div className="h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center">
+          <div className="h-full w-full flex flex-col items-center justify-center">
             <div className="w-12 h-12 border-4 border-white/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
             <p className="text-white mt-4">Loading bubble feed...</p>
           </div>
         ) : bubbles.length === 0 ? (
-          <div className="h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center p-6 text-center">
+          <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center">
             <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4">
               <Sparkles className="w-10 h-10 text-[#ebbd34]" />
             </div>
@@ -151,7 +150,7 @@ const Feed = () => {
             </Button>
           </div>
         ) : (
-          <div className="h-[calc(100vh-64px)]">
+          <div className="h-full">
             <Feed3DContainer 
               bubbles={bubbles} 
               onBubbleClick={handleBubbleClick} 

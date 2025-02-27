@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { PerspectiveCamera, Environment } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/web';
@@ -44,6 +44,7 @@ const Scene = ({ bubbles, currentIndex, onBubbleClick }: {
 };
 
 const Feed3DContainer = ({ bubbles, onBubbleClick }: Feed3DContainerProps) => {
+  console.log("Feed3DContainer rendering with bubbles:", bubbles.length);
   const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
@@ -113,20 +114,27 @@ const Feed3DContainer = ({ bubbles, onBubbleClick }: Feed3DContainerProps) => {
   return (
     <div 
       ref={containerRef}
-      className="h-full w-full relative overflow-hidden touch-none"
+      className="h-full w-full relative overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onWheel={handleWheel}
+      style={{ touchAction: 'none' }}
     >
       {/* 3D Canvas - Render bubbles */}
-      <Canvas className="absolute inset-0 z-0">
-        <Scene 
-          bubbles={bubbles} 
-          currentIndex={currentIndex}
-          onBubbleClick={onBubbleClick}
-        />
-      </Canvas>
+      <div className="h-full w-full absolute inset-0">
+        <Canvas 
+          style={{ width: '100%', height: '100%' }}
+          gl={{ antialias: true, alpha: true }}
+          linear
+        >
+          <Scene 
+            bubbles={bubbles} 
+            currentIndex={currentIndex}
+            onBubbleClick={onBubbleClick}
+          />
+        </Canvas>
+      </div>
       
       {/* HTML Overlay - Interactive content */}
       <animated.div 
