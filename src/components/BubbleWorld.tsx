@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -133,8 +132,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Handle bubble clicks
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
       const rect = container.getBoundingClientRect();
-      const x = ((event instanceof MouseEvent ? event.clientX : event.touches[0].clientX) - rect.left) / rect.width * 2 - 1;
-      const y = -((event instanceof MouseEvent ? event.clientY : event.touches[0].clientY) - rect.top) / rect.height * 2 + 1;
+      let clientX: number;
+      let clientY: number;
+
+      if (event instanceof MouseEvent) {
+        clientX = event.clientX;
+        clientY = event.clientY;
+      } else {
+        // TouchEvent
+        clientX = event.changedTouches[0].clientX;
+        clientY = event.changedTouches[0].clientY;
+      }
+
+      const x = (clientX - rect.left) / rect.width * 2 - 1;
+      const y = -(clientY - rect.top) / rect.height * 2 + 1;
 
       mouseRef.current.set(x, y);
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
@@ -243,7 +254,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('touchend', (e) => {
       if (!interactionRef.current.isInteracting && e.changedTouches.length === 1) {
-        handleBubbleClick(e.changedTouches[0]);
+        handleBubbleClick(e);
       }
       endInteraction();
     });
