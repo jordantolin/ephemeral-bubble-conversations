@@ -51,7 +51,7 @@ serve(async (req) => {
     const emailResponse = await resend.emails.send({
       from: "Bubble Trouble <bubbletroubleapp@gmail.com>",
       to: [email],
-      subject: "Welcome to Bubble Trouble - Verify Your Email",
+      subject: "Welcome to Your 3D Bubble World - Verify Your Email",
       html: `
         <!DOCTYPE html>
         <html>
@@ -66,6 +66,7 @@ serve(async (req) => {
                 margin: 0;
                 padding: 0;
                 background-color: #FEF7E4;
+                color: #333;
               }
               .container {
                 max-width: 600px;
@@ -77,29 +78,124 @@ serve(async (req) => {
                 padding: 20px 0;
               }
               .logo {
-                width: 80px;
-                height: 80px;
+                width: 100px;
+                height: 100px;
+                border-radius: 50%;
+                box-shadow: 0 4px 10px rgba(235, 189, 52, 0.3);
+                padding: 10px;
+                background: white;
+              }
+              .bubble-icon {
+                display: inline-block;
+                background: rgba(235, 189, 52, 0.2);
+                border-radius: 50%;
+                height: 20px;
+                width: 20px;
+                margin: 0 5px;
               }
               .content {
                 background: white;
                 padding: 30px;
-                border-radius: 12px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                border-radius: 20px;
+                box-shadow: 0 2px 20px rgba(0,0,0,0.05);
+                position: relative;
+                overflow: hidden;
+              }
+              .content::before {
+                content: '';
+                position: absolute;
+                top: -80px;
+                right: -80px;
+                width: 160px;
+                height: 160px;
+                border-radius: 50%;
+                background: rgba(235, 189, 52, 0.1);
+                z-index: 0;
+              }
+              .content::after {
+                content: '';
+                position: absolute;
+                bottom: -40px;
+                left: -40px;
+                width: 100px;
+                height: 100px;
+                border-radius: 50%;
+                background: rgba(235, 189, 52, 0.1);
+                z-index: 0;
+              }
+              .content > * {
+                position: relative;
+                z-index: 1;
               }
               .button {
                 display: inline-block;
                 background-color: #ebbd34;
                 color: white;
-                padding: 12px 24px;
-                border-radius: 6px;
+                padding: 15px 30px;
+                border-radius: 30px;
                 text-decoration: none;
                 margin: 20px 0;
+                font-weight: bold;
+                text-align: center;
+                box-shadow: 0 4px 8px rgba(235, 189, 52, 0.3);
+                transition: transform 0.2s;
+              }
+              .button:hover {
+                transform: scale(1.02);
               }
               .footer {
                 text-align: center;
                 color: #666;
                 font-size: 14px;
                 margin-top: 20px;
+                padding-top: 20px;
+                border-top: 1px solid rgba(235, 189, 52, 0.2);
+              }
+              .fancy-title {
+                color: #ebbd34;
+                font-size: 28px;
+                margin-bottom: 25px;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+              }
+              .bubble-animation {
+                height: 60px;
+                position: relative;
+                margin: 30px 0;
+              }
+              .bubble-float {
+                position: absolute;
+                background-color: rgba(235, 189, 52, 0.2);
+                border-radius: 50%;
+                animation: float 6s infinite ease-in-out;
+              }
+              .bubble-1 {
+                width: 30px;
+                height: 30px;
+                left: 20%;
+                animation-delay: 0s;
+              }
+              .bubble-2 {
+                width: 20px;
+                height: 20px;
+                left: 40%;
+                animation-delay: 1s;
+              }
+              .bubble-3 {
+                width: 35px;
+                height: 35px;
+                left: 60%;
+                animation-delay: 2s;
+              }
+              .bubble-4 {
+                width: 25px;
+                height: 25px;
+                left: 80%;
+                animation-delay: 3s;
+              }
+              @keyframes float {
+                0% { transform: translateY(0); opacity: 0; }
+                20% { opacity: 0.8; }
+                100% { transform: translateY(-60px); opacity: 0; }
               }
             </style>
           </head>
@@ -107,18 +203,35 @@ serve(async (req) => {
             <div class="container">
               <div class="header">
                 <img src="https://fmsijphhzututcmzlhfr.supabase.co/storage/v1/object/public/bubble-assets/bubble_logo.png" alt="Bubble Trouble Logo" class="logo">
-                <h1 style="color: #ebbd34; margin-top: 15px;">Welcome to Bubble Trouble!</h1>
+                <h1 class="fancy-title">Welcome to Bubble Trouble!</h1>
               </div>
               <div class="content">
-                <p>Hi ${username},</p>
-                <p>Welcome to Bubble Trouble! We're excited to have you join our community.</p>
-                <p>To complete your registration and start exploring bubbles, please verify your email address by clicking the button below:</p>
-                <div style="text-align: center;">
-                  <a href="${verificationUrl}" class="button">Verify Email Address</a>
+                <p><span class="bubble-icon"></span> Hello ${username},</p>
+                <p>Welcome to Bubble Trouble, where conversations float like bubbles in a 3D world!</p>
+                <p>Your 3D bubble world is just one click away. To dive into conversations that matter, please verify your email:</p>
+                
+                <div class="bubble-animation">
+                  <div class="bubble-float bubble-1"></div>
+                  <div class="bubble-float bubble-2"></div>
+                  <div class="bubble-float bubble-3"></div>
+                  <div class="bubble-float bubble-4"></div>
                 </div>
-                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                <p style="font-size: 14px; color: #666;">${verificationUrl}</p>
-                <p>This link will expire in 24 hours for security reasons.</p>
+                
+                <div style="text-align: center;">
+                  <a href="${verificationUrl}" class="button">Verify & Enter Your Bubble World</a>
+                </div>
+                
+                <p style="margin-top: 25px;">Once verified, you'll be able to:</p>
+                <ul>
+                  <li>Create your own conversation bubbles</li>
+                  <li>Explore topics that resonate with you</li>
+                  <li>Connect with like-minded individuals in a vibrant 3D space</li>
+                </ul>
+                
+                <p style="font-size: 14px; color: #666; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style="font-size: 12px; color: #666; word-break: break-all; background: #f9f9f9; padding: 10px; border-radius: 6px;">${verificationUrl}</p>
+                
+                <p style="font-style: italic; color: #ebbd34; margin-top: 25px;">Your link will expire in 24 hours for security reasons.</p>
               </div>
               <div class="footer">
                 <p>© 2024 Bubble Trouble. All rights reserved.</p>
