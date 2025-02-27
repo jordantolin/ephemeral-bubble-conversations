@@ -11,13 +11,14 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Create storage bucket for avatars if it doesn't exist
+// Create storage buckets if they don't exist
 (async () => {
   try {
-    // Check if the bucket exists first to avoid unnecessary operations
+    // Check if the buckets exist first to avoid unnecessary operations
     const { data: buckets } = await supabase.storage.listBuckets();
-    const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
     
+    // Create avatars bucket if it doesn't exist
+    const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
     if (!avatarBucketExists) {
       const { data, error } = await supabase.storage.createBucket('avatars', {
         public: true,
@@ -31,9 +32,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
       }
     }
     
-    // Also create a media bucket for chat attachments
+    // Create bubble-media bucket if it doesn't exist
     const mediaBucketExists = buckets?.some(bucket => bucket.name === 'bubble-media');
-    
     if (!mediaBucketExists) {
       const { data, error } = await supabase.storage.createBucket('bubble-media', {
         public: true,

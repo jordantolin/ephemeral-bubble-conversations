@@ -112,6 +112,17 @@ const Index = () => {
   const recordingTimerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // Check for stored bubble ID in localStorage to open a specific bubble chat
+  useEffect(() => {
+    const storedBubbleId = localStorage.getItem('openBubbleId');
+    if (storedBubbleId) {
+      setSelectedBubbleId(storedBubbleId);
+      setIsChatOpen(true);
+      // Clear the stored ID after using it
+      localStorage.removeItem('openBubbleId');
+    }
+  }, []);
+
   // Update username in new bubble form when profile or user changes
   useEffect(() => {
     if (profile?.username || user?.email) {
@@ -122,30 +133,43 @@ const Index = () => {
     }
   }, [profile, user]);
 
-  // Fetch bubbles from Supabase
-  const { data: allBubbles = [] } = useQuery({
+  // Fetch bubbles from Supabase with error handling
+  const { data: allBubbles = [], isLoading: isLoadingBubbles } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .gte('expires_at', new Date().toISOString());
-      
-      if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .gte('expires_at', new Date().toISOString());
+        
+        if (error) {
+          console.error("Error fetching bubbles:", error);
+          toast({
+            title: "Error fetching bubbles",
+            description: error.message,
+            variant: "destructive"
+          });
+          return [];
+        }
+
+        return data.map(bubble => ({
+          ...bubble,
+          size: calculateBubbleSize(bubble.reflect_count || 0)
+        }));
+      } catch (err) {
+        console.error("Unexpected error fetching bubbles:", err);
         toast({
           title: "Error fetching bubbles",
-          description: error.message,
+          description: "Could not load bubbles. Please try again.",
           variant: "destructive"
         });
         return [];
       }
-
-      return data.map(bubble => ({
-        ...bubble,
-        size: calculateBubbleSize(bubble.reflect_count || 0)
-      }));
     },
-    refetchInterval: 60000 // Refetch every minute to check for expired bubbles
+    refetchInterval: 60000, // Refetch every minute to check for expired bubbles
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Filter bubbles based on search query
@@ -160,8 +184,17 @@ const Index = () => {
     );
   }, [allBubbles, searchQuery]);
 
-  // Create a new bubble
+  // Create a new bubble with better error handling
   const handleCreateBubble = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create a bubble",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!newBubble.name || !newBubble.topic) {
       toast({
         title: "Missing Information",
@@ -171,53 +204,87 @@ const Index = () => {
       return;
     }
 
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    try {
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
 
-    const username = profile?.username || user?.email || "";
-    
-    const newBubbleData = {
-      name: newBubble.name,
-      topic: newBubble.topic,
-      description: newBubble.description,
-      username,
-      size: "sm" as const,
-      expires_at: expiresAt.toISOString()
-    };
+      const username = profile?.username || user?.email || "";
+      
+      const newBubbleData = {
+        name: newBubble.name,
+        topic: newBubble.topic,
+        description: newBubble.description,
+        username,
+        size: "sm" as const,
+        expires_at: expiresAt.toISOString()
+      };
 
-    const { data, error } = await supabase
-      .from('bubbles')
-      .insert(newBubbleData)
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('bubbles')
+        .insert(newBubbleData)
+        .select()
+        .single();
 
-    if (error) {
+      if (error) {
+        console.error("Error creating bubble:", error);
+        toast({
+          title: "Error creating bubble",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsCreateDialogOpen(false);
+      toast({
+        title: "Success!",
+        description: "New bubble created successfully",
+      });
+
+      // Refresh bubbles list
+      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+
+      // Reset form
+      setNewBubble({ 
+        name: "", 
+        description: "", 
+        topic: "", 
+        username: profile?.username || user?.email || "" 
+      });
+      
+      // Auto-open the new bubble chat
+      setSelectedBubbleId(data.id);
+      setIsChatOpen(true);
+    } catch (err) {
+      console.error("Unexpected error creating bubble:", err);
       toast({
         title: "Error creating bubble",
-        description: error.message,
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle file upload with improved error handling
+  const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to send media",
         variant: "destructive"
       });
       return;
     }
 
-    setIsCreateDialogOpen(false);
-    toast({
-      title: "Success!",
-      description: "New bubble created successfully",
-    });
+    if (!selectedBubbleId) {
+      toast({
+        title: "Error",
+        description: "No bubble selected",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    // Refresh bubbles list
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-
-    setNewBubble({ 
-      name: "", 
-      description: "", 
-      topic: "", 
-      username: profile?.username || user?.email || "" 
-    });
-  };
-
-  const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = type === 'image' ? 'image/*' : 
@@ -225,21 +292,67 @@ const Index = () => {
                    'image/gif';
     
     input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file && selectedBubbleId) {
+      try {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          console.error("No file selected");
+          return;
+        }
+        
+        // Check file size - 10MB limit for all media
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: "Please select a file smaller than 10MB",
+            variant: "destructive"
+          });
+          return;
+        }
+
         const reader = new FileReader();
         reader.onload = async (e) => {
           const content = e.target?.result as string;
-          await handleSendMessage(content);
+          if (content) {
+            await handleSendMessage(content);
+          } else {
+            throw new Error("Failed to read file");
+          }
         };
+        
+        reader.onerror = (error) => {
+          console.error("FileReader error:", error);
+          toast({
+            title: "Error reading file",
+            description: "Could not process your media file",
+            variant: "destructive"
+          });
+        };
+        
         reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("File upload error:", err);
+        toast({
+          title: "Upload error",
+          description: "Failed to upload media. Please try again.",
+          variant: "destructive"
+        });
       }
     };
+    
     input.click();
   };
 
   // Improved voice recording functionality with better mobile support
   const handleVoiceRecord = () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to record audio",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // If already recording, stop it
     if (isRecording) {
       stopRecording();
@@ -257,6 +370,7 @@ const Index = () => {
       }
     };
 
+    // Request microphone permission with better handling
     navigator.mediaDevices.getUserMedia(constraints)
       .then(stream => {
         // Test supported MIME types for different devices
@@ -302,11 +416,21 @@ const Index = () => {
 
         mediaRecorderRef.current.onstop = async () => {
           try {
+            if (audioChunksRef.current.length === 0) {
+              console.warn("No audio data collected");
+              return;
+            }
+            
             const audioBlob = new Blob(audioChunksRef.current, { 
               type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
             });
             
             console.log("Audio blob created:", audioBlob.size, "bytes, type:", audioBlob.type);
+            
+            // Check if the blob is valid
+            if (audioBlob.size === 0) {
+              throw new Error("Empty audio recording");
+            }
             
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -330,6 +454,11 @@ const Index = () => {
             reader.readAsDataURL(audioBlob);
           } catch (error) {
             console.error("Audio processing error:", error);
+            toast({
+              title: "Recording error",
+              description: "Failed to process your recording",
+              variant: "destructive"
+            });
           } finally {
             // Clean up
             stream.getTracks().forEach(track => track.stop());
@@ -374,6 +503,20 @@ const Index = () => {
         mediaRecorderRef.current.stop();
       } catch (error) {
         console.error("Error stopping recording:", error);
+        
+        // Force cleanup if error
+        if (recordingTimerRef.current) {
+          window.clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+        setIsRecording(false);
+        setRecordingSeconds(0);
+        
+        toast({
+          title: "Recording Error",
+          description: "Failed to stop recording properly",
+          variant: "destructive"
+        });
       }
     }
   };
@@ -385,126 +528,193 @@ const Index = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Fetch messages for selected bubble
-  const { data: messages = [] } = useQuery({
+  // Fetch messages for selected bubble with error handling
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ['messages', selectedBubbleId],
     queryFn: async () => {
       if (!selectedBubbleId) return [];
 
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .eq('bubble_id', selectedBubbleId)
-        .order('created_at', { ascending: true });
+      try {
+        const { data, error } = await supabase
+          .from('bubble_messages')
+          .select('*')
+          .eq('bubble_id', selectedBubbleId)
+          .order('created_at', { ascending: true });
 
-      if (error) {
-        toast({
-          title: "Error fetching messages",
-          description: error.message,
-          variant: "destructive"
-        });
+        if (error) {
+          console.error("Error fetching messages:", error);
+          toast({
+            title: "Error fetching messages",
+            description: error.message,
+            variant: "destructive"
+          });
+          return [];
+        }
+
+        return data.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          username: msg.username,
+          timestamp: msg.created_at
+        }));
+      } catch (err) {
+        console.error("Unexpected error fetching messages:", err);
         return [];
       }
-
-      return data.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        username: msg.username,
-        timestamp: msg.created_at
-      }));
     },
-    enabled: !!selectedBubbleId
+    enabled: !!selectedBubbleId,
+    retry: 2
   });
 
   // Subscribe to real-time message updates
   useEffect(() => {
     if (!selectedBubbleId) return;
 
-    const channel = supabase.channel('chat-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'bubble_messages',
-          filter: `bubble_id=eq.${selectedBubbleId}`
-        },
-        (payload) => {
-          // Invalidate messages query to trigger a refresh
-          queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
-        }
-      )
-      .subscribe();
+    let channelSubscription: any;
+
+    try {
+      const channel = supabase.channel('chat-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'bubble_messages',
+            filter: `bubble_id=eq.${selectedBubbleId}`
+          },
+          (payload) => {
+            // Invalidate messages query to trigger a refresh
+            queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+          }
+        )
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') {
+            console.error("Failed to subscribe to real-time updates:", status);
+          }
+        });
+
+      channelSubscription = channel;
+    } catch (err) {
+      console.error("Error subscribing to real-time updates:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        if (channelSubscription) {
+          supabase.removeChannel(channelSubscription);
+        }
+      } catch (err) {
+        console.error("Error removing channel subscription:", err);
+      }
     };
   }, [selectedBubbleId, queryClient]);
 
+  // Send message with enhanced error handling
   const handleSendMessage = async (content?: string) => {
-    if (!selectedBubbleId) return;
-    
-    const messageContent = content || newMessage;
-    if (!messageContent.trim()) return;
-
-    const username = profile?.username || user?.email || "";
-
-    const { error } = await supabase
-      .from('bubble_messages')
-      .insert({
-        bubble_id: selectedBubbleId,
-        content: messageContent,
-        username
-      });
-
-    if (error) {
+    if (!user) {
       toast({
-        title: "Error sending message",
-        description: error.message,
+        title: "Authentication required",
+        description: "Please sign in to send messages",
         variant: "destructive"
       });
       return;
     }
-
-    setNewMessage("");
-  };
-
-  const handleReflect = async (bubbleId: string) => {
-    const username = profile?.username || user?.email || "";
     
-    const { error } = await supabase
-      .from('reflects')
-      .insert({ 
-        bubble_id: bubbleId,
-        username
+    if (!selectedBubbleId) {
+      toast({
+        title: "Error",
+        description: "No bubble selected",
+        variant: "destructive"
       });
-
-    if (error) {
-      if (error.code === '23505') { // Unique violation
-        toast({
-          title: "Already reflected",
-          description: "You have already reflected this bubble",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Error reflecting bubble",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
       return;
     }
+    
+    const messageContent = content || newMessage;
+    if (!messageContent.trim()) return;
 
-    toast({
-      title: "Bubble reflected!",
-      description: "This bubble will appear in your profile",
-    });
+    try {
+      const username = profile?.username || user?.email || "";
 
-    // Invalidate queries to refresh data
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+      const { error } = await supabase
+        .from('bubble_messages')
+        .insert({
+          bubble_id: selectedBubbleId,
+          content: messageContent,
+          username
+        });
+
+      if (error) {
+        console.error("Error sending message:", error);
+        throw error;
+      }
+
+      setNewMessage("");
+    } catch (error: any) {
+      console.error("Message send error:", error);
+      toast({
+        title: "Error sending message",
+        description: error.message || "Failed to send your message",
+        variant: "destructive"
+      });
+    }
   };
 
+  // Reflect on a bubble with better error handling
+  const handleReflect = async (bubbleId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const username = profile?.username || user?.email || "";
+      
+      const { error } = await supabase
+        .from('reflects')
+        .insert({ 
+          bubble_id: bubbleId,
+          username
+        });
+
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Already reflected",
+            description: "You have already reflected this bubble",
+          });
+        } else {
+          console.error("Error reflecting bubble:", error);
+          toast({
+            title: "Error reflecting bubble",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+        return;
+      }
+
+      toast({
+        title: "Bubble reflected!",
+        description: "This bubble will appear in your profile",
+      });
+      
+      // Refresh bubbles to update reflect count
+      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    } catch (err) {
+      console.error("Reflect error:", err);
+      toast({
+        title: "Error reflecting bubble",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle bubble click for opening chat
   const handleBubbleClick = (id: string) => {
     setSelectedBubbleId(id);
     setIsChatOpen(true);
@@ -512,60 +722,87 @@ const Index = () => {
 
   // Subscribe to real-time updates for reflects and bubble changes
   useEffect(() => {
-    const channel = supabase.channel('db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'reflects' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bubble_messages' },
-        () => {
-          if (selectedBubbleId) {
-            queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+    let channelSubscription: any;
+    
+    try {
+      const channel = supabase.channel('db-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'reflects' },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['bubbles'] });
           }
-        }
-      )
-      .subscribe();
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'bubble_messages' },
+          () => {
+            if (selectedBubbleId) {
+              queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') {
+            console.error("Failed to subscribe to database changes:", status);
+          }
+        });
+
+      channelSubscription = channel;
+    } catch (err) {
+      console.error("Error setting up real-time updates:", err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        if (channelSubscription) {
+          supabase.removeChannel(channelSubscription);
+        }
+      } catch (err) {
+        console.error("Error removing channel subscription:", err);
+      }
     };
   }, [selectedBubbleId, queryClient]);
 
-  // Add this query to fetch the selected bubble details
+  // Fetch selected bubble details with caching
   const { data: selectedBubble } = useQuery({
     queryKey: ['bubble', selectedBubbleId],
     queryFn: async () => {
       if (!selectedBubbleId) return null;
 
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .eq('id', selectedBubbleId)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .eq('id', selectedBubbleId)
+          .single();
 
-      if (error) {
-        toast({
-          title: "Error fetching bubble",
-          description: error.message,
-          variant: "destructive"
-        });
+        if (error) {
+          console.error("Error fetching bubble:", error);
+          toast({
+            title: "Error fetching bubble",
+            description: error.message,
+            variant: "destructive"
+          });
+          return null;
+        }
+
+        return data as Bubble;
+      } catch (err) {
+        console.error("Unexpected error fetching bubble:", err);
         return null;
       }
-
-      return data as Bubble;
     },
-    enabled: !!selectedBubbleId
+    enabled: !!selectedBubbleId,
+    staleTime: 30000 // Cache for 30 seconds
   });
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!isLoadingMessages && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isLoadingMessages]);
 
   // Clean up recording on component unmount
   useEffect(() => {
@@ -574,13 +811,21 @@ const Index = () => {
         window.clearInterval(recordingTimerRef.current);
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        mediaRecorderRef.current.stop();
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (err) {
+          console.error("Error stopping recorder on unmount:", err);
+        }
       }
       
       // Clean up audio elements
       Object.values(audioRefs.current).forEach(audio => {
-        audio.pause();
-        audio.src = '';
+        try {
+          audio.pause();
+          audio.src = '';
+        } catch (err) {
+          console.error("Error cleaning up audio:", err);
+        }
       });
     };
   }, []);
@@ -700,12 +945,21 @@ const Index = () => {
 
   // Download media from message
   const handleDownloadMedia = (content: string, type: string) => {
-    const link = document.createElement('a');
-    link.href = content;
-    link.download = `bubble-media-${Date.now()}.${type}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const link = document.createElement('a');
+      link.href = content;
+      link.download = `bubble-media-${Date.now()}.${type}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Download error:", err);
+      toast({
+        title: "Download Error",
+        description: "Failed to download media",
+        variant: "destructive"
+      });
+    }
   };
 
   // Check if a bubble has expired - to match BubbleChat.tsx
@@ -713,6 +967,43 @@ const Index = () => {
     if (!expires_at) return false;
     return new Date(expires_at) < new Date();
   };
+
+  // Return default bubbles if loading takes too long
+  const defaultBubbles = useMemo(() => {
+    if (!isLoadingBubbles || allBubbles.length > 0) return [];
+    
+    return [
+      {
+        id: "default-1",
+        topic: "Welcome",
+        username: "system",
+        name: "Welcome to Bubble Trouble!",
+        size: "lg" as "lg",
+        reflect_count: 10,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        description: "Tap on bubbles to start chatting!"
+      },
+      {
+        id: "default-2",
+        topic: "Getting Started",
+        username: "system",
+        name: "How to use Bubble Trouble",
+        size: "md" as "md",
+        reflect_count: 5,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        description: "Create bubbles, chat, and reflect on topics you love!"
+      }
+    ];
+  }, [isLoadingBubbles, allBubbles]);
+
+  // Determine which bubbles to display: real data, filtered data, or defaults
+  const displayBubbles = searchQuery.trim()
+    ? bubbles
+    : allBubbles.length > 0
+      ? allBubbles
+      : defaultBubbles;
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
@@ -764,37 +1055,50 @@ const Index = () => {
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Feed</span>
               </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
+                    >
+                      <User className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
+                    <DropdownMenuItem className="flex flex-col items-start p-3">
+                      <span className="font-medium text-[#ebbd34]">
+                        {profile?.display_name || user?.email}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        @{profile?.username || user?.email?.split('@')[0]}
+                      </span>
+                    </DropdownMenuItem>
+                    <Link to="/profile">
+                      <DropdownMenuItem>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuItem onClick={signOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link to="/auth">
                   <Button 
                     variant="ghost" 
-                    size="icon"
-                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
+                    size="sm"
+                    className="text-[#ebbd34] hover:bg-[#ebbd34]/5"
                   >
-                    <User className="w-5 h-5" />
+                    <User className="w-4 h-4 mr-2" />
+                    Sign In
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
-                  <DropdownMenuItem className="flex flex-col items-start p-3">
-                    <span className="font-medium text-[#ebbd34]">
-                      {profile?.display_name || user?.email}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      @{profile?.username || user?.email?.split('@')[0]}
-                    </span>
-                  </DropdownMenuItem>
-                  <Link to="/profile">
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                  </Link>
-                  <DropdownMenuItem onClick={signOut}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -817,7 +1121,7 @@ const Index = () => {
       </div>
       
       <main className="flex flex-col items-center justify-start w-full min-h-[calc(100dvh-64px)] pt-28 sm:pt-20">
-        {bubbles.length === 0 && searchQuery.trim() !== "" ? (
+        {displayBubbles.length === 0 && searchQuery.trim() !== "" ? (
           <div className="flex flex-col items-center justify-center h-[calc(100dvh-180px)] text-center p-4">
             <img 
               src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
@@ -829,18 +1133,18 @@ const Index = () => {
               No bubbles match your search "{searchQuery}". Try a different search or create a new bubble!
             </p>
             <Button
-              onClick={() => setIsCreateDialogOpen(true)}
+              onClick={() => user ? setIsCreateDialogOpen(true) : navigate('/auth')}
               className="mt-6 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Create New Bubble
+              {user ? "Create New Bubble" : "Sign In to Create"}
             </Button>
           </div>
         ) : (
           <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
-            {allBubbles.length > 0 ? (
+            {displayBubbles.length > 0 ? (
               <BubbleWorld 
-                topics={bubbles}
+                topics={displayBubbles}
                 onBubbleClick={handleBubbleClick}
               />
             ) : (
@@ -853,12 +1157,12 @@ const Index = () => {
         )}
 
         <Button
-          onClick={() => setIsCreateDialogOpen(true)}
+          onClick={() => user ? setIsCreateDialogOpen(true) : navigate('/auth')}
           className="fixed bottom-6 right-6 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-lg rounded-full w-14 h-14 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8 sm:rounded-lg"
           size="icon"
         >
           <Plus className="w-7 h-7 sm:w-5 sm:h-5 sm:mr-2" />
-          <span className="hidden sm:inline">Create Bubble</span>
+          <span className="hidden sm:inline">{user ? "Create Bubble" : "Sign In"}</span>
         </Button>
       </main>
 
@@ -870,10 +1174,10 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <DialogTitle className="text-xl font-semibold text-white">
-                  {selectedBubble?.name}
+                  {selectedBubble?.name || "Loading..."}
                 </DialogTitle>
                 <DialogDescription className="text-white/80 text-sm">
-                  {selectedBubble?.topic}
+                  {selectedBubble?.topic || "Please wait..."}
                 </DialogDescription>
               </div>
               
@@ -883,7 +1187,7 @@ const Index = () => {
                   size="sm"
                   className="text-white hover:bg-white/20"
                   onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-                  disabled={selectedBubble && isBubbleExpired(selectedBubble.expires_at)}
+                  disabled={!selectedBubble || isBubbleExpired(selectedBubble.expires_at)}
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   <span>Reflect</span>
@@ -901,7 +1205,12 @@ const Index = () => {
 
           {/* Messages area - Matching BubbleChat.tsx style */}
           <ScrollArea className="flex-1 p-4 space-y-4 bg-white/50">
-            {messages.length === 0 ? (
+            {isLoadingMessages ? (
+              <div className="flex flex-col items-center justify-center h-40 text-center">
+                <div className="w-8 h-8 border-2 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin mb-3"></div>
+                <p className="text-[#ebbd34]/70">Loading messages...</p>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-center">
                 <MessageCircle className="w-10 h-10 text-[#ebbd34]/30 mb-2" />
                 <p className="text-[#ebbd34]/70">
@@ -1020,7 +1329,7 @@ const Index = () => {
                         </div>
                       </div>
                     ) : (
-                      <p>{message.content}</p>
+                      <p className="break-words">{message.content}</p>
                     )}
                     
                     <div className={`text-right mt-1 ${
@@ -1091,7 +1400,7 @@ const Index = () => {
             ) : (
               <div className="flex items-center gap-2">
                 {/* Media buttons */}
-                {selectedBubble && !isBubbleExpired(selectedBubble.expires_at) && (
+                {user && selectedBubble && !isBubbleExpired(selectedBubble.expires_at) && (
                   <div className="flex gap-2 shrink-0">
                     <Button 
                       variant="ghost" 
@@ -1120,7 +1429,13 @@ const Index = () => {
                   </div>
                 )}
                 
-                {selectedBubble && isBubbleExpired(selectedBubble.expires_at) ? (
+                {!user ? (
+                  <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-center">
+                    <p className="text-gray-500 text-sm">
+                      <Link to="/auth" className="text-[#ebbd34] hover:underline">Sign in</Link> to join the conversation
+                    </p>
+                  </div>
+                ) : selectedBubble && isBubbleExpired(selectedBubble.expires_at) ? (
                   <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-center">
                     <p className="text-gray-500 text-sm">This bubble has exploded</p>
                   </div>
