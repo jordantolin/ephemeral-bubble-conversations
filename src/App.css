@@ -42,33 +42,14 @@
   color: #888;
 }
 
-.bubble-hub-title {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 700;
-  font-size: 3rem;
-  color: #8B5CF6;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.bubble-hub-subtitle {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 500;
-  font-size: 1.25rem;
-  color: #8E9196;
-  opacity: 0.9;
-  max-width: 600px;
-  margin: 0 auto 2.5rem auto;
-}
-
 @media (max-width: 768px) {
-  .bubble-hub-title {
-    font-size: 2.25rem;
+  #root {
+    padding: 1rem;
   }
-  
-  .bubble-hub-subtitle {
-    font-size: 1rem;
-    padding: 0 1rem;
-  }
+}
+
+/* Add default font family */
+body {
+  font-family: 'Montserrat', sans-serif;
+  background-color: #FAFAFA;
 }

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BubbleWorld from '@/components/BubbleWorld';
 import { BubbleData } from '@/types/bubble';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,17 @@ const SAMPLE_DATA: BubbleData[] = [
 const Index = () => {
   const { toast } = useToast();
   const [bubbleData] = useState<BubbleData[]>(SAMPLE_DATA);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Add a delay to ensure DOM is fully rendered before initializing Three.js
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+      console.log("3D world should be loaded now");
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleBubbleClick = (id: string) => {
     const bubble = bubbleData.find(b => b.id === id);
@@ -33,15 +44,25 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="text-center py-8">
-        <h1 className="bubble-hub-title">Bubble Hub</h1>
-        <p className="bubble-hub-subtitle">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-purple-50 to-white">
+      <div className="text-center py-12 px-4">
+        <h1 className="text-4xl md:text-5xl font-bold text-purple-600 mb-3 tracking-tight">
+          Bubble Hub
+        </h1>
+        <div className="h-1 w-24 bg-purple-400 mx-auto mb-6 rounded-full"></div>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Explore bubbles made in the last 24 hours
         </p>
       </div>
-      <div className="flex-1 w-full" style={{ minHeight: '70vh' }}>
-        <BubbleWorld topics={bubbleData} onBubbleClick={handleBubbleClick} />
+      <div className="flex-1 w-full relative" style={{ minHeight: '75vh' }}>
+        {isLoaded && (
+          <BubbleWorld topics={bubbleData} onBubbleClick={handleBubbleClick} />
+        )}
+        {!isLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full border-4 border-purple-600 border-t-transparent animate-spin"></div>
+          </div>
+        )}
       </div>
     </div>
   );
