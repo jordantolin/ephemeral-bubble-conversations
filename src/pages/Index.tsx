@@ -204,6 +204,37 @@ const Index = () => {
     console.log("Processed bubbles:", bubbles);
   }, [bubbles]);
 
+  // Fetch messages for selected bubble
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return [];
+
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error fetching messages",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      return data.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        username: msg.username,
+        timestamp: msg.created_at
+      }));
+    },
+    enabled: !!selectedBubbleId
+  });
+
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -431,37 +462,6 @@ const Index = () => {
     };
     input.click();
   };
-
-  // Fetch messages for selected bubble
-  const { data: messages = [] } = useQuery({
-    queryKey: ['messages', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return [];
-
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .eq('bubble_id', selectedBubbleId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        toast({
-          title: "Error fetching messages",
-          description: error.message,
-          variant: "destructive"
-        });
-        return [];
-      }
-
-      return data.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        username: msg.username,
-        timestamp: msg.created_at
-      }));
-    },
-    enabled: !!selectedBubbleId
-  });
 
   // Subscribe to real-time message updates
   useEffect(() => {
