@@ -33,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { BubbleData } from "@/types/bubble";
 
 interface Message {
   id: string;
@@ -42,6 +43,7 @@ interface Message {
   created_at: string;
 }
 
+// Match the actual database schema for bubbles
 interface Bubble {
   id: string;
   name: string;
@@ -51,7 +53,7 @@ interface Bubble {
   expires_at: string;
   created_at: string;
   reflect_count: number;
-  created_by: string;
+  username: string; // Instead of created_by
 }
 
 const Index = () => {
@@ -184,7 +186,7 @@ const Index = () => {
             console.log("Bubble change detected:", payload);
             queryClient.invalidateQueries({ queryKey: ['bubbles'] });
             // If the current bubble was updated, refresh its details
-            if (selectedBubbleId && payload.new?.id === selectedBubbleId) {
+            if (selectedBubbleId && payload.new && typeof payload.new === 'object' && 'id' in payload.new && payload.new.id === selectedBubbleId) {
               queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
             }
           }
@@ -306,7 +308,7 @@ const Index = () => {
     if (!searchQuery.trim()) return bubbles;
     
     const query = searchQuery.toLowerCase();
-    return bubbles.filter((bubble: Bubble) => 
+    return bubbles.filter((bubble) => 
       bubble.name.toLowerCase().includes(query) || 
       bubble.topic.toLowerCase().includes(query) ||
       (bubble.description && bubble.description.toLowerCase().includes(query))
@@ -471,6 +473,8 @@ const Index = () => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
       
+      const username = profile?.username || user?.email || "";
+      
       const { data, error } = await supabase
         .from('bubbles')
         .insert({
@@ -480,7 +484,7 @@ const Index = () => {
           size: 'sm',
           reflect_count: 0,
           expires_at: expiresAt.toISOString(),
-          created_by: user.id
+          username: username
         })
         .select()
         .single();
@@ -573,6 +577,21 @@ const Index = () => {
     anchor.download = 'bubble-ambient.mp3';
     anchor.click();
   };
+
+  // Map to BubbleData needed for BubbleWorld component
+  const bubbleDataForComponent = useMemo(() => {
+    return filteredBubbles.map((bubble): BubbleData => ({
+      id: bubble.id,
+      topic: bubble.topic,
+      username: bubble.username,
+      name: bubble.name,
+      size: bubble.size as "sm" | "md" | "lg",
+      reflect_count: bubble.reflect_count,
+      created_at: bubble.created_at,
+      description: bubble.description || undefined,
+      expires_at: bubble.expires_at
+    }));
+  }, [filteredBubbles]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-secondary/20 overflow-x-hidden relative">
@@ -764,7 +783,7 @@ const Index = () => {
           ) : (
             <div className="h-[60vh] w-full">
               <BubbleWorld 
-                bubbles={filteredBubbles} 
+                topics={bubbleDataForComponent}
                 onBubbleClick={(bubbleId) => {
                   setSelectedBubbleId(bubbleId);
                   setChatOpen(true);
