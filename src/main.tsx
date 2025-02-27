@@ -2,7 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import App from './App';
 import Index from './pages/Index';
@@ -19,8 +19,8 @@ const queryClient = new QueryClient();
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <UserProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <UserProvider>
           <Routes>
             <Route path="/" element={<App />}>
               <Route index element={<Index />} />
@@ -28,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="my-bubbles" element={<MyBubbles />} />
               <Route path="profile" element={<Profile />} />
               <Route path="auth" element={<Auth />} />
+              <Route path="index" element={<Navigate to="/" replace />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

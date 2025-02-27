@@ -1,5 +1,6 @@
+
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Send, Plus } from "lucide-react";
+import { useUser } from "@/context/UserContext";
 
 interface Bubble {
   id: string;
@@ -50,52 +52,45 @@ const Index = () => {
   const [newMessage, setNewMessage] = useState("");
   const [newBubbleName, setNewBubbleName] = useState("");
   const [newBubbleDescription, setNewBubbleDescription] = useState("");
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [hasReflected, setHasReflected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { user, loading } = useUser();
+  const navigate = useNavigate();
 
+  // Forward authenticated users to the 3D Feed
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-      setLoading(false);
-    };
-
-    fetchUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user || null);
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+    if (user && !loading) {
+      console.log("User is logged in, redirecting to feed");
+      navigate("/feed");
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     const fetchBubbles = async () => {
-      const { data, error } = await supabase
-        .from("bubbles")
-        .select("*, reflections(count)")
-        .order("created_at", { ascending: false });
+      console.log("Fetching bubbles...");
+      try {
+        const { data, error } = await supabase
+          .from("bubbles")
+          .select("*, reflections(count)")
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching bubbles:", error);
-        return;
+        if (error) {
+          console.error("Error fetching bubbles:", error);
+          return;
+        }
+
+        console.log("Bubbles fetched:", data);
+        // Transform the data to include reflections_count
+        const bubblesWithCounts = data.map((bubble: any) => ({
+          ...bubble,
+          reflections_count: bubble.reflections[0]?.count || 0,
+        }));
+
+        setBubbles(bubblesWithCounts);
+      } catch (e) {
+        console.error("Exception while fetching bubbles:", e);
       }
-
-      // Transform the data to include reflections_count
-      const bubblesWithCounts = data.map((bubble: any) => ({
-        ...bubble,
-        reflections_count: bubble.reflections[0]?.count || 0,
-      }));
-
-      setBubbles(bubblesWithCounts);
     };
 
     fetchBubbles();
@@ -339,6 +334,11 @@ const Index = () => {
           <div>
             {user ? (
               <div className="flex items-center gap-4">
+                <Link to="/feed">
+                  <Button className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90">
+                    Vai al mondo 3D
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10 hover:text-[#ebbd34]"
