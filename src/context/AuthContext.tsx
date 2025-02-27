@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Fetch profile data
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -62,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
+      console.log('Profile data received:', data);
+      
       // Type the raw data and ensure updated_at is present
       const rawData = data as RawProfileData;
       const profileWithUpdatedAt: Profile = {
@@ -82,85 +85,132 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).then(profileData => {
-          if (profileData) {
+    console.log('AuthProvider initializing...');
+    let mounted = true;
+    
+    const initializeAuth = async () => {
+      try {
+        console.log('Getting initial session...');
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        console.log('Session received:', session ? 'Valid session' : 'No session');
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          console.log('Fetching profile for user:', session.user.id);
+          const profileData = await fetchProfile(session.user.id);
+          if (mounted && profileData) {
+            console.log('Setting profile data');
             setProfile(profileData);
           }
-        });
+        }
+        
+        if (mounted) {
+          console.log('Setting isLoading to false');
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    });
+    };
+    
+    initializeAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
+      if (!mounted) return;
+      
       setUser(session?.user ?? null);
       
       if (event === 'SIGNED_IN' && session?.user) {
+        console.log('User signed in, fetching profile');
         const profileData = await fetchProfile(session.user.id);
-        if (profileData) {
+        if (mounted && profileData) {
           setProfile(profileData);
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
         setProfile(null);
-        navigate('/auth');
+        if (mounted) {
+          navigate('/auth');
+        }
       }
       
-      setIsLoading(false);
+      if (mounted) {
+        setIsLoading(false);
+      }
     });
 
-    // Set up real-time subscription for profile updates
-    const profileSubscription = supabase
-      .channel('profile-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user?.id}`
-        },
-        async (payload) => {
-          if (payload.new) {
-            // Type the raw data from real-time updates
-            const rawData = payload.new as RawProfileData;
-            const updatedProfile: Profile = {
-              id: rawData.id,
-              username: rawData.username,
-              display_name: rawData.display_name,
-              avatar_url: rawData.avatar_url,
-              created_at: rawData.created_at,
-              updated_at: rawData.updated_at || rawData.created_at
-            };
-            setProfile(updatedProfile);
+    // Set up real-time subscription for profile updates only if we have a user
+    let profileSubscription: any = null;
+    
+    if (user?.id) {
+      console.log('Setting up real-time profile subscription for user:', user.id);
+      profileSubscription = supabase
+        .channel('profile-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`
+          },
+          async (payload) => {
+            console.log('Real-time profile update received:', payload);
+            if (mounted && payload.new) {
+              // Type the raw data from real-time updates
+              const rawData = payload.new as RawProfileData;
+              const updatedProfile: Profile = {
+                id: rawData.id,
+                username: rawData.username,
+                display_name: rawData.display_name,
+                avatar_url: rawData.avatar_url,
+                created_at: rawData.created_at,
+                updated_at: rawData.updated_at || rawData.created_at
+              };
+              setProfile(updatedProfile);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }
 
     return () => {
+      console.log('Cleaning up AuthProvider...');
+      mounted = false;
       subscription.unsubscribe();
-      profileSubscription.unsubscribe();
+      if (profileSubscription) {
+        profileSubscription.unsubscribe();
+      }
     };
   }, [navigate, user?.id]);
 
   const signIn = async (email: string): Promise<void> => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signInWithOtp({ email });
       if (error) throw error;
       alert('Check your email for the login link!');
     } catch (error: any) {
       alert(error.error_description || error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string): Promise<void> => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -175,15 +225,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       alert('Check your email for the verification link!');
     } catch (error: any) {
       alert(error.error_description || error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signOut = async (): Promise<void> => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error: any) {
       alert(error.error_description || error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
