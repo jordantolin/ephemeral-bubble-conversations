@@ -13,12 +13,12 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Create storage bucket for avatars if it doesn't exist
 (async () => {
-  // Check if the bucket exists first to avoid unnecessary operations
-  const { data: buckets } = await supabase.storage.listBuckets();
-  const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
-  
-  if (!avatarBucketExists) {
-    try {
+  try {
+    // Check if the bucket exists first to avoid unnecessary operations
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+    
+    if (!avatarBucketExists) {
       const { data, error } = await supabase.storage.createBucket('avatars', {
         public: true,
         fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
@@ -29,8 +29,24 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
       } else {
         console.log('Avatars bucket created successfully');
       }
-    } catch (err) {
-      console.error('Error creating avatars bucket:', err);
     }
+    
+    // Also create a media bucket for chat attachments
+    const mediaBucketExists = buckets?.some(bucket => bucket.name === 'bubble-media');
+    
+    if (!mediaBucketExists) {
+      const { data, error } = await supabase.storage.createBucket('bubble-media', {
+        public: true,
+        fileSizeLimit: 1024 * 1024 * 10, // 10MB limit for media files
+      });
+      
+      if (error) {
+        console.error('Failed to create bubble-media bucket:', error);
+      } else {
+        console.log('Bubble media bucket created successfully');
+      }
+    }
+  } catch (err) {
+    console.error('Error creating storage buckets:', err);
   }
 })();
