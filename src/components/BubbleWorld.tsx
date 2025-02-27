@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -54,7 +55,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     interactionRef.current.zoom.target = camera.position.z;
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: "high-performance"
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     container.appendChild(renderer.domElement);
@@ -113,6 +117,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.add(createSprite(topic.topic, 0.2, isMobile ? 28 : 32));
       bubbleGroup.add(createSprite(`⭐ ${topic.reflect_count}`, -0.8, isMobile ? 24 : 28));
 
+      // Set initial position
       const position = calculateOrbitPosition(index, topics.length, 0);
       bubbleGroup.position.set(position.x, position.y, position.z);
       
