@@ -1,6 +1,0 @@
-
-project_id = "fmsijphhzututcmzlhfr"
-
-[global.env]
-PUBLIC_URL = "https://bubbletroubleapp.com"
-RESEND_API_KEY = "re_Dvj5pb9J_8YcNwzprJEu1va76CKZSCUkA"
