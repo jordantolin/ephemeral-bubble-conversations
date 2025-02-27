@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,12 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom of messages when new ones arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
@@ -112,6 +119,17 @@ const Index = () => {
     },
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
+
+  // Check for bubble in URL and open it
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const bubbleId = urlParams.get('bubble');
+    
+    if (bubbleId) {
+      setSelectedBubbleId(bubbleId);
+      setIsChatOpen(true);
+    }
+  }, [location.search]);
 
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
@@ -157,6 +175,12 @@ const Index = () => {
     });
 
     setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+    
+    // Open the newly created bubble
+    if (data) {
+      setSelectedBubbleId(data.id);
+      setIsChatOpen(true);
+    }
   };
 
   const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
@@ -169,10 +193,21 @@ const Index = () => {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file && selectedBubbleId) {
+        // Show loading toast
+        toast({
+          title: `Uploading ${type}...`,
+          description: "Please wait while your file is being processed",
+        });
+        
         const reader = new FileReader();
         reader.onload = async (e) => {
           const content = e.target?.result as string;
           await handleSendMessage(content);
+          
+          toast({
+            title: "Success!",
+            description: `Your ${type} has been sent`,
+          });
         };
         reader.readAsDataURL(file);
       }
@@ -435,6 +470,14 @@ const Index = () => {
     enabled: !!selectedBubbleId
   });
 
+  // Close both dialogs when user navigates away
+  useEffect(() => {
+    return () => {
+      setIsChatOpen(false);
+      setIsCreateDialogOpen(false);
+    };
+  }, [location]);
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
@@ -530,32 +573,32 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Chat Dialog with improved reflect button position */}
+      {/* Chat Dialog - Fixed the duplicate close button issue */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#FEF7E4] rounded-[2rem] overflow-hidden shadow-2xl">
-          <DialogHeader className="relative flex flex-col p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10">
-            {/* Close button in top right corner */}
-            <div className="absolute right-4 top-4">
+          <DialogHeader className="relative p-4 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#ebbd34]/5 to-[#ebbd34]/10">
+            <div className="flex items-start justify-between mb-3">
+              <div className="pr-8"> {/* Padding to prevent text from going under close button */}
+                <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
+                <DialogDescription className="text-[#ebbd34]/70">
+                  {selectedBubble?.description}
+                </DialogDescription>
+              </div>
+              
+              {/* Single close button properly positioned */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsChatOpen(false)}
-                className="h-6 w-6 rounded-full bg-[#ebbd34]/10 text-[#ebbd34] hover:bg-[#ebbd34]/20"
+                className="h-6 w-6 rounded-full bg-[#ebbd34]/10 text-[#ebbd34] hover:bg-[#ebbd34]/20 flex-shrink-0"
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
               </Button>
             </div>
             
-            <div className="pr-8"> {/* Add padding right to avoid text overlapping with close button */}
-              <DialogTitle className="text-[#ebbd34] text-xl">{selectedBubble?.name}</DialogTitle>
-              <DialogDescription className="text-[#ebbd34]/70">
-                {selectedBubble?.description}
-              </DialogDescription>
-            </div>
-            
-            {/* Reflect button positioned at the bottom of the header */}
-            <div className={`flex items-center mt-3 ${isReflectAnimating ? 'animate-pulse' : ''}`}>
+            {/* Reflect button in its own row to avoid proximity to close button */}
+            <div className={`${isReflectAnimating ? 'animate-pulse' : ''}`}>
               <Button
                 variant="outline"
                 className={`px-4 py-2 flex items-center gap-2 ${
@@ -582,46 +625,65 @@ const Index = () => {
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 px-4 py-3 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex flex-col ${
-                  message.username === "@user" ? "items-end" : "items-start"
-                }`}
-              >
-                <div className={`max-w-[80%] rounded-3xl p-3 ${
-                  message.username === "@user"
-                    ? "bg-[#ebbd34] text-white"
-                    : "bg-[#ebbd34]/10 text-[#ebbd34]"
-                }`}>
-                  {message.content.startsWith('data:image/') ? (
-                    <img 
-                      src={message.content} 
-                      alt="Shared image" 
-                      className="rounded-2xl max-w-full"
-                    />
-                  ) : message.content.startsWith('data:video/') ? (
-                    <video 
-                      src={message.content} 
-                      controls 
-                      className="rounded-2xl max-w-full"
-                    />
-                  ) : message.content.startsWith('data:audio/') ? (
-                    <audio 
-                      src={message.content} 
-                      controls 
-                      className="w-full rounded-full bg-[#ebbd34]/5 p-2"
-                    />
-                  ) : (
-                    <p className="text-sm">{message.content}</p>
-                  )}
+          <ScrollArea className="flex-1 px-4 py-3 space-y-4 focus:outline-none">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6">
+                <div className="w-16 h-16 bg-[#ebbd34]/10 rounded-full flex items-center justify-center mb-4">
+                  <MessageCircle className="w-8 h-8 text-[#ebbd34]/40" />
                 </div>
-                <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
-                  {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
-                </span>
+                <h3 className="text-[#ebbd34] font-medium mb-1">No messages yet</h3>
+                <p className="text-[#ebbd34]/60 text-sm max-w-xs">
+                  Be the first to start a conversation in this bubble!
+                </p>
               </div>
-            ))}
+            ) : (
+              <>
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex flex-col ${
+                      message.username === "@user" ? "items-end" : "items-start"
+                    }`}
+                  >
+                    <div className={`max-w-[80%] rounded-3xl p-3 ${
+                      message.username === "@user"
+                        ? "bg-[#ebbd34] text-white"
+                        : "bg-[#ebbd34]/10 text-[#ebbd34]"
+                    }`}>
+                      {message.content.startsWith('data:image/') ? (
+                        <img 
+                          src={message.content} 
+                          alt="Shared image" 
+                          className="rounded-2xl max-w-full"
+                          loading="lazy"
+                        />
+                      ) : message.content.startsWith('data:video/') ? (
+                        <video 
+                          src={message.content} 
+                          controls 
+                          className="rounded-2xl max-w-full"
+                          preload="metadata"
+                        />
+                      ) : message.content.startsWith('data:audio/') ? (
+                        <audio 
+                          src={message.content} 
+                          controls 
+                          className="w-full rounded-full bg-[#ebbd34]/5 p-2"
+                          preload="metadata"
+                        />
+                      ) : (
+                        <p className="text-sm">{message.content}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
+                      {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+                {/* Reference for auto-scrolling */}
+                <div ref={messagesEndRef} />
+              </>
+            )}
           </ScrollArea>
 
           <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
@@ -631,6 +693,7 @@ const Index = () => {
                 size="icon"
                 className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                 onClick={() => handleFileUpload('image')}
+                title="Send image"
               >
                 <Image className="h-5 w-5" />
               </Button>
@@ -639,6 +702,7 @@ const Index = () => {
                 size="icon"
                 className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                 onClick={() => handleFileUpload('video')}
+                title="Send video"
               >
                 <Video className="h-5 w-5" />
               </Button>
@@ -647,6 +711,7 @@ const Index = () => {
                 size="icon"
                 className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                 onClick={() => handleFileUpload('gif')}
+                title="Send GIF"
               >
                 <SmilePlus className="h-5 w-5" />
               </Button>
@@ -655,31 +720,33 @@ const Index = () => {
                 size="icon"
                 className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                 onClick={handleVoiceRecord}
+                title="Record voice message"
               >
                 <Mic className="h-5 w-5" />
               </Button>
             </div>
-            <div className="flex items-center gap-2">
+            <form 
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage();
+              }}
+            >
               <Input
                 placeholder="Type your message..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
                 className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
               />
               <Button 
-                onClick={() => handleSendMessage()}
+                type="submit"
                 size="icon" 
                 className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                disabled={!newMessage.trim()}
               >
                 <Send className="h-5 w-5" />
               </Button>
-            </div>
+            </form>
           </div>
         </DialogContent>
       </Dialog>
@@ -748,6 +815,7 @@ const Index = () => {
             <Button 
               onClick={handleCreateBubble}
               className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              disabled={!newBubble.name || !newBubble.topic}
             >
               Create Bubble
             </Button>
