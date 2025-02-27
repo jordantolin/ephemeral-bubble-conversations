@@ -1,7 +1,9 @@
 
 import * as THREE from 'three';
+import { BubbleData } from '@/types/bubble';
 
-const BUBBLE_COLOR = 0xf7d046; // Bright yellow color
+const BUBBLE_COLOR = 0xebbd34; // The bright yellow color (#ebbd34)
+const WORLD_COLOR = 0xffffff; // White color for the central sphere
 
 export const createBubbleGeometry = (size: number) => {
   return new THREE.SphereGeometry(size, 32, 32);
@@ -11,7 +13,7 @@ export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     color: BUBBLE_COLOR,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.7,
     metalness: 0.1,
     roughness: 0.2,
     transmission: 0.3,
@@ -21,29 +23,21 @@ export const createBubbleMaterial = () => {
   });
 };
 
-export const createContainerCircleGeometry = (radius: number) => {
-  return new THREE.CircleGeometry(radius, 64);
+export const createCentralWorldGeometry = () => {
+  return new THREE.SphereGeometry(2, 64, 64);
 };
 
-export const createContainerCircleMaterial = () => {
-  return new THREE.MeshBasicMaterial({
-    color: BUBBLE_COLOR,
+export const createCentralWorldMaterial = () => {
+  return new THREE.MeshPhysicalMaterial({
+    color: WORLD_COLOR,
     transparent: true,
-    opacity: 0.1,
-    side: THREE.DoubleSide
-  });
-};
-
-export const createContainerRingGeometry = (radius: number) => {
-  return new THREE.RingGeometry(radius * 0.98, radius, 64);
-};
-
-export const createContainerRingMaterial = () => {
-  return new THREE.MeshBasicMaterial({
-    color: BUBBLE_COLOR,
-    transparent: true,
-    opacity: 0.5,
-    side: THREE.DoubleSide
+    opacity: 0.9,
+    metalness: 0.2,
+    roughness: 0.3,
+    transmission: 0.6,
+    thickness: 0.5,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1
   });
 };
 
@@ -66,6 +60,12 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
     context.strokeText(text, canvas.width / 2, canvas.height / 2);
     
     context.fillStyle = '#FFFFFF';
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+    context.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    context.shadowBlur = 20;
+    context.shadowOffsetX = 4;
+    context.shadowOffsetY = 4;
     context.fillText(text, canvas.width / 2, canvas.height / 2);
   }
 

@@ -1,11 +1,11 @@
-
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { Search, User, TrendingUp, Sparkles } from "lucide-react";
-import BubbleWorld from "@/components/BubbleWorld";
+import * as THREE from 'three';
+import * as TWEEN from '@tweenjs/tween.js';
 import {
   Dialog,
   DialogContent,
@@ -16,18 +16,24 @@ import {
 
 const MyBubbles = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
+  const animationFrameRef = useRef<number>();
   const [selectedBubble, setSelectedBubble] = useState<BubbleData | null>(null);
   
   const { data: bubbles = [] } = useQuery({
-    queryKey: ['bubbles', 'my-72h'],
+    queryKey: ['bubbles', 'my-all'],
     queryFn: async () => {
-      const threeDaysAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+      // Get all bubbles created in the last 24 hours
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: recentBubbles, error: recentError } = await supabase
         .from('bubbles')
         .select('*')
-        .gte('created_at', threeDaysAgo)
+        .gte('created_at', yesterday)
         .order('created_at', { ascending: false });
       
       if (recentError) throw recentError;
@@ -39,16 +45,252 @@ const MyBubbles = () => {
     }
   });
 
-  const handleBubbleClick = (bubbleId: string) => {
-    const bubble = bubbles.find(b => b.id === bubbleId);
-    if (bubble) {
-      if (bubble.expires_at && new Date(bubble.expires_at) <= new Date()) {
-        setSelectedBubble(bubble);
-      } else {
-        navigate(`/chat/${bubble.id}`);
+  useEffect(() => {
+    if (!containerRef.current || !bubbles.length) return;
+
+    const container = containerRef.current;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    // Use a smaller radius to ensure bubbles stay inside the visible container
+    const radius = Math.min(width, height) / 3;
+
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+    
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera.position.z = 15;  // Moved closer to make scene more visible
+    cameraRef.current = camera;
+
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true
+    });
+    renderer.setSize(width, height);
+    renderer.setClearColor(0x000000, 0);
+    container.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+
+    // Enhanced lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    scene.add(ambientLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+    mainLight.position.set(10, 10, 10);
+    scene.add(mainLight);
+
+    // Create the container circle with solid fill
+    const circleGeometry = new THREE.CircleGeometry(radius, 64);
+    const circleMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xebbd34,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.DoubleSide
+    });
+    const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+    scene.add(circle);
+
+    // Add visible border ring
+    const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius, 64);
+    const ringMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xebbd34,
+      opacity: 0.8,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    scene.add(ring);
+
+    // Create and position bubbles
+    bubbles.forEach((bubble) => {
+      const group = new THREE.Group();
+      const size = bubble.size === 'lg' ? 0.6 : 
+                   bubble.size === 'md' ? 0.4 : 0.3;
+      const scaledSize = size * (1 + bubble.reflect_count * 0.1);
+      
+      // Create bubble sphere
+      const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
+      const material = new THREE.MeshPhysicalMaterial({
+        color: 0xebbd34,
+        transparent: true,
+        opacity: 0.7,
+        metalness: 0.1,
+        roughness: 0.2,
+        transmission: 0.3,
+        clearcoat: 1.0,
+      });
+      
+      const bubble3D = new THREE.Mesh(geometry, material);
+      group.add(bubble3D);
+
+      // Add text sprites
+      const createSprite = (text: string, yOffset: number) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 128;
+        const context = canvas.getContext('2d')!;
+        
+        context.fillStyle = 'transparent';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = 'bold 24px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        context.strokeStyle = '#000000';
+        context.lineWidth = 4;
+        context.strokeText(text, canvas.width/2, canvas.height/2);
+        
+        context.fillStyle = '#FFFFFF';
+        context.fillText(text, canvas.width/2, canvas.height/2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
+        sprite.position.y = yOffset * scaledSize;
+        return sprite;
+      };
+
+      group.add(createSprite(bubble.name, 1.5));
+      group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
+
+      // Place bubbles randomly within 60% of the circle radius
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * radius * 0.6;
+      group.position.x = Math.cos(angle) * distance;
+      group.position.y = Math.sin(angle) * distance;
+      
+      // Initial velocity
+      const speed = 0.015;
+      const randomAngle = Math.random() * Math.PI * 2;
+      group.userData = {
+        vx: Math.cos(randomAngle) * speed,
+        vy: Math.sin(randomAngle) * speed,
+        id: bubble.id
+      };
+
+      bubblesRef.current[bubble.id] = group;
+      scene.add(group);
+    });
+
+    // Animation loop with strict boundary checking
+    const animate = () => {
+      Object.values(bubblesRef.current).forEach(group => {
+        // Update position
+        group.position.x += group.userData.vx;
+        group.position.y += group.userData.vy;
+
+        // Circle boundary collision with strict containment
+        const distance = Math.sqrt(
+          group.position.x * group.position.x + 
+          group.position.y * group.position.y
+        );
+        
+        const maxRadius = radius * 0.7; // Keep within 70% of circle radius
+        if (distance > maxRadius) {
+          // Push back inside the circle
+          const angle = Math.atan2(group.position.y, group.position.x);
+          group.position.x = maxRadius * Math.cos(angle);
+          group.position.y = maxRadius * Math.sin(angle);
+          
+          // Bounce with increased damping
+          const normal = new THREE.Vector2(
+            group.position.x / distance,
+            group.position.y / distance
+          );
+          const dot = normal.x * group.userData.vx + normal.y * group.userData.vy;
+          group.userData.vx = (group.userData.vx - 2 * dot * normal.x) * 0.7;
+          group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.7;
+        }
+
+        // Bubble collisions
+        Object.values(bubblesRef.current).forEach(otherGroup => {
+          if (group === otherGroup) return;
+
+          const dx = otherGroup.position.x - group.position.x;
+          const dy = otherGroup.position.y - group.position.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          const minDistance = 1.5;
+          if (distance < minDistance) {
+            const angle = Math.atan2(dy, dx);
+            const pushX = Math.cos(angle) * (minDistance - distance) * 0.5;
+            const pushY = Math.sin(angle) * (minDistance - distance) * 0.5;
+            
+            group.position.x -= pushX;
+            group.position.y -= pushY;
+            otherGroup.position.x += pushX;
+            otherGroup.position.y += pushY;
+            
+            // Exchange velocities with damping
+            const tempVx = group.userData.vx;
+            const tempVy = group.userData.vy;
+            group.userData.vx = otherGroup.userData.vx * 0.95;
+            group.userData.vy = otherGroup.userData.vy * 0.95;
+            otherGroup.userData.vx = tempVx * 0.95;
+            otherGroup.userData.vy = tempVy * 0.95;
+          }
+        });
+
+        // Keep text facing camera
+        group.quaternion.copy(camera.quaternion);
+
+        // Gentle floating effect
+        group.userData.vy += Math.sin(Date.now() / 2000) * 0.00005;
+        group.userData.vx += Math.cos(Date.now() / 2000) * 0.00005;
+
+        // Velocity damping
+        group.userData.vx *= 0.995;
+        group.userData.vy *= 0.995;
+      });
+
+      renderer.render(scene, camera);
+      TWEEN.update();
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    // Click handling
+    const onClick = (event: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((event.clientX - rect.left) / width) * 2 - 1,
+        -((event.clientY - rect.top) / height) * 2 + 1
+      );
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj.parent && !(obj.userData?.id)) {
+          obj = obj.parent;
+        }
+        
+        if (obj.userData?.id) {
+          const bubble = bubbles.find(b => b.id === obj.userData.id);
+          if (bubble) {
+            setSelectedBubble(bubble);
+          }
+        }
       }
-    }
-  };
+    };
+
+    container.addEventListener('click', onClick);
+    animate();
+
+    return () => {
+      container.removeEventListener('click', onClick);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (renderer) {
+        renderer.dispose();
+        container.removeChild(renderer.domElement);
+      }
+    };
+  }, [bubbles]);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -125,39 +367,36 @@ const MyBubbles = () => {
         </div>
       </nav>
       
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 mt-16">
-        <div className="text-center mb-4 sm:mb-8">
-          <h1 className="text-3xl sm:text-4xl font-light text-[#ebbd34] mb-2">
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-light text-primary mb-2">
             Recent Bubbles
           </h1>
-          <p className="text-sm sm:text-base text-[#ebbd34]/60">
-            All bubbles created in the last 72 hours
+          <p className="text-primary/60">
+            All bubbles created in the last 24 hours
           </p>
-          <div className="h-px w-16 sm:w-24 bg-[#ebbd34]/20 mx-auto mt-3 sm:mt-4" />
+          <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
         </div>
 
-        <div className="relative h-[400px] sm:h-[600px] w-full max-w-[800px] mx-auto">
-          {bubbles && bubbles.length > 0 && (
-            <BubbleWorld 
-              topics={bubbles.map(bubble => ({
-                ...bubble,
-                username: bubble.username || "Anonymous"
-              }))} 
-              onBubbleClick={handleBubbleClick}
-            />
-          )}
-        </div>
+        <div 
+          ref={containerRef}
+          style={{ 
+            position: 'relative',
+            width: '600px',
+            height: '600px',
+            margin: '0 auto',
+            zIndex: 10
+          }}
+        />
 
         <Dialog open={!!selectedBubble} onOpenChange={() => setSelectedBubble(null)}>
-          <DialogContent className="sm:max-w-[425px] rounded-2xl">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl text-[#ebbd34]">
-                {selectedBubble?.name}
-              </DialogTitle>
-              <DialogDescription className="text-sm sm:text-base text-[#ebbd34]/70">
-                {selectedBubble?.expires_at && new Date(selectedBubble.expires_at) <= new Date() 
-                  ? "This bubble has already exploded"
-                  : selectedBubble?.description || "This bubble is still active"}
+              <DialogTitle>{selectedBubble?.name}</DialogTitle>
+              <DialogDescription>
+                {!selectedBubble?.expires_at || new Date(selectedBubble.expires_at) > new Date() 
+                  ? selectedBubble?.description || "This bubble is still active"
+                  : "This bubble has already exploded"}
               </DialogDescription>
             </DialogHeader>
           </DialogContent>
