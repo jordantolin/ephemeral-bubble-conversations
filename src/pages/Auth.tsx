@@ -203,8 +203,13 @@ export default function Auth() {
         await supabase.auth.signOut();
       }
 
-      // Now send our custom email
+      // Get the email confirmation token through the user's metadata
+      // Since confirmation_token is not directly accessible, we'll use a different approach
       try {
+        // Use a admin function or generate a custom token for email verification
+        // For now, we'll pass the email and username to the function which will
+        // create the verification link using other methods
+
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-email`,
           {
@@ -216,7 +221,9 @@ export default function Auth() {
             body: JSON.stringify({
               email: registerForm.email,
               username: registerForm.username,
-              verificationToken: authData.user.confirmation_token
+              // Instead of using the confirmation token directly, we'll generate a custom token
+              // Or let the server-side function handle verification link creation
+              userId: authData.user.id
             }),
           }
         );

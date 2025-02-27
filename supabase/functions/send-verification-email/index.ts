@@ -4,6 +4,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 import { Resend } from "npm:resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+// Create a Supabase client with the service role key for admin privileges
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,9 +22,31 @@ serve(async (req) => {
   }
 
   try {
-    const { email, username, verificationToken } = await req.json()
+    const { email, username, userId } = await req.json()
     const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:5173'
-    const verificationUrl = `${siteUrl}/auth?verification_token=${verificationToken}`
+    
+    // Generate a token for this user
+    const { data: tokenData, error: tokenError } = await supabase.auth.admin.generateLink({
+      type: 'signup',
+      email: email,
+      options: {
+        redirectTo: `${siteUrl}/auth`
+      }
+    });
+
+    if (tokenError) {
+      throw new Error(`Error generating verification link: ${tokenError.message}`);
+    }
+
+    // Extract the token from the URL
+    const fullUrl = tokenData.properties.action_link;
+    const token = new URL(fullUrl).searchParams.get('token');
+    
+    if (!token) {
+      throw new Error('Failed to extract verification token from generated link');
+    }
+
+    const verificationUrl = `${siteUrl}/auth?verification_token=${token}`;
 
     const emailResponse = await resend.emails.send({
       from: "Bubble Trouble <bubbletroubleapp@gmail.com>",
