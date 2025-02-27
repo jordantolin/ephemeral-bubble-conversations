@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -19,12 +18,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const centralWorldRef = useRef<THREE.Mesh | null>(null);
-  const touchRef = useRef({ 
-    isDragging: false,
+  const interactionRef = useRef({
+    isInteracting: false,
     lastX: 0,
     lastY: 0,
-    startTime: 0,
-    rotationSpeed: { x: 0, y: 0 }
+    rotationSpeed: { x: 0, y: 0 },
+    momentum: { x: 0, y: 0 }
   });
 
   useEffect(() => {
@@ -37,15 +36,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     const width = container.clientWidth;
     const height = container.clientHeight;
-
-    // Optimized camera settings
     const isMobile = width < 768;
-    const camera = new THREE.PerspectiveCamera(
-      isMobile ? 75 : 60,
-      width / height,
-      0.1,
-      1000
-    );
+
+    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
     camera.position.z = isMobile ? 8 : 12;
     cameraRef.current = camera;
 
@@ -58,8 +51,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Enhanced lighting setup
-    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1);
+    // Enhanced lighting
+    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1.2);
     scene.add(ambientLight);
 
     const mainLight = new THREE.DirectionalLight('#FFFFFF', 2);
@@ -70,14 +63,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     backLight.position.set(-5, -5, -5);
     scene.add(backLight);
 
-    // Create Earth-like central world
+    // Create Earth
     const worldGeometry = createCentralWorldGeometry();
     const worldMaterial = createCentralWorldMaterial();
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
-    // Create bubbles with improved positioning
+    // Create bubbles
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -128,92 +121,103 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.add(bubbleGroup);
     });
 
-    // Enhanced touch controls
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      touchRef.current = {
-        isDragging: false,
-        lastX: touch.clientX,
-        lastY: touch.clientY,
-        startTime: Date.now(),
-        rotationSpeed: { x: 0, y: 0 }
+    // Unified interaction handling for both mouse and touch
+    const startInteraction = (x: number, y: number) => {
+      interactionRef.current = {
+        isInteracting: true,
+        lastX: x,
+        lastY: y,
+        rotationSpeed: { x: 0, y: 0 },
+        momentum: { x: 0, y: 0 }
       };
     };
 
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - touchRef.current.lastX;
-      const deltaY = touch.clientY - touchRef.current.lastY;
+    const moveInteraction = (x: number, y: number) => {
+      if (!interactionRef.current.isInteracting || !centralWorld) return;
 
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-        touchRef.current.isDragging = true;
-        touchRef.current.rotationSpeed = {
-          x: deltaY * 0.002,
-          y: deltaX * 0.002
-        };
-      }
+      const deltaX = x - interactionRef.current.lastX;
+      const deltaY = y - interactionRef.current.lastY;
 
-      touchRef.current.lastX = touch.clientX;
-      touchRef.current.lastY = touch.clientY;
+      // Update rotation based on movement
+      centralWorld.rotation.y += deltaX * 0.005;
+      centralWorld.rotation.x += deltaY * 0.005;
+
+      // Store momentum
+      interactionRef.current.momentum = {
+        x: deltaX * 0.005,
+        y: deltaY * 0.005
+      };
+
+      interactionRef.current.lastX = x;
+      interactionRef.current.lastY = y;
     };
 
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      const touchDuration = Date.now() - touchRef.current.startTime;
+    const endInteraction = () => {
+      interactionRef.current.isInteracting = false;
+      
+      // Apply momentum with decay
+      const applyMomentum = () => {
+        if (!centralWorld) return;
 
-      if (!touchRef.current.isDragging && touchDuration < 200) {
-        const touch = e.changedTouches[0];
-        const rect = container.getBoundingClientRect();
-        const x = ((touch.clientX - rect.left) / width) * 2 - 1;
-        const y = -((touch.clientY - rect.top) / height) * 2 + 1;
+        const decay = 0.95;
+        const momentum = interactionRef.current.momentum;
 
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
-        
-        const intersects = raycaster.intersectObjects(scene.children, true);
-        if (intersects.length > 0) {
-          let bubbleGroup = intersects[0].object;
-          while (bubbleGroup && !(bubbleGroup instanceof THREE.Group)) {
-            bubbleGroup = bubbleGroup.parent!;
-          }
-          
-          if (bubbleGroup?.userData?.id) {
-            onBubbleClick(bubbleGroup.userData.id);
-          }
-        }
-      }
-
-      // Add inertia to the rotation
-      const decay = 0.95;
-      const animate = () => {
-        if (Math.abs(touchRef.current.rotationSpeed.x) > 0.0001 || 
-            Math.abs(touchRef.current.rotationSpeed.y) > 0.0001) {
-          centralWorld.rotation.x += touchRef.current.rotationSpeed.x;
-          centralWorld.rotation.y += touchRef.current.rotationSpeed.y;
-          touchRef.current.rotationSpeed.x *= decay;
-          touchRef.current.rotationSpeed.y *= decay;
-          requestAnimationFrame(animate);
+        if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
+          centralWorld.rotation.y += momentum.x;
+          centralWorld.rotation.x += momentum.y;
+          momentum.x *= decay;
+          momentum.y *= decay;
+          requestAnimationFrame(applyMomentum);
         }
       };
-      animate();
+
+      applyMomentum();
     };
 
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: false });
+    // Mouse events
+    container.addEventListener('mousedown', (e) => {
+      startInteraction(e.clientX, e.clientY);
+    });
+
+    container.addEventListener('mousemove', (e) => {
+      moveInteraction(e.clientX, e.clientY);
+    });
+
+    container.addEventListener('mouseup', () => {
+      endInteraction();
+    });
+
+    container.addEventListener('mouseleave', () => {
+      endInteraction();
+    });
+
+    // Touch events
+    container.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      startInteraction(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    container.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      moveInteraction(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    container.addEventListener('touchend', () => {
+      endInteraction();
+    });
 
     // Animation loop
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       
-      // Continuous gentle rotation
-      if (!touchRef.current.isDragging) {
-        centralWorld.rotation.y += 0.001;
+      // Gentle auto-rotation when not interacting
+      if (!interactionRef.current.isInteracting) {
+        centralWorld.rotation.y += 0.0005;
       }
 
-      // Update bubble positions
+      // Keep bubbles facing camera
       Object.values(bubblesRef.current).forEach(bubble => {
         bubble.quaternion.copy(camera.quaternion);
       });
@@ -240,14 +244,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      
       if (renderer.domElement) {
         container.removeChild(renderer.domElement);
       }
