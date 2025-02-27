@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -39,6 +38,40 @@ const Feed = () => {
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
     }
+  });
+
+  // Fetch recent messages for each bubble to show previews
+  const { data: bubbleMessages = {} } = useQuery({
+    queryKey: ['bubble-preview-messages'],
+    queryFn: async () => {
+      if (bubbles.length === 0) return {};
+      
+      // Get the IDs of all bubbles
+      const bubbleIds = bubbles.map(bubble => bubble.id);
+      
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .in('bubble_id', bubbleIds)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Organize messages by bubble_id
+      const messagesByBubble: Record<string, any[]> = {};
+      data.forEach(message => {
+        if (!messagesByBubble[message.bubble_id]) {
+          messagesByBubble[message.bubble_id] = [];
+        }
+        // Only keep the 3 most recent messages per bubble
+        if (messagesByBubble[message.bubble_id].length < 3) {
+          messagesByBubble[message.bubble_id].push(message);
+        }
+      });
+      
+      return messagesByBubble;
+    },
+    enabled: bubbles.length > 0
   });
 
   // Filter bubbles based on search
@@ -118,6 +151,27 @@ const Feed = () => {
     }, 300);
   };
 
+  // Format message timestamp
+  const formatMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Get a truncated preview of message content
+  const getMessagePreview = (content: string) => {
+    // If it's media content, return an appropriate placeholder
+    if (content.startsWith('data:image/')) {
+      return "[Image]";
+    } else if (content.startsWith('data:video/')) {
+      return "[Video]";
+    } else if (content.startsWith('data:audio/')) {
+      return "[Voice message]";
+    }
+    
+    // Otherwise truncate text
+    return content.length > 30 ? content.substring(0, 27) + '...' : content;
+  };
+
   // Handle touch interactions for swiping
   useEffect(() => {
     if (!containerRef.current) return;
@@ -195,11 +249,13 @@ const Feed = () => {
       y: direction > 0 ? '100%' : '-100%',
       opacity: 0,
       scale: 0.8,
+      rotateX: direction > 0 ? -30 : 30,
     }),
     center: {
       y: 0,
       opacity: 1,
       scale: 1,
+      rotateX: 0,
       transition: {
         duration: 0.5,
         ease: [0.34, 1.56, 0.64, 1], // Custom cubic bezier for springy feel
@@ -209,6 +265,7 @@ const Feed = () => {
       y: direction > 0 ? '-100%' : '100%',
       opacity: 0,
       scale: 0.8,
+      rotateX: direction > 0 ? 30 : -30,
       transition: {
         duration: 0.4,
         ease: [0.43, 0.13, 0.23, 0.96], // Custom cubic bezier for smooth exit
@@ -303,7 +360,8 @@ const Feed = () => {
         {/* TikTok-Style Vertical Scrolling Bubbles Container */}
         <div 
           ref={containerRef}
-          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none"
+          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none perspective"
+          style={{ perspective: '1000px' }}
         >
           {isLoading ? (
             <div className="h-full w-full flex flex-col items-center justify-center">
@@ -358,59 +416,116 @@ const Feed = () => {
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    className="absolute inset-0 flex items-center justify-center"
+                    className="absolute inset-0 flex items-center justify-center preserve-3d"
+                    style={{ 
+                      transformStyle: 'preserve-3d',
+                      backfaceVisibility: 'hidden'
+                    }}
                   >
-                    <div className="relative w-full max-w-sm aspect-[3/4] bg-gradient-to-br from-[#ffda7b] to-[#ebbd34] rounded-3xl overflow-hidden shadow-xl">
+                    <div className="relative w-[280px] h-[420px] rounded-full flex items-center justify-center transform-style-3d">
+                      {/* 3D Bubble effect with glassmorphism */}
+                      <div 
+                        className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ffda7b]/90 to-[#ebbd34]/90 shadow-xl"
+                        style={{
+                          boxShadow: '0 20px 50px rgba(235, 189, 52, 0.3), inset 0 0 60px rgba(255, 255, 255, 0.2)',
+                          backdropFilter: 'blur(5px)',
+                          transform: 'translateZ(-10px)',
+                        }}
+                      />
+                      
+                      {/* Bubble shine effect */}
+                      <div 
+                        className="absolute top-0 right-[15%] w-[40%] h-[30%] rounded-full bg-white/30 blur-md"
+                        style={{ transform: 'translateZ(5px)' }}
+                      />
+                      <div 
+                        className="absolute bottom-[20%] left-[10%] w-[20%] h-[10%] rounded-full bg-white/20 blur-sm"
+                        style={{ transform: 'translateZ(5px)' }}
+                      />
+                        
                       {/* Bubble content */}
-                      <div className="absolute inset-0 p-6 flex flex-col">
-                        <div className="flex-1 flex flex-col items-center justify-center text-center">
-                          <h2 className="text-3xl font-bold text-white mb-3 drop-shadow-sm">
+                      <div className="relative w-[85%] h-[85%] rounded-full bg-white/70 backdrop-blur-sm p-5 overflow-hidden flex flex-col items-center transform-style-3d">
+                        <div 
+                          className="flex-1 flex flex-col items-center justify-center text-center"
+                          style={{ transform: 'translateZ(20px)' }}
+                        >
+                          <h2 className="text-3xl font-bold text-[#ebbd34] mb-3 drop-shadow-sm">
                             {filteredBubbles[currentIndex].name}
                           </h2>
-                          <p className="text-lg text-white/90 mb-4">
+                          <p className="text-lg text-[#ebbd34]/90 mb-4">
                             {filteredBubbles[currentIndex].topic}
                           </p>
                           {filteredBubbles[currentIndex].description && (
-                            <p className="text-white/80 text-sm max-w-xs">
+                            <p className="text-[#ebbd34]/80 text-sm max-w-xs mb-2">
                               {filteredBubbles[currentIndex].description}
                             </p>
                           )}
                           
-                          <div className="mt-6 flex items-center justify-center border border-white/20 bg-white/10 backdrop-blur-sm rounded-full px-5 py-2">
-                            <Star className="w-5 h-5 text-white mr-2" />
-                            <span className="text-white font-medium">
+                          <div className="mt-3 flex items-center justify-center border border-[#ebbd34]/20 bg-[#ebbd34]/5 rounded-full px-5 py-2">
+                            <Star className="w-4 h-4 text-[#ebbd34] mr-2" />
+                            <span className="text-[#ebbd34] font-medium text-sm">
                               {filteredBubbles[currentIndex].reflect_count} reflects
                             </span>
                           </div>
                           
-                          <p className="mt-4 text-white/70 text-sm">
+                          <p className="mt-2 text-[#ebbd34]/70 text-xs">
                             by @{filteredBubbles[currentIndex].username.split('@')[0]}
                           </p>
+                          
+                          {/* Chat preview section */}
+                          {bubbleMessages[filteredBubbles[currentIndex].id] && 
+                           bubbleMessages[filteredBubbles[currentIndex].id].length > 0 && (
+                            <div 
+                              className="mt-4 w-full bg-[#ebbd34]/5 rounded-xl p-3 border border-[#ebbd34]/10 max-h-[25%] overflow-hidden"
+                              style={{ transform: 'translateZ(30px)' }}
+                            >
+                              <h4 className="text-xs text-[#ebbd34] font-semibold mb-1 flex items-center">
+                                <MessageCircle className="w-3 h-3 mr-1" /> 
+                                Chat Preview
+                              </h4>
+                              <div className="overflow-hidden">
+                                {bubbleMessages[filteredBubbles[currentIndex].id].slice(0, 2).map((message: any, idx: number) => (
+                                  <div key={idx} className="flex items-start gap-1 mb-1">
+                                    <div className="w-4 h-4 rounded-full bg-[#ebbd34]/30 flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1 text-left">
+                                      <p className="text-[0.65rem] font-medium text-[#ebbd34]/80">
+                                        @{message.username.split('@')[0]}:
+                                      </p>
+                                      <p className="text-[0.7rem] text-[#ebbd34]/70 line-clamp-1">
+                                        {getMessagePreview(message.content)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         
                         {/* Action buttons */}
-                        <div className="flex items-center justify-center gap-4 mt-4">
+                        <div 
+                          className="flex items-center justify-center gap-3 mt-auto"
+                          style={{ transform: 'translateZ(30px)' }}
+                        >
                           <Button 
                             onClick={() => handleReflect(filteredBubbles[currentIndex].id)}
-                            className="bg-white hover:bg-white/90 text-[#ebbd34] rounded-full px-6 py-2 font-medium shadow-md"
+                            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full px-4 py-1 text-sm font-medium shadow-md"
+                            size="sm"
                           >
-                            <Heart className="w-5 h-5 mr-2" />
+                            <Heart className="w-4 h-4 mr-1" />
                             Reflect
                           </Button>
                           
                           <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`}>
                             <Button 
-                              className="bg-white/20 hover:bg-white/30 text-white rounded-full px-6 py-2 font-medium backdrop-blur-sm"
+                              className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-4 py-1 text-sm font-medium"
+                              size="sm"
                             >
-                              <MessageCircle className="w-5 h-5 mr-2" />
+                              <MessageCircle className="w-4 h-4 mr-1" />
                               Chat
                             </Button>
                           </Link>
                         </div>
-                        
-                        {/* Bubble decoration effects */}
-                        <div className="absolute top-[10%] right-[10%] w-20 h-20 rounded-full bg-white/10 blur-md" />
-                        <div className="absolute bottom-[15%] left-[5%] w-12 h-12 rounded-full bg-white/10 blur-md" />
                       </div>
                     </div>
                   </motion.div>
@@ -420,6 +535,22 @@ const Feed = () => {
           )}
         </div>
       </main>
+
+      {/* Global 3D styles */}
+      <style>
+        {`
+          .perspective {
+            perspective: 1000px;
+          }
+          .transform-style-3d {
+            transform-style: preserve-3d;
+            backface-visibility: hidden;
+          }
+          .preserve-3d {
+            transform-style: preserve-3d;
+          }
+        `}
+      </style>
     </div>
   );
 };
