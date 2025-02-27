@@ -4,7 +4,7 @@ export interface BubbleData {
   topic: string;
   username: string;
   name: string;
-  size: "sm" | "md" | "lg";
+  size: string; // Changed from "sm" | "md" | "lg" to string to match database
   reflect_count: number;
   created_at?: string;
   description?: string;
