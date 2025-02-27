@@ -108,31 +108,93 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useUser();
 
+  // For debugging
+  useEffect(() => {
+    console.log("Current user:", user);
+  }, [user]);
+
   // Fetch bubbles with reflects
-  const { data: rawBubbles = [] } = useQuery({
+  const { data: rawBubbles = [], isLoading: bubblesLoading, error: bubblesError } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .gte('expires_at', new Date().toISOString());
-      
-      if (error) {
-        toast({
-          title: "Error fetching bubbles",
-          description: error.message,
-          variant: "destructive"
-        });
+      console.log("Fetching bubbles...");
+      try {
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .gte('expires_at', new Date().toISOString());
+        
+        if (error) {
+          console.error("Supabase error:", error);
+          toast({
+            title: "Error fetching bubbles",
+            description: error.message,
+            variant: "destructive"
+          });
+          return [];
+        }
+
+        console.log("Fetched bubbles:", data);
+        return data as Bubble[];
+      } catch (err) {
+        console.error("Error in fetch:", err);
         return [];
       }
-
-      return data as Bubble[];
     },
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
 
+  // Log errors for debugging
+  useEffect(() => {
+    if (bubblesError) {
+      console.error("Bubbles fetch error:", bubblesError);
+    }
+  }, [bubblesError]);
+
+  // Fallback static data if no bubbles are fetched
+  const staticBubbles: BubbleData[] = [
+    {
+      id: "1",
+      name: "Music Lovers",
+      topic: "Music",
+      username: "system",
+      size: "md",
+      reflect_count: 15
+    },
+    {
+      id: "2",
+      name: "Tech Talk",
+      topic: "Science & Tech",
+      username: "system",
+      size: "lg",
+      reflect_count: 25
+    },
+    {
+      id: "3",
+      name: "Book Club",
+      topic: "Books & Writing",
+      username: "system",
+      size: "sm",
+      reflect_count: 8
+    },
+    {
+      id: "4",
+      name: "Fitness Group",
+      topic: "Health & Fitness",
+      username: "system",
+      size: "md",
+      reflect_count: 12
+    }
+  ];
+
   // Convert raw bubbles to properly typed BubbleData
-  const bubbles: BubbleData[] = rawBubbles.map(toBubbleData);
+  const bubbles: BubbleData[] = rawBubbles.length > 0 
+    ? rawBubbles.map(toBubbleData)
+    : staticBubbles;
+
+  useEffect(() => {
+    console.log("Processed bubbles:", bubbles);
+  }, [bubbles]);
 
   const handleCreateBubble = async () => {
     if (!user) {
@@ -597,10 +659,16 @@ const Index = () => {
         </div>
         
         <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
-          <BubbleWorld 
-            topics={bubbles}
-            onBubbleClick={handleBubbleClick}
-          />
+          {bubblesLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-4 border-[#ebbd34] border-t-transparent animate-spin"></div>
+            </div>
+          ) : (
+            <BubbleWorld 
+              topics={bubbles}
+              onBubbleClick={handleBubbleClick}
+            />
+          )}
         </div>
 
         <Button
