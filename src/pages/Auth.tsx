@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const Auth = () => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
+        console.log("User already has a session, redirecting to feed immediately");
         navigate("/feed"); // Redirect to Feed page which contains the 3D world
       }
     };
@@ -43,8 +45,10 @@ const Auth = () => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("Auth state changed:", event);
         if (session) {
-          // When the user signs in, redirect to the Feed page
+          console.log("Session detected, immediately redirecting to feed");
+          // When the user signs in, immediately redirect to the Feed page
           navigate("/feed");
         }
       }
@@ -222,8 +226,11 @@ const Auth = () => {
       
       if (error) throw error;
 
+      console.log("Sign up successful, data:", data);
+
       // Auto login immediately after signup for beta testing
       if (data.user) {
+        console.log("Auto-logging in after signup");
         // Login automatically - the signup process doesn't automatically log the user in
         const { error: loginError } = await supabase.auth.signInWithPassword({
           email: lowerCaseEmail,
@@ -234,12 +241,13 @@ const Auth = () => {
           throw loginError;
         }
         
-        // Redirect to Feed page - the auth state listener should handle this,
-        // but we'll add it here as a backup
+        // Redirect to Feed page immediately
         toast({
           title: "Benvenuto!",
           description: "Registrazione completata con successo",
         });
+        
+        console.log("Redirecting to feed immediately after signup");
         navigate("/feed");
       }
     } catch (error: any) {
@@ -272,6 +280,7 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      console.log("Signing in with:", email.toLowerCase());
       const { error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase(), // Use lowercase for consistency
         password,
@@ -286,6 +295,7 @@ const Auth = () => {
       });
       
       // Direct navigation to Feed (in addition to the listener)
+      console.log("Redirecting to feed immediately after signin");
       navigate("/feed");
     } catch (error: any) {
       toast({

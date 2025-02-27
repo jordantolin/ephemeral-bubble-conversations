@@ -55,9 +55,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (data.session?.user) {
           console.log("User is authenticated, fetching profile");
           await fetchUserProfile(data.session.user.id);
-          // Redirect to Feed page after login (where the 3D world is)
-          console.log("Redirecting to feed page");
-          navigate('/feed');
+          
+          // Get current path to avoid unnecessary redirects
+          const currentPath = window.location.pathname;
+          
+          // Only redirect to Feed if not already on feed or another authenticated page
+          if (currentPath === '/' || currentPath === '/auth') {
+            console.log("User is authenticated but on public page, redirecting to feed");
+            navigate('/feed');
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -79,9 +85,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && newSession?.user) {
           console.log("User signed in, fetching profile");
           await fetchUserProfile(newSession.user.id);
-          // Redirect to Feed page after login (where the 3D world is)
-          console.log("Redirecting to feed after sign in");
-          navigate('/feed');
+          
+          // Get current path
+          const currentPath = window.location.pathname;
+          
+          // Only redirect if not already on feed
+          if (currentPath !== '/feed') {
+            console.log("Redirecting to feed after sign in");
+            navigate('/feed');
+          }
         } else if (event === 'SIGNED_OUT') {
           console.log("User signed out");
           setUserProfile(null);
