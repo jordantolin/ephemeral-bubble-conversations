@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -78,40 +77,38 @@ const Profile = () => {
 
       setIsUploading(true);
 
-      // Create a unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${user.id}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Check if bucket exists and create if it doesn't
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
-      
-      if (!avatarBucketExists) {
-        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
-          public: true,
-          fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 2MB",
+          variant: "destructive"
         });
-        
-        if (bucketError) {
-          console.error("Error creating avatars bucket:", bucketError);
-          toast({
-            title: "Upload error",
-            description: "Could not create storage bucket. Please try again later.",
-            variant: "destructive"
-          });
-          setIsUploading(false);
-          return;
-        }
+        setIsUploading(false);
+        return;
       }
 
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive"
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      // Create a unique filename using the user's ID
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
       // Upload image to storage
-      console.log("Uploading file to path:", filePath);
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { 
+        .upload(fileName, file, {
           upsert: true,
-          contentType: file.type 
+          contentType: file.type
         });
 
       if (uploadError) {
@@ -122,21 +119,36 @@ const Profile = () => {
       // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from('avatars')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
       const avatarUrl = publicUrlData?.publicUrl;
       
-      console.log("File uploaded, public URL:", avatarUrl);
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
 
-      // Update form data with new avatar URL
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        throw updateError;
+      }
+
+      // Update form data
       setFormData(prev => ({
         ...prev,
         avatar_url: avatarUrl
       }));
 
+      // Refresh profile data in context
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+
       toast({
-        title: "Avatar uploaded",
-        description: "Your profile picture has been updated",
+        title: "Avatar updated",
+        description: "Your profile picture has been updated successfully",
       });
     } catch (error: any) {
       console.error("Upload process error:", error);

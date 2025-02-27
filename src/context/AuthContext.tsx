@@ -1,117 +1,164 @@
-
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Session, User } from "@supabase/supabase-js";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { User } from '@supabase/supabase-js';
 
 interface Profile {
   id: string;
   username: string;
-  display_name: string | null;
+  display_name: string;
   avatar_url: string | null;
-  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
-  session: Session | null;
   user: User | null;
   profile: Profile | null;
   isLoading: boolean;
+  signIn: (email: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const navigate = useNavigate();
 
+  // Fetch profile data
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+  };
+
+  // Initialize auth state
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
       setUser(session?.user ?? null);
-      setIsLoading(false);
-      
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id).then(setProfile);
       }
+      setIsLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
-      setIsLoading(false);
-
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setProfile(profile);
+      } else if (event === 'SIGNED_OUT') {
         setProfile(null);
+        navigate('/auth');
       }
+      
+      setIsLoading(false);
     });
+
+    // Set up real-time subscription for profile updates
+    const profileSubscription = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user?.id}`
+        },
+        async (payload) => {
+          if (payload.new) {
+            setProfile(payload.new as Profile);
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       subscription.unsubscribe();
+      profileSubscription.unsubscribe();
     };
-  }, []);
+  }, [navigate, user?.id]);
 
-  const fetchProfile = async (userId: string) => {
+  const signIn = async (email: string): Promise<void> => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-        return;
-      }
-
-      setProfile(data);
-    } catch (error) {
-      console.error("Unexpected error fetching profile:", error);
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) throw error;
+      alert('Check your email for the login link!');
+    } catch (error: any) {
+      alert(error.error_description || error.message);
     }
   };
 
-  const signOut = async () => {
+  const signUp = async (email: string, password: string): Promise<void> => {
     try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Signed out successfully",
-        description: "You have been logged out",
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: email.split('@')[0],
+            display_name: email.split('@')[0],
+          }
+        }
       });
-    } catch (error) {
-      console.error("Error signing out:", error);
-      toast({
-        title: "Error signing out",
-        description: "An error occurred while signing out",
-        variant: "destructive",
-      });
+      if (error) throw error;
+      alert('Check your email for the verification link!');
+    } catch (error: any) {
+      alert(error.error_description || error.message);
     }
   };
 
-  const value = {
-    session,
-    user,
-    profile,
-    isLoading,
-    signOut,
+  const signOut = async (): Promise<void> => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error: any) {
+      alert(error.error_description || error.message);
+    }
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+  const contextValue = useMemo(
+    () => ({
+      user,
+      profile,
+      isLoading,
+      signIn,
+      signUp,
+      signOut,
+    }),
+    [user, profile, isLoading]
+  );
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
