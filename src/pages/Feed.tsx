@@ -4,11 +4,68 @@ import { Link, useNavigate } from "react-router-dom";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/UserContext";
+import { BubbleData } from "@/types/bubble";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Feed = () => {
   const navigate = useNavigate();
   const { user, loading } = useUser();
   const [isReady, setIsReady] = useState(false);
+  const [topics, setTopics] = useState<BubbleData[]>([]);
+  const { toast } = useToast();
+
+  // Fetch bubbles data
+  useEffect(() => {
+    const fetchBubbles = async () => {
+      if (!user) return;
+      
+      try {
+        console.log("Fetching bubbles for 3D world...");
+        const { data, error } = await supabase
+          .from("bubbles")
+          .select("id, name, description, user_id, created_at, profiles(username)")
+          .order("created_at", { ascending: false });
+          
+        if (error) {
+          console.error("Error fetching bubbles:", error);
+          return;
+        }
+        
+        // Transform data to match BubbleData type
+        const bubbleData: BubbleData[] = data.map((bubble: any) => ({
+          id: bubble.id,
+          topic: bubble.description || "Join this bubble!",
+          username: bubble.profiles?.username || "Anonymous",
+          name: bubble.name,
+          size: Math.random() > 0.7 ? "lg" : Math.random() > 0.4 ? "md" : "sm",
+          reflect_count: Math.floor(Math.random() * 10),
+          created_at: bubble.created_at,
+        }));
+        
+        console.log("Bubbles fetched:", bubbleData.length);
+        setTopics(bubbleData);
+      } catch (e) {
+        console.error("Exception while fetching bubbles:", e);
+      }
+    };
+    
+    if (user) {
+      fetchBubbles();
+    }
+  }, [user]);
+
+  // Handle bubble click
+  const handleBubbleClick = (id: string) => {
+    console.log("Bubble clicked:", id);
+    toast({
+      title: "Bubble Selected",
+      description: `You clicked on bubble ${id}`,
+    });
+    
+    // You can implement additional functionality here, like opening a dialog
+    // or navigating to a detail page
+  };
 
   useEffect(() => {
     console.log("Feed page: Loading state -", loading ? "loading" : "loaded", "User -", user ? "logged in" : "not logged in");
@@ -70,8 +127,8 @@ const Feed = () => {
         </div>
       </div>
 
-      {/* 3D World */}
-      <BubbleWorld />
+      {/* 3D World - Now passing the required props */}
+      <BubbleWorld topics={topics} onBubbleClick={handleBubbleClick} />
 
       {/* Help tooltip */}
       <div className="absolute bottom-4 left-4 z-10 max-w-xs rounded-lg bg-black/50 p-4 text-sm text-white backdrop-blur-sm">
