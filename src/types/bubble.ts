@@ -7,8 +7,6 @@ export interface BubbleData {
   size: "sm" | "md" | "lg";
   reflect_count: number;
   created_at?: string;
-  description?: string;
-  expires_at?: string;
 }
 
 export interface BubbleWorldProps {
