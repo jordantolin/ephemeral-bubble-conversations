@@ -22,7 +22,6 @@ const Feed = () => {
   const dragStartY = useRef(0);
   const dragThreshold = 100; // Pixels required to trigger a bubble change
   
-  // Modified query with staleTime: 0 to prevent loading indefinitely
   const { data: bubbles = [], isLoading } = useQuery({
     queryKey: ['bubbles', 'top-reflected'],
     queryFn: async () => {
@@ -39,12 +38,10 @@ const Feed = () => {
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
     },
-    staleTime: 0, // Set staleTime to 0 to fetch fresh data
-    gcTime: 0, // Set gcTime to 0 to not cache the data
-    refetchInterval: false // Disable auto-refetching
+    refetchInterval: 5000 // Refetch every 5 seconds for real-time updates
   });
 
-  // Fetch recent messages for each bubble to show previews - modified to prevent infinite loading
+  // Fetch recent messages for each bubble to show previews
   const { data: bubbleMessages = {}, isLoading: messagesLoading } = useQuery({
     queryKey: ['bubble-preview-messages'],
     queryFn: async () => {
@@ -75,12 +72,10 @@ const Feed = () => {
       return messagesByBubble;
     },
     enabled: bubbles.length > 0,
-    staleTime: 0, // Set staleTime to 0 to fetch fresh data
-    gcTime: 0, // Set gcTime to 0 to not cache the data
-    refetchInterval: false // Disable auto-refetching
+    refetchInterval: 3000 // Refetch chat messages more frequently
   });
 
-  // Fetch participant count for each bubble - modified to prevent infinite loading
+  // Fetch participant count for each bubble
   const { data: bubbleParticipants = {} } = useQuery({
     queryKey: ['bubble-participants'],
     queryFn: async () => {
@@ -114,9 +109,7 @@ const Feed = () => {
       return countsByBubble;
     },
     enabled: bubbles.length > 0,
-    staleTime: 0, // Set staleTime to 0 to fetch fresh data
-    gcTime: 0, // Set gcTime to 0 to not cache the data
-    refetchInterval: false // Disable auto-refetching
+    refetchInterval: 5000 // Refetch participant counts for real-time updates
   });
 
   // Filter bubbles based on search
@@ -372,33 +365,6 @@ const Feed = () => {
     return `hsla(${h}, 70%, 80%, 0.8)`;
   };
 
-  // Add default bubbles to prevent infinite loading
-  const defaultBubbles: BubbleData[] = [
-    {
-      id: "default-1",
-      topic: "General Discussion",
-      username: "system",
-      name: "Welcome Bubble",
-      size: "lg",
-      reflect_count: 10,
-      created_at: new Date().toISOString(),
-      description: "Join the conversation and share your thoughts!"
-    },
-    {
-      id: "default-2",
-      topic: "Introductions",
-      username: "system",
-      name: "Say Hello",
-      size: "md",
-      reflect_count: 5,
-      created_at: new Date().toISOString(),
-      description: "Introduce yourself to the community"
-    }
-  ];
-
-  // Use default bubbles if loading takes too long or fails
-  const displayBubbles = isLoading && filteredBubbles.length === 0 ? defaultBubbles : filteredBubbles;
-
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
       {/* Header */}
@@ -489,8 +455,12 @@ const Feed = () => {
           className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none"
           style={{ perspective: '1200px' }}
         >
-          {/* Show default content immediately instead of infinite loading */}
-          {displayBubbles.length === 0 ? (
+          {isLoading ? (
+            <div className="h-full w-full flex flex-col items-center justify-center">
+              <div className="w-12 h-12 border-4 border-[#ebbd34]/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
+              <p className="text-[#ebbd34] mt-4">Loading bubbles...</p>
+            </div>
+          ) : filteredBubbles.length === 0 ? (
             <div className="h-full w-full flex flex-col items-center justify-center text-center p-6">
               <img 
                 src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
@@ -518,7 +488,7 @@ const Feed = () => {
 
               {/* Bubble pagination indicator */}
               <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 flex flex-col items-center space-y-1">
-                {displayBubbles.map((_, index) => (
+                {filteredBubbles.map((_, index) => (
                   <div 
                     key={index}
                     className={`h-1.5 w-1.5 rounded-full ${
@@ -530,7 +500,7 @@ const Feed = () => {
 
               {/* Bubble content with smooth transitions */}
               <AnimatePresence initial={false} custom={direction}>
-                {displayBubbles.length > 0 && (
+                {filteredBubbles.length > 0 && (
                   <motion.div
                     key={currentIndex}
                     custom={direction}
@@ -548,7 +518,7 @@ const Feed = () => {
                       className="relative w-[320px] h-[320px] rounded-full overflow-visible cursor-pointer"
                       style={{ transformStyle: 'preserve-3d' }}
                       onClick={() => {
-                        window.location.href = `/bubbles/${displayBubbles[currentIndex].id}`;
+                        window.location.href = `/bubbles/${filteredBubbles[currentIndex].id}`;
                       }}
                     >
                       {/* Background gradient circle with glow */}
@@ -587,10 +557,10 @@ const Feed = () => {
                               className="text-2xl font-bold text-[#ebbd34] mb-1"
                               style={{ textShadow: '0 1px 2px rgba(235, 189, 52, 0.2)' }}
                             >
-                              {displayBubbles[currentIndex].name}
+                              {filteredBubbles[currentIndex].name}
                             </h2>
                             <p className="text-sm text-[#ebbd34]/80 font-medium">
-                              {displayBubbles[currentIndex].topic}
+                              {filteredBubbles[currentIndex].topic}
                             </p>
                           </div>
                           
@@ -600,26 +570,26 @@ const Feed = () => {
                               <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
                                 <Star className="w-3 h-3 text-[#ebbd34] mr-1" />
                                 <span className="text-xs text-[#ebbd34] font-medium">
-                                  {displayBubbles[currentIndex].reflect_count}
+                                  {filteredBubbles[currentIndex].reflect_count}
                                 </span>
                               </div>
                               
                               <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
                                 <Users className="w-3 h-3 text-[#ebbd34] mr-1" />
                                 <span className="text-xs text-[#ebbd34] font-medium">
-                                  {bubbleParticipants[displayBubbles[currentIndex].id] || 0}
+                                  {bubbleParticipants[filteredBubbles[currentIndex].id] || 0}
                                 </span>
                               </div>
                               
                               <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
                                 <span className="text-xs text-[#ebbd34] font-medium">
-                                  {formatDate(displayBubbles[currentIndex].created_at)}
+                                  {formatDate(filteredBubbles[currentIndex].created_at)}
                                 </span>
                               </div>
                             </div>
                             
                             {/* Expired bubble warning */}
-                            {isBubbleExpired(displayBubbles[currentIndex]) && (
+                            {isBubbleExpired(filteredBubbles[currentIndex]) && (
                               <div className="mb-2 py-1 px-3 bg-red-100 rounded-full">
                                 <p className="text-xs text-red-600 font-medium">
                                   This bubble has already exploded
@@ -627,27 +597,27 @@ const Feed = () => {
                               </div>
                             )}
                             
-                            {displayBubbles[currentIndex].description && (
+                            {filteredBubbles[currentIndex].description && (
                               <p className="text-[#ebbd34]/70 text-xs mb-2 max-w-[90%] line-clamp-2">
-                                {displayBubbles[currentIndex].description}
+                                {filteredBubbles[currentIndex].description}
                               </p>
                             )}
                             
                             <p className="text-[#ebbd34]/60 text-xs">
-                              by @{displayBubbles[currentIndex].username.split('@')[0]}
+                              by @{filteredBubbles[currentIndex].username.split('@')[0]}
                             </p>
                           </div>
                           
                           {/* Bottom section - chat preview */}
-                          {!messagesLoading && bubbleMessages[displayBubbles[currentIndex].id] && 
-                           bubbleMessages[displayBubbles[currentIndex].id]?.length > 0 ? (
+                          {!messagesLoading && bubbleMessages[filteredBubbles[currentIndex].id] && 
+                           bubbleMessages[filteredBubbles[currentIndex].id].length > 0 ? (
                             <div className="w-full bg-[#ebbd34]/5 rounded-xl p-2 border border-[#ebbd34]/10 mt-1">
                               <h4 className="text-xs text-[#ebbd34] font-semibold mb-1 flex items-center">
                                 <MessageCircle className="w-3 h-3 mr-1" /> 
                                 Recent Chat
                               </h4>
                               <div className="overflow-hidden max-h-[80px]">
-                                {bubbleMessages[displayBubbles[currentIndex].id].slice(0, 3).map((message: any, idx: number) => (
+                                {bubbleMessages[filteredBubbles[currentIndex].id].slice(0, 3).map((message: any, idx: number) => (
                                   <div key={idx} className="flex items-start gap-1 mb-1">
                                     <div 
                                       className="w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center text-[0.5rem] text-white"
@@ -672,7 +642,7 @@ const Feed = () => {
                                 ))}
                               </div>
                               <div className="text-center">
-                                <Link to={`/bubbles/${displayBubbles[currentIndex].id}`} className="text-[0.7rem] text-[#ebbd34] hover:underline">
+                                <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`} className="text-[0.7rem] text-[#ebbd34] hover:underline">
                                   View full conversation →
                                 </Link>
                               </div>
@@ -680,8 +650,7 @@ const Feed = () => {
                           ) : (
                             <div className="w-full bg-[#ebbd34]/5 rounded-xl p-3 border border-[#ebbd34]/10 text-center mt-1">
                               <p className="text-xs text-[#ebbd34]/60">
-                                {/* Don't show loading message anymore */}
-                                No messages yet. Be the first to chat!
+                                {messagesLoading ? "Loading messages..." : "No messages yet. Be the first to chat!"}
                               </p>
                             </div>
                           )}
@@ -695,23 +664,23 @@ const Feed = () => {
                         onClick={(e) => e.stopPropagation()} // Prevent triggering the bubble click
                       >
                         <Button 
-                          onClick={(e) => handleReflect(displayBubbles[currentIndex].id, e)}
+                          onClick={(e) => handleReflect(filteredBubbles[currentIndex].id, e)}
                           className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full px-5 py-2 shadow-lg"
                           size="sm"
-                          disabled={isBubbleExpired(displayBubbles[currentIndex])}
+                          disabled={isBubbleExpired(filteredBubbles[currentIndex])}
                         >
                           <Sparkles className="w-4 h-4 mr-2" />
                           Reflect
                         </Button>
                         
                         <Link 
-                          to={`/bubbles/${displayBubbles[currentIndex].id}`}
+                          to={`/bubbles/${filteredBubbles[currentIndex].id}`}
                           onClick={(e) => e.stopPropagation()} // Prevent double navigation
                         >
                           <Button 
                             className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
                             size="sm"
-                            disabled={isBubbleExpired(displayBubbles[currentIndex])}
+                            disabled={isBubbleExpired(filteredBubbles[currentIndex])}
                           >
                             <MessageCircle className="w-4 h-4 mr-2" />
                             Join the Chat
@@ -720,7 +689,7 @@ const Feed = () => {
                       </div>
 
                       {/* "Exploded" indicator for expired bubbles */}
-                      {isBubbleExpired(displayBubbles[currentIndex]) && (
+                      {isBubbleExpired(filteredBubbles[currentIndex]) && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="absolute inset-[15px] rounded-full bg-black/10 backdrop-blur-sm z-10" />
                           <div className="bg-red-600/80 text-white px-4 py-2 rounded-xl shadow-lg z-20 rotate-[-15deg] transform scale-125">

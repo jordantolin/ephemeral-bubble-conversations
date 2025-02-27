@@ -1,90 +1,71 @@
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { Link, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Search, User, TrendingUp, Sparkles, Trophy, Star, Edit, LogOut, Save, Sparkle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import { UploadCloud, User, Pencil, Check, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const profileSchema = z.object({
-  username: z.string().min(3, {
-    message: "Username must be at least 3 characters.",
-  }),
-  display_name: z.string().min(1, {
-    message: "Display name is required.",
-  }),
-  avatar_url: z.string().nullable(),
-});
+interface FormData {
+  display_name: string;
+  username: string;
+  avatar_url: string | null;
+}
 
-type ProfileFormValues = z.infer<typeof profileSchema>;
+interface Bubble {
+  id: string;
+  name: string;
+  topic: string;
+  description: string | null;
+  reflect_count: number;
+  expires_at: string;
+}
 
-export default function Profile() {
-  const { user, profile, isLoading } = useAuth();
+const Profile = () => {
+  const { user, profile, signOut } = useAuth();
+  const location = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [formData, setFormData] = useState<ProfileFormValues>({
-    username: "",
+  const [formData, setFormData] = useState<FormData>({
     display_name: "",
-    avatar_url: null,
+    username: "",
+    avatar_url: null
   });
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: formData,
-  });
-
-  // Initialize form with profile data when it's available
+  // Set initial form data when profile loads
   useEffect(() => {
     if (profile) {
-      console.log("Profile data loaded:", profile);
-      const initialData = {
-        username: profile.username || "",
+      setFormData({
         display_name: profile.display_name || "",
-        avatar_url: profile.avatar_url,
-      };
-      setFormData(initialData);
-      form.reset(initialData);
+        username: profile.username || "",
+        avatar_url: profile.avatar_url || null
+      });
     }
-  }, [profile, form]);
-
-  // Show a loading state or error if profile is missing but auth is completed
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto border-4 border-[#ebbd34] border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-lg text-[#ebbd34]">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
-        <div className="text-center">
-          <p className="mt-4 text-lg text-red-500">Authentication required</p>
-          <Button 
-            onClick={() => window.location.href = '/auth'} 
-            className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90"
-          >
-            Go to Login
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  }, [profile]);
 
   // Handle avatar upload
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,43 +77,41 @@ export default function Profile() {
       }
 
       setIsUploading(true);
-      toast({
-        title: "Uploading...",
-        description: "Your profile picture is being uploaded",
-      });
 
-      // Validate file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select an image under 2MB",
-          variant: "destructive"
-        });
-        setIsUploading(false);
-        return;
-      }
-
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please select an image file",
-          variant: "destructive"
-        });
-        setIsUploading(false);
-        return;
-      }
-
-      // Create a unique filename using the user's ID
+      // Create a unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${Date.now()}_${user.id}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Check if bucket exists and create if it doesn't
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+      
+      if (!avatarBucketExists) {
+        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
+        });
+        
+        if (bucketError) {
+          console.error("Error creating avatars bucket:", bucketError);
+          toast({
+            title: "Upload error",
+            description: "Could not create storage bucket. Please try again later.",
+            variant: "destructive"
+          });
+          setIsUploading(false);
+          return;
+        }
+      }
 
       // Upload image to storage
-      const { error: uploadError, data } = await supabase.storage
+      console.log("Uploading file to path:", filePath);
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, {
+        .upload(filePath, file, { 
           upsert: true,
-          contentType: file.type
+          contentType: file.type 
         });
 
       if (uploadError) {
@@ -143,37 +122,21 @@ export default function Profile() {
       // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from('avatars')
-        .getPublicUrl(fileName);
+        .getPublicUrl(filePath);
 
       const avatarUrl = publicUrlData?.publicUrl;
       
-      // Update profile with new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
+      console.log("File uploaded, public URL:", avatarUrl);
 
-      if (updateError) {
-        console.error("Profile update error:", updateError);
-        throw updateError;
-      }
-
-      // Update form data
+      // Update form data with new avatar URL
       setFormData(prev => ({
         ...prev,
         avatar_url: avatarUrl
       }));
-      form.setValue('avatar_url', avatarUrl);
-
-      // Refresh profile data
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
 
       toast({
-        title: "Avatar updated",
-        description: "Your profile picture has been updated successfully",
+        title: "Avatar uploaded",
+        description: "Your profile picture has been updated",
       });
     } catch (error: any) {
       console.error("Upload process error:", error);
@@ -187,195 +150,507 @@ export default function Profile() {
     }
   };
 
-  const handleProfileUpdate = async (data: ProfileFormValues) => {
+  // Fetch user's reflected bubbles
+  const { data: reflectedBubbles = [], isLoading: isLoadingBubbles } = useQuery({
+    queryKey: ['reflectedBubbles', profile?.username],
+    queryFn: async () => {
+      if (!user || !profile?.username) return [];
+
+      const { data: reflects, error } = await supabase
+        .from('reflects')
+        .select('bubble_id')
+        .eq('username', profile.username);
+      
+      if (error) {
+        console.error("Error fetching reflects:", error);
+        toast({
+          title: "Error fetching reflects",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      if (reflects.length === 0) return [];
+
+      const bubbleIds = reflects.map(r => r.bubble_id);
+      const { data: bubbles, error: bubblesError } = await supabase
+        .from('bubbles')
+        .select('*')
+        .in('id', bubbleIds);
+      
+      if (bubblesError) {
+        console.error("Error fetching bubbles:", bubblesError);
+        toast({
+          title: "Error fetching bubbles",
+          description: bubblesError.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      return bubbles;
+    },
+    enabled: !!user && !!profile?.username
+  });
+
+  // Get user stats from reflected bubbles
+  const userStats = {
+    totalReflects: reflectedBubbles.length,
+    topTopics: getTopTopics(reflectedBubbles),
+    level: Math.min(Math.floor(reflectedBubbles.length / 5) + 1, 10)
+  };
+
+  function getTopTopics(bubbles: any[]) {
+    const topicCounts: { [key: string]: number } = {};
+    bubbles.forEach(bubble => {
+      topicCounts[bubble.topic] = (topicCounts[bubble.topic] || 0) + 1;
+    });
+    
+    return Object.entries(topicCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([topic]) => topic);
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveProfile = async () => {
     if (!user) return;
 
-    setIsSubmitting(true);
     try {
+      // Update the profile record
       const { error } = await supabase
         .from('profiles')
         .update({
-          username: data.username,
-          display_name: data.display_name,
+          display_name: formData.display_name,
+          username: formData.username,
+          avatar_url: formData.avatar_url,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          toast({
+            title: "Username already taken",
+            description: "Please choose a different username",
+            variant: "destructive"
+          });
+        } else {
+          console.error("Error updating profile:", error);
+          throw error;
+        }
+        return;
+      }
 
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully",
+      // Update profile metadata in auth
+      await supabase.auth.updateUser({
+        data: {
+          username: formData.username,
+          display_name: formData.display_name,
+          avatar_url: formData.avatar_url
+        }
       });
 
-      setIsEditing(false);
-      setFormData(data);
-      
       // Refresh profile data
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-    } catch (error: any) {
+      
       toast({
-        title: "Update failed",
-        description: error.message || "There was a problem updating your profile",
+        title: "Profile updated",
+        description: "Your profile has been updated successfully"
+      });
+      
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error("Profile update error:", error);
+      toast({
+        title: "Error updating profile",
+        description: error.message || "An unexpected error occurred",
         variant: "destructive"
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  const handleCancel = () => {
-    form.reset(formData);
-    setIsEditing(false);
+  const getAvatarFallback = () => {
+    if (profile?.display_name) {
+      const nameParts = profile.display_name.split(" ");
+      if (nameParts.length >= 2) {
+        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+      }
+      return profile.display_name.substring(0, 2).toUpperCase();
+    }
+    
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+
+    return "BT";
   };
-
-  // Fallback profile data if profile is null but user exists
-  const fallbackProfile = {
-    username: user?.email?.split('@')[0] || "user",
-    display_name: user?.email?.split('@')[0] || "User",
-    avatar_url: null,
-    updated_at: new Date().toISOString()
-  };
-
-  const displayProfile = profile || fallbackProfile;
-
+  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] py-8 px-4">
-      <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="relative h-32 bg-gradient-to-r from-[#FEF7E4] to-[#ebbd34]/50">
-          <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-            <div className="relative">
-              <Avatar className="w-24 h-24 border-4 border-white">
-                {formData.avatar_url ? (
-                  <AvatarImage src={formData.avatar_url} alt={formData.display_name} />
-                ) : (
-                  <AvatarFallback className="bg-[#ebbd34]/20">
-                    <User className="w-12 h-12 text-[#ebbd34]" />
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <label 
-                className="absolute bottom-0 right-0 bg-[#ebbd34] text-white p-1.5 rounded-full cursor-pointer shadow-md hover:bg-[#ebbd34]/90 transition-colors"
-                htmlFor="avatar-upload"
+    <div className="min-h-screen bg-gradient-to-b from-white to-secondary/20">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
+        <div className="container mx-auto">
+          <div className="flex items-center justify-between h-16 px-4">
+            {/* Logo and Search Section */}
+            <div className="flex items-center gap-6 flex-1">
+              <Link to="/" className="flex items-center gap-2 shrink-0">
+                <img 
+                  src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+                  alt="Bubble Trouble"
+                  className="w-8 h-8"
+                />
+                <span className="text-xl font-semibold hidden sm:inline text-[#ebbd34]">
+                  Bubble Trouble
+                </span>
+              </Link>
+              
+              <div className="relative flex-1 max-w-md hidden sm:block">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
+                <input
+                  type="search"
+                  placeholder="Search bubbles..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="flex items-center gap-1">
+              <Link 
+                to="/my-bubbles" 
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                  location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
+                }`}
               >
-                {isUploading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Pencil className="w-4 h-4" />
-                )}
-              </label>
-              <input 
-                id="avatar-upload" 
-                type="file" 
-                accept="image/*" 
-                className="hidden"
-                onChange={handleAvatarUpload}
-                disabled={isUploading}
-              />
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">My Bubbles</span>
+              </Link>
+              <Link 
+                to="/feed" 
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="hidden sm:inline">Feed</span>
+              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
+                  >
+                    <User className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
+                  <DropdownMenuItem className="flex flex-col items-start p-3">
+                    <span className="font-medium text-[#ebbd34]">
+                      {profile?.display_name || user?.email}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      @{profile?.username || user?.email?.split('@')[0]}
+                    </span>
+                  </DropdownMenuItem>
+                  <Link to="/">
+                    <DropdownMenuItem>
+                      <Sparkle className="mr-2 h-4 w-4" />
+                      <span>Bubble World</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem onClick={signOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
 
-        <div className="pt-16 pb-8 px-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Profile</h1>
+        {/* Mobile Search Bar */}
+        <div className="sm:hidden px-4 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
+            <input
+              type="search"
+              placeholder="Search bubbles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
+            />
+          </div>
+        </div>
+      </nav>
+      
+      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-12">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-sm">
             {!isEditing ? (
-              <Button 
-                onClick={() => setIsEditing(true)} 
-                variant="outline" 
-                size="sm"
-                className="text-[#ebbd34] border-[#ebbd34] hover:bg-[#ebbd34]/10"
-              >
-                <Pencil className="w-4 h-4 mr-1" />
-                Edit
-              </Button>
+              // Profile View Mode
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h1 className="text-2xl font-bold text-[#ebbd34]">My Profile</h1>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="gap-1.5 border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span>Edit Profile</span>
+                  </Button>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  <Avatar className="w-24 h-24 border-4 border-[#ebbd34]">
+                    <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || "Profile"} />
+                    <AvatarFallback className="bg-[#ebbd34] text-white">{getAvatarFallback()}</AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="text-center sm:text-left flex-1">
+                    <h1 className="text-3xl font-bold text-[#ebbd34]">
+                      {profile?.display_name || user?.email?.split('@')[0] || "User"}
+                    </h1>
+                    <p className="text-gray-500 mt-1">
+                      @{profile?.username || user?.email?.split('@')[0] || "user"}
+                    </p>
+                    
+                    {/* Reposition the Reflect button to the right side */}
+                    <div className="flex justify-end mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        <span>Reflect</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8">
+                  <Tabs defaultValue="bubbles" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsTrigger 
+                        value="bubbles"
+                        className="data-[state=active]:bg-[#ebbd34]/20 text-[#ebbd34]"
+                      >
+                        My Reflected Bubbles
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="badges"
+                        className="data-[state=active]:bg-[#ebbd34]/20 text-[#ebbd34]"
+                      >
+                        Badges & Achievements
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="bubbles">
+                      {isLoadingBubbles ? (
+                        <div className="text-center py-8">
+                          <div className="mx-auto w-8 h-8 border-4 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                          <p className="mt-4 text-[#ebbd34]">Loading your bubbles...</p>
+                        </div>
+                      ) : reflectedBubbles.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
+                            <Sparkles className="w-8 h-8 text-[#ebbd34]" />
+                          </div>
+                          <h3 className="text-lg font-medium text-[#ebbd34]">No reflected bubbles yet</h3>
+                          <p className="text-gray-500 mt-2">Explore the bubble world and reflect on topics that interest you!</p>
+                          <Link to="/">
+                            <Button className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white">
+                              Explore Bubbles
+                            </Button>
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {reflectedBubbles.map((bubble: Bubble) => (
+                            <Link key={bubble.id} to="/" onClick={() => {
+                              // Store the bubble ID to be opened when the user navigates to the index page
+                              localStorage.setItem('openBubbleId', bubble.id);
+                            }}>
+                              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-lg text-[#ebbd34]">{bubble.name}</CardTitle>
+                                  <CardDescription>{bubble.topic}</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                  <p className="text-sm text-gray-600 line-clamp-2">{bubble.description || "No description"}</p>
+                                </CardContent>
+                                <CardFooter className="pt-0">
+                                  <div className="w-full flex justify-between items-center">
+                                    <Badge className="text-xs bg-[#ebbd34]/10 text-[#ebbd34]">
+                                      {bubble.reflect_count} reflects
+                                    </Badge>
+                                    <span className="text-xs text-gray-400">
+                                      Expires {new Date(bubble.expires_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </CardFooter>
+                              </Card>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="badges">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {userStats.totalReflects > 0 && (
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <Star className="w-6 h-6 text-[#ebbd34]" />
+                            </div>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Bubble Explorer</p>
+                            <p className="text-xs text-gray-500">Reflected your first bubble</p>
+                          </div>
+                        )}
+                        
+                        {userStats.totalReflects >= 5 && (
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <Trophy className="w-6 h-6 text-[#ebbd34]" />
+                            </div>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Reflection Master</p>
+                            <p className="text-xs text-gray-500">Reflected 5+ bubbles</p>
+                          </div>
+                        )}
+                        
+                        {userStats.topTopics.length > 0 && (
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <Sparkle className="w-6 h-6 text-[#ebbd34]" />
+                            </div>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Topic Enthusiast</p>
+                            <p className="text-xs text-gray-500">Favorite: {userStats.topTopics[0]}</p>
+                          </div>
+                        )}
+                        
+                        {userStats.level >= 3 && (
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <User className="w-6 h-6 text-[#ebbd34]" />
+                            </div>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Bubble Veteran</p>
+                            <p className="text-xs text-gray-500">Reached level 3</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </div>
             ) : (
-              <div className="flex space-x-2">
-                <Button 
-                  onClick={handleCancel} 
-                  variant="outline" 
-                  size="sm"
-                  className="text-red-500 border-red-500 hover:bg-red-50"
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={form.handleSubmit(handleProfileUpdate)} 
-                  variant="default" 
-                  size="sm"
-                  className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
-                  ) : (
-                    <Check className="w-4 h-4 mr-1" />
-                  )}
-                  Save
-                </Button>
+              // Profile Edit Mode
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h1 className="text-2xl font-bold text-[#ebbd34]">Edit Profile</h1>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setIsEditing(false)}
+                      className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={handleSaveProfile}
+                      className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white gap-1.5"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>Save</span>
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-6">
+                  <div className="flex flex-col items-center gap-2">
+                    <label className="relative cursor-pointer group">
+                      <Avatar className="w-24 h-24 border-4 border-[#ebbd34] group-hover:opacity-80 transition-opacity overflow-hidden">
+                        {isUploading ? (
+                          <div className="h-full w-full flex items-center justify-center bg-[#ebbd34]/10">
+                            <div className="w-8 h-8 border-4 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                          </div>
+                        ) : (
+                          <>
+                            <AvatarImage 
+                              src={formData.avatar_url || undefined} 
+                              alt={formData.display_name || "Profile"} 
+                              className="object-cover"
+                            />
+                            <AvatarFallback className="bg-[#ebbd34] text-white">
+                              {getAvatarFallback()}
+                            </AvatarFallback>
+                          </>
+                        )}
+                      </Avatar>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                        {isUploading ? "Uploading..." : "Change Photo"}
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        disabled={isUploading}
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 text-center mt-1 max-w-[150px]">
+                      Click the avatar to upload a new profile picture
+                    </p>
+                  </div>
+                  
+                  <div className="w-full space-y-4">
+                    <div>
+                      <Label htmlFor="display_name" className="text-[#ebbd34]">Display Name</Label>
+                      <Input
+                        id="display_name"
+                        name="display_name"
+                        value={formData.display_name}
+                        onChange={handleInputChange}
+                        placeholder="Your name"
+                        className="mt-1 border-[#ebbd34]/20"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="username" className="text-[#ebbd34]">Username</Label>
+                      <Input
+                        id="username"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        placeholder="username"
+                        className="mt-1 border-[#ebbd34]/20"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">This will be used as your @username</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleProfileUpdate)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</Label>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        id="username"
-                        disabled={!isEditing || isSubmitting}
-                        className={`mt-1 block w-full rounded-md ${
-                          isEditing ? "border-[#ebbd34]/30 focus-visible:ring-[#ebbd34]/20" : "bg-gray-50"
-                        }`}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="display_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label htmlFor="display_name" className="block text-sm font-medium text-gray-700">Display Name</Label>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        id="display_name"
-                        disabled={!isEditing || isSubmitting}
-                        className={`mt-1 block w-full rounded-md ${
-                          isEditing ? "border-[#ebbd34]/30 focus-visible:ring-[#ebbd34]/20" : "bg-gray-50"
-                        }`}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="pt-4">
-                <div className="flex items-center text-sm text-gray-500">
-                  <UploadCloud className="w-4 h-4 mr-1 text-[#ebbd34]" />
-                  <p>Email: {user.email}</p>
-                </div>
-                <div className="flex items-center text-sm text-gray-500 mt-1">
-                  <UploadCloud className="w-4 h-4 mr-1 text-[#ebbd34]" />
-                  <p>Last updated: {new Date(displayProfile.updated_at).toLocaleDateString()}</p>
-                </div>
-              </div>
-            </form>
-          </Form>
         </div>
-      </div>
+      </main>
     </div>
   );
-}
+};
+
+export default Profile;
