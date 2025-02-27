@@ -51,7 +51,7 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
   }, [isActive]);
 
   // Using the JSX.IntrinsicElements approach for typings
-  const AnimatedMesh = animated('mesh') as unknown as React.FC<JSX.IntrinsicElements['mesh']>;
+  const AnimatedMesh = animated('mesh') as unknown as React.FC<any>;
 
   return (
     <AnimatedMesh
