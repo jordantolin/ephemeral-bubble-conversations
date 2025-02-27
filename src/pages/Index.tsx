@@ -96,11 +96,15 @@ const Index = () => {
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
 
   // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
@@ -195,19 +199,25 @@ const Index = () => {
     input.click();
   };
 
+  // Improved voice recording functionality with WhatsApp-style experience
   const handleVoiceRecord = () => {
-    let mediaRecorder: MediaRecorder | null = null;
+    // If already recording, stop it
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
     const chunks: Blob[] = [];
 
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = new MediaRecorder(stream);
         
-        mediaRecorder.ondataavailable = (e) => {
+        mediaRecorderRef.current.ondataavailable = (e) => {
           chunks.push(e.data);
         };
 
-        mediaRecorder.onstop = async () => {
+        mediaRecorderRef.current.onstop = async () => {
           const audioBlob = new Blob(chunks, { type: 'audio/webm' });
           const reader = new FileReader();
           reader.onload = async (e) => {
@@ -218,19 +228,28 @@ const Index = () => {
           };
           reader.readAsDataURL(audioBlob);
           stream.getTracks().forEach(track => track.stop());
+          
+          // Reset the UI
+          setIsRecording(false);
+          setRecordingSeconds(0);
+          if (recordingTimerRef.current) {
+            window.clearInterval(recordingTimerRef.current);
+            recordingTimerRef.current = null;
+          }
         };
 
-        mediaRecorder.start();
+        mediaRecorderRef.current.start();
+        setIsRecording(true);
         
-        toast({
-          title: "Recording...",
-          description: "Click again to stop recording",
-        });
-
-        // Stop recording after 1 minute
+        // Start timer
+        recordingTimerRef.current = window.setInterval(() => {
+          setRecordingSeconds(prev => prev + 1);
+        }, 1000);
+        
+        // Auto-stop after 60 seconds
         setTimeout(() => {
-          if (mediaRecorder?.state === 'recording') {
-            mediaRecorder.stop();
+          if (mediaRecorderRef.current?.state === 'recording') {
+            stopRecording();
           }
         }, 60000);
       })
@@ -241,6 +260,19 @@ const Index = () => {
           variant: "destructive"
         });
       });
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  // Format the recording time in MM:SS format
+  const formatRecordingTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Fetch messages for selected bubble
@@ -421,7 +453,19 @@ const Index = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Play/pause audio messages
+  // Clean up recording on component unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
+  // Enhanced audio playback with progress tracking
   const togglePlayAudio = (messageId: string, audioSrc: string) => {
     if (!audioRefs.current[messageId]) {
       audioRefs.current[messageId] = new Audio(audioSrc);
@@ -550,225 +594,254 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Enhanced WhatsApp-style Chat Dialog */}
+      {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 border-none bg-[#E5DDD5] dark:bg-[#0B141A] rounded-[1.5rem] overflow-hidden shadow-2xl">
-          <DialogHeader className="flex flex-row items-center justify-between p-3 bg-[#ebbd34] dark:bg-[#075E54] text-white">
-            <div className="flex items-center gap-3">
+        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 bg-[#FEF7E4] border border-[#ebbd34]/20 rounded-xl overflow-hidden">
+          <DialogHeader className="flex flex-row items-center justify-between p-3 bg-[#ebbd34]">
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white hover:bg-white/10 rounded-full"
+                className="text-white hover:bg-white/10"
                 onClick={() => setIsChatOpen(false)}
               >
                 <X className="h-5 w-5" />
               </Button>
               
               <div>
-                <DialogTitle className="text-white text-xl font-semibold tracking-tight">
+                <DialogTitle className="text-white text-xl font-semibold">
                   {selectedBubble?.name}
                 </DialogTitle>
-                <DialogDescription className="text-white/70 text-sm mt-0">
+                <DialogDescription className="text-white/80 text-sm">
                   {selectedBubble?.description || selectedBubble?.topic}
                 </DialogDescription>
               </div>
             </div>
             
-            <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:bg-white/10 text-white rounded-full"
-                  >
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white dark:bg-[#2A2C31] border-none shadow-lg">
-                  <DropdownMenuItem 
-                    className="cursor-pointer text-sm hover:bg-[#ebbd34]/10"
-                    onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-                  >
-                    <Sparkles className="h-4 w-4 mr-2 text-[#ebbd34]" />
-                    <span>Reflect Bubble</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer text-sm hover:bg-[#ebbd34]/10">
-                    <Star className="h-4 w-4 mr-2 text-[#ebbd34]" />
-                    <span>Star Bubble</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/20"
+              onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              <span>Reflect</span>
+            </Button>
           </DialogHeader>
 
-          {/* Chat Background with Pattern (WhatsApp style) */}
-          <div 
-            className="flex-1 overflow-hidden relative"
-            style={{
-              backgroundImage: "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAApgAAAKYB3X3/OAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAANCSURBVEiJtZZPbBtFFMZ/M7ubXdtdb1xSFyeilBapySVU8h8OoFaooFSqiihIVIpQBKci6KEg9Q6H9kovIHoCIVQJJCKE1ENFjnAgcaSGC6rEnxBwA04Tx43t2FnvDAfjkNibxgHxnWb2e/u992bee7tCa00YFsffekFY+nUzFtjW0LrvjRXrCDIAaPLlW0nHL0SsZtVoaF98mLrx3pdhOqLtYPHChahZcYYO7KvPFxvRl5XPp1sN3adWiD1ZAqD6XYK1b/dvE5IWryTt2udLFedwc1+9kLp+vbbpoDh+6TklxBeAi9TL0taeWpdmZzQDry0AcO+jQ12RyohqqoYoo8RDwJrU+qXkjWtfi8Xxt58BdQuwQs9qC/afLwCw8tnQbqYAPsgxE1S6F3EAIXux2oQFKm0ihMsOF71dHYx+f3NND68ghCu1YIoePPQN1pGRABkJ6Bus96CutRZMydTl+TvuiRW1m3n0eDl0vRPcEysqdXn+jsQPsrHMquGeXEaY4Yk4wxWcY5V/9scqOMOVUFthatyTy8QyqwZ+kDURKoMWxNKr2EeqVKcTNOajqKoBgOE28U4tdQl5p5bwCw7BWquaZSzAPlwjlithJtp3pTImSqQRrb2Z8PHGigD4RZuNX6JYj6wj7O4TFLbCO/Mn/m8R+h6rYSUb3ekokRY6f/YukArN979jcW+V/S8g0eT/N3VN3kTqWbQ428m9/8k0P/1aIhF36PccEl6EhOcAUCrXKZXXWS3XKd2vc/TRBG9O5ELC17MmWubD2nKhUKZa26Ba2+D3P+4/MNCFwg59oWVeYhkzgN/JDR8deKBoD7Y+ljEjGZ0sosXVTvbc6RHirr2reNy1OXd6pJsQ+gqjk8VWFYmHrwBzW/n+uMPFiRwHB2I7ih8ciHFxIkd/3Omk5tCDV1t+2nNu5sxxpDFNx+huNhVT3/zMDz8usXC3ddaHBj1GHj/As08fwTS7Kt1HBTmyN29vdwAw+/wbwLVOJ3uAD1wi/dUH7Qei66PfyuRj4Ik9is+hglfbkbfR3cnZm7chlUWLdwmprtCohX4HUtlOcQjLYCu+fzGJH2QRKvP3UNz8bWk1qMxjGTOMThZ3kvgLI5AzFfo379UAAAAASUVORK5CYII=')",
-              backgroundRepeat: "repeat",
-              backgroundSize: "auto"
-            }}
-          >
-            <ScrollArea className="h-full p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex flex-col mb-4 ${
-                    message.username === "@user" ? "items-end" : "items-start"
-                  }`}
-                >
-                  <div className={`max-w-[80%] rounded-2xl p-2 pb-1 shadow-md ${
-                    message.username === "@user"
-                      ? "bg-[#DCF8C6] dark:bg-[#005C4B] text-black dark:text-white"
-                      : "bg-white dark:bg-[#202C33] text-black dark:text-white"
-                  }`}>
-                    {message.content.startsWith('data:image/') ? (
-                      <div className="relative group">
-                        <img 
-                          src={message.content} 
-                          alt="Shared image" 
-                          className="rounded-xl max-w-full cursor-pointer"
-                          onClick={() => window.open(message.content, '_blank')}
-                        />
-                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                            onClick={() => handleDownloadMedia(message.content, 'jpg')}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : message.content.startsWith('data:video/') ? (
-                      <div className="relative group">
-                        <video 
-                          src={message.content} 
-                          controls 
-                          className="rounded-xl max-w-full"
-                        />
-                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                            onClick={() => handleDownloadMedia(message.content, 'mp4')}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : message.content.startsWith('data:audio/') ? (
-                      <div className="flex items-center gap-3 p-1 min-w-[160px]">
+          <ScrollArea className="flex-1 p-4 space-y-4 bg-white/50">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex mb-4 ${
+                  message.username === "@user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div className={`max-w-[80%] rounded-xl p-3 ${
+                  message.username === "@user"
+                    ? "bg-[#ebbd34] text-white"
+                    : "bg-white text-gray-800 border border-[#ebbd34]/20"
+                }`}>
+                  {message.content.startsWith('data:image/') ? (
+                    <div className="relative group">
+                      <img 
+                        src={message.content} 
+                        alt="Shared image" 
+                        className="rounded-md max-w-full cursor-pointer"
+                        onClick={() => window.open(message.content, '_blank')}
+                      />
+                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className={`h-10 w-10 rounded-full ${
-                            playingAudioId === message.id ? 
-                            "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : 
-                            "bg-[#ebbd34]/10 text-[#ebbd34] dark:bg-[#ebbd34]/30"
-                          }`}
-                          onClick={() => togglePlayAudio(message.id, message.content)}
+                          className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                          onClick={() => handleDownloadMedia(message.content, 'jpg')}
                         >
-                          {playingAudioId === message.id ? 
-                            <X className="h-5 w-5" /> : 
-                            <Volume2 className="h-5 w-5" />
-                          }
+                          <Download className="h-4 w-4" />
                         </Button>
-                        <div className="flex-1">
-                          <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full bg-[#ebbd34] rounded-full ${
-                                playingAudioId === message.id ? "animate-pulse" : ""
-                              }`} 
-                              style={{ width: playingAudioId === message.id ? "70%" : "0%" }}
-                            ></div>
-                          </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {playingAudioId === message.id ? "Playing..." : "Voice message"}
-                          </span>
+                      </div>
+                    </div>
+                  ) : message.content.startsWith('data:video/') ? (
+                    <div className="relative">
+                      <video 
+                        src={message.content} 
+                        controls 
+                        className="rounded-md max-w-full"
+                      />
+                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                          onClick={() => handleDownloadMedia(message.content, 'mp4')}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : message.content.startsWith('data:audio/') ? (
+                    // WhatsApp-style audio message UI
+                    <div className="flex items-center gap-2 p-1">
+                      {/* Play/pause button with changing icon */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-10 w-10 rounded-full ${
+                          playingAudioId === message.id ? 
+                          "bg-[#ebbd34]/20 text-[#ebbd34]" : 
+                          message.username === "@user" ?
+                          "text-white hover:bg-white/20" :
+                          "text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                        }`}
+                        onClick={() => togglePlayAudio(message.id, message.content)}
+                      >
+                        {playingAudioId === message.id ? 
+                          <X className="h-5 w-5" /> : 
+                          <Volume2 className="h-5 w-5" />
+                        }
+                      </Button>
+                      
+                      {/* WhatsApp-style waveform visualization */}
+                      <div className="flex-1 h-8 flex items-center">
+                        <div className="w-full flex items-center justify-between space-x-0.5">
+                          {Array.from({ length: 27 }).map((_, i) => {
+                            // Create a varying height pattern like WhatsApp voice messages
+                            const heights = [
+                              3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
+                            ];
+                            const height = heights[i];
+                            const isPlaying = playingAudioId === message.id;
+                            
+                            // Determine the color based on message sender and playback state
+                            const barColor = message.username === "@user" 
+                              ? isPlaying ? "bg-white" : "bg-white/60" 
+                              : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
+                              
+                            return (
+                              <div 
+                                key={i}
+                                className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
+                                style={{ 
+                                  height: `${height}px`,
+                                  // Animate bars when playing
+                                  animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
+                                }}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-sm px-1">{message.content}</p>
-                    )}
-                    <div className="flex justify-end items-center gap-1 mt-1 px-1">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                        {formatMessageTime(message.timestamp)}
-                      </span>
-                      {message.username === "@user" && (
-                        <svg className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 ml-0.5" viewBox="0 0 16 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512z" />
-                          <path d="M8.666 9.879a.32.32 0 0 0 .484-.033l5.356-6.872a.365.365 0 0 1 .51-.063l.478.372a.365.365 0 0 1 .063.51l-6.272 8.048a.36.36 0 0 1-.484.033L7.48 10.608a.418.418 0 0 1-.036-.541l.378-.483a.319.319 0 0 1 .484-.032l.358.325z" />
-                        </svg>
-                      )}
                     </div>
+                  ) : (
+                    <p>{message.content}</p>
+                  )}
+                  
+                  <div className="text-right mt-1">
+                    <span className="text-xs opacity-70">
+                      {formatMessageTime(message.timestamp)}
+                    </span>
                   </div>
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </ScrollArea>
-          </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </ScrollArea>
 
-          <div className="flex flex-col gap-1 p-3 bg-[#F0F2F5] dark:bg-[#1F2C34] border-t border-[#ebbd34]/10">
-            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={() => handleFileUpload('image')}
-              >
-                <Image className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={() => handleFileUpload('video')}
-              >
-                <Video className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={() => handleFileUpload('gif')}
-              >
-                <SmilePlus className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="shrink-0 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={handleVoiceRecord}
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                className="flex-1 rounded-full bg-white dark:bg-[#2A3942] border-none text-black dark:text-white placeholder-gray-500 focus-visible:ring-[#ebbd34]/20 px-4 py-2"
-              />
-              <Button 
-                onClick={() => handleSendMessage()}
-                size="icon" 
-                className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-              >
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
+          <div className="p-3 bg-white border-t border-[#ebbd34]/20">
+            {/* WhatsApp-style recording UI */}
+            {isRecording ? (
+              <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                  <span className="text-sm text-gray-600">
+                    {formatRecordingTime(recordingSeconds)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full"
+                    onClick={stopRecording}
+                  >
+                    <X className="h-5 w-5" />
+                    <span className="ml-1">Cancel</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full"
+                    onClick={stopRecording}
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    <span>Send</span>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex gap-2 shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                    onClick={() => handleFileUpload('image')}
+                  >
+                    <Image className="h-5 w-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                    onClick={() => handleFileUpload('video')}
+                  >
+                    <Video className="h-5 w-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                    onClick={() => handleFileUpload('gif')}
+                  >
+                    <SmilePlus className="h-5 w-5" />
+                  </Button>
+                </div>
+                
+                <Input
+                  placeholder="Type your message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-gray-800 placeholder-gray-500 focus-visible:ring-[#ebbd34]/20"
+                />
+                
+                {newMessage.trim() ? (
+                  <Button 
+                    onClick={() => handleSendMessage()}
+                    size="icon" 
+                    className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleVoiceRecord}
+                    size="icon" 
+                    className={`rounded-full ${
+                      isRecording 
+                        ? "bg-red-500 hover:bg-red-600 text-white" 
+                        : "bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                    }`}
+                  >
+                    <Mic className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -843,6 +916,22 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Add animation keyframes for the waveform */}
+      <style jsx global>{`
+        @keyframes pulse-0 {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(1.5); }
+        }
+        @keyframes pulse-1 {
+          0%, 100% { transform: scaleY(1); }
+          33% { transform: scaleY(1.3); }
+        }
+        @keyframes pulse-2 {
+          0%, 100% { transform: scaleY(1); }
+          66% { transform: scaleY(1.7); }
+        }
+      `}</style>
     </div>
   );
 };
