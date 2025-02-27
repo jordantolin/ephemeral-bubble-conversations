@@ -1,11 +1,13 @@
 
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { useSpring, animated } from '@react-spring/three';
+import { useSpring } from '@react-spring/three';
 import { Text } from 'troika-three-text';
 import { BubbleData } from '@/types/bubble';
 import { createBubbleMaterial } from '@/utils/bubbleUtils';
-import type { Mesh } from 'three';
+import { Mesh, Group } from 'three';
+// Properly import the correct animated types
+import { animated } from '@react-spring/three';
 
 interface BubbleCard3DProps {
   bubble: BubbleData;
@@ -14,9 +16,12 @@ interface BubbleCard3DProps {
   currentIndex: number;
 }
 
+// Create a type-safe animated mesh component
+const AnimatedMesh = animated.mesh;
+
 const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DProps) => {
   const meshRef = useRef<Mesh>(null);
-  const textRef = useRef<THREE.Group>(null);
+  const textRef = useRef<Group>(null);
   const distance = index - currentIndex;
   
   // Calculate position based on current index
@@ -49,7 +54,7 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
   }, [isActive]);
 
   return (
-    <animated.mesh
+    <AnimatedMesh
       ref={meshRef}
       position={spring.position}
       scale={spring.scale}
@@ -72,7 +77,7 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
       <group ref={textRef} position={[0, 0, 1.51]}>
         {/* We'll use HTML overlay for actual content rendering */}
       </group>
-    </animated.mesh>
+    </AnimatedMesh>
   );
 };
 
