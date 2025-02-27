@@ -585,6 +585,24 @@ const Index = () => {
     };
   }, []);
 
+  // Get user avatar color - matches the function in BubbleChat.tsx
+  const getUserColor = (username: string) => {
+    // Generate a hash code from the username
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Generate pastel colors (high lightness)
+    const h = hash % 360;
+    return `hsla(${h}, 70%, 80%, 0.8)`;
+  };
+
+  // Check if current user is the message sender - matches BubbleChat.tsx
+  const isCurrentUser = (username: string) => {
+    return username === profile?.username || username === user?.email;
+  };
+
   // Enhanced audio playback with better mobile support
   const togglePlayAudio = (messageId: string, audioSrc: string) => {
     console.log("Toggle audio playback for message:", messageId);
@@ -688,6 +706,12 @@ const Index = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Check if a bubble has expired - to match BubbleChat.tsx
+  const isBubbleExpired = (expires_at: string | null) => {
+    if (!expires_at) return false;
+    return new Date(expires_at) < new Date();
   };
 
   return (
@@ -838,46 +862,78 @@ const Index = () => {
         </Button>
       </main>
 
-      {/* Chat Dialog */}
+      {/* Chat Dialog - Updated to match BubbleChat.tsx design */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 bg-[#FEF7E4] border border-[#ebbd34]/20 rounded-xl overflow-hidden">
-          <DialogHeader className="flex flex-row items-center justify-between p-3 bg-[#ebbd34]">
-            <div className="flex-1">
-              <DialogTitle className="text-white text-xl font-semibold">
-                {selectedBubble?.name}
-              </DialogTitle>
-              <DialogDescription className="text-white/80 text-sm">
-                {selectedBubble?.description || selectedBubble?.topic}
-              </DialogDescription>
-            </div>
-            
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/20"
-                onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                <span>Reflect</span>
-              </Button>
+          {/* Header - Matching BubbleChat.tsx style */}
+          <DialogHeader className="p-3 bg-[#ebbd34] text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <DialogTitle className="text-xl font-semibold text-white">
+                  {selectedBubble?.name}
+                </DialogTitle>
+                <DialogDescription className="text-white/80 text-sm">
+                  {selectedBubble?.topic}
+                </DialogDescription>
+              </div>
+              
+              <div className="flex items-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:bg-white/20"
+                  onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
+                  disabled={selectedBubble && isBubbleExpired(selectedBubble.expires_at)}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  <span>Reflect</span>
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
+          {/* Bubble exploded notice - to match BubbleChat.tsx */}
+          {selectedBubble && isBubbleExpired(selectedBubble.expires_at) && (
+            <div className="bg-red-500/80 text-white py-2 text-center">
+              <p className="font-medium">This bubble has exploded and can no longer receive messages.</p>
+            </div>
+          )}
+
+          {/* Messages area - Matching BubbleChat.tsx style */}
           <ScrollArea className="flex-1 p-4 space-y-4 bg-white/50">
-            {messages.map((message) => {
-              const isCurrentUser = message.username === profile?.username || message.username === user?.email;
-              
-              return (
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-center">
+                <MessageCircle className="w-10 h-10 text-[#ebbd34]/30 mb-2" />
+                <p className="text-[#ebbd34]/70">
+                  No messages yet. Be the first to chat!
+                </p>
+              </div>
+            ) : (
+              messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex mb-4 ${isCurrentUser ? "justify-end" : "justify-start"}`}
+                  className={`flex mb-4 ${isCurrentUser(message.username) ? "justify-end" : "justify-start"}`}
                 >
-                  <div className={`max-w-[80%] rounded-xl p-3 ${
-                    isCurrentUser
+                  {!isCurrentUser(message.username) && (
+                    <div 
+                      className="w-8 h-8 rounded-full flex-shrink-0 mt-1 mr-2 flex items-center justify-center text-sm text-white"
+                      style={{ backgroundColor: getUserColor(message.username) }}
+                    >
+                      {message.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  
+                  <div className={`max-w-[75%] rounded-xl p-3 ${
+                    isCurrentUser(message.username)
                       ? "bg-[#ebbd34] text-white"
                       : "bg-white text-gray-800 border border-[#ebbd34]/20"
                   }`}>
+                    {!isCurrentUser(message.username) && (
+                      <p className="text-xs font-medium mb-1 text-[#ebbd34]/80">
+                        @{message.username.split('@')[0]}
+                      </p>
+                    )}
+                    
                     {message.content.startsWith('data:image/') ? (
                       <div className="relative group">
                         <img 
@@ -898,12 +954,12 @@ const Index = () => {
                         </div>
                       </div>
                     ) : message.content.startsWith('data:video/') ? (
-                      <div className="relative">
+                      <div className="relative group">
                         <video 
                           src={message.content} 
                           controls 
                           className="rounded-md max-w-full"
-                          playsInline // Important for iOS
+                          playsInline
                         />
                         <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
@@ -917,16 +973,14 @@ const Index = () => {
                         </div>
                       </div>
                     ) : message.content.startsWith('data:audio/') ? (
-                      // WhatsApp-style audio message UI with improved mobile support
                       <div className="flex items-center gap-2 p-1">
-                        {/* Play/pause button with changing icon */}
                         <Button
                           variant="ghost"
                           size="icon"
                           className={`h-10 w-10 rounded-full ${
                             playingAudioId === message.id ? 
                             "bg-[#ebbd34]/20 text-[#ebbd34]" : 
-                            isCurrentUser ?
+                            isCurrentUser(message.username) ?
                             "text-white hover:bg-white/20" :
                             "text-[#ebbd34] hover:bg-[#ebbd34]/10"
                           }`}
@@ -938,19 +992,16 @@ const Index = () => {
                           }
                         </Button>
                         
-                        {/* WhatsApp-style waveform visualization */}
                         <div className="flex-1 h-8 flex items-center">
                           <div className="w-full flex items-center justify-between space-x-0.5">
                             {Array.from({ length: 27 }).map((_, i) => {
-                              // Create a varying height pattern like WhatsApp voice messages
                               const heights = [
                                 3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
                               ];
                               const height = heights[i];
                               const isPlaying = playingAudioId === message.id;
                               
-                              // Determine the color based on message sender and playback state
-                              const barColor = isCurrentUser
+                              const barColor = isCurrentUser(message.username)
                                 ? isPlaying ? "bg-white" : "bg-white/60" 
                                 : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
                                 
@@ -960,7 +1011,6 @@ const Index = () => {
                                   className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
                                   style={{ 
                                     height: `${height}px`,
-                                    // Animate bars when playing
                                     animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
                                   }}
                                 />
@@ -973,22 +1023,34 @@ const Index = () => {
                       <p>{message.content}</p>
                     )}
                     
-                    <div className="text-right mt-1">
-                      <span className="text-xs opacity-70">
+                    <div className={`text-right mt-1 ${
+                      isCurrentUser(message.username) ? "text-white/70" : "text-gray-500"
+                    }`}>
+                      <span className="text-xs">
                         {formatMessageTime(message.timestamp)}
                       </span>
                     </div>
                   </div>
+                  
+                  {isCurrentUser(message.username) && (
+                    <div 
+                      className="w-8 h-8 rounded-full flex-shrink-0 mt-1 ml-2 flex items-center justify-center text-sm text-white"
+                      style={{ backgroundColor: getUserColor(message.username) }}
+                    >
+                      {message.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              ))
+            )}
             <div ref={messagesEndRef} />
           </ScrollArea>
 
-          <div className="p-3 bg-white border-t border-[#ebbd34]/20">
-            {/* WhatsApp-style recording UI */}
+          {/* Message input area - Matching BubbleChat.tsx style */}
+          <div className="p-3 bg-white/80 backdrop-blur-md border-t border-[#ebbd34]/10">
+            {/* Recording UI */}
             {isRecording ? (
-              <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2">
+              <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2 shadow-md">
                 <div className="flex items-center gap-2">
                   <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse"></div>
                   <span className="text-sm text-gray-600">
@@ -1009,7 +1071,6 @@ const Index = () => {
                           window.clearInterval(recordingTimerRef.current);
                           recordingTimerRef.current = null;
                         }
-                        // Clear any recorded chunks
                         audioChunksRef.current = [];
                       }
                     }}
@@ -1029,66 +1090,77 @@ const Index = () => {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="flex gap-2 shrink-0">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    onClick={() => handleFileUpload('image')}
-                  >
-                    <Image className="h-5 w-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    onClick={() => handleFileUpload('video')}
-                  >
-                    <Video className="h-5 w-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    onClick={() => handleFileUpload('gif')}
-                  >
-                    <SmilePlus className="h-5 w-5" />
-                  </Button>
-                </div>
+                {/* Media buttons */}
+                {selectedBubble && !isBubbleExpired(selectedBubble.expires_at) && (
+                  <div className="flex gap-2 shrink-0">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                      onClick={() => handleFileUpload('image')}
+                    >
+                      <Image className="h-5 w-5" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                      onClick={() => handleFileUpload('video')}
+                    >
+                      <Video className="h-5 w-5" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                      onClick={() => handleFileUpload('gif')}
+                    >
+                      <SmilePlus className="h-5 w-5" />
+                    </Button>
+                  </div>
+                )}
                 
-                <Input
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-gray-800 placeholder-gray-500 focus-visible:ring-[#ebbd34]/20"
-                />
-                
-                {newMessage.trim() ? (
-                  <Button 
-                    onClick={() => handleSendMessage()}
-                    size="icon" 
-                    className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                  >
-                    <Send className="h-5 w-5" />
-                  </Button>
+                {selectedBubble && isBubbleExpired(selectedBubble.expires_at) ? (
+                  <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-center">
+                    <p className="text-gray-500 text-sm">This bubble has exploded</p>
+                  </div>
                 ) : (
-                  <Button 
-                    onClick={handleVoiceRecord}
-                    size="icon" 
-                    className={`rounded-full ${
-                      isRecording 
-                        ? "bg-red-500 hover:bg-red-600 text-white" 
-                        : "bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                    }`}
-                  >
-                    <Mic className="h-5 w-5" />
-                  </Button>
+                  <>
+                    <Input
+                      placeholder="Type your message..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-gray-800 placeholder-gray-500 focus-visible:ring-[#ebbd34]/20"
+                    />
+                    
+                    {newMessage.trim() ? (
+                      <Button 
+                        onClick={() => handleSendMessage()}
+                        size="icon" 
+                        className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                      >
+                        <Send className="h-5 w-5" />
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={handleVoiceRecord}
+                        size="icon" 
+                        className={`rounded-full ${
+                          isRecording 
+                            ? "bg-red-500 hover:bg-red-600 text-white" 
+                            : "bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                        }`}
+                      >
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1181,6 +1253,13 @@ const Index = () => {
           @keyframes pulse-2 {
             0%, 100% { transform: scaleY(1); }
             66% { transform: scaleY(1.7); }
+          }
+          
+          * {
+            -webkit-transform-style: preserve-3d;
+            transform-style: preserve-3d;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
           }
         `}
       </style>
