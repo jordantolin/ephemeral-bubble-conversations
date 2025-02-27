@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AutoConfirmEmail } from "./AutoConfirmEmail";
+import { useNavigate } from "react-router-dom";
 
 export function RegisterForm() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [registeredCredentials, setRegisteredCredentials] = useState<{email: string, password: string} | null>(null);
@@ -149,6 +151,27 @@ export function RegisterForm() {
         throw new Error("Username already taken. Please choose another one.");
       }
 
+      // Try to check if user already exists with the same email
+      try {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: registerForm.email,
+          password: registerForm.password,
+        });
+        
+        if (!signInError && signInData.user) {
+          // If we can sign in directly, user already exists and is confirmed
+          toast({
+            title: "Welcome back!",
+            description: "You're now logged in with your existing account.",
+          });
+          navigate("/");
+          return;
+        }
+      } catch (loginErr) {
+        // If login fails, proceed with registration
+        console.log("Login check failed, continuing with registration:", loginErr);
+      }
+
       // Create the user in Supabase Auth with email_confirm set to true
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
@@ -167,8 +190,30 @@ export function RegisterForm() {
       if (authError) {
         // Check for specific errors
         if (authError.message.includes("already registered")) {
-          setFormErrors(prev => ({...prev, email: "Email already in use"}));
-          throw authError;
+          // If already registered, try forcing a login anyway
+          const { data: forceLoginData, error: forceLoginError } = await supabase.auth.signInWithPassword({
+            email: registerForm.email,
+            password: registerForm.password,
+          });
+          
+          if (forceLoginError) {
+            if (forceLoginError.message.includes("Email not confirmed")) {
+              // Handle the case where email is registered but not confirmed
+              setFormErrors(prev => ({...prev, email: "Account exists but email not confirmed"}));
+              throw new Error("An account with this email already exists but isn't verified. Please check your email for verification link or try logging in.");
+            } else {
+              setFormErrors(prev => ({...prev, email: "Email already in use with different password"}));
+              throw new Error("An account with this email already exists. Please use a different email or try logging in.");
+            }
+          } else {
+            // Successfully logged in with existing account
+            toast({
+              title: "Welcome back!",
+              description: "You're now logged in with your existing account.",
+            });
+            navigate("/");
+            return;
+          }
         }
         throw authError;
       }
@@ -179,27 +224,33 @@ export function RegisterForm() {
 
       console.log("Registration successful, user created:", authData.user);
       
-      // Try to directly log in regardless of email confirmation status
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: registerForm.email,
-        password: registerForm.password,
-      });
-
-      if (signInError) {
-        console.log("Direct login failed, proceeding to AutoConfirmEmail:", signInError.message);
-      } else {
-        console.log("Direct login successful:", signInData);
-        // If direct login works, user will be redirected by AuthContext
+      // If registration was successful but email confirmation is required
+      if (authData.user && !authData.session) {
+        toast({
+          title: "Account created",
+          description: "Please check your email for a verification link to complete registration.",
+        });
+        
+        // Set credentials for auto-confirmation
+        setRegisteredCredentials({
+          email: registerForm.email,
+          password: registerForm.password
+        });
+        
+        // Show auto-confirm component
+        setRegistrationComplete(true);
+        return;
       }
       
-      // Set credentials for auto-confirmation
-      setRegisteredCredentials({
-        email: registerForm.email,
-        password: registerForm.password
-      });
-      
-      // Show auto-confirm component
-      setRegistrationComplete(true);
+      // If we got a session back, user is automatically logged in
+      if (authData.session) {
+        toast({
+          title: "Account created and logged in",
+          description: "Welcome to Bubble Trouble!",
+        });
+        navigate("/");
+        return;
+      }
 
     } catch (error: any) {
       console.error("Registration error:", error);
