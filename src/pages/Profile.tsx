@@ -71,10 +71,9 @@ const Profile = () => {
     }
   }, [profile]);
 
-  // Function to check if storage buckets exist and create them if needed
+  // Function to ensure storage buckets exist
   const ensureStorageBucketsExist = async () => {
     try {
-      // Check if the avatars bucket exists
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
@@ -94,6 +93,12 @@ const Profile = () => {
         if (createError) {
           console.error("Error creating avatars bucket:", createError);
           return false;
+        }
+        
+        // Set public access policy for the bucket
+        const { error: policyError } = await supabase.storage.from('avatars').createSignedUrl('test.txt', 60);
+        if (policyError && policyError.message !== 'The resource was not found') {
+          console.error("Error setting bucket policy:", policyError);
         }
         
         console.log("Avatars bucket created successfully");
@@ -194,6 +199,24 @@ const Profile = () => {
         ...prev,
         avatar_url: avatarUrl
       }));
+
+      // Update profile immediately for better UX
+      if (user.id) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            avatar_url: avatarUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+          
+        if (updateError) {
+          console.error("Error updating profile with new avatar:", updateError);
+        } else {
+          // Refresh profile data
+          queryClient.invalidateQueries({ queryKey: ['profile'] });
+        }
+      }
 
       toast({
         title: "Avatar uploaded",
