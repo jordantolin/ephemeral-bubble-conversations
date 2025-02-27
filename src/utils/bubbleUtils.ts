@@ -1,8 +1,7 @@
-
 import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
-const BUBBLE_COLOR = 0xebbd34; // The bright yellow color (#ebbd34)
+const BUBBLE_COLOR = 0xebbd34;
 
 export const createBubbleGeometry = (size: number) => {
   return new THREE.SphereGeometry(size, 32, 32);
@@ -23,91 +22,111 @@ export const createBubbleMaterial = () => {
 };
 
 export const createCentralWorldGeometry = () => {
-  return new THREE.SphereGeometry(3, 64, 64); // Slightly larger sphere
+  return new THREE.SphereGeometry(3, 64, 64);
 };
 
 export const createCentralWorldMaterial = () => {
   const canvas = document.createElement('canvas');
-  canvas.width = 2048; // Higher resolution for better detail
-  canvas.height = 1024;
+  canvas.width = 4096; // Increased resolution for better detail
+  canvas.height = 2048;
   const ctx = canvas.getContext('2d');
   
   if (ctx) {
-    // Ocean base
+    // Ocean base with gradient
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#0EA5E9');  // Lighter blue at top
-    gradient.addColorStop(1, '#0284C7');  // Darker blue at bottom
+    gradient.addColorStop(0, '#0EA5E9');
+    gradient.addColorStop(1, '#0369A1');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Function to draw continent path
-    const drawContinent = (points: [number, number][], color: string) => {
+    // Detailed continent paths
+    const continents = {
+      northAmerica: [
+        [800, 200], [1000, 180], [1200, 250], [1300, 400],
+        [1200, 500], [1000, 450], [900, 480], [800, 400],
+        [750, 350], [780, 250]
+      ],
+      southAmerica: [
+        [1100, 600], [1200, 700], [1150, 900], [1000, 1000],
+        [900, 950], [850, 800], [900, 700], [1000, 650]
+      ],
+      europe: [
+        [2000, 250], [2200, 200], [2400, 250], [2300, 400],
+        [2100, 450], [1900, 400], [1950, 300]
+      ],
+      africa: [
+        [2000, 500], [2200, 450], [2400, 500], [2450, 700],
+        [2300, 900], [2100, 950], [1900, 800], [1850, 600]
+      ],
+      asia: [
+        [2300, 200], [2800, 250], [3000, 400], [2900, 600],
+        [2700, 700], [2500, 650], [2400, 500], [2300, 400]
+      ],
+      australia: [
+        [3000, 700], [3200, 750], [3300, 850], [3200, 950],
+        [3000, 900], [2900, 800]
+      ],
+      antarctica: [
+        [1500, 1700], [2000, 1750], [2500, 1800], [3000, 1750],
+        [2800, 1900], [2000, 1950], [1200, 1850]
+      ]
+    };
+
+    // Function to draw detailed continent
+    const drawContinent = (points: number[][], color: string) => {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.moveTo(points[0][0], points[0][1]);
-      points.forEach((point, i) => {
-        if (i > 0) {
-          ctx.lineTo(point[0], point[1]);
-        }
-      });
+      
+      // Use curves for smoother coastlines
+      for (let i = 1; i < points.length; i++) {
+        const xc = (points[i][0] + points[i-1][0]) / 2;
+        const yc = (points[i][1] + points[i-1][1]) / 2;
+        ctx.quadraticCurveTo(points[i-1][0], points[i-1][1], xc, yc);
+      }
+      
       ctx.closePath();
       ctx.fill();
+
+      // Add terrain detail
+      ctx.save();
+      ctx.clip();
+      ctx.globalAlpha = 0.1;
+      for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#34D399' : '#6EE7B7';
+        for (let j = 0; j < 20; j++) {
+          const x = points[0][0] + Math.random() * 200 - 100;
+          const y = points[0][1] + Math.random() * 200 - 100;
+          ctx.beginPath();
+          ctx.arc(x, y, 20 + Math.random() * 40, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
     };
 
-    // North America
-    drawContinent([
-      [300, 100], [500, 150], [450, 300],
-      [350, 350], [250, 300], [200, 200]
-    ], '#4ADE80');
+    // Draw all continents with enhanced detail
+    Object.values(continents).forEach(points => {
+      drawContinent(points, '#4ADE80');
+    });
 
-    // South America
-    drawContinent([
-      [450, 400], [500, 600], [400, 700],
-      [350, 650], [350, 450]
-    ], '#4ADE80');
-
-    // Europe
-    drawContinent([
-      [700, 150], [900, 150], [950, 250],
-      [850, 300], [750, 250]
-    ], '#4ADE80');
-
-    // Africa
-    drawContinent([
-      [700, 300], [900, 300], [950, 500],
-      [850, 600], [700, 550], [650, 400]
-    ], '#4ADE80');
-
-    // Asia
-    drawContinent([
-      [900, 100], [1400, 150], [1500, 300],
-      [1400, 400], [1200, 350], [1000, 200]
-    ], '#4ADE80');
-
-    // Australia
-    drawContinent([
-      [1200, 500], [1400, 500], [1450, 600],
-      [1350, 700], [1200, 650]
-    ], '#4ADE80');
-
-    // Antarctica
-    drawContinent([
-      [400, 800], [800, 800], [1000, 900],
-      [600, 950], [200, 900]
-    ], '#4ADE80');
-
-    // Add continent details and highlights
-    ctx.fillStyle = '#86EFAC';
-    ctx.globalAlpha = 0.3;
+    // Add ice caps
+    ctx.fillStyle = '#F0FDFA';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(canvas.width/2, 100, 400, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(canvas.width/2, canvas.height - 100, 400, 0, Math.PI * 2);
     ctx.fill();
 
-    // Add a subtle cloud layer
+    // Add cloud layer
     ctx.fillStyle = '#FFFFFF';
-    ctx.globalAlpha = 0.1;
-    for (let i = 0; i < 20; i++) {
+    ctx.globalAlpha = 0.15;
+    for (let i = 0; i < 50; i++) {
       const x = Math.random() * canvas.width;
       const y = Math.random() * canvas.height;
-      const size = 50 + Math.random() * 100;
+      const size = 100 + Math.random() * 200;
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
       ctx.fill();
@@ -120,7 +139,7 @@ export const createCentralWorldMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     map: texture,
     bumpMap: texture,
-    bumpScale: 0.1,
+    bumpScale: 0.15,
     transparent: false,
     metalness: 0.1,
     roughness: 0.8,
@@ -165,4 +184,16 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
   }
 
   return canvas;
+};
+
+export const calculateOrbitPosition = (index: number, totalBubbles: number, time: number) => {
+  const angle = (index / totalBubbles) * Math.PI * 2 + time;
+  const orbitRadius = 6 + Math.sin(time * 0.5 + index) * 0.5; // Varying radius for more natural look
+  const heightOffset = Math.sin(angle * 2) * 0.5; // Vertical oscillation
+
+  return {
+    x: Math.cos(angle) * orbitRadius,
+    y: Math.sin(angle) * orbitRadius * 0.6 + heightOffset,
+    z: Math.sin(angle * 2) * (orbitRadius * 0.3)
+  };
 };

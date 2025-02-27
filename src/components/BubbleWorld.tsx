@@ -7,7 +7,8 @@ import {
   createBubbleMaterial, 
   createTextCanvas,
   createCentralWorldGeometry,
-  createCentralWorldMaterial 
+  createCentralWorldMaterial,
+  calculateOrbitPosition
 } from '@/utils/bubbleUtils';
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
@@ -79,6 +80,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
+    // Create bubbles with orbital movement
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -92,7 +94,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
-      // Add text labels with enhanced visibility
+      // Add text labels
       const createSprite = (text: string, yOffset: number, fontSize: number = 32) => {
         const canvas = createTextCanvas(text, fontSize);
         const texture = new THREE.CanvasTexture(canvas);
@@ -112,17 +114,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.add(createSprite(topic.topic, 0.2, isMobile ? 28 : 32));
       bubbleGroup.add(createSprite(`⭐ ${topic.reflect_count}`, -0.8, isMobile ? 24 : 28));
 
-      // Position bubbles in a spiral pattern
-      const angle = (index / topics.length) * Math.PI * 2;
-      const spiralRadius = 4 + (index * 0.2);
-      const x = spiralRadius * Math.cos(angle);
-      const y = spiralRadius * Math.sin(angle);
-      const z = (index * 0.2) - 2;
-
-      bubbleGroup.position.set(x, y, z);
+      // Set initial position
+      const position = calculateOrbitPosition(index, topics.length, 0);
+      bubbleGroup.position.set(position.x, position.y, position.z);
+      
       bubbleGroup.userData = {
         id: topic.id,
-        initialPosition: { x, y, z }
+        orbitIndex: index,
       };
 
       bubblesRef.current[topic.id] = bubbleGroup;
@@ -270,9 +268,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd);
 
-    // Animation loop with smooth zoom
+    // Updated animation loop with orbital movement
+    let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
+      time += 0.002; // Speed of orbital movement
       
       // Smooth zoom interpolation
       const zoom = interactionRef.current.zoom;
@@ -281,15 +281,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         camera.position.z = zoom.current;
       }
 
+      // Update bubble positions for orbital movement
+      Object.values(bubblesRef.current).forEach(bubble => {
+        const index = bubble.userData.orbitIndex;
+        const pos = calculateOrbitPosition(index, Object.keys(bubblesRef.current).length, time);
+        
+        // Apply rotation offset based on Earth's rotation
+        const rotationOffset = new THREE.Euler(
+          centralWorld.rotation.x,
+          centralWorld.rotation.y,
+          centralWorld.rotation.z
+        );
+        const rotatedPosition = new THREE.Vector3(pos.x, pos.y, pos.z)
+          .applyEuler(rotationOffset);
+        
+        bubble.position.copy(rotatedPosition);
+        bubble.quaternion.copy(camera.quaternion);
+      });
+
       // Gentle auto-rotation when not interacting
       if (!interactionRef.current.isInteracting) {
         centralWorld.rotation.y += 0.0005;
       }
-
-      // Keep bubbles facing camera
-      Object.values(bubblesRef.current).forEach(bubble => {
-        bubble.quaternion.copy(camera.quaternion);
-      });
 
       TWEEN.update();
       renderer.render(scene, camera);
