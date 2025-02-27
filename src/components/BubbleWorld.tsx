@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -39,8 +40,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     dragThreshold: 3, // Reduced drag threshold for more responsive touch on mobile
     startTime: 0,
     isMobile: false, // Track if we're on mobile
-    touchId: null, // Track the primary touch ID for better multi-touch handling
-    lastTapTime: 0 // For detecting double taps
+    touchId: null as number | null, // Track the primary touch ID for better multi-touch handling
+    lastTapTime: 0, // For detecting double taps
+    pinchStartAngle: 0 // Add this property to fix the TypeScript error
   });
 
   useEffect(() => {
@@ -325,11 +327,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             touch2.clientX - touch1.clientX
           );
           
-          if (interactionRef.current.pinchStartAngle !== undefined) {
-            const angleChange = currentAngle - interactionRef.current.pinchStartAngle;
-            centralWorldRef.current.rotation.z += angleChange * 0.5; // Apply rotation around z-axis
-            interactionRef.current.pinchStartAngle = currentAngle;
-          }
+          const angleChange = currentAngle - interactionRef.current.pinchStartAngle;
+          centralWorldRef.current.rotation.z += angleChange * 0.5; // Apply rotation around z-axis
+          interactionRef.current.pinchStartAngle = currentAngle;
         }
       } 
       // Handle single-finger rotation
