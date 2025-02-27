@@ -6,7 +6,7 @@ import { Text } from 'troika-three-text';
 import { BubbleData } from '@/types/bubble';
 import { createBubbleMaterial } from '@/utils/bubbleUtils';
 import { Mesh, Group } from 'three';
-// Properly import the correct animated types
+// Import the animated components from react-spring/three
 import { animated } from '@react-spring/three';
 
 interface BubbleCard3DProps {
@@ -15,9 +15,6 @@ interface BubbleCard3DProps {
   index: number;
   currentIndex: number;
 }
-
-// Create a type-safe animated mesh component
-const AnimatedMesh = animated.mesh;
 
 const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DProps) => {
   const meshRef = useRef<Mesh>(null);
@@ -52,6 +49,9 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
     const animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
   }, [isActive]);
+
+  // Using the JSX.IntrinsicElements approach for typings
+  const AnimatedMesh = animated('mesh') as unknown as React.FC<JSX.IntrinsicElements['mesh']>;
 
   return (
     <AnimatedMesh
