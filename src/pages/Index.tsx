@@ -840,7 +840,7 @@ const Index = () => {
               </DialogDescription>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <Button
                 variant="ghost"
                 size="sm"
@@ -849,15 +849,6 @@ const Index = () => {
               >
                 <Sparkles className="h-4 w-4 mr-2" />
                 <span>Reflect</span>
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20 ml-1 h-8 w-8"
-                onClick={() => setIsChatOpen(false)}
-              >
-                <X className="h-4 w-4" />
               </Button>
             </div>
           </DialogHeader>
