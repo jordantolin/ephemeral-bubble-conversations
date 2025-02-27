@@ -1,0 +1,5 @@
+
+project_id = "fmsijphhzututcmzlhfr"
+
+[global.env]
+PUBLIC_URL = "https://bubbletroubleapp.com"

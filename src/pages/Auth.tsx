@@ -12,7 +12,12 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Info, CheckCircle2, AlertCircle } from "lucide-react";
+import { Info, CheckCircle2, AlertCircle, Mail } from "lucide-react";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -27,6 +32,8 @@ const Auth = () => {
     color: "text-gray-400",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -239,6 +246,7 @@ const Auth = () => {
             username,
             full_name: fullName,
           },
+          emailRedirectTo: window.location.origin, // Redirect to the app after confirmation
         },
       });
       
@@ -258,7 +266,28 @@ const Auth = () => {
         if (profileError) {
           console.error("Error creating profile:", profileError);
         }
+
+        // Send a custom welcome email via our function
+        try {
+          const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+            body: { 
+              email, 
+              name: fullName, 
+              username 
+            }
+          });
+          
+          if (emailError) {
+            console.error("Error sending welcome email:", emailError);
+          }
+        } catch (emailError) {
+          console.error("Failed to call send-welcome-email function:", emailError);
+        }
       }
+      
+      // Save the email for the success message
+      setSignupEmail(email);
+      setSignupSuccess(true);
       
       toast({
         title: "Account created!",
@@ -288,16 +317,118 @@ const Auth = () => {
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("Email not confirmed")) {
+          // Handle the specific case of unconfirmed email
+          toast({
+            title: "Email not confirmed",
+            description: "Please check your inbox and confirm your email before signing in.",
+            variant: "destructive",
+          });
+          throw new Error("Please verify your email before signing in");
+        }
+        throw error;
+      }
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
   };
+
+  const resendConfirmationEmail = async () => {
+    if (!signupEmail) return;
+    
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: signupEmail,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Confirmation email resent",
+        description: "Please check your inbox for the verification link",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show success screen after signup
+  if (signupSuccess) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] p-4">
+        <div className="w-full max-w-md">
+          <div className="mb-8 text-center">
+            <Link to="/" className="inline-block">
+              <img
+                src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+                alt="Bubble Trouble"
+                className="mx-auto h-16 w-16"
+              />
+              <h1 className="mt-4 text-3xl font-bold text-[#ebbd34]">Bubble Trouble</h1>
+            </Link>
+          </div>
+
+          <div className="rounded-2xl bg-white p-8 shadow-xl">
+            <div className="text-center mb-6">
+              <div className="mx-auto w-16 h-16 bg-[#ebbd34]/10 rounded-full flex items-center justify-center mb-4">
+                <Mail className="h-8 w-8 text-[#ebbd34]" />
+              </div>
+              <h2 className="text-2xl font-bold text-[#ebbd34]">Verify Your Email</h2>
+              <p className="mt-2 text-[#ebbd34]/70">
+                We've sent a verification link to <span className="font-medium">{signupEmail}</span>
+              </p>
+            </div>
+            
+            <Alert className="mb-6 bg-blue-50 border-blue-200">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-800">Check your inbox</AlertTitle>
+              <AlertDescription className="text-blue-700">
+                You'll receive an email from <span className="font-medium">bubbletroubleapp@gmail.com</span> with a verification link.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-4">
+              <Button
+                onClick={resendConfirmationEmail}
+                className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                disabled={loading}
+              >
+                {loading ? "Sending..." : "Resend Confirmation Email"}
+              </Button>
+              
+              <div className="text-center">
+                <button
+                  onClick={() => setSignupSuccess(false)}
+                  className="text-sm text-[#ebbd34] hover:underline"
+                >
+                  Back to sign in
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] p-4">
