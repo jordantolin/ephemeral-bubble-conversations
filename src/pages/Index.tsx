@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, X, Volume2, Download, Reply, MoreVertical } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download, Reply, MoreVertical } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 import {
   Select,
   SelectContent,
@@ -84,6 +85,7 @@ const formatMessageTime = (timestamp: string): string => {
 };
 
 const Index = () => {
+  const { user, profile, signOut } = useAuth();
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -91,7 +93,7 @@ const Index = () => {
     name: "",
     description: "",
     topic: "",
-    username: "@user"
+    username: profile?.username || user?.email || "",
   });
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,6 +107,17 @@ const Index = () => {
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  // Update user info in new bubble form when profile loads
+  useEffect(() => {
+    if (profile?.username || user?.email) {
+      setNewBubble(prev => ({
+        ...prev,
+        username: profile?.username || user?.email || "",
+      }));
+    }
+  }, [profile, user]);
 
   // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
@@ -145,11 +158,13 @@ const Index = () => {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
+    const username = profile?.username || user?.email || "";
+    
     const newBubbleData = {
       name: newBubble.name,
       topic: newBubble.topic,
       description: newBubble.description,
-      username: newBubble.username,
+      username,
       size: "md" as const,
       expires_at: expiresAt.toISOString()
     };
@@ -175,7 +190,15 @@ const Index = () => {
       description: "New bubble created successfully",
     });
 
-    setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+    // Refresh bubbles list
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+
+    setNewBubble({ 
+      name: "", 
+      description: "", 
+      topic: "", 
+      username: profile?.username || user?.email || "" 
+    });
   };
 
   const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
@@ -207,18 +230,41 @@ const Index = () => {
       return;
     }
 
-    const chunks: Blob[] = [];
+    audioChunksRef.current = [];
 
-    navigator.mediaDevices.getUserMedia({ audio: true })
+    // Use specific audio settings for better compatibility
+    navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      } 
+    })
       .then(stream => {
-        mediaRecorderRef.current = new MediaRecorder(stream);
+        // Use more widely supported audio format
+        const options = { 
+          mimeType: 'audio/webm;codecs=opus',
+          audioBitsPerSecond: 128000 // 128kbps for better quality
+        };
+        
+        try {
+          mediaRecorderRef.current = new MediaRecorder(stream, options);
+        } catch (e) {
+          // Fallback for older devices
+          mediaRecorderRef.current = new MediaRecorder(stream);
+        }
         
         mediaRecorderRef.current.ondataavailable = (e) => {
-          chunks.push(e.data);
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
         };
 
         mediaRecorderRef.current.onstop = async () => {
-          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: 'audio/webm' 
+          });
+          
           const reader = new FileReader();
           reader.onload = async (e) => {
             const content = e.target?.result as string;
@@ -238,7 +284,8 @@ const Index = () => {
           }
         };
 
-        mediaRecorderRef.current.start();
+        // Capture data more frequently for better quality
+        mediaRecorderRef.current.start(200);
         setIsRecording(true);
         
         // Start timer
@@ -254,9 +301,10 @@ const Index = () => {
         }, 60000);
       })
       .catch(error => {
+        console.error("Media device error:", error);
         toast({
           title: "Error",
-          description: "Could not access microphone",
+          description: "Could not access microphone. Please check your browser permissions.",
           variant: "destructive"
         });
       });
@@ -337,12 +385,14 @@ const Index = () => {
     const messageContent = content || newMessage;
     if (!messageContent.trim()) return;
 
+    const username = profile?.username || user?.email || "";
+
     const { error } = await supabase
       .from('bubble_messages')
       .insert({
         bubble_id: selectedBubbleId,
         content: messageContent,
-        username: "@user"
+        username
       });
 
     if (error) {
@@ -358,11 +408,13 @@ const Index = () => {
   };
 
   const handleReflect = async (bubbleId: string) => {
+    const username = profile?.username || user?.email || "";
+    
     const { error } = await supabase
       .from('reflects')
       .insert({ 
         bubble_id: bubbleId,
-        username: "@user" 
+        username
       });
 
     if (error) {
@@ -462,30 +514,79 @@ const Index = () => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
+      
+      // Clean up audio elements
+      Object.values(audioRefs.current).forEach(audio => {
+        audio.pause();
+        audio.src = '';
+      });
     };
   }, []);
 
-  // Enhanced audio playback with progress tracking
+  // Enhanced audio playback with better mobile support
   const togglePlayAudio = (messageId: string, audioSrc: string) => {
-    if (!audioRefs.current[messageId]) {
-      audioRefs.current[messageId] = new Audio(audioSrc);
-      
-      audioRefs.current[messageId].addEventListener('ended', () => {
-        setPlayingAudioId(null);
-      });
-    }
-
-    if (playingAudioId === messageId) {
-      audioRefs.current[messageId].pause();
-      setPlayingAudioId(null);
-    } else {
-      // Pause any currently playing audio
-      if (playingAudioId && audioRefs.current[playingAudioId]) {
-        audioRefs.current[playingAudioId].pause();
+    try {
+      // Create new audio element if doesn't exist
+      if (!audioRefs.current[messageId]) {
+        const audio = new Audio();
+        
+        // Set audio playback settings for better mobile compatibility
+        audio.preload = 'auto';
+        
+        // Add event listeners for error handling and completion
+        audio.addEventListener('error', (e) => {
+          console.error('Audio playback error:', e);
+          setPlayingAudioId(null);
+          toast({
+            title: "Playback Error",
+            description: "Unable to play this audio message",
+            variant: "destructive"
+          });
+        });
+        
+        audio.addEventListener('ended', () => {
+          setPlayingAudioId(null);
+        });
+        
+        audio.addEventListener('canplay', () => {
+          audio.play().catch(err => {
+            console.error("Play error:", err);
+            setPlayingAudioId(null);
+          });
+        });
+        
+        audioRefs.current[messageId] = audio;
       }
       
-      audioRefs.current[messageId].play();
-      setPlayingAudioId(messageId);
+      const audio = audioRefs.current[messageId];
+
+      if (playingAudioId === messageId) {
+        // Stop playback
+        audio.pause();
+        setPlayingAudioId(null);
+      } else {
+        // Stop any currently playing audio
+        if (playingAudioId && audioRefs.current[playingAudioId]) {
+          audioRefs.current[playingAudioId].pause();
+        }
+        
+        // Set new source and play
+        audio.src = audioSrc;
+        setPlayingAudioId(messageId);
+        
+        // For iOS devices that require user interaction
+        document.body.addEventListener('touchend', function playAttempt() {
+          audio.play().catch(err => console.error("Mobile play error:", err));
+          document.body.removeEventListener('touchend', playAttempt);
+        }, { once: true });
+      }
+    } catch (error) {
+      console.error("Audio toggle error:", error);
+      toast({
+        title: "Audio Error",
+        description: "There was a problem playing this audio message",
+        variant: "destructive"
+      });
     }
   };
 
@@ -549,12 +650,37 @@ const Index = () => {
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Feed</span>
               </Link>
-              <Link 
-                to="/profile" 
-                className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
-              >
-                <User className="w-5 h-5" />
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
+                  >
+                    <User className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem className="flex flex-col items-start p-3">
+                    <span className="font-medium text-[#ebbd34]">
+                      {profile?.display_name || user?.email}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      @{profile?.username || user?.email?.split('@')[0]}
+                    </span>
+                  </DropdownMenuItem>
+                  <Link to="/profile">
+                    <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem onClick={signOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -634,13 +760,15 @@ const Index = () => {
               <div
                 key={message.id}
                 className={`flex mb-4 ${
-                  message.username === "@user" ? "justify-end" : "justify-start"
+                  message.username === profile?.username || message.username === user?.email 
+                  ? "justify-end" 
+                  : "justify-start"
                 }`}
               >
                 <div className={`max-w-[80%] rounded-xl p-3 ${
-                  message.username === "@user"
-                    ? "bg-[#ebbd34] text-white"
-                    : "bg-white text-gray-800 border border-[#ebbd34]/20"
+                  message.username === profile?.username || message.username === user?.email 
+                  ? "bg-[#ebbd34] text-white"
+                  : "bg-white text-gray-800 border border-[#ebbd34]/20"
                 }`}>
                   {message.content.startsWith('data:image/') ? (
                     <div className="relative group">
@@ -680,7 +808,7 @@ const Index = () => {
                       </div>
                     </div>
                   ) : message.content.startsWith('data:audio/') ? (
-                    // WhatsApp-style audio message UI
+                    // WhatsApp-style audio message UI with better mobile support
                     <div className="flex items-center gap-2 p-1">
                       {/* Play/pause button with changing icon */}
                       <Button
@@ -689,7 +817,7 @@ const Index = () => {
                         className={`h-10 w-10 rounded-full ${
                           playingAudioId === message.id ? 
                           "bg-[#ebbd34]/20 text-[#ebbd34]" : 
-                          message.username === "@user" ?
+                          message.username === profile?.username || message.username === user?.email ?
                           "text-white hover:bg-white/20" :
                           "text-[#ebbd34] hover:bg-[#ebbd34]/10"
                         }`}
@@ -713,7 +841,7 @@ const Index = () => {
                             const isPlaying = playingAudioId === message.id;
                             
                             // Determine the color based on message sender and playback state
-                            const barColor = message.username === "@user" 
+                            const barColor = message.username === profile?.username || message.username === user?.email 
                               ? isPlaying ? "bg-white" : "bg-white/60" 
                               : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
                               
