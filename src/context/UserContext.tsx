@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface UserContextProps {
   user: User | null;
@@ -33,6 +34,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Get initial session
@@ -49,6 +51,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         
         if (data.session?.user) {
           await fetchUserProfile(data.session.user.id);
+          // Redirect to Feed page after login (where the 3D world is)
+          navigate('/feed');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -67,8 +71,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         
         if (event === 'SIGNED_IN' && newSession?.user) {
           await fetchUserProfile(newSession.user.id);
+          // Redirect to Feed page after login (where the 3D world is)
+          navigate('/feed');
         } else if (event === 'SIGNED_OUT') {
           setUserProfile(null);
+          // Redirect to home page after logout
+          navigate('/');
         }
       }
     );
@@ -76,7 +84,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const fetchUserProfile = async (userId: string) => {
     try {

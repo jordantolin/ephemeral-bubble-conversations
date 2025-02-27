@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ const Auth = () => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate("/"); // This will redirect to the homepage which shows the 3D world
+        navigate("/feed"); // Redirect to Feed page which contains the 3D world
       }
     };
     
@@ -45,8 +44,8 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session) {
-          // When the user signs in, immediately redirect to the homepage
-          navigate("/");
+          // When the user signs in, redirect to the Feed page
+          navigate("/feed");
         }
       }
     );
@@ -235,13 +234,13 @@ const Auth = () => {
           throw loginError;
         }
         
-        // Redirect to homepage - the auth state listener should handle this,
+        // Redirect to Feed page - the auth state listener should handle this,
         // but we'll add it here as a backup
         toast({
           title: "Benvenuto!",
           description: "Registrazione completata con successo",
         });
-        navigate("/");
+        navigate("/feed");
       }
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -280,11 +279,14 @@ const Auth = () => {
       
       if (error) throw error;
       
-      // Auth state listener will handle redirect
+      // Auth state listener will handle redirect to Feed
       toast({
         title: "Accesso effettuato",
         description: "Benvenuto in Bubble Trouble!",
       });
+      
+      // Direct navigation to Feed (in addition to the listener)
+      navigate("/feed");
     } catch (error: any) {
       toast({
         title: "Errore di accesso",
