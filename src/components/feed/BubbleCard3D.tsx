@@ -5,6 +5,7 @@ import { useSpring, animated } from '@react-spring/three';
 import { Text } from 'troika-three-text';
 import { BubbleData } from '@/types/bubble';
 import { createBubbleMaterial } from '@/utils/bubbleUtils';
+import type { Mesh } from 'three';
 
 interface BubbleCard3DProps {
   bubble: BubbleData;
@@ -14,7 +15,7 @@ interface BubbleCard3DProps {
 }
 
 const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DProps) => {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const meshRef = useRef<Mesh>(null);
   const textRef = useRef<THREE.Group>(null);
   const distance = index - currentIndex;
   
@@ -50,8 +51,8 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
   return (
     <animated.mesh
       ref={meshRef}
-      position={spring.position as any}
-      scale={spring.scale as any}
+      position={spring.position}
+      scale={spring.scale}
     >
       {/* Bubble mesh */}
       <sphereGeometry args={[1.5, 32, 32]} />
