@@ -198,242 +198,72 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.add(bubbleGroup);
     });
 
-    // TOUCH CONTROLS FOR SMARTPHONES
-    // Get pinch distance between two touches
-    const getPinchDistance = (e: TouchEvent) => {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      return Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
-    };
-
-    // Detect and track the primary touch ID
-    const getPrimaryTouchId = (e: TouchEvent): number | null => {
-      if (e.touches.length === 0) return null;
-      
-      if (interactionRef.current.touchId !== null) {
-        for (let i = 0; i < e.touches.length; i++) {
-          if (e.touches[i].identifier === interactionRef.current.touchId) {
-            return interactionRef.current.touchId;
-          }
-        }
-      }
-      
-      return e.touches[0].identifier;
-    };
-
-    // Find a touch by ID
-    const getTouchById = (e: TouchEvent, id: number | null): Touch | null => {
-      if (id === null) return null;
-      
-      for (let i = 0; i < e.touches.length; i++) {
-        if (e.touches[i].identifier === id) {
-          return e.touches[i];
-        }
-      }
-      
-      return null;
-    };
-
-    // Single finger rotation handler
-    const handleSingleFingerMove = (touch: Touch) => {
-      if (!centralWorldRef.current) return;
-      
-      const dx = touch.clientX - interactionRef.current.lastX;
-      const dy = touch.clientY - interactionRef.current.lastY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance > interactionRef.current.dragThreshold) {
-        interactionRef.current.isDragging = true;
-      }
-      
-      // Apply rotation with improved responsiveness on mobile
-      const rotationSensitivity = isMobile ? 0.012 : 0.008; // Increased for mobile
-      
-      // Scale sensitivity based on zoom level for consistent feel
-      const zoomScaleFactor = interactionRef.current.zoom.current / interactionRef.current.zoom.min;
-      const adjustedSensitivity = rotationSensitivity * zoomScaleFactor;
-      
-      centralWorldRef.current.rotation.y += dx * adjustedSensitivity;
-      centralWorldRef.current.rotation.x += dy * adjustedSensitivity;
-      
-      // Store momentum for inertia effect
-      interactionRef.current.momentum = {
-        x: dx * adjustedSensitivity * 0.9,
-        y: dy * adjustedSensitivity * 0.9
-      };
-      
-      interactionRef.current.lastX = touch.clientX;
-      interactionRef.current.lastY = touch.clientY;
-    };
-
-    // Enhanced touchstart handler
-    container.addEventListener('touchstart', (e) => {
+    // SIMPLIFIED TOUCH CONTROLS
+    // Simple touchstart handler - just store the initial position
+    const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
+      console.log("Touch start detected");
       
-      // Handle double-tap to reset view
-      const now = Date.now();
       if (e.touches.length === 1) {
-        if (now - interactionRef.current.lastTapTime < 300) {
-          // Double tap detected - reset view
-          if (centralWorldRef.current) {
-            new TWEEN.Tween(centralWorldRef.current.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 500)
-              .easing(TWEEN.Easing.Quadratic.Out)
-              .start();
-          }
-          interactionRef.current.zoom.target = isMobile ? 7 : 12;
-          e.stopPropagation();
-          return;
-        }
-        interactionRef.current.lastTapTime = now;
-      }
-      
-      if (e.touches.length === 2) {
-        // Two finger pinch/zoom
-        const initialDistance = getPinchDistance(e);
-        interactionRef.current.pinchDistance = initialDistance;
-        interactionRef.current.lastPinchTime = now;
-        
-        // Detect pinch orientation for rotation
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const angle = Math.atan2(
-          touch2.clientY - touch1.clientY,
-          touch2.clientX - touch1.clientX
-        );
-        
-        interactionRef.current.pinchStartAngle = angle;
-      } else if (e.touches.length === 1) {
-        // Single finger pan/rotation
-        interactionRef.current.touchId = e.touches[0].identifier;
+        interactionRef.current.isInteracting = true;
         interactionRef.current.lastX = e.touches[0].clientX;
         interactionRef.current.lastY = e.touches[0].clientY;
-        interactionRef.current.isInteracting = true;
         interactionRef.current.isDragging = false;
-        interactionRef.current.startTime = now;
+        interactionRef.current.startTime = Date.now();
       }
-    }, { passive: false });
-
-    // Enhanced touchmove handler
-    container.addEventListener('touchmove', (e) => {
+    };
+    
+    // Simple touchmove handler - rotate based on finger movement
+    const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
+      console.log("Touch move detected");
       
-      // Handle two-finger pinch for zoom
-      if (e.touches.length === 2) {
-        const currentTime = Date.now();
+      if (e.touches.length === 1 && interactionRef.current.isInteracting && centralWorldRef.current) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - interactionRef.current.lastX;
+        const dy = touch.clientY - interactionRef.current.lastY;
         
-        // Pinch-to-zoom with smoother response
-        const currentDistance = getPinchDistance(e);
-        const deltaDistance = currentDistance - interactionRef.current.pinchDistance;
+        // Higher sensitivity for mobile
+        const sensitivity = 0.02;
         
-        // Scale zoom sensitivity based on current zoom level
-        const zoomSensitivity = isMobile ? 0.02 : 0.01;
-        const adaptiveSensitivity = zoomSensitivity * (interactionRef.current.zoom.current / interactionRef.current.zoom.min);
+        // Apply rotation directly to the central world
+        centralWorldRef.current.rotation.y += dx * sensitivity;
+        centralWorldRef.current.rotation.x += dy * sensitivity;
         
-        // Apply zoom with dynamic sensitivity
-        interactionRef.current.zoom.target = Math.max(
-          interactionRef.current.zoom.min,
-          Math.min(interactionRef.current.zoom.max,
-            interactionRef.current.zoom.target - (deltaDistance * adaptiveSensitivity)
-          )
-        );
+        // Store position for next move
+        interactionRef.current.lastX = touch.clientX;
+        interactionRef.current.lastY = touch.clientY;
         
-        interactionRef.current.pinchDistance = currentDistance;
-        interactionRef.current.lastPinchTime = currentTime;
-        
-        // Track pinch rotation for twisting effect
-        if (centralWorldRef.current) {
-          const touch1 = e.touches[0];
-          const touch2 = e.touches[1];
-          const currentAngle = Math.atan2(
-            touch2.clientY - touch1.clientY,
-            touch2.clientX - touch1.clientX
-          );
-          
-          const angleChange = currentAngle - interactionRef.current.pinchStartAngle;
-          centralWorldRef.current.rotation.z += angleChange * 0.5; // Apply rotation around z-axis
-          interactionRef.current.pinchStartAngle = currentAngle;
+        // Mark as dragging if moved
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+          interactionRef.current.isDragging = true;
         }
-      } 
-      // Handle single-finger rotation
-      else if (e.touches.length === 1 && interactionRef.current.isInteracting) {
-        const primaryTouch = e.touches[0];
-        handleSingleFingerMove(primaryTouch);
       }
-    }, { passive: false });
-
-    // Enhanced touchend handler
-    container.addEventListener('touchend', (e) => {
+    };
+    
+    // Simple touchend handler
+    const onTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
+      console.log("Touch end detected");
       
-      // If we have no more touches, end the interaction
-      if (e.touches.length === 0) {
-        const wasInteracting = interactionRef.current.isInteracting;
-        interactionRef.current.isInteracting = false;
-        interactionRef.current.touchId = null;
-        
-        // Check if this was a short tap (not a drag)
-        const tapDuration = Date.now() - interactionRef.current.startTime;
-        const wasTap = !interactionRef.current.isDragging && tapDuration < 300;
-        
-        // Handle bubble selection on tap
-        if (wasTap && e.changedTouches.length > 0) {
-          handleBubbleClick(e);
-        }
-        
-        // Apply momentum for natural inertia
-        if (wasInteracting && centralWorldRef.current) {
-          const decay = isMobile ? 0.92 : 0.95;
-          
-          const applyMomentum = () => {
-            if (!centralWorldRef.current) return;
-            
-            const momentum = interactionRef.current.momentum;
-            const threshold = 0.0001;
-            
-            if (Math.abs(momentum.x) > threshold || Math.abs(momentum.y) > threshold) {
-              centralWorldRef.current.rotation.y += momentum.x;
-              centralWorldRef.current.rotation.x += momentum.y;
-              
-              // Apply adaptive decay for natural physics
-              const speedFactor = Math.min(1, Math.max(0.8, 
-                Math.sqrt(momentum.x * momentum.x + momentum.y * momentum.y) * 10));
-              
-              momentum.x *= decay * speedFactor;
-              momentum.y *= decay * speedFactor;
-              
-              requestAnimationFrame(applyMomentum);
-            }
-          };
-          
-          applyMomentum();
-        }
-      } else {
-        // Update the primary touch if the current one ended
-        interactionRef.current.touchId = getPrimaryTouchId(e);
-        
-        if (interactionRef.current.touchId !== null) {
-          const primaryTouch = getTouchById(e, interactionRef.current.touchId);
-          if (primaryTouch) {
-            interactionRef.current.lastX = primaryTouch.clientX;
-            interactionRef.current.lastY = primaryTouch.clientY;
-          }
-        }
-      }
-    }, { passive: false });
-
-    // Prevent touchcancel from leaving stuck rotation
-    container.addEventListener('touchcancel', (e) => {
+      const wasDragging = interactionRef.current.isDragging;
       interactionRef.current.isInteracting = false;
-      interactionRef.current.touchId = null;
-      interactionRef.current.momentum = { x: 0, y: 0 };
-    }, { passive: false });
+      
+      // Only handle click if it wasn't a drag
+      if (!wasDragging && e.changedTouches.length > 0) {
+        handleBubbleClick(e);
+      }
+    };
+    
+    // Add simplified touch event listeners
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd, { passive: false });
 
-    // Improved bubble click detection
+    // Improved bubble click detection optimized for mobile
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
+      console.log("Handling bubble click");
+      
       // If we're dragging, don't treat it as a click
       if (interactionRef.current.isDragging) return;
       
@@ -473,6 +303,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           // Get the parent group of the intersected bubble
           const bubbleGroup = intersects[0].object.parent;
           if (bubbleGroup && bubbleGroup.userData && bubbleGroup.userData.id) {
+            console.log("Bubble clicked:", bubbleGroup.userData.id);
+            
             // Add a small visual feedback on click
             const bubble = intersects[0].object;
             const scale = { value: 1 };
@@ -707,6 +539,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     return () => {
       window.removeEventListener('resize', handleResize);
       container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
