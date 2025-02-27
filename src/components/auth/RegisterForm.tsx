@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AutoConfirmEmail } from "./AutoConfirmEmail";
 
 export function RegisterForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [registeredCredentials, setRegisteredCredentials] = useState<{email: string, password: string} | null>(null);
   const [registerForm, setRegisterForm] = useState({
     email: "",
     password: "",
@@ -164,6 +167,7 @@ export function RegisterForm() {
         // Check for specific errors
         if (authError.message.includes("already registered")) {
           setFormErrors(prev => ({...prev, email: "Email already in use"}));
+          throw authError;
         }
         throw authError;
       }
@@ -172,21 +176,16 @@ export function RegisterForm() {
         throw new Error("Registration failed. Please try again.");
       }
 
-      // Since we disabled email confirmation, we can redirect to login
-      toast({
-        title: "Registration successful!",
-        description: "Your account has been created. You can now log in.",
+      console.log("Registration successful, user created:", authData.user);
+      
+      // Set credentials for auto-confirmation
+      setRegisteredCredentials({
+        email: registerForm.email,
+        password: registerForm.password
       });
       
-      // Reset form
-      setRegisterForm({
-        email: "",
-        password: "",
-        confirmPassword: "",
-        name: "",
-        surname: "",
-        username: "",
-      });
+      // Show auto-confirm component
+      setRegistrationComplete(true);
 
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -199,6 +198,14 @@ export function RegisterForm() {
       setIsLoading(false);
     }
   };
+
+  // If registration is complete, show auto-confirm component
+  if (registrationComplete && registeredCredentials) {
+    return <AutoConfirmEmail 
+      email={registeredCredentials.email} 
+      password={registeredCredentials.password} 
+    />;
+  }
 
   return (
     <Card className="border-[#ebbd34]/20 bg-white/80 backdrop-blur-md">
