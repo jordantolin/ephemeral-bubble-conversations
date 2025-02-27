@@ -3,8 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, User, TrendingUp, Sparkles, Star, Heart, MessageCircle, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, Star, Heart, MessageCircle, ChevronUp, ChevronDown, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
@@ -41,12 +40,11 @@ const Feed = () => {
   });
 
   // Fetch recent messages for each bubble to show previews
-  const { data: bubbleMessages = {} } = useQuery({
+  const { data: bubbleMessages = {}, isLoading: messagesLoading } = useQuery({
     queryKey: ['bubble-preview-messages'],
     queryFn: async () => {
       if (bubbles.length === 0) return {};
       
-      // Get the IDs of all bubbles
       const bubbleIds = bubbles.map(bubble => bubble.id);
       
       const { data, error } = await supabase
@@ -57,19 +55,55 @@ const Feed = () => {
       
       if (error) throw error;
       
-      // Organize messages by bubble_id
+      // Group messages by bubble_id
       const messagesByBubble: Record<string, any[]> = {};
       data.forEach(message => {
         if (!messagesByBubble[message.bubble_id]) {
           messagesByBubble[message.bubble_id] = [];
         }
-        // Only keep the 3 most recent messages per bubble
-        if (messagesByBubble[message.bubble_id].length < 3) {
+        // Keep up to 5 most recent messages per bubble
+        if (messagesByBubble[message.bubble_id].length < 5) {
           messagesByBubble[message.bubble_id].push(message);
         }
       });
       
       return messagesByBubble;
+    },
+    enabled: bubbles.length > 0
+  });
+
+  // Fetch participant count for each bubble
+  const { data: bubbleParticipants = {} } = useQuery({
+    queryKey: ['bubble-participants'],
+    queryFn: async () => {
+      if (bubbles.length === 0) return {};
+      
+      const bubbleIds = bubbles.map(bubble => bubble.id);
+      
+      // Get unique usernames for each bubble
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('bubble_id, username')
+        .in('bubble_id', bubbleIds);
+      
+      if (error) throw error;
+      
+      // Count unique usernames per bubble
+      const participantsByBubble: Record<string, Set<string>> = {};
+      data.forEach(message => {
+        if (!participantsByBubble[message.bubble_id]) {
+          participantsByBubble[message.bubble_id] = new Set();
+        }
+        participantsByBubble[message.bubble_id].add(message.username);
+      });
+      
+      // Convert Sets to counts
+      const countsByBubble: Record<string, number> = {};
+      Object.entries(participantsByBubble).forEach(([bubbleId, participants]) => {
+        countsByBubble[bubbleId] = participants.size;
+      });
+      
+      return countsByBubble;
     },
     enabled: bubbles.length > 0
   });
@@ -157,6 +191,23 @@ const Feed = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Format the date for the "created at" timestamp
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
   // Get a truncated preview of message content
   const getMessagePreview = (content: string) => {
     // If it's media content, return an appropriate placeholder
@@ -169,7 +220,7 @@ const Feed = () => {
     }
     
     // Otherwise truncate text
-    return content.length > 30 ? content.substring(0, 27) + '...' : content;
+    return content.length > 25 ? content.substring(0, 22) + '...' : content;
   };
 
   // Handle touch interactions for swiping
@@ -249,13 +300,13 @@ const Feed = () => {
       y: direction > 0 ? '100%' : '-100%',
       opacity: 0,
       scale: 0.8,
-      rotateX: direction > 0 ? -30 : 30,
+      rotateY: direction > 0 ? -20 : 20,
     }),
     center: {
       y: 0,
       opacity: 1,
       scale: 1,
-      rotateX: 0,
+      rotateY: 0,
       transition: {
         duration: 0.5,
         ease: [0.34, 1.56, 0.64, 1], // Custom cubic bezier for springy feel
@@ -265,12 +316,25 @@ const Feed = () => {
       y: direction > 0 ? '-100%' : '100%',
       opacity: 0,
       scale: 0.8,
-      rotateX: direction > 0 ? 30 : -30,
+      rotateY: direction > 0 ? 20 : -20,
       transition: {
         duration: 0.4,
         ease: [0.43, 0.13, 0.23, 0.96], // Custom cubic bezier for smooth exit
       }
     })
+  };
+
+  // Get a random pastel color for user avatars
+  const getUserColor = (username: string) => {
+    // Generate a hash code from the username
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Generate pastel colors (high lightness)
+    const h = hash % 360;
+    return `hsla(${h}, 70%, 80%, 0.8)`;
   };
 
   return (
@@ -360,8 +424,8 @@ const Feed = () => {
         {/* TikTok-Style Vertical Scrolling Bubbles Container */}
         <div 
           ref={containerRef}
-          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none perspective"
-          style={{ perspective: '1000px' }}
+          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none"
+          style={{ perspective: '1200px' }}
         >
           {isLoading ? (
             <div className="h-full w-full flex flex-col items-center justify-center">
@@ -401,7 +465,7 @@ const Feed = () => {
                     key={index}
                     className={`h-1.5 w-1.5 rounded-full ${
                       index === currentIndex ? 'bg-[#ebbd34] w-2 h-2' : 'bg-[#ebbd34]/30'
-                    }`}
+                    } transition-all duration-300`}
                   />
                 ))}
               </div>
@@ -416,81 +480,120 @@ const Feed = () => {
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    className="absolute inset-0 flex items-center justify-center preserve-3d"
+                    className="absolute inset-0 flex items-center justify-center"
                     style={{ 
                       transformStyle: 'preserve-3d',
-                      backfaceVisibility: 'hidden'
                     }}
                   >
-                    <div className="relative w-[280px] h-[420px] rounded-full flex items-center justify-center transform-style-3d">
-                      {/* 3D Bubble effect with glassmorphism */}
+                    {/* Main bubble */}
+                    <div 
+                      className="relative w-[320px] h-[320px] rounded-full overflow-visible"
+                      style={{ transformStyle: 'preserve-3d' }}
+                    >
+                      {/* Background gradient circle with glow */}
                       <div 
                         className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ffda7b]/90 to-[#ebbd34]/90 shadow-xl"
                         style={{
-                          boxShadow: '0 20px 50px rgba(235, 189, 52, 0.3), inset 0 0 60px rgba(255, 255, 255, 0.2)',
-                          backdropFilter: 'blur(5px)',
-                          transform: 'translateZ(-10px)',
+                          boxShadow: '0 10px 30px rgba(235, 189, 52, 0.4), 0 0 80px rgba(235, 189, 52, 0.2)',
+                          transform: 'translateZ(-30px)',
                         }}
                       />
                       
-                      {/* Bubble shine effect */}
+                      {/* Highlight effects */}
                       <div 
-                        className="absolute top-0 right-[15%] w-[40%] h-[30%] rounded-full bg-white/30 blur-md"
-                        style={{ transform: 'translateZ(5px)' }}
+                        className="absolute top-2 right-4 w-40 h-40 rounded-full bg-white/20 blur-xl"
+                        style={{ transform: 'translateZ(-20px)' }}
                       />
                       <div 
-                        className="absolute bottom-[20%] left-[10%] w-[20%] h-[10%] rounded-full bg-white/20 blur-sm"
-                        style={{ transform: 'translateZ(5px)' }}
+                        className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-white/10 blur-xl"
+                        style={{ transform: 'translateZ(-20px)' }}
                       />
-                        
-                      {/* Bubble content */}
-                      <div className="relative w-[85%] h-[85%] rounded-full bg-white/70 backdrop-blur-sm p-5 overflow-hidden flex flex-col items-center transform-style-3d">
-                        <div 
-                          className="flex-1 flex flex-col items-center justify-center text-center"
-                          style={{ transform: 'translateZ(20px)' }}
-                        >
-                          <h2 className="text-3xl font-bold text-[#ebbd34] mb-3 drop-shadow-sm">
-                            {filteredBubbles[currentIndex].name}
-                          </h2>
-                          <p className="text-lg text-[#ebbd34]/90 mb-4">
-                            {filteredBubbles[currentIndex].topic}
-                          </p>
-                          {filteredBubbles[currentIndex].description && (
-                            <p className="text-[#ebbd34]/80 text-sm max-w-xs mb-2">
-                              {filteredBubbles[currentIndex].description}
+                      
+                      {/* Inner bubble with content */}
+                      <div 
+                        className="absolute inset-[15px] rounded-full bg-white/80 backdrop-blur-md"
+                        style={{
+                          transformStyle: 'preserve-3d',
+                          boxShadow: 'inset 0 0 20px rgba(255, 255, 255, 0.6)',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {/* Content container */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-between p-6 text-center">
+                          {/* Top section - bubble title */}
+                          <div className="w-full">
+                            <h2 
+                              className="text-2xl font-bold text-[#ebbd34] mb-1"
+                              style={{ textShadow: '0 1px 2px rgba(235, 189, 52, 0.2)' }}
+                            >
+                              {filteredBubbles[currentIndex].name}
+                            </h2>
+                            <p className="text-sm text-[#ebbd34]/80 font-medium">
+                              {filteredBubbles[currentIndex].topic}
                             </p>
-                          )}
-                          
-                          <div className="mt-3 flex items-center justify-center border border-[#ebbd34]/20 bg-[#ebbd34]/5 rounded-full px-5 py-2">
-                            <Star className="w-4 h-4 text-[#ebbd34] mr-2" />
-                            <span className="text-[#ebbd34] font-medium text-sm">
-                              {filteredBubbles[currentIndex].reflect_count} reflects
-                            </span>
                           </div>
                           
-                          <p className="mt-2 text-[#ebbd34]/70 text-xs">
-                            by @{filteredBubbles[currentIndex].username.split('@')[0]}
-                          </p>
+                          {/* Middle section - stats and description */}
+                          <div className="flex-1 flex flex-col items-center justify-center w-full">
+                            <div className="flex items-center justify-center gap-3 mb-3">
+                              <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
+                                <Star className="w-3 h-3 text-[#ebbd34] mr-1" />
+                                <span className="text-xs text-[#ebbd34] font-medium">
+                                  {filteredBubbles[currentIndex].reflect_count}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
+                                <Users className="w-3 h-3 text-[#ebbd34] mr-1" />
+                                <span className="text-xs text-[#ebbd34] font-medium">
+                                  {bubbleParticipants[filteredBubbles[currentIndex].id] || 0}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
+                                <span className="text-xs text-[#ebbd34] font-medium">
+                                  {formatDate(filteredBubbles[currentIndex].created_at)}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {filteredBubbles[currentIndex].description && (
+                              <p className="text-[#ebbd34]/70 text-xs mb-2 max-w-[90%] line-clamp-2">
+                                {filteredBubbles[currentIndex].description}
+                              </p>
+                            )}
+                            
+                            <p className="text-[#ebbd34]/60 text-xs">
+                              by @{filteredBubbles[currentIndex].username.split('@')[0]}
+                            </p>
+                          </div>
                           
-                          {/* Chat preview section */}
-                          {bubbleMessages[filteredBubbles[currentIndex].id] && 
-                           bubbleMessages[filteredBubbles[currentIndex].id].length > 0 && (
-                            <div 
-                              className="mt-4 w-full bg-[#ebbd34]/5 rounded-xl p-3 border border-[#ebbd34]/10 max-h-[25%] overflow-hidden"
-                              style={{ transform: 'translateZ(30px)' }}
-                            >
+                          {/* Bottom section - chat preview */}
+                          {!messagesLoading && bubbleMessages[filteredBubbles[currentIndex].id] && 
+                           bubbleMessages[filteredBubbles[currentIndex].id].length > 0 ? (
+                            <div className="w-full bg-[#ebbd34]/5 rounded-xl p-2 border border-[#ebbd34]/10 mt-1">
                               <h4 className="text-xs text-[#ebbd34] font-semibold mb-1 flex items-center">
                                 <MessageCircle className="w-3 h-3 mr-1" /> 
-                                Chat Preview
+                                Recent Chat
                               </h4>
-                              <div className="overflow-hidden">
-                                {bubbleMessages[filteredBubbles[currentIndex].id].slice(0, 2).map((message: any, idx: number) => (
+                              <div className="overflow-hidden max-h-[80px]">
+                                {bubbleMessages[filteredBubbles[currentIndex].id].slice(0, 3).map((message: any, idx: number) => (
                                   <div key={idx} className="flex items-start gap-1 mb-1">
-                                    <div className="w-4 h-4 rounded-full bg-[#ebbd34]/30 flex-shrink-0 mt-0.5" />
+                                    <div 
+                                      className="w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center text-[0.5rem] text-white"
+                                      style={{ backgroundColor: getUserColor(message.username) }}
+                                    >
+                                      {message.username.charAt(0).toUpperCase()}
+                                    </div>
                                     <div className="flex-1 text-left">
-                                      <p className="text-[0.65rem] font-medium text-[#ebbd34]/80">
-                                        @{message.username.split('@')[0]}:
-                                      </p>
+                                      <div className="flex items-center">
+                                        <p className="text-[0.65rem] font-medium text-[#ebbd34]/80 mr-1">
+                                          @{message.username.split('@')[0]}
+                                        </p>
+                                        <span className="text-[0.6rem] text-[#ebbd34]/50">
+                                          {formatMessageTime(message.created_at)}
+                                        </span>
+                                      </div>
                                       <p className="text-[0.7rem] text-[#ebbd34]/70 line-clamp-1">
                                         {getMessagePreview(message.content)}
                                       </p>
@@ -498,34 +601,45 @@ const Feed = () => {
                                   </div>
                                 ))}
                               </div>
+                              <div className="text-center">
+                                <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`} className="text-[0.7rem] text-[#ebbd34] hover:underline">
+                                  View full conversation →
+                                </Link>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full bg-[#ebbd34]/5 rounded-xl p-3 border border-[#ebbd34]/10 text-center mt-1">
+                              <p className="text-xs text-[#ebbd34]/60">
+                                {messagesLoading ? "Loading messages..." : "No messages yet. Be the first to chat!"}
+                              </p>
                             </div>
                           )}
                         </div>
-                        
-                        {/* Action buttons */}
-                        <div 
-                          className="flex items-center justify-center gap-3 mt-auto"
-                          style={{ transform: 'translateZ(30px)' }}
+                      </div>
+                      
+                      {/* Action buttons - positioned around the circle */}
+                      <div 
+                        className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex items-center space-x-4"
+                        style={{ zIndex: 20 }}
+                      >
+                        <Button 
+                          onClick={() => handleReflect(filteredBubbles[currentIndex].id)}
+                          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full px-5 py-2 shadow-lg"
+                          size="sm"
                         >
+                          <Heart className="w-4 h-4 mr-2" />
+                          Reflect
+                        </Button>
+                        
+                        <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`}>
                           <Button 
-                            onClick={() => handleReflect(filteredBubbles[currentIndex].id)}
-                            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full px-4 py-1 text-sm font-medium shadow-md"
+                            className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
                             size="sm"
                           >
-                            <Heart className="w-4 h-4 mr-1" />
-                            Reflect
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            Join Chat
                           </Button>
-                          
-                          <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`}>
-                            <Button 
-                              className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-4 py-1 text-sm font-medium"
-                              size="sm"
-                            >
-                              <MessageCircle className="w-4 h-4 mr-1" />
-                              Chat
-                            </Button>
-                          </Link>
-                        </div>
+                        </Link>
                       </div>
                     </div>
                   </motion.div>
@@ -536,18 +650,23 @@ const Feed = () => {
         </div>
       </main>
 
-      {/* Global 3D styles */}
+      {/* Add CSS to fix 3D perspective issues in different browsers */}
       <style>
         {`
-          .perspective {
-            perspective: 1000px;
-          }
-          .transform-style-3d {
+          * {
+            -webkit-transform-style: preserve-3d;
             transform-style: preserve-3d;
+            -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
           }
-          .preserve-3d {
-            transform-style: preserve-3d;
+          
+          @keyframes pulse-glow {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+          }
+          
+          .bg-glow {
+            animation: pulse-glow 3s infinite ease-in-out;
           }
         `}
       </style>
