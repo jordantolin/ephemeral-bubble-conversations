@@ -52,7 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      return data as Profile;
+      // Ensure updated_at is present in the profile data
+      const profileWithUpdatedAt: Profile = {
+        ...data,
+        updated_at: data.updated_at || data.created_at // Fallback to created_at if updated_at is missing
+      };
+
+      return profileWithUpdatedAt;
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;
@@ -106,7 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         async (payload) => {
           if (payload.new) {
-            setProfile(payload.new as Profile);
+            // Ensure updated_at is present in real-time updates
+            const profileData = payload.new as any;
+            const updatedProfile: Profile = {
+              ...profileData,
+              updated_at: profileData.updated_at || profileData.created_at
+            };
+            setProfile(updatedProfile);
           }
         }
       )
