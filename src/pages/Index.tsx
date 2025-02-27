@@ -71,7 +71,7 @@ const Index = () => {
   const audioRecorder = useRef(null);
   const [audioStream, setAudioStream] = useState(null);
 
-  const { data: bubbles, isLoading, isError } = useQuery({
+  const { data: bubbles = [], isLoading, isError } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -319,6 +319,14 @@ const Index = () => {
     }
   };
 
+  const handleBubbleClick = (id) => {
+    console.log("Bubble clicked:", id);
+    const bubble = bubbles.find(b => b.id === id);
+    if (bubble) {
+      handleEditBubble(bubble);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
@@ -387,7 +395,8 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="container mx-auto pt-20 sm:pt-24 px-4">
+      {/* 3D Bubble World Container */}
+      <div className="container mx-auto px-4 pt-28 sm:pt-24">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#ebbd34]">
             Explore Bubbles
@@ -398,32 +407,45 @@ const Index = () => {
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="text-center text-gray-500">Loading bubbles...</div>
-        ) : isError ? (
-          <div className="text-center text-red-500">Error loading bubbles. Please try again.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {bubbles && bubbles.map((bubble) => (
-              <div key={bubble.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-[#ebbd34]">{bubble.name}</h2>
-                    <Button variant="ghost" size="icon" onClick={() => handleEditBubble(bubble)} className="hover:bg-[#ebbd34]/10 text-[#ebbd34]">
-                      <MessageCircle className="w-5 h-5" />
-                    </Button>
-                  </div>
-                  <p className="text-gray-600 mt-2">{bubble.description}</p>
-                  <div className="mt-4">
-                    <span className="inline-block bg-[#ebbd34]/10 rounded-full px-3 py-1 text-sm font-semibold text-[#ebbd34] mr-2 mb-2">
-                      {bubble.topic}
-                    </span>
-                  </div>
+        {/* 3D Bubble World Visualization */}
+        <div className="w-full h-[calc(100vh-250px)] sm:h-[600px] relative rounded-xl overflow-hidden shadow-lg border border-[#ebbd34]/10 mb-8">
+          {isLoading ? (
+            <div className="w-full h-full flex items-center justify-center bg-[#ebbd34]/5">
+              <div className="text-[#ebbd34] font-semibold">Loading bubble world...</div>
+            </div>
+          ) : isError ? (
+            <div className="w-full h-full flex items-center justify-center bg-[#ebbd34]/5">
+              <div className="text-red-500 font-semibold">Error loading bubbles. Please try again.</div>
+            </div>
+          ) : (
+            <BubbleWorld 
+              topics={bubbles} 
+              onBubbleClick={handleBubbleClick} 
+            />
+          )}
+        </div>
+
+        {/* Bubbles Grid List */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {!isLoading && !isError && bubbles && bubbles.map((bubble) => (
+            <div key={bubble.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-[#ebbd34]">{bubble.name}</h2>
+                  <Button variant="ghost" size="icon" onClick={() => handleEditBubble(bubble)} className="hover:bg-[#ebbd34]/10 text-[#ebbd34]">
+                    <MessageCircle className="w-5 h-5" />
+                  </Button>
+                </div>
+                <p className="text-gray-600 mt-2">{bubble.description}</p>
+                <div className="mt-4">
+                  <span className="inline-block bg-[#ebbd34]/10 rounded-full px-3 py-1 text-sm font-semibold text-[#ebbd34] mr-2 mb-2">
+                    {bubble.topic}
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Create Bubble Dialog */}
@@ -457,11 +479,9 @@ const Index = () => {
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="General">General</SelectItem>
-                  <SelectItem value="Technology">Technology</SelectItem>
-                  <SelectItem value="Sports">Sports</SelectItem>
-                  <SelectItem value="Entertainment">Entertainment</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  {availableTopics.map((topic) => (
+                    <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -506,11 +526,9 @@ const Index = () => {
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="General">General</SelectItem>
-                  <SelectItem value="Technology">Technology</SelectItem>
-                  <SelectItem value="Sports">Sports</SelectItem>
-                  <SelectItem value="Entertainment">Entertainment</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  {availableTopics.map((topic) => (
+                    <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
