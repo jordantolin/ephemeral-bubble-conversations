@@ -3,7 +3,6 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
 
 interface UserContextProps {
   user: User | null;
@@ -34,7 +33,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
     // Get initial session
@@ -55,20 +53,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (data.session?.user) {
           console.log("User is authenticated, fetching profile");
           await fetchUserProfile(data.session.user.id);
-          
-          // Get current path to avoid unnecessary redirects
-          const currentPath = window.location.pathname;
-          
-          // Only redirect to Feed if not already on feed or another authenticated page
-          if (currentPath === '/' || currentPath === '/auth') {
-            console.log("User is authenticated but on public page, redirecting to feed");
-            navigate('/feed');
-          }
         }
+        
+        setLoading(false);
       } catch (error) {
         console.error('Error initializing auth:', error);
-      } finally {
-        console.log("Auth initialization completed");
         setLoading(false);
       }
     };
@@ -85,20 +74,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && newSession?.user) {
           console.log("User signed in, fetching profile");
           await fetchUserProfile(newSession.user.id);
-          
-          // Get current path
-          const currentPath = window.location.pathname;
-          
-          // Only redirect if not already on feed
-          if (currentPath !== '/feed') {
-            console.log("Redirecting to feed after sign in");
-            navigate('/feed');
-          }
         } else if (event === 'SIGNED_OUT') {
           console.log("User signed out");
           setUserProfile(null);
-          // Redirect to home page after logout
-          navigate('/');
         }
       }
     );
@@ -106,7 +84,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const fetchUserProfile = async (userId: string) => {
     try {

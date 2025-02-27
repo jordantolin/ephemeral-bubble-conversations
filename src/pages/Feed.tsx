@@ -13,7 +13,6 @@ const Feed = () => {
   const { user, loading } = useUser();
   const [isReady, setIsReady] = useState(false);
   const [topics, setTopics] = useState<BubbleData[]>([]);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const { toast } = useToast();
 
   // Fetch bubbles data
@@ -48,15 +47,18 @@ const Feed = () => {
         
         console.log("Bubbles fetched:", bubbleData.length);
         setTopics(bubbleData);
+        
+        // Set isReady to true after bubbles are loaded
+        setIsReady(true);
       } catch (e) {
         console.error("Exception while fetching bubbles:", e);
       }
     };
     
-    if (user) {
+    if (user && !loading) {
       fetchBubbles();
     }
-  }, [user]);
+  }, [user, loading]);
 
   // Handle bubble click
   const handleBubbleClick = (id: string) => {
@@ -74,26 +76,19 @@ const Feed = () => {
     console.log("Feed page: Loading state -", loading ? "loading" : "loaded", "User -", user ? "logged in" : "not logged in");
     
     // Check if user is not authenticated and redirect to auth page
-    if (!loading) {
-      setIsCheckingAuth(false);
-      
-      if (!user) {
-        console.log("User not authenticated, redirecting to auth page");
-        navigate("/auth");
-        return;
-      }
-      
-      // Set a small delay to ensure the 3D world loads properly
-      const timer = setTimeout(() => {
-        console.log("3D world is ready to render");
-        setIsReady(true);
-      }, 500);
-      
-      return () => clearTimeout(timer);
+    if (!loading && !user) {
+      console.log("User not authenticated, redirecting to auth page");
+      navigate("/auth");
+      return;
     }
-  }, [user, loading, navigate]);
+    
+    // Removed the setTimeout to avoid issues
+    if (!loading && user && !isReady) {
+      console.log("User authenticated, ready to load bubbles");
+    }
+  }, [user, loading, navigate, isReady]);
 
-  if (loading || isCheckingAuth || !isReady) {
+  if (loading || !isReady) {
     console.log("Showing loading screen in Feed");
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">

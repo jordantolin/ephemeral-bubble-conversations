@@ -13,6 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Info, CheckCircle2, AlertCircle } from "lucide-react";
+import { useUser } from "@/context/UserContext";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -29,35 +30,16 @@ const Auth = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useUser();
 
   // Check if user is already logged in
   useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        console.log("User already has a session, redirecting to feed immediately");
-        navigate("/feed"); // Redirect to Feed page which contains the 3D world
-      }
-    };
-    
-    checkSession();
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log("Auth state changed:", event);
-        if (session) {
-          console.log("Session detected, immediately redirecting to feed");
-          // When the user signs in, immediately redirect to the Feed page
-          navigate("/feed");
-        }
-      }
-    );
-    
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [navigate]);
+    // If user is logged in, redirect to Feed page
+    if (user) {
+      console.log("User already logged in, redirecting to feed");
+      navigate("/feed");
+    }
+  }, [user, navigate]);
 
   const checkPasswordStrength = (password: string) => {
     if (!password) {
@@ -288,14 +270,13 @@ const Auth = () => {
       
       if (error) throw error;
       
-      // Auth state listener will handle redirect to Feed
       toast({
         title: "Accesso effettuato",
         description: "Benvenuto in Bubble Trouble!",
       });
       
-      // Direct navigation to Feed (in addition to the listener)
-      console.log("Redirecting to feed immediately after signin");
+      // Navigate to Feed page
+      console.log("Login successful, redirecting to feed");
       navigate("/feed");
     } catch (error: any) {
       toast({
