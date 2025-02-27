@@ -72,13 +72,18 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
 };
 
 export const calculateOrbitPosition = (index: number, totalBubbles: number, time: number) => {
+  // More uniform distribution around the central world
   const angle = (index / totalBubbles) * Math.PI * 2 + time;
-  const orbitRadius = 6 + Math.sin(time * 0.5 + index) * 0.5; // Varying radius for more natural look
-  const heightOffset = Math.sin(angle * 2) * 0.5; // Vertical oscillation
+  
+  // More stable orbit radius with less variation
+  const orbitRadius = 6 + Math.sin(time * 0.3 + index) * 0.4;
+  
+  // Reduced vertical oscillation for more stability on mobile
+  const heightOffset = Math.sin(angle * 1.5) * 0.4;
 
   return {
     x: Math.cos(angle) * orbitRadius,
     y: Math.sin(angle) * orbitRadius * 0.6 + heightOffset,
-    z: Math.sin(angle * 2) * (orbitRadius * 0.3)
+    z: Math.sin(angle * 1.5) * (orbitRadius * 0.25)
   };
 };
