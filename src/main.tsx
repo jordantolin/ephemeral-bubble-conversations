@@ -33,8 +33,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             </Route>
           </Routes>
           <Toaster />
-        </BrowserRouter>
-      </UserProvider>
+        </UserProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>
 );
