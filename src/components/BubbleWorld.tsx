@@ -31,10 +31,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     zoom: {
       current: 12,
       target: 12,
-      min: 5,
-      max: 20
+      min: 4, // Increased zoom range for mobile
+      max: 25  // Increased max zoom for better close-up view
     },
-    pinchDistance: 0
+    pinchDistance: 0,
+    lastPinchTime: 0
   });
 
   useEffect(() => {
@@ -43,14 +44,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const container = containerRef.current;
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color('#FEF7E4');
+    scene.background = new THREE.Color('#F6F6F7'); // Light grey background to match the grey world
 
     const width = container.clientWidth;
     const height = container.clientHeight;
     const isMobile = width < 768;
 
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    camera.position.z = isMobile ? 8 : 12;
+    camera.position.z = isMobile ? 9 : 12;
     interactionRef.current.zoom.current = camera.position.z;
     interactionRef.current.zoom.target = camera.position.z;
     cameraRef.current = camera;
@@ -64,19 +65,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Enhanced lighting
-    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1.2);
+    // Enhanced lighting for smooth grey surface
+    const ambientLight = new THREE.AmbientLight('#FFFFFF', 1.0);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight('#FFFFFF', 2);
-    mainLight.position.set(5, 5, 5);
+    // Add hemispheric light for better 3D depth
+    const hemisphereLight = new THREE.HemisphereLight('#FFFFFF', '#BBBBBB', 1.0);
+    scene.add(hemisphereLight);
+
+    // Main directional light
+    const mainLight = new THREE.DirectionalLight('#FFFFFF', 1.5);
+    mainLight.position.set(3, 5, 5);
     scene.add(mainLight);
 
-    const backLight = new THREE.DirectionalLight('#FFFFFF', 1);
-    backLight.position.set(-5, -5, -5);
-    scene.add(backLight);
+    // Secondary light for better highlights
+    const secondaryLight = new THREE.DirectionalLight('#FFFFFF', 0.8);
+    secondaryLight.position.set(-5, -3, -5);
+    scene.add(secondaryLight);
 
-    // Create Earth and bubbles
+    // Create central world (now a smooth grey sphere)
     const worldGeometry = createCentralWorldGeometry();
     const worldMaterial = createCentralWorldMaterial();
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
@@ -104,9 +111,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         orbitIndex: index,
         originalScale: finalSize,
         textScales: {
-          nameScale: finalSize * 1.4,  // Smaller to fit inside
-          topicScale: finalSize * 1.2, // Smaller to fit inside
-          reflectScale: finalSize      // Smaller to fit inside
+          nameScale: finalSize * 1.4,
+          topicScale: finalSize * 1.2,
+          reflectScale: finalSize
         }
       };
 
@@ -164,8 +171,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.add(bubbleGroup);
     });
 
-    // Handle pinch zoom for mobile
+    // Improved pinch zoom for mobile with better sensitivity
     let initialPinchDistance = 0;
+    
     const getPinchDistance = (e: TouchEvent) => {
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -175,12 +183,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       );
     };
 
-    // Touch events for pinch zoom
+    // Enhanced touch events with better pinch detection and smoother zooming
     container.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
         e.preventDefault();
         initialPinchDistance = getPinchDistance(e);
         interactionRef.current.pinchDistance = initialPinchDistance;
+        interactionRef.current.lastPinchTime = Date.now();
       } else if (e.touches.length === 1) {
         e.preventDefault();
         const touch = e.touches[0];
@@ -191,15 +200,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('touchmove', (e) => {
       if (e.touches.length === 2) {
         e.preventDefault();
-        const currentDistance = getPinchDistance(e);
-        const delta = (currentDistance - interactionRef.current.pinchDistance) * 0.01;
-        interactionRef.current.zoom.target = Math.max(
-          interactionRef.current.zoom.min,
-          Math.min(interactionRef.current.zoom.max,
-            interactionRef.current.zoom.target - delta
-          )
-        );
-        interactionRef.current.pinchDistance = currentDistance;
+        const currentTime = Date.now();
+        const timeDelta = currentTime - interactionRef.current.lastPinchTime;
+        interactionRef.current.lastPinchTime = currentTime;
+        
+        // Only process the pinch if we're not throttling
+        if (timeDelta > 16) { // ~60fps
+          const currentDistance = getPinchDistance(e);
+          // Calculate delta with improved sensitivity for mobile
+          let delta = (currentDistance - interactionRef.current.pinchDistance) * (isMobile ? 0.015 : 0.01);
+          
+          // Apply non-linear scaling for better zoom control
+          delta = Math.sign(delta) * Math.pow(Math.abs(delta), 0.8);
+          
+          interactionRef.current.zoom.target = Math.max(
+            interactionRef.current.zoom.min,
+            Math.min(interactionRef.current.zoom.max,
+              interactionRef.current.zoom.target - delta
+            )
+          );
+          interactionRef.current.pinchDistance = currentDistance;
+        }
       } else if (e.touches.length === 1) {
         e.preventDefault();
         const touch = e.touches[0];
@@ -207,7 +228,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     }, { passive: false });
 
-    // Handle bubble clicks
+    // Handle bubble clicks with improved touch detection
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
       const rect = container.getBoundingClientRect();
       let clientX: number;
@@ -243,15 +264,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Mouse wheel zoom with improved sensitivity
+    // Mouse wheel zoom with improved sensitivity and smoother behavior
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const zoom = interactionRef.current.zoom;
-      const delta = e.deltaY * 0.005;
+      // Non-linear scaling for smoother zoom at different distances
+      const zoomSensitivity = 0.005 * (zoom.current / zoom.min);
+      const delta = e.deltaY * zoomSensitivity;
+      
       zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
     };
 
-    // Unified interaction handling for both mouse and touch
+    // Unified interaction handling for both mouse and touch with full range rotation
     const startInteraction = (clientX: number, clientY: number) => {
       interactionRef.current.isInteracting = true;
       interactionRef.current.lastX = clientX;
@@ -261,17 +285,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const moveInteraction = (clientX: number, clientY: number) => {
       if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
-      const deltaX = (clientX - interactionRef.current.lastX) * 0.01;
-      const deltaY = (clientY - interactionRef.current.lastY) * 0.01;
+      // Adjust sensitivity based on device type
+      const sensitivity = isMobile ? 0.015 : 0.01;
+      const deltaX = (clientX - interactionRef.current.lastX) * sensitivity;
+      const deltaY = (clientY - interactionRef.current.lastY) * sensitivity;
 
       centralWorldRef.current.rotation.y += deltaX;
       centralWorldRef.current.rotation.x += deltaY;
 
-      // Limit vertical rotation
-      centralWorldRef.current.rotation.x = Math.max(
-        -Math.PI / 3,
-        Math.min(Math.PI / 3, centralWorldRef.current.rotation.x)
-      );
+      // Full rotation range (removed the vertical rotation limit)
+      // This allows complete freedom to view all sides of the central world
 
       interactionRef.current.momentum = {
         x: deltaX * 0.8,
@@ -294,14 +317,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           event.clientX : 
           event.changedTouches[0].clientX;
         
-        if (Math.abs(currentX - interactionRef.current.lastX) < 5) {
+        // More lenient threshold for mobile tap detection
+        const clickThreshold = isMobile ? 10 : 5;
+        if (Math.abs(currentX - interactionRef.current.lastX) < clickThreshold) {
           handleBubbleClick(event);
         }
       }
 
-      // Apply momentum with improved physics
+      // Apply momentum with improved physics for smoother deceleration
       if (wasInteracting) {
-        const decay = 0.95;
+        const decay = isMobile ? 0.92 : 0.95; // Slower decay on mobile for more satisfying momentum
         const applyMomentum = () => {
           if (!centralWorldRef.current) return;
           
@@ -359,23 +384,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     container.addEventListener('wheel', handleWheel, { passive: false });
 
-    // Animation loop
+    // Animation loop with improved bubble scaling and movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       time += 0.002;
       
-      // Update zoom with smooth interpolation
+      // Update zoom with adaptive smoothing - faster on mobile for better responsiveness
       const zoom = interactionRef.current.zoom;
-      zoom.current += (zoom.target - zoom.current) * 0.1;
+      const zoomLerpFactor = isMobile ? 0.15 : 0.1;
+      zoom.current += (zoom.target - zoom.current) * zoomLerpFactor;
       if (camera) {
         camera.position.z = zoom.current;
       }
 
-      // Calculate zoom scaling factor for bubbles
-      // Make bubbles appear relatively larger when zoomed in
-      const zoomFactor = 1 + ((interactionRef.current.zoom.max - zoom.current) / 
-                              (interactionRef.current.zoom.max - interactionRef.current.zoom.min));
+      // Calculate zoom scaling factor for bubbles with improved curve
+      // Use a non-linear scale factor for more natural zooming feel
+      const zoomRange = interactionRef.current.zoom.max - interactionRef.current.zoom.min;
+      const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
+      const zoomFactor = 1 + Math.pow(normalizedZoom, 1.2); // Non-linear scaling
       
       // Update bubbles position and scale based on zoom
       Object.values(bubblesRef.current).forEach(bubble => {
@@ -409,7 +436,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const textScales = bubble.userData.textScales;
           const textScaleFactor = zoomFactor * 0.8; // slightly less aggressive scaling for text
           
-          // Scale based on which text element it is
+          // Scale based on which text element it is and update positions
           let baseScale;
           if (i === 1) { // Name (top)
             baseScale = textScales.nameScale;
@@ -430,8 +457,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       });
 
+      // Apply gentle auto-rotation when not interacting
       if (!interactionRef.current.isInteracting) {
-        centralWorld.rotation.y += 0.0005;
+        centralWorld.rotation.y += 0.0003; // Slower rotation for a more contemplative feel
       }
 
       TWEEN.update();
@@ -440,16 +468,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     animate();
 
-    // Handle window resize
+    // Improved window resize handling with debounce
+    let resizeTimeout: number;
     const handleResize = () => {
-      if (!container || !camera || !renderer) return;
-      
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      if (resizeTimeout) {
+        window.clearTimeout(resizeTimeout);
+      }
+
+      resizeTimeout = window.setTimeout(() => {
+        if (!container || !camera || !renderer) return;
+        
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        
+        // Update is-mobile detection on resize
+        const isMobile = width < 768;
+        
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+      }, 100); // Debounce resize events
     };
 
     window.addEventListener('resize', handleResize);
