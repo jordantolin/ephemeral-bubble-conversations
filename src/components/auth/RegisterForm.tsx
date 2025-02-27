@@ -31,7 +31,7 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
-      // Validate form
+      // Basic form validation
       if (
         !registerForm.email ||
         !registerForm.password ||
@@ -51,99 +51,31 @@ export function RegisterForm() {
         throw new Error("Password must be at least 6 characters");
       }
 
-      // Check if email already exists in auth
-      const { data: authUser, error: authCheckError } = await supabase.auth.signInWithPassword({
-        email: registerForm.email,
-        password: "dummy-password-for-check",
-      });
-      
-      // If sign-in didn't fail with "Invalid login credentials", email might already exist
-      if (authUser?.user) {
-        console.log("Email already exists in auth");
-        throw new Error("Email already registered. Please use another email or try logging in.");
-      }
-
-      // Check if username already exists
-      const { data: existingUsers, error: usernameError } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("username", registerForm.username);
-      
-      if (usernameError) {
-        console.error("Error checking username:", usernameError);
-        throw new Error(`Error checking username: ${usernameError.message}`);
-      }
-      
-      if (existingUsers && existingUsers.length > 0) {
-        throw new Error("Username already taken. Please choose another one.");
-      }
-
       // Create the user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
         password: registerForm.password,
         options: {
           data: {
+            username: registerForm.username,
             full_name: `${registerForm.name} ${registerForm.surname}`,
             name: registerForm.name,
             surname: registerForm.surname,
-            username: registerForm.username,
-            display_name: `${registerForm.name} ${registerForm.surname}`,
           },
           emailRedirectTo: `${window.location.origin}/auth`,
         },
       });
 
       if (authError) {
-        console.error("Auth error:", authError);
         throw authError;
       }
 
-      if (!authData.user?.id) {
+      if (!authData.user) {
         throw new Error("Registration failed. Please try again.");
       }
 
-      console.log("User created successfully:", authData.user.id);
-
-      // We'll rely on the database trigger to create the profile
-      // We don't need to manually create the profile here since this is done by a trigger in the database
-      // This will automatically happen when the user is created in auth.users
-
-      // If the user has a session token, sign them out since we want to verify their email first
-      if (authData.session) {
-        await supabase.auth.signOut();
-      }
-
-      // Send verification email using the edge function
-      try {
-        console.log("Sending verification email to:", registerForm.email);
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-email`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-              email: registerForm.email,
-              username: registerForm.username,
-              userId: authData.user.id
-            }),
-          }
-        );
-
-        const responseData = await response.json();
-        console.log("Verification email response:", responseData);
-
-        if (!response.ok) {
-          console.error("Custom email error:", responseData);
-          // Continue with registration even if custom email fails
-        }
-      } catch (emailError) {
-        console.error("Error sending custom verification email:", emailError);
-        // Continue with registration even if custom email fails
-      }
+      // Sign out the user so they can verify their email
+      await supabase.auth.signOut();
 
       toast({
         title: "Registration successful!",
