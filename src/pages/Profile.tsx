@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +31,15 @@ interface FormData {
   display_name: string;
   username: string;
   avatar_url: string | null;
+}
+
+interface Bubble {
+  id: string;
+  name: string;
+  topic: string;
+  description: string | null;
+  reflect_count: number;
+  expires_at: string;
 }
 
 const Profile = () => {
@@ -234,7 +244,7 @@ const Profile = () => {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-secondary/20">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b" style={{ borderColor: `#ebbd3410` }}>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
           <div className="flex items-center justify-between h-16 px-4">
             {/* Logo and Search Section */}
@@ -245,25 +255,19 @@ const Profile = () => {
                   alt="Bubble Trouble"
                   className="w-8 h-8"
                 />
-                <span className="text-xl font-semibold hidden sm:inline" style={{ color: "#ebbd34" }}>
+                <span className="text-xl font-semibold hidden sm:inline text-[#ebbd34]">
                   Bubble Trouble
                 </span>
               </Link>
               
               <div className="relative flex-1 max-w-md hidden sm:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: `#ebbd3470` }} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
                 <input
                   type="search"
                   placeholder="Search bubbles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-full border-none focus:ring-2 focus:outline-none"
-                  style={{ 
-                    backgroundColor: `#ebbd3405`,
-                    color: "#ebbd34",
-                    '::placeholder': { color: `#ebbd3450` },
-                    focusRing: `#ebbd3420`
-                  }}
+                  className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
                 />
               </div>
             </div>
@@ -272,28 +276,18 @@ const Profile = () => {
             <div className="flex items-center gap-1">
               <Link 
                 to="/my-bubbles" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full hover:bg-opacity-5 transition-colors ${
-                  location.pathname === '/my-bubbles' ? 'bg-opacity-10' : ''
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                  location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
                 }`}
-                style={{ 
-                  color: "#ebbd34",
-                  backgroundColor: location.pathname === '/my-bubbles' ? `#ebbd3410` : 'transparent',
-                  '&:hover': { backgroundColor: `#ebbd3405` }
-                }}
               >
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">My Bubbles</span>
               </Link>
               <Link 
                 to="/feed" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full hover:bg-opacity-5 transition-colors ${
-                  location.pathname === '/feed' ? 'bg-opacity-10' : ''
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
                 }`}
-                style={{ 
-                  color: "#ebbd34",
-                  backgroundColor: location.pathname === '/feed' ? `#ebbd3410` : 'transparent',
-                  '&:hover': { backgroundColor: `#ebbd3405` }
-                }}
               >
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Feed</span>
@@ -303,18 +297,14 @@ const Profile = () => {
                   <Button 
                     variant="ghost" 
                     size="icon"
-                    className="hover:bg-opacity-5 rounded-full"
-                    style={{ 
-                      color: "#ebbd34",
-                      '&:hover': { backgroundColor: `#ebbd3405` }
-                    }}
+                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
                   >
                     <User className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
                   <DropdownMenuItem className="flex flex-col items-start p-3">
-                    <span className="font-medium" style={{ color: "#ebbd34" }}>
+                    <span className="font-medium text-[#ebbd34]">
                       {profile?.display_name || user?.email}
                     </span>
                     <span className="text-xs text-gray-500">
@@ -340,19 +330,13 @@ const Profile = () => {
         {/* Mobile Search Bar */}
         <div className="sm:hidden px-4 pb-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: `#ebbd3470` }} />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
             <input
               type="search"
               placeholder="Search bubbles..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-full border-none focus:ring-2 focus:outline-none text-sm"
-              style={{ 
-                backgroundColor: `#ebbd3405`,
-                color: "#ebbd34",
-                '::placeholder': { color: `#ebbd3450` },
-                focusRing: `#ebbd3420`
-              }}
+              className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
             />
           </div>
         </div>
@@ -365,16 +349,12 @@ const Profile = () => {
               // Profile View Mode
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h1 className="text-2xl font-bold" style={{ color: "#ebbd34" }}>My Profile</h1>
+                  <h1 className="text-2xl font-bold text-[#ebbd34]">My Profile</h1>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => setIsEditing(true)}
-                    className="gap-1.5"
-                    style={{ 
-                      borderColor: `#ebbd3420`,
-                      color: "#ebbd34"
-                    }}
+                    className="gap-1.5 border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
                   >
                     <Edit className="h-4 w-4" />
                     <span>Edit Profile</span>
@@ -382,13 +362,13 @@ const Profile = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                  <Avatar className="w-24 h-24 border-4" style={{ borderColor: "#ebbd34" }}>
+                  <Avatar className="w-24 h-24 border-4 border-[#ebbd34]">
                     <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || "Profile"} />
                     <AvatarFallback className="bg-[#ebbd34] text-white">{getAvatarFallback()}</AvatarFallback>
                   </Avatar>
                   
                   <div className="text-center sm:text-left flex-1">
-                    <h1 className="text-3xl font-bold" style={{ color: "#ebbd34" }}>
+                    <h1 className="text-3xl font-bold text-[#ebbd34]">
                       {profile?.display_name || user?.email?.split('@')[0] || "User"}
                     </h1>
                     <p className="text-gray-500 mt-1">
@@ -429,27 +409,27 @@ const Profile = () => {
                     <TabsContent value="bubbles">
                       {reflectedBubbles.length === 0 ? (
                         <div className="text-center py-8">
-                          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: `#ebbd3410` }}>
-                            <Sparkles className="w-8 h-8" style={{ color: "#ebbd34" }} />
+                          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
+                            <Sparkles className="w-8 h-8 text-[#ebbd34]" />
                           </div>
-                          <h3 className="text-lg font-medium" style={{ color: "#ebbd34" }}>No reflected bubbles yet</h3>
+                          <h3 className="text-lg font-medium text-[#ebbd34]">No reflected bubbles yet</h3>
                           <p className="text-gray-500 mt-2">Explore the bubble world and reflect on topics that interest you!</p>
                           <Link to="/">
-                            <Button className="mt-4" style={{ backgroundColor: "#ebbd34", color: 'white', '&:hover': { backgroundColor: `#ebbd3490` } }}>
+                            <Button className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white">
                               Explore Bubbles
                             </Button>
                           </Link>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {reflectedBubbles.map((bubble) => (
+                          {reflectedBubbles.map((bubble: Bubble) => (
                             <Link key={bubble.id} to="/" onClick={() => {
                               // Store the bubble ID to be opened when the user navigates to the index page
                               localStorage.setItem('openBubbleId', bubble.id);
                             }}>
                               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                                 <CardHeader className="pb-2">
-                                  <CardTitle className="text-lg" style={{ color: "#ebbd34" }}>{bubble.name}</CardTitle>
+                                  <CardTitle className="text-lg text-[#ebbd34]">{bubble.name}</CardTitle>
                                   <CardDescription>{bubble.topic}</CardDescription>
                                 </CardHeader>
                                 <CardContent>
@@ -457,7 +437,7 @@ const Profile = () => {
                                 </CardContent>
                                 <CardFooter className="pt-0">
                                   <div className="w-full flex justify-between items-center">
-                                    <Badge className="text-xs" style={{ backgroundColor: `#ebbd3410`, color: "#ebbd34" }}>
+                                    <Badge className="text-xs bg-[#ebbd34]/10 text-[#ebbd34]">
                                       {bubble.reflect_count} reflects
                                     </Badge>
                                     <span className="text-xs text-gray-400">
@@ -475,41 +455,41 @@ const Profile = () => {
                     <TabsContent value="badges">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {userStats.totalReflects > 0 && (
-                          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: `#ebbd3410` }}>
-                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: `#ebbd3420` }}>
-                              <Star className="w-6 h-6" style={{ color: "#ebbd34" }} />
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <Star className="w-6 h-6 text-[#ebbd34]" />
                             </div>
-                            <p className="mt-2 text-sm font-medium" style={{ color: "#ebbd34" }}>Bubble Explorer</p>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Bubble Explorer</p>
                             <p className="text-xs text-gray-500">Reflected your first bubble</p>
                           </div>
                         )}
                         
                         {userStats.totalReflects >= 5 && (
-                          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: `#ebbd3410` }}>
-                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: `#ebbd3420` }}>
-                              <Trophy className="w-6 h-6" style={{ color: "#ebbd34" }} />
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <Trophy className="w-6 h-6 text-[#ebbd34]" />
                             </div>
-                            <p className="mt-2 text-sm font-medium" style={{ color: "#ebbd34" }}>Reflection Master</p>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Reflection Master</p>
                             <p className="text-xs text-gray-500">Reflected 5+ bubbles</p>
                           </div>
                         )}
                         
                         {userStats.topTopics.length > 0 && (
-                          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: `#ebbd3410` }}>
-                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: `#ebbd3420` }}>
-                              <Sparkle className="w-6 h-6" style={{ color: "#ebbd34" }} />
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <Sparkle className="w-6 h-6 text-[#ebbd34]" />
                             </div>
-                            <p className="mt-2 text-sm font-medium" style={{ color: "#ebbd34" }}>Topic Enthusiast</p>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Topic Enthusiast</p>
                             <p className="text-xs text-gray-500">Favorite: {userStats.topTopics[0]}</p>
                           </div>
                         )}
                         
                         {userStats.level >= 3 && (
-                          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: `#ebbd3410` }}>
-                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: `#ebbd3420` }}>
-                              <User className="w-6 h-6" style={{ color: "#ebbd34" }} />
+                          <div className="p-4 rounded-xl text-center bg-[#ebbd34]/10">
+                            <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 bg-[#ebbd34]/20">
+                              <User className="w-6 h-6 text-[#ebbd34]" />
                             </div>
-                            <p className="mt-2 text-sm font-medium" style={{ color: "#ebbd34" }}>Bubble Veteran</p>
+                            <p className="mt-2 text-sm font-medium text-[#ebbd34]">Bubble Veteran</p>
                             <p className="text-xs text-gray-500">Reached level 3</p>
                           </div>
                         )}
@@ -522,7 +502,7 @@ const Profile = () => {
               // Profile Edit Mode
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <h1 className="text-2xl font-bold" style={{ color: "#ebbd34" }}>Edit Profile</h1>
+                  <h1 className="text-2xl font-bold text-[#ebbd34]">Edit Profile</h1>
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
@@ -566,7 +546,7 @@ const Profile = () => {
                   
                   <div className="w-full space-y-4">
                     <div>
-                      <Label htmlFor="display_name" style={{ color: "#ebbd34" }}>Display Name</Label>
+                      <Label htmlFor="display_name" className="text-[#ebbd34]">Display Name</Label>
                       <Input
                         id="display_name"
                         name="display_name"
@@ -578,7 +558,7 @@ const Profile = () => {
                     </div>
                     
                     <div>
-                      <Label htmlFor="username" style={{ color: "#ebbd34" }}>Username</Label>
+                      <Label htmlFor="username" className="text-[#ebbd34]">Username</Label>
                       <Input
                         id="username"
                         name="username"
