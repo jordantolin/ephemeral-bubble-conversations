@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download, Clock } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Clock } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -89,9 +89,6 @@ const Index = () => {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const searchParams = new URLSearchParams(location.search);
   const bubbleToOpen = searchParams.get('bubble');
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(50);
   const [explodingBubbleId, setExplodingBubbleId] = useState<string | null>(null);
   
   // Create rate limiters and retry handlers
@@ -663,33 +660,6 @@ const Index = () => {
     }
   };
 
-  const toggleAudio = () => {
-    if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleVolumeChange = (value: number) => {
-    setVolume(value);
-    if (audioRef.current) {
-      audioRef.current.volume = value / 100;
-    }
-  };
-
-  const handleDownloadAudio = () => {
-    if (!audioRef.current?.src) return;
-    
-    const anchor = document.createElement('a');
-    anchor.href = audioRef.current.src;
-    anchor.download = 'bubble-ambient.mp3';
-    anchor.click();
-  };
-
   // Map to BubbleData needed for BubbleWorld component
   const bubbleDataForComponent = useMemo(() => {
     return filteredBubbles.map((bubble): BubbleData => ({
@@ -719,43 +689,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
-      <audio 
-        ref={audioRef} 
-        src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_3611db2d6d.mp3?filename=relaxing-mountains-rivers-118571.mp3"
-        loop
-        preload="auto"
-      />
-      
-      {/* Audio Controls */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 rounded-lg shadow-sm p-3 flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleAudio}
-          className="text-[#ebbd34]"
-        >
-          <Volume2 className={`h-4 w-4 ${!isPlaying && 'opacity-50'}`} />
-        </Button>
-        
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={volume}
-          onChange={(e) => handleVolumeChange(Number(e.target.value))}
-          className="w-20 accent-[#ebbd34]"
-        />
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleDownloadAudio}
-          className="text-[#ebbd34]"
-        >
-          <Download className="h-4 w-4" />
-        </Button>
-      </div>
-      
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
