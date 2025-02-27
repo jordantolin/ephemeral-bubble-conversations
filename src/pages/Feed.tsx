@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -36,7 +37,8 @@ const Feed = () => {
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
-    }
+    },
+    refetchInterval: 5000 // Refetch every 5 seconds for real-time updates
   });
 
   // Fetch recent messages for each bubble to show previews
@@ -69,7 +71,8 @@ const Feed = () => {
       
       return messagesByBubble;
     },
-    enabled: bubbles.length > 0
+    enabled: bubbles.length > 0,
+    refetchInterval: 3000 // Refetch chat messages more frequently
   });
 
   // Fetch participant count for each bubble
@@ -105,7 +108,8 @@ const Feed = () => {
       
       return countsByBubble;
     },
-    enabled: bubbles.length > 0
+    enabled: bubbles.length > 0,
+    refetchInterval: 5000 // Refetch participant counts for real-time updates
   });
 
   // Filter bubbles based on search
@@ -117,8 +121,17 @@ const Feed = () => {
       )
     : bubbles;
 
+  // Check if a bubble has expired
+  const isBubbleExpired = (bubble: BubbleData) => {
+    if (!bubble.expires_at) return false;
+    return new Date(bubble.expires_at) < new Date();
+  };
+
   // Handle reflecting a bubble
-  const handleReflect = async (bubbleId: string) => {
+  const handleReflect = async (bubbleId: string, event: React.MouseEvent) => {
+    event.preventDefault(); // Prevent navigation
+    event.stopPropagation(); // Prevent event bubbling
+    
     if (!user) {
       toast({
         title: "Please sign in",
@@ -130,33 +143,48 @@ const Feed = () => {
 
     const username = profile?.username || user?.email || "";
     
-    const { error } = await supabase
-      .from('reflects')
-      .insert({ 
-        bubble_id: bubbleId,
-        username
-      });
+    // Add a quick visual feedback before the API call
+    const button = event.currentTarget as HTMLButtonElement;
+    const originalText = button.innerHTML;
+    button.innerHTML = `<div class="animate-pulse">Reflecting...</div>`;
+    
+    try {
+      const { error } = await supabase
+        .from('reflects')
+        .insert({ 
+          bubble_id: bubbleId,
+          username
+        });
 
-    if (error) {
-      if (error.code === '23505') { // Unique violation
-        toast({
-          title: "Already reflected",
-          description: "You have already reflected this bubble",
-        });
-      } else {
-        toast({
-          title: "Error reflecting bubble",
-          description: error.message,
-          variant: "destructive"
-        });
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Already reflected",
+            description: "You have already reflected this bubble",
+          });
+        } else {
+          toast({
+            title: "Error reflecting bubble",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    toast({
-      title: "Bubble reflected!",
-      description: "This bubble will appear in your profile",
-    });
+      toast({
+        title: "Bubble reflected!",
+        description: "This bubble will appear in your profile",
+      });
+    } catch (error) {
+      toast({
+        title: "Error reflecting bubble",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      button.innerHTML = originalText;
+    }
   };
 
   // Navigate to the next bubble (scroll down)
@@ -487,8 +515,11 @@ const Feed = () => {
                   >
                     {/* Main bubble */}
                     <div 
-                      className="relative w-[320px] h-[320px] rounded-full overflow-visible"
+                      className="relative w-[320px] h-[320px] rounded-full overflow-visible cursor-pointer"
                       style={{ transformStyle: 'preserve-3d' }}
+                      onClick={() => {
+                        window.location.href = `/bubbles/${filteredBubbles[currentIndex].id}`;
+                      }}
                     >
                       {/* Background gradient circle with glow */}
                       <div 
@@ -557,6 +588,15 @@ const Feed = () => {
                               </div>
                             </div>
                             
+                            {/* Expired bubble warning */}
+                            {isBubbleExpired(filteredBubbles[currentIndex]) && (
+                              <div className="mb-2 py-1 px-3 bg-red-100 rounded-full">
+                                <p className="text-xs text-red-600 font-medium">
+                                  This bubble has already exploded
+                                </p>
+                              </div>
+                            )}
+                            
                             {filteredBubbles[currentIndex].description && (
                               <p className="text-[#ebbd34]/70 text-xs mb-2 max-w-[90%] line-clamp-2">
                                 {filteredBubbles[currentIndex].description}
@@ -621,26 +661,42 @@ const Feed = () => {
                       <div 
                         className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex items-center space-x-4"
                         style={{ zIndex: 20 }}
+                        onClick={(e) => e.stopPropagation()} // Prevent triggering the bubble click
                       >
                         <Button 
-                          onClick={() => handleReflect(filteredBubbles[currentIndex].id)}
+                          onClick={(e) => handleReflect(filteredBubbles[currentIndex].id, e)}
                           className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full px-5 py-2 shadow-lg"
                           size="sm"
+                          disabled={isBubbleExpired(filteredBubbles[currentIndex])}
                         >
-                          <Heart className="w-4 h-4 mr-2" />
+                          <Sparkles className="w-4 h-4 mr-2" />
                           Reflect
                         </Button>
                         
-                        <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`}>
+                        <Link 
+                          to={`/bubbles/${filteredBubbles[currentIndex].id}`}
+                          onClick={(e) => e.stopPropagation()} // Prevent double navigation
+                        >
                           <Button 
                             className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
                             size="sm"
+                            disabled={isBubbleExpired(filteredBubbles[currentIndex])}
                           >
                             <MessageCircle className="w-4 h-4 mr-2" />
-                            Join Chat
+                            Join the Chat
                           </Button>
                         </Link>
                       </div>
+
+                      {/* "Exploded" indicator for expired bubbles */}
+                      {isBubbleExpired(filteredBubbles[currentIndex]) && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="absolute inset-[15px] rounded-full bg-black/10 backdrop-blur-sm z-10" />
+                          <div className="bg-red-600/80 text-white px-4 py-2 rounded-xl shadow-lg z-20 rotate-[-15deg] transform scale-125">
+                            <p className="font-bold text-xl">EXPLODED</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}
