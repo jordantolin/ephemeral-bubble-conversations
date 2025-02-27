@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -91,6 +92,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const reflectScale = 1 + (topic.reflect_count * 0.1);
       const finalSize = baseSize * reflectScale;
       
+      // Create bubble
       const geometry = createBubbleGeometry(finalSize);
       const material = createBubbleMaterial();
       const bubble = new THREE.Mesh(geometry, material);
@@ -102,19 +104,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         orbitIndex: index,
         originalScale: finalSize,
         textScales: {
-          nameScale: finalSize * 2.5,
-          topicScale: finalSize * 2.0,
-          reflectScale: finalSize * 1.8
+          nameScale: finalSize * 1.4,  // Smaller to fit inside
+          topicScale: finalSize * 1.2, // Smaller to fit inside
+          reflectScale: finalSize      // Smaller to fit inside
         }
       };
 
-      // Create label container for better positioning
-      const labelContainer = new THREE.Group();
-      labelContainer.position.y = finalSize * 1.5; // Position above bubble
-      bubbleGroup.add(labelContainer);
-
-      // Add text labels to the label container
-      const createSprite = (text: string, yOffset: number, fontSize: number = 32) => {
+      // Create text labels that will appear inside the bubble
+      // Use smaller font sizes for inside-bubble text
+      const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
         const canvas = createTextCanvas(text, fontSize);
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
@@ -122,24 +120,41 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const spriteMaterial = new THREE.SpriteMaterial({ 
           map: texture,
           transparent: true,
+          depthTest: false // Ensures text is visible inside bubble
         });
+        
         const sprite = new THREE.Sprite(spriteMaterial);
         
-        // Set scale based on text type
-        const scaleFactor = yOffset === 0 ? 2.5 : // Name (largest)
-                            yOffset === 1 ? 2.0 : // Topic (medium)
-                            1.8; // Reflect count (smallest)
+        // Scale based on bubble size
+        sprite.scale.set(
+          finalSize * 1.4, 
+          finalSize * 0.7, 
+          1
+        );
         
-        sprite.scale.set(finalSize * scaleFactor, finalSize * scaleFactor * 0.5, 1);
-        sprite.position.y = finalSize * yOffset * 0.8; // Tighter spacing
-        
+        sprite.position.copy(position);
         return sprite;
       };
 
-      // Add text labels to the label container with tighter spacing
-      labelContainer.add(createSprite(topic.name, 0, isMobile ? 36 : 48));
-      labelContainer.add(createSprite(topic.topic, 1, isMobile ? 28 : 32));
-      labelContainer.add(createSprite(`⭐ ${topic.reflect_count}`, 2, isMobile ? 24 : 28));
+      // Add text positioned within the bubble
+      // Texts are positioned with Y-offsets to stack them inside the bubble
+      bubbleGroup.add(createLabelSprite(
+        topic.name, 
+        new THREE.Vector3(0, finalSize * 0.2, 0), 
+        isMobile ? 32 : 40
+      ));
+      
+      bubbleGroup.add(createLabelSprite(
+        topic.topic, 
+        new THREE.Vector3(0, -finalSize * 0.2, 0), 
+        isMobile ? 26 : 30
+      ));
+      
+      bubbleGroup.add(createLabelSprite(
+        `⭐ ${topic.reflect_count}`, 
+        new THREE.Vector3(0, -finalSize * 0.6, 0), 
+        isMobile ? 22 : 26
+      ));
 
       // Set initial position
       const position = calculateOrbitPosition(index, topics.length, 0);
@@ -388,27 +403,23 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const scaleFactor = origScale * zoomFactor;
         bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
         
-        // Scale label container (second child)
-        const labelContainer = bubble.children[1] as THREE.Group;
-        labelContainer.position.y = origScale * 1.5 * zoomFactor; // Keep it above the bubble
-        
-        // Scale individual labels within the container
-        for (let i = 0; i < labelContainer.children.length; i++) {
-          const sprite = labelContainer.children[i] as THREE.Sprite;
+        // Scale text sprites (children 1-3 are text)
+        for (let i = 1; i < bubble.children.length; i++) {
+          const sprite = bubble.children[i] as THREE.Sprite;
           const textScales = bubble.userData.textScales;
           const textScaleFactor = zoomFactor * 0.8; // slightly less aggressive scaling for text
           
-          // Get the appropriate scale factor based on label type
-          let baseScale, heightFactor;
-          if (i === 0) { // Name (top)
+          // Scale based on which text element it is
+          let baseScale;
+          if (i === 1) { // Name (top)
             baseScale = textScales.nameScale;
-            heightFactor = 0;
-          } else if (i === 1) { // Topic (middle)
+            sprite.position.set(0, scaleFactor * 0.2, 0);
+          } else if (i === 2) { // Topic (middle)
             baseScale = textScales.topicScale;
-            heightFactor = 1;
+            sprite.position.set(0, -scaleFactor * 0.2, 0);
           } else { // Reflect count (bottom)
             baseScale = textScales.reflectScale;
-            heightFactor = 2;
+            sprite.position.set(0, -scaleFactor * 0.6, 0);
           }
           
           sprite.scale.set(
@@ -416,7 +427,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             baseScale * textScaleFactor * 0.5,
             1
           );
-          sprite.position.y = origScale * heightFactor * 0.8 * zoomFactor; // Maintain spacing
         }
       });
 

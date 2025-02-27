@@ -12,11 +12,11 @@ export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     color: BUBBLE_COLOR,
     transparent: true,
-    opacity: 0.9, // More opaque
+    opacity: 0.8, // Slightly more transparent to better see text inside
     metalness: 0.3, // Increased metalness for more shine
     roughness: 0.1, // Reduced roughness for more shine
-    transmission: 0.1, // Reduced transmission for fuller appearance
-    thickness: 1.0, // Increased thickness
+    transmission: 0.2, // Increased transmission for better text visibility
+    thickness: 0.8, // Adjusted thickness
     clearcoat: 1.0,
     clearcoatRoughness: 0.1
   });
@@ -174,14 +174,14 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
     context.scale(pixelRatio, pixelRatio);
     context.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Enhanced text rendering
+    // Enhanced text rendering for in-bubble visibility
     context.font = `bold ${fontSize}px Montserrat, Arial`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     
-    // Strong white outline for better readability
-    context.strokeStyle = 'white';
-    context.lineWidth = 6;
+    // White glow/outline for better contrast inside bubble
+    context.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    context.lineWidth = 5;
     context.strokeText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
     
     // Deep black fill for maximum readability
