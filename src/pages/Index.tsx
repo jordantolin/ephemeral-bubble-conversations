@@ -46,11 +46,11 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-purple-50 to-white">
       <div className="text-center py-12 px-4">
-        <h1 className="text-4xl md:text-5xl font-bold text-purple-600 mb-3 tracking-tight">
+        <h1 className="text-4xl md:text-5xl font-bold text-amber-500 mb-3 tracking-tight">
           Bubble Hub
         </h1>
-        <div className="h-1 w-24 bg-purple-400 mx-auto mb-6 rounded-full"></div>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <div className="h-1 w-24 bg-amber-400 mx-auto mb-6 rounded-full"></div>
+        <p className="text-lg text-amber-600 max-w-2xl mx-auto">
           Explore bubbles made in the last 24 hours
         </p>
       </div>
@@ -60,7 +60,7 @@ const Index = () => {
         )}
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full border-4 border-purple-600 border-t-transparent animate-spin"></div>
+            <div className="w-12 h-12 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
           </div>
         )}
       </div>
