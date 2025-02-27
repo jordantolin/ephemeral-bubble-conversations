@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
@@ -34,8 +35,8 @@ export const createCentralWorldMaterial = () => {
   if (ctx) {
     // Vibrant ocean base
     const oceanGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    oceanGradient.addColorStop(0, '#60A5FA');
-    oceanGradient.addColorStop(1, '#3B82F6');
+    oceanGradient.addColorStop(0, '#60A5FA'); // Bright blue
+    oceanGradient.addColorStop(1, '#3B82F6'); // Slightly darker blue
     ctx.fillStyle = oceanGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -47,6 +48,7 @@ export const createCentralWorldMaterial = () => {
         if (index === 0) {
           ctx.moveTo(x, y);
         } else {
+          // Use bezier curves for smoother, cartoon-like edges
           const prevPoint = path[index - 1];
           const cpX = (prevPoint[0] + x) / 2;
           const cpY = (prevPoint[1] + y) / 2;
@@ -55,14 +57,17 @@ export const createCentralWorldMaterial = () => {
       });
       ctx.closePath();
 
+      // Add cartoon-style shadows
       ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
       ctx.shadowBlur = 20;
       ctx.shadowOffsetX = 5;
       ctx.shadowOffsetY = 5;
 
+      // Fill with vibrant green
       ctx.fillStyle = color;
       ctx.fill();
 
+      // Add highlight effect
       ctx.shadowColor = 'transparent';
       const highlight = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       highlight.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
@@ -71,63 +76,40 @@ export const createCentralWorldMaterial = () => {
       ctx.fill();
     };
 
-    // More accurate continent shapes
+    // Simplified continent shapes for cartoon style
     const continents = {
       northAmerica: [
-        [700, 250], [800, 150], [1000, 100], [1200, 150],
-        [1400, 200], [1500, 300], [1400, 400], [1300, 450],
-        [1100, 500], [900, 450], [800, 400], [700, 350],
-        [600, 300], [650, 250]
-      ],
-      greenland: [
-        [1500, 100], [1700, 150], [1600, 200], [1500, 180]
+        [820, 280], [1000, 200], [1300, 220], [1400, 380],
+        [1200, 500], [900, 480], [800, 400], [780, 300]
       ],
       southAmerica: [
-        [1000, 600], [1100, 650], [1200, 700], [1250, 800],
-        [1200, 900], [1150, 1000], [1050, 1100], [950, 1050],
-        [900, 950], [850, 800], [900, 700], [950, 600]
+        [1050, 600], [1200, 700], [1150, 900], [1000, 1000],
+        [900, 900], [950, 700]
       ],
       europe: [
-        [1900, 200], [2000, 150], [2200, 150], [2300, 200],
-        [2400, 250], [2350, 300], [2200, 350], [2100, 400],
-        [1950, 350], [1900, 300]
+        [1900, 250], [2200, 200], [2400, 300], [2200, 400],
+        [1950, 350]
       ],
       africa: [
-        [1900, 450], [2100, 400], [2300, 400], [2400, 500],
-        [2450, 600], [2400, 700], [2300, 800], [2200, 900],
-        [2000, 950], [1900, 900], [1850, 800], [1800, 600],
-        [1850, 500]
+        [1950, 450], [2200, 420], [2400, 500], [2300, 800],
+        [2100, 850], [1900, 700]
       ],
       asia: [
-        [2300, 150], [2500, 100], [2800, 150], [3000, 200],
-        [3200, 300], [3300, 400], [3200, 500], [3000, 600],
-        [2800, 650], [2600, 600], [2400, 500], [2300, 400],
-        [2400, 300]
-      ],
-      indonesia: [
-        [2800, 700], [3000, 650], [3200, 700], [3000, 750],
-        [2900, 800], [2800, 750]
+        [2350, 200], [2800, 200], [3200, 300], [3000, 500],
+        [2700, 600], [2400, 400]
       ],
       australia: [
-        [3000, 800], [3200, 850], [3300, 900], [3200, 1000],
-        [3000, 1050], [2900, 1000], [2850, 900], [2900, 850]
-      ],
-      madagascar: [
-        [2450, 800], [2500, 850], [2450, 900], [2400, 850]
-      ],
-      antarctica: [
-        [1000, 1700], [1500, 1750], [2000, 1800], [2500, 1800],
-        [3000, 1750], [3200, 1700], [2800, 1600], [2000, 1550],
-        [1500, 1600], [1200, 1650]
+        [3000, 700], [3200, 750], [3200, 900], [3000, 850],
+        [2900, 800]
       ]
     };
 
-    // Draw each continent
+    // Draw each continent with cartoon style
     Object.entries(continents).forEach(([name, path]) => {
-      drawContinent(path, '#4ADE80');
+      drawContinent(path, '#4ADE80'); // Vibrant green for lands
     });
 
-    // Ice caps
+    // Add cartoon-style ice caps
     ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
     ctx.shadowBlur = 15;
     ctx.shadowOffsetX = 0;
@@ -136,15 +118,15 @@ export const createCentralWorldMaterial = () => {
     // North pole
     ctx.fillStyle = '#F1F5F9';
     ctx.beginPath();
-    ctx.ellipse(canvas.width/2, 100, 600, 250, 0, 0, Math.PI * 2);
+    ctx.ellipse(canvas.width/2, 100, 500, 200, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // South pole
     ctx.beginPath();
-    ctx.ellipse(canvas.width/2, canvas.height - 100, 800, 300, 0, 0, Math.PI * 2);
+    ctx.ellipse(canvas.width/2, canvas.height - 100, 500, 200, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Add clouds
+    // Add cute cloud details
     ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
     ctx.shadowBlur = 10;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -157,8 +139,8 @@ export const createCentralWorldMaterial = () => {
       ctx.fill();
     };
 
-    // Scattered clouds
-    for (let i = 0; i < 15; i++) {
+    // Add some scattered clouds
+    for (let i = 0; i < 12; i++) {
       const x = Math.random() * canvas.width;
       const y = Math.random() * canvas.height;
       const size = 30 + Math.random() * 50;
