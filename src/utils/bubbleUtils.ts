@@ -20,15 +20,24 @@ export const connectionManager = {
         await connectionManager.removeChannel(supabase, channelName);
       }
       
-      // Create a new channel with the given filters
-      const channel = supabase
-        .channel(channelName)
-        .on('postgres_changes', filters, onChangeCallback)
-        .subscribe((status) => {
-          if (status !== 'SUBSCRIBED') {
-            console.error(`Channel ${channelName} subscription status: ${status}`);
-          }
-        });
+      // Create a new channel
+      const channel = supabase.channel(channelName);
+      
+      // Add the postgres_changes event to the channel
+      filters.forEach(filter => {
+        channel.on(
+          'postgres_changes', 
+          filter, 
+          onChangeCallback
+        );
+      });
+      
+      // Subscribe to the channel
+      channel.subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.error(`Channel ${channelName} subscription status: ${status}`);
+        }
+      });
       
       // Store the channel reference
       activeChannels[channelName] = channel;
