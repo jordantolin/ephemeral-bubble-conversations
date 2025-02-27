@@ -80,46 +80,64 @@ serve(async (req) => {
     
     // Now use Resend to send the email with our custom template
     const emailTemplate = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #FEF7E4; border-radius: 10px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <img src="https://bubbletroubleapp.com/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" alt="Bubble Trouble" style="width: 80px; height: 80px;">
-          <h1 style="color: #ebbd34; margin-top: 10px;">Welcome to Bubble Trouble!</h1>
-        </div>
-        
-        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
-          <p style="color: #333; font-size: 16px; line-height: 1.5;">Hi ${name || username},</p>
-          
-          <p style="color: #333; font-size: 16px; line-height: 1.5;">Thank you for joining Bubble Trouble! We're excited to have you on board.</p>
-          
-          <p style="color: #333; font-size: 16px; line-height: 1.5;">To get started, please verify your email address by clicking the button below:</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionLink}" style="background-color: #ebbd34; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Verify Email Address</a>
-          </div>
-          
-          <p style="color: #333; font-size: 16px; line-height: 1.5;">If the button doesn't work, copy and paste this link into your browser:</p>
-          
-          <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 14px;">
-            ${actionLink}
-          </p>
-          
-          <p style="color: #333; font-size: 16px; line-height: 1.5;">This link will expire after 24 hours.</p>
-          
-          <p style="color: #333; font-size: 16px; line-height: 1.5;">If you did not create an account with Bubble Trouble, please ignore this email.</p>
-        </div>
-        
-        <div style="text-align: center; margin-top: 30px; color: #777; font-size: 14px;">
-          <p>&copy; ${new Date().getFullYear()} Bubble Trouble. All rights reserved.</p>
-        </div>
-      </div>
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verifica il tuo account Bubble Trouble</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9f9;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #FEF7E4; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+          <tr>
+            <td style="padding: 30px 0; text-align: center; background-color: #FEF7E4;">
+              <img src="https://bubbletroubleapp.com/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" alt="Bubble Trouble" style="width: 100px; height: 100px;">
+              <h1 style="color: #ebbd34; font-size: 24px; margin: 15px 0 0;">Benvenuto su Bubble Trouble!</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px; background-color: white;">
+              <p style="color: #333; font-size: 16px; line-height: 1.6; margin-top: 0;">Ciao ${name || username},</p>
+              
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">Grazie per esserti iscritto a Bubble Trouble! Siamo entusiasti di averti con noi.</p>
+              
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">Per iniziare, verifica il tuo indirizzo email cliccando sul pulsante qui sotto:</p>
+              
+              <div style="text-align: center; margin: 35px 0;">
+                <a href="${actionLink}" style="background-color: #ebbd34; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 16px; transition: background-color 0.3s ease;">Verifica Email</a>
+              </div>
+              
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">Se il pulsante non funziona, copia e incolla questo link nel tuo browser:</p>
+              
+              <p style="background-color: #f5f5f5; padding: 12px; border-radius: 6px; word-break: break-all; font-size: 14px; line-height: 1.4; margin: 20px 0;">
+                ${actionLink}
+              </p>
+              
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">Questo link scadrà dopo 24 ore.</p>
+              
+              <p style="color: #333; font-size: 16px; line-height: 1.6;">Se non hai creato un account con Bubble Trouble, puoi ignorare questa email.</p>
+              
+              <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                <p style="color: #666; font-size: 14px; margin: 0;">Grazie,<br>Il team di Bubble Trouble</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px; text-align: center; background-color: #f8f3e2;">
+              <p style="color: #888; font-size: 12px; margin: 0;">&copy; ${new Date().getFullYear()} Bubble Trouble. Tutti i diritti riservati.</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `;
 
     try {
       // Send the email using Resend - using bubbletroubleapp@gmail.com after it's verified
       const emailResponse = await resend.emails.send({
-        from: "Bubble Trouble <bubbletroubleapp@gmail.com>", // Using verified email address
+        from: "Bubble Trouble <bubbletroubleapp@gmail.com>", 
         to: email,
-        subject: "Welcome to Bubble Trouble! Please Verify Your Email",
+        subject: "Verifica il tuo account Bubble Trouble",
         html: emailTemplate
       });
 

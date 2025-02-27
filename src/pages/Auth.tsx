@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -78,35 +79,35 @@ const Auth = () => {
 
     // Length check
     if (password.length < 8) {
-      feedback.push("Use at least 8 characters");
+      feedback.push("Usa almeno 8 caratteri");
     } else {
       score += 1;
     }
 
     // Uppercase check
     if (!/[A-Z]/.test(password)) {
-      feedback.push("Add uppercase letters");
+      feedback.push("Aggiungi lettere maiuscole");
     } else {
       score += 1;
     }
 
     // Lowercase check
     if (!/[a-z]/.test(password)) {
-      feedback.push("Add lowercase letters");
+      feedback.push("Aggiungi lettere minuscole");
     } else {
       score += 1;
     }
 
     // Number check
     if (!/[0-9]/.test(password)) {
-      feedback.push("Add numbers");
+      feedback.push("Aggiungi numeri");
     } else {
       score += 1;
     }
 
     // Special character check
     if (!/[^A-Za-z0-9]/.test(password)) {
-      feedback.push("Add special characters");
+      feedback.push("Aggiungi caratteri speciali");
     } else {
       score += 1;
     }
@@ -116,19 +117,19 @@ const Auth = () => {
 
     // Determine strength message based on score
     if (score <= 1) {
-      message = "Very Weak";
+      message = "Molto debole";
       color = "text-red-500";
     } else if (score === 2) {
-      message = "Weak";
+      message = "Debole";
       color = "text-orange-500";
     } else if (score === 3) {
-      message = "Fair";
+      message = "Discreta";
       color = "text-yellow-500";
     } else if (score === 4) {
-      message = "Good";
+      message = "Buona";
       color = "text-green-400";
     } else {
-      message = "Strong";
+      message = "Forte";
       color = "text-green-600";
     }
 
@@ -142,8 +143,8 @@ const Auth = () => {
   const validateForm = () => {
     if (!email || !password) {
       toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields",
+        title: "Campi obbligatori mancanti",
+        description: "Compila tutti i campi obbligatori",
         variant: "destructive",
       });
       return false;
@@ -151,8 +152,8 @@ const Auth = () => {
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast({
-        title: "Invalid email format",
-        description: "Please enter a valid email address",
+        title: "Formato email non valido",
+        description: "Inserisci un indirizzo email valido",
         variant: "destructive",
       });
       return false;
@@ -160,8 +161,8 @@ const Auth = () => {
 
     if (password.length < 8) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 8 characters long",
+        title: "Password troppo corta",
+        description: "La password deve contenere almeno 8 caratteri",
         variant: "destructive",
       });
       return false;
@@ -175,8 +176,8 @@ const Auth = () => {
 
     if (!username.trim()) {
       toast({
-        title: "Username required",
-        description: "Please enter a username",
+        title: "Username richiesto",
+        description: "Inserisci un username",
         variant: "destructive",
       });
       return false;
@@ -184,8 +185,8 @@ const Auth = () => {
 
     if (username.length < 3 || username.length > 20) {
       toast({
-        title: "Invalid username",
-        description: "Username must be between 3 and 20 characters",
+        title: "Username non valido",
+        description: "L'username deve essere tra 3 e 20 caratteri",
         variant: "destructive",
       });
       return false;
@@ -193,8 +194,8 @@ const Auth = () => {
 
     if (!fullName.trim()) {
       toast({
-        title: "Full name required",
-        description: "Please enter your full name",
+        title: "Nome completo richiesto",
+        description: "Inserisci il tuo nome completo",
         variant: "destructive",
       });
       return false;
@@ -202,8 +203,8 @@ const Auth = () => {
 
     if (password !== confirmPassword) {
       toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
+        title: "Le password non coincidono",
+        description: "Assicurati che le password corrispondano",
         variant: "destructive",
       });
       return false;
@@ -211,7 +212,7 @@ const Auth = () => {
 
     if (passwordStrength.score < 3) {
       toast({
-        title: "Password not strong enough",
+        title: "Password non abbastanza forte",
         description: passwordStrength.message,
         variant: "destructive",
       });
@@ -220,8 +221,8 @@ const Auth = () => {
 
     if (!acceptedTerms) {
       toast({
-        title: "Terms not accepted",
-        description: "Please accept the terms and conditions",
+        title: "Termini non accettati",
+        description: "Accetta i termini e le condizioni",
         variant: "destructive",
       });
       return false;
@@ -290,12 +291,12 @@ const Auth = () => {
       setSignupSuccess(true);
       
       toast({
-        title: "Account created!",
-        description: "Please check your email for verification.",
+        title: "Account creato!",
+        description: "Controlla la tua email per la verifica.",
       });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Errore",
         description: error.message,
         variant: "destructive",
       });
@@ -321,17 +322,17 @@ const Auth = () => {
         if (error.message.includes("Email not confirmed")) {
           // Handle the specific case of unconfirmed email
           toast({
-            title: "Email not confirmed",
-            description: "Please check your inbox and confirm your email before signing in.",
+            title: "Email non confermata",
+            description: "Controlla la tua casella di posta e conferma la tua email prima di accedere.",
             variant: "destructive",
           });
-          throw new Error("Please verify your email before signing in");
+          throw new Error("Verifica la tua email prima di accedere");
         }
         throw error;
       }
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Errore",
         description: error.message,
         variant: "destructive",
       });
@@ -357,12 +358,12 @@ const Auth = () => {
       if (error) throw error;
       
       toast({
-        title: "Confirmation email resent",
-        description: "Please check your inbox for the verification link",
+        title: "Email di conferma inviata",
+        description: "Controlla la tua casella di posta per il link di verifica",
       });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Errore",
         description: error.message,
         variant: "destructive",
       });
@@ -392,17 +393,17 @@ const Auth = () => {
               <div className="mx-auto w-16 h-16 bg-[#ebbd34]/10 rounded-full flex items-center justify-center mb-4">
                 <Mail className="h-8 w-8 text-[#ebbd34]" />
               </div>
-              <h2 className="text-2xl font-bold text-[#ebbd34]">Verify Your Email</h2>
+              <h2 className="text-2xl font-bold text-[#ebbd34]">Verifica la tua Email</h2>
               <p className="mt-2 text-[#ebbd34]/70">
-                We've sent a verification link to <span className="font-medium">{signupEmail}</span>
+                Abbiamo inviato un link di verifica a <span className="font-medium">{signupEmail}</span>
               </p>
             </div>
             
             <Alert className="mb-6 bg-blue-50 border-blue-200">
               <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-800">Check your inbox</AlertTitle>
+              <AlertTitle className="text-blue-800">Controlla la tua casella di posta</AlertTitle>
               <AlertDescription className="text-blue-700">
-                You'll receive an email from <span className="font-medium">bubbletroubleapp@gmail.com</span> with a verification link.
+                Riceverai un'email da <span className="font-medium">bubbletroubleapp@gmail.com</span> con un link di verifica.
               </AlertDescription>
             </Alert>
             
@@ -412,7 +413,7 @@ const Auth = () => {
                 className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
                 disabled={loading}
               >
-                {loading ? "Sending..." : "Resend Confirmation Email"}
+                {loading ? "Invio in corso..." : "Invia nuovamente l'email di conferma"}
               </Button>
               
               <div className="text-center">
@@ -420,7 +421,7 @@ const Auth = () => {
                   onClick={() => setSignupSuccess(false)}
                   className="text-sm text-[#ebbd34] hover:underline"
                 >
-                  Back to sign in
+                  Torna al login
                 </button>
               </div>
             </div>
@@ -442,17 +443,17 @@ const Auth = () => {
             />
             <h1 className="mt-4 text-3xl font-bold text-[#ebbd34]">Bubble Trouble</h1>
           </Link>
-          <p className="mt-2 text-[#ebbd34]/70">Sign in to join the bubble conversations!</p>
+          <p className="mt-2 text-[#ebbd34]/70">Accedi per partecipare alle conversazioni bubble!</p>
         </div>
 
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="mb-4 grid w-full grid-cols-2">
               <TabsTrigger value="signin" className="rounded-lg text-[#ebbd34]">
-                Sign In
+                Accedi
               </TabsTrigger>
               <TabsTrigger value="signup" className="rounded-lg text-[#ebbd34]">
-                Sign Up
+                Registrati
               </TabsTrigger>
             </TabsList>
 
@@ -465,7 +466,7 @@ const Auth = () => {
                   <Input
                     id="signin-email"
                     type="email"
-                    placeholder="your@email.com"
+                    placeholder="tua@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -491,7 +492,7 @@ const Auth = () => {
                   className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
                   disabled={loading}
                 >
-                  {loading ? "Signing in..." : "Sign In"}
+                  {loading ? "Accesso in corso..." : "Accedi"}
                 </Button>
               </form>
             </TabsContent>
@@ -505,7 +506,7 @@ const Auth = () => {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="your@email.com"
+                    placeholder="tua@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -529,18 +530,18 @@ const Auth = () => {
                     maxLength={20}
                   />
                   <p className="text-xs text-[#ebbd34]/60 mt-1">
-                    3-20 characters. This will be your public identifier.
+                    3-20 caratteri. Sarà il tuo identificatore pubblico.
                   </p>
                 </div>
                 
                 <div className="space-y-1">
                   <Label htmlFor="signup-fullname" className="text-[#ebbd34] flex items-center">
-                    Full Name <span className="text-red-500 ml-1">*</span>
+                    Nome Completo <span className="text-red-500 ml-1">*</span>
                   </Label>
                   <Input
                     id="signup-fullname"
                     type="text"
-                    placeholder="John Doe"
+                    placeholder="Mario Rossi"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -586,7 +587,7 @@ const Auth = () => {
                 
                 <div className="space-y-1">
                   <Label htmlFor="signup-confirm-password" className="text-[#ebbd34] flex items-center">
-                    Confirm Password <span className="text-red-500 ml-1">*</span>
+                    Conferma Password <span className="text-red-500 ml-1">*</span>
                   </Label>
                   <Input
                     id="signup-confirm-password"
@@ -601,12 +602,12 @@ const Auth = () => {
                   />
                   {confirmPassword && password !== confirmPassword && (
                     <p className="text-xs text-red-500 mt-1 flex items-center">
-                      <AlertCircle className="w-3 h-3 mr-1" /> Passwords don't match
+                      <AlertCircle className="w-3 h-3 mr-1" /> Le password non coincidono
                     </p>
                   )}
                   {confirmPassword && password === confirmPassword && (
                     <p className="text-xs text-green-500 mt-1 flex items-center">
-                      <CheckCircle2 className="w-3 h-3 mr-1" /> Passwords match
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> Le password coincidono
                     </p>
                   )}
                 </div>
@@ -621,7 +622,7 @@ const Auth = () => {
                     required
                   />
                   <Label htmlFor="terms" className="text-xs text-[#ebbd34]/80 font-normal">
-                    I agree to the <Link to="#" className="underline text-[#ebbd34] hover:text-[#ebbd34]/70">Terms of Service</Link> and <Link to="#" className="underline text-[#ebbd34] hover:text-[#ebbd34]/70">Privacy Policy</Link>. <span className="text-red-500">*</span>
+                    Accetto i <Link to="#" className="underline text-[#ebbd34] hover:text-[#ebbd34]/70">Termini di Servizio</Link> e la <Link to="#" className="underline text-[#ebbd34] hover:text-[#ebbd34]/70">Privacy Policy</Link>. <span className="text-red-500">*</span>
                   </Label>
                 </div>
                 
@@ -630,11 +631,11 @@ const Auth = () => {
                   className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white mt-4"
                   disabled={loading}
                 >
-                  {loading ? "Creating account..." : "Sign Up"}
+                  {loading ? "Creazione account..." : "Registrati"}
                 </Button>
                 
                 <div className="text-xs text-center text-[#ebbd34]/60 mt-4 flex items-center justify-center">
-                  <Info className="w-3 h-3 mr-1" /> Fields marked with <span className="text-red-500 mx-1">*</span> are required
+                  <Info className="w-3 h-3 mr-1" /> I campi contrassegnati con <span className="text-red-500 mx-1">*</span> sono obbligatori
                 </div>
               </form>
             </TabsContent>
