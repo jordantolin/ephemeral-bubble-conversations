@@ -53,6 +53,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        // Always set loading to false when done
         setLoading(false);
       }
     };
