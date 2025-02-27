@@ -1,151 +1,117 @@
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
+import { useRef, useCallback, useEffect } from 'react';
+import * as THREE from 'three';
+import * as TWEEN from '@tweenjs/tween.js';
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
-export const useBubbleInteraction = (bubbleId: string) => {
-  const { user, profile } = useAuth();
+export const useBubbleInteraction = () => {
   const { toast } = useToast();
+  const isInteractingRef = useRef(false);
+  const targetRotationRef = useRef({ x: 0, y: 0, z: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
   const queryClient = useQueryClient();
-  const [isReflected, setIsReflected] = useState(false);
-  const [reflectCount, setReflectCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
 
+  // Subscribe to real-time bubble updates
   useEffect(() => {
-    // Reset state when bubble ID changes
-    setIsReflected(false);
-    setReflectCount(0);
-    setIsLoading(true);
-    
-    const checkReflectionStatus = async () => {
-      if (!user || !profile?.username) {
-        setIsLoading(false);
-        return;
-      }
+    const channel = supabase.channel('bubble-changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'bubbles' 
+        },
+        (payload) => {
+          // Invalidate bubbles query to trigger a refresh
+          queryClient.invalidateQueries({ queryKey: ['bubbles'] });
 
-      try {
-        // Get the reflection count
-        const { data: countData, error: countError } = await supabase
-          .from('bubbles')
-          .select('reflect_count')
-          .eq('id', bubbleId)
-          .single();
-          
-        if (countError) throw countError;
-        if (countData) setReflectCount(countData.reflect_count);
-        
-        // Check if user already reflected
-        const { data, error } = await supabase
-          .from('reflects')
-          .select('*')
-          .eq('bubble_id', bubbleId)
-          .eq('username', profile.username)
-          .maybeSingle();
-          
-        if (error) throw error;
-        setIsReflected(!!data);
-      } catch (error: any) {
-        console.error('Error checking reflection status:', error);
-      } finally {
-        setIsLoading(false);
-      }
+          // Show toast for new bubbles
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "New Bubble Created!",
+              description: `${payload.new.name} has joined the bubble world`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(channel);
     };
-    
-    checkReflectionStatus();
-  }, [bubbleId, user, profile]);
+  }, [queryClient, toast]);
 
-  const reflectBubble = async () => {
-    if (!user || !profile?.username) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to reflect on bubbles",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (isLoading) return;
-    
-    try {
-      setIsLoading(true);
-      
-      if (isReflected) {
-        // Remove reflection
-        const { error: deleteError } = await supabase
-          .from('reflects')
-          .delete()
-          .eq('bubble_id', bubbleId)
-          .eq('username', profile.username);
-          
-        if (deleteError) throw deleteError;
-        
-        // Decrement bubble's reflect count
-        const { error: updateError } = await supabase
-          .from('bubbles')
-          .update({ reflect_count: reflectCount - 1 })
-          .eq('id', bubbleId);
-          
-        if (updateError) throw updateError;
-        
-        setIsReflected(false);
-        setReflectCount(prev => prev - 1);
-        
+  const handleReflect = useCallback(async (bubbleId: string, bubbleRefs: { [key: string]: THREE.Group }) => {
+    const { error } = await supabase
+      .from('reflects')
+      .insert({ bubble_id: bubbleId, username: "@user" });
+
+    if (error) {
+      if (error.code === '23505') {
         toast({
-          title: "Reflection removed",
-          description: "You've removed your reflection from this bubble"
+          title: "Already reflected",
+          description: "You have already reflected this bubble",
+          variant: "destructive"
         });
       } else {
-        // Add reflection
-        const { error: insertError } = await supabase
-          .from('reflects')
-          .insert({
-            bubble_id: bubbleId,
-            username: profile.username,
-            created_at: new Date().toISOString()
-          });
-          
-        if (insertError) throw insertError;
-        
-        // Increment bubble's reflect count
-        const { error: updateError } = await supabase
-          .from('bubbles')
-          .update({ reflect_count: reflectCount + 1 })
-          .eq('id', bubbleId);
-          
-        if (updateError) throw updateError;
-        
-        setIsReflected(true);
-        setReflectCount(prev => prev + 1);
-        
         toast({
-          title: "Bubble reflected",
-          description: "This bubble has been added to your reflections"
+          title: "Error reflecting bubble",
+          description: error.message,
+          variant: "destructive"
         });
       }
-      
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({
-        queryKey: ['reflectedBubbles']
-      });
-      
-    } catch (error: any) {
-      console.error('Error reflecting bubble:', error);
-      toast({
-        title: "Error",
-        description: error.message || "There was a problem with your reflection",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  };
+
+    const bubble = bubbleRefs[bubbleId];
+    if (bubble) {
+      const bubbleMesh = bubble.children[0] as THREE.Mesh;
+      const material = bubbleMesh.material as THREE.MeshStandardMaterial;
+      
+      material.color.setHex(0xFFE500);
+      material.emissiveIntensity = 0.5;
+
+      const scale = 1.3;
+      new TWEEN.Tween(bubble.scale)
+        .to({ x: scale, y: scale, z: scale }, 300)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .start()
+        .onComplete(() => {
+          new TWEEN.Tween(bubble.scale)
+            .to({ 
+              x: 1 + (bubble.userData.reflectCount * 0.05), 
+              y: 1 + (bubble.userData.reflectCount * 0.05), 
+              z: 1 + (bubble.userData.reflectCount * 0.05) 
+            }, 200)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .start();
+          
+          new TWEEN.Tween({ intensity: 0.5 })
+            .to({ intensity: 0.2 }, 500)
+            .onUpdate((obj) => {
+              material.emissiveIntensity = obj.intensity;
+            })
+            .start();
+          
+          material.color.setHex(0xebc942);
+        });
+    }
+
+    toast({
+      title: "Bubble reflected!",
+      description: "This bubble will appear in your profile",
+    });
+  }, [toast]);
 
   return {
-    isReflected,
-    reflectCount,
-    isLoading,
-    reflectBubble
+    isInteractingRef,
+    targetRotationRef,
+    dragStartRef,
+    isDraggingRef,
+    handleReflect
   };
 };

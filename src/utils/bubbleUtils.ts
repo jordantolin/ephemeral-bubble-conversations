@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
@@ -80,46 +81,4 @@ export const calculateOrbitPosition = (index: number, totalBubbles: number, time
     y: Math.sin(angle) * orbitRadius * 0.6 + heightOffset,
     z: Math.sin(angle * 2) * (orbitRadius * 0.3)
   };
-};
-
-// New utility functions for the TikTok-style 3D feed
-
-// Create parallax effect for bubble contents
-export const calculateParallax = (mouseX: number, mouseY: number, strength: number = 0.1) => {
-  const centerX = window.innerWidth / 2;
-  const centerY = window.innerHeight / 2;
-  
-  // Calculate normalized displacement from center (-1 to 1)
-  const displacementX = (mouseX - centerX) / centerX;
-  const displacementY = (mouseY - centerY) / centerY;
-  
-  return {
-    x: displacementX * strength,
-    y: displacementY * strength
-  };
-};
-
-// Create easing function for smooth transitions
-export const easeOutCubic = (x: number): number => {
-  return 1 - Math.pow(1 - x, 3);
-};
-
-// Generate a consistent color based on topic name
-export const getBubbleColorFromTopic = (topic: string): THREE.Color => {
-  // Simple hash function to generate a consistent number from a string
-  const hash = topic.split('').reduce((acc, char) => {
-    return char.charCodeAt(0) + ((acc << 5) - acc);
-  }, 0);
-  
-  // Generate HSL color with consistent hue based on hash
-  // Keep saturation and lightness in pleasing ranges
-  const hue = Math.abs(hash % 360);
-  const saturation = 0.7; // High saturation for vibrant colors
-  const lightness = 0.6; // Moderate lightness for visibility
-  
-  // Convert HSL to RGB
-  const color = new THREE.Color();
-  color.setHSL(hue/360, saturation, lightness);
-  
-  return color;
 };
