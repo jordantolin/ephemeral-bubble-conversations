@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -64,7 +63,6 @@ const Auth = () => {
   }, [navigate]);
 
   const checkPasswordStrength = (password: string) => {
-    // Reset if empty
     if (!password) {
       setPasswordStrength({
         score: 0,
@@ -260,7 +258,7 @@ const Auth = () => {
           .insert({
             id: data.user.id,
             username,
-            full_name: fullName,
+            display_name: fullName, // Changed from full_name to display_name
             created_at: new Date().toISOString(),
           });
 
@@ -270,9 +268,13 @@ const Auth = () => {
 
         // Send a custom welcome email via our function
         try {
+          // Convert the email address to lowercase to avoid case-sensitivity issues
+          const lowerCaseEmail = email.toLowerCase();
+          
+          console.log("Sending welcome email to:", lowerCaseEmail);
           const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
             body: { 
-              email, 
+              email: lowerCaseEmail, 
               name: fullName, 
               username 
             }
@@ -280,6 +282,8 @@ const Auth = () => {
           
           if (emailError) {
             console.error("Error sending welcome email:", emailError);
+          } else {
+            console.log("Welcome email request sent successfully");
           }
         } catch (emailError) {
           console.error("Failed to call send-welcome-email function:", emailError);
@@ -287,7 +291,7 @@ const Auth = () => {
       }
       
       // Save the email for the success message
-      setSignupEmail(email);
+      setSignupEmail(email.toLowerCase());
       setSignupSuccess(true);
       
       toast({
@@ -347,6 +351,7 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      // Use direct Supabase resend for verification
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: signupEmail,
@@ -356,6 +361,20 @@ const Auth = () => {
       });
       
       if (error) throw error;
+      
+      // Also try our custom email function
+      try {
+        console.log("Resending welcome email to:", signupEmail);
+        await supabase.functions.invoke('send-welcome-email', {
+          body: { 
+            email: signupEmail, 
+            name: fullName || username,
+            username 
+          }
+        });
+      } catch (customEmailError) {
+        console.error("Error sending custom welcome email:", customEmailError);
+      }
       
       toast({
         title: "Email di conferma inviata",
