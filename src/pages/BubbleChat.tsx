@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { MessageCircle, Send, Image, Video, SmilePlus, Mic, X, Volume2, Download, ArrowLeft, Heart, Star, Sparkles } from "lucide-react";
+import { MessageCircle, Send, Image, Video, SmilePlus, Mic, X, Volume2, Download, ArrowLeft, Heart, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -159,23 +159,6 @@ const BubbleChat = () => {
   const formatMessageTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  // Format date
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return 'Today';
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
   };
 
   // Scroll to bottom when new messages arrive
@@ -492,13 +475,10 @@ const BubbleChat = () => {
   
   // Get user avatar color
   const getUserColor = (username: string) => {
-    // Generate a hash code from the username
     let hash = 0;
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
-    // Generate pastel colors (high lightness)
     const h = hash % 360;
     return `hsla(${h}, 70%, 80%, 0.8)`;
   };
@@ -540,266 +520,215 @@ const BubbleChat = () => {
   const expired = isBubbleExpired(bubble.expires_at);
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
-      {/* Header with yellow theme matching Feed page */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between h-16 px-4">
-            {/* Back button and title */}
-            <div className="flex items-center gap-6 flex-1">
-              <Link to="/feed" className="flex items-center gap-2 shrink-0">
-                <ArrowLeft className="text-[#ebbd34] w-5 h-5" />
-                <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
-                  Back to Feed
-                </span>
-              </Link>
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 px-4 py-3">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-xl font-semibold text-[#ebbd34]">{bubble.name}</h1>
+              <p className="text-sm text-[#ebbd34]/70">{bubble.topic}</p>
             </div>
-
-            {/* Bubble title in navbar */}
-            <div className="flex-1 text-center">
-              <h1 className="text-xl font-semibold text-[#ebbd34]">
-                {bubble.name}
-              </h1>
-              <p className="text-sm text-[#ebbd34]/70 hidden sm:block">{bubble.topic}</p>
-            </div>
-
-            {/* Reflect button */}
-            <div className="flex-1 flex justify-end">
-              <Button
-                onClick={handleReflect}
-                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full"
-                size="sm"
-                disabled={expired}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Reflect
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main content */}
-      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8">
-        {/* Bubble header with info */}
-        <div className="relative w-full max-w-3xl mx-auto mb-6">
-          {/* Bubble info card with gradient styling and round corners */}
-          <div 
-            className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#ffda7b]/90 to-[#ebbd34]/90 shadow-lg p-5"
-            style={{
-              boxShadow: '0 10px 30px rgba(235, 189, 52, 0.2), 0 0 80px rgba(235, 189, 52, 0.1)',
-            }}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-white mb-1">{bubble.name}</h2>
-                <p className="text-white/80 text-sm">{bubble.topic}</p>
-                
-                <div className="flex items-center mt-3 space-x-3">
-                  <div className="flex items-center bg-white/20 rounded-full px-3 py-1">
-                    <Star className="w-3 h-3 text-white mr-1" />
-                    <span className="text-xs text-white font-medium">
-                      {bubble.reflect_count || 0}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center bg-white/20 rounded-full px-3 py-1">
-                    <span className="text-xs text-white font-medium">
-                      {formatDate(bubble.created_at)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {expired && (
-                <div className="bg-red-600/80 text-white px-3 py-1 rounded-xl shadow-md rotate-[-15deg] transform">
-                  <p className="font-bold text-sm">EXPLODED</p>
-                </div>
-              )}
-            </div>
-            
-            {bubble.description && (
-              <div className="mt-4 bg-white/20 rounded-xl p-3">
-                <p className="text-white/90 text-sm">{bubble.description}</p>
-                <p className="text-white/70 text-xs mt-1">by @{bubble.username.split('@')[0]}</p>
-              </div>
-            )}
           </div>
           
-          {/* Overlapping highlight effects */}
-          <div 
-            className="absolute top-4 right-8 w-32 h-32 rounded-full bg-white/20 blur-xl -z-10"
-          />
-          <div 
-            className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white/10 blur-xl -z-10"
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
+              <Star className="w-4 h-4 text-[#ebbd34] mr-1" />
+              <span className="text-sm text-[#ebbd34] font-medium">
+                {bubble.reflect_count || 0}
+              </span>
+            </div>
+            
+            <Button
+              onClick={handleReflect}
+              variant="ghost"
+              size="sm"
+              className="hover:bg-[#ebbd34]/10 text-[#ebbd34]"
+              disabled={expired}
+            >
+              <Heart className="w-4 h-4 mr-1" />
+              <span>Reflect</span>
+            </Button>
+          </div>
         </div>
-        
-        {/* Expired Notice Banner */}
-        {expired && (
-          <div className="max-w-3xl mx-auto mb-4 bg-red-500/80 text-white py-2 text-center rounded-lg">
-            <p className="font-medium">This bubble has exploded and can no longer receive messages.</p>
+      </header>
+
+      {/* Expired Notice Banner */}
+      {expired && (
+        <div className="bg-red-500/80 text-white py-2 text-center">
+          <p className="font-medium">This bubble has exploded and can no longer receive messages.</p>
+        </div>
+      )}
+
+      {/* Chat Container */}
+      <main className="flex-1 container max-w-3xl mx-auto px-4 py-4 overflow-hidden">
+        {/* Description */}
+        {bubble.description && (
+          <div className="mb-4 bg-white/50 rounded-lg p-3 border border-[#ebbd34]/10">
+            <p className="text-sm text-[#ebbd34]/80">{bubble.description}</p>
+            <p className="text-xs text-[#ebbd34]/60 mt-1">Created by @{bubble.username.split('@')[0]}</p>
           </div>
         )}
-    
-        {/* Messages Container */}
-        <div className="max-w-3xl mx-auto bg-white/50 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-[#ebbd34]/10">
-          <ScrollArea className="h-[calc(100dvh-350px)]">
-            <div className="space-y-4 px-2">
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-center">
-                  <MessageCircle className="w-10 h-10 text-[#ebbd34]/30 mb-2" />
-                  <p className="text-[#ebbd34]/70">
-                    {messagesLoading ? "Loading messages..." : "No messages yet. Be the first to chat!"}
-                  </p>
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex mb-4 ${isCurrentUser(message.username) ? "justify-end" : "justify-start"}`}
-                  >
+        
+        {/* Messages */}
+        <ScrollArea className="h-[calc(100dvh-230px)]">
+          <div className="space-y-4 px-2">
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-center">
+                <MessageCircle className="w-10 h-10 text-[#ebbd34]/30 mb-2" />
+                <p className="text-[#ebbd34]/70">
+                  {messagesLoading ? "Loading messages..." : "No messages yet. Be the first to chat!"}
+                </p>
+              </div>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex mb-4 ${isCurrentUser(message.username) ? "justify-end" : "justify-start"}`}
+                >
+                  {!isCurrentUser(message.username) && (
+                    <div 
+                      className="w-8 h-8 rounded-full flex-shrink-0 mt-1 mr-2 flex items-center justify-center text-sm text-white"
+                      style={{ backgroundColor: getUserColor(message.username) }}
+                    >
+                      {message.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  
+                  <div className={`max-w-[75%] rounded-xl p-3 ${
+                    isCurrentUser(message.username)
+                      ? "bg-[#ebbd34] text-white"
+                      : "bg-white text-gray-800 border border-[#ebbd34]/20"
+                  }`}>
                     {!isCurrentUser(message.username) && (
-                      <div 
-                        className="w-8 h-8 rounded-full flex-shrink-0 mt-1 mr-2 flex items-center justify-center text-sm text-white"
-                        style={{ backgroundColor: getUserColor(message.username) }}
-                      >
-                        {message.username.charAt(0).toUpperCase()}
-                      </div>
+                      <p className="text-xs font-medium mb-1 text-[#ebbd34]/80">
+                        @{message.username.split('@')[0]}
+                      </p>
                     )}
                     
-                    <div className={`max-w-[75%] rounded-xl p-3 ${
-                      isCurrentUser(message.username)
-                        ? "bg-[#ebbd34] text-white"
-                        : "bg-white text-gray-800 border border-[#ebbd34]/20"
-                    }`}>
-                      {!isCurrentUser(message.username) && (
-                        <p className="text-xs font-medium mb-1 text-[#ebbd34]/80">
-                          @{message.username.split('@')[0]}
-                        </p>
-                      )}
-                      
-                      {message.content.startsWith('data:image/') ? (
-                        <div className="relative group">
-                          <img 
-                            src={message.content} 
-                            alt="Shared image" 
-                            className="rounded-md max-w-full cursor-pointer"
-                            onClick={() => window.open(message.content, '_blank')}
-                          />
-                          <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                              onClick={() => handleDownloadMedia(message.content, 'jpg')}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ) : message.content.startsWith('data:video/') ? (
-                        <div className="relative group">
-                          <video 
-                            src={message.content} 
-                            controls 
-                            className="rounded-md max-w-full"
-                            playsInline
-                          />
-                          <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                              onClick={() => handleDownloadMedia(message.content, 'mp4')}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ) : message.content.startsWith('data:audio/') ? (
-                        <div className="flex items-center gap-2 p-1">
+                    {message.content.startsWith('data:image/') ? (
+                      <div className="relative group">
+                        <img 
+                          src={message.content} 
+                          alt="Shared image" 
+                          className="rounded-md max-w-full cursor-pointer"
+                          onClick={() => window.open(message.content, '_blank')}
+                        />
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className={`h-10 w-10 rounded-full ${
-                              playingAudioId === message.id ? 
-                              "bg-[#ebbd34]/20 text-[#ebbd34]" : 
-                              isCurrentUser(message.username) ?
-                              "text-white hover:bg-white/20" :
-                              "text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                            }`}
-                            onClick={() => togglePlayAudio(message.id, message.content)}
+                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                            onClick={() => handleDownloadMedia(message.content, 'jpg')}
                           >
-                            {playingAudioId === message.id ? 
-                              <X className="h-5 w-5" /> : 
-                              <Volume2 className="h-5 w-5" />
-                            }
+                            <Download className="h-4 w-4" />
                           </Button>
-                          
-                          <div className="flex-1 h-8 flex items-center">
-                            <div className="w-full flex items-center justify-between space-x-0.5">
-                              {Array.from({ length: 27 }).map((_, i) => {
-                                const heights = [
-                                  3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
-                                ];
-                                const height = heights[i];
-                                const isPlaying = playingAudioId === message.id;
+                        </div>
+                      </div>
+                    ) : message.content.startsWith('data:video/') ? (
+                      <div className="relative">
+                        <video 
+                          src={message.content} 
+                          controls 
+                          className="rounded-md max-w-full"
+                          playsInline
+                        />
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                            onClick={() => handleDownloadMedia(message.content, 'mp4')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : message.content.startsWith('data:audio/') ? (
+                      <div className="flex items-center gap-2 p-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-10 w-10 rounded-full ${
+                            playingAudioId === message.id ? 
+                            "bg-[#ebbd34]/20 text-[#ebbd34]" : 
+                            isCurrentUser(message.username) ?
+                            "text-white hover:bg-white/20" :
+                            "text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                          }`}
+                          onClick={() => togglePlayAudio(message.id, message.content)}
+                        >
+                          {playingAudioId === message.id ? 
+                            <X className="h-5 w-5" /> : 
+                            <Volume2 className="h-5 w-5" />
+                          }
+                        </Button>
+                        
+                        <div className="flex-1 h-8 flex items-center">
+                          <div className="w-full flex items-center justify-between space-x-0.5">
+                            {Array.from({ length: 27 }).map((_, i) => {
+                              const heights = [
+                                3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
+                              ];
+                              const height = heights[i];
+                              const isPlaying = playingAudioId === message.id;
+                              
+                              const barColor = isCurrentUser(message.username)
+                                ? isPlaying ? "bg-white" : "bg-white/60" 
+                                : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
                                 
-                                const barColor = isCurrentUser(message.username)
-                                  ? isPlaying ? "bg-white" : "bg-white/60" 
-                                  : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
-                                  
-                                return (
-                                  <div 
-                                    key={i}
-                                    className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
-                                    style={{ 
-                                      height: `${height}px`,
-                                      animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
-                                    }}
-                                  />
-                                );
-                              })}
-                            </div>
+                              return (
+                                <div 
+                                  key={i}
+                                  className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
+                                  style={{ 
+                                    height: `${height}px`,
+                                    animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
+                                  }}
+                                />
+                              );
+                            })}
                           </div>
                         </div>
-                      ) : (
-                        <p>{message.content}</p>
-                      )}
-                      
-                      <div className={`text-right mt-1 ${
-                        isCurrentUser(message.username) ? "text-white/70" : "text-gray-500"
-                      }`}>
-                        <span className="text-xs">
-                          {formatMessageTime(message.created_at)}
-                        </span>
                       </div>
-                    </div>
-                    
-                    {isCurrentUser(message.username) && (
-                      <div 
-                        className="w-8 h-8 rounded-full flex-shrink-0 mt-1 ml-2 flex items-center justify-center text-sm text-white"
-                        style={{ backgroundColor: getUserColor(message.username) }}
-                      >
-                        {message.username.charAt(0).toUpperCase()}
-                      </div>
+                    ) : (
+                      <p>{message.content}</p>
                     )}
+                    
+                    <div className={`text-right mt-1 ${
+                      isCurrentUser(message.username) ? "text-white/70" : "text-gray-500"
+                    }`}>
+                      <span className="text-xs">
+                        {formatMessageTime(message.created_at)}
+                      </span>
+                    </div>
                   </div>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
-        </div>
+                  
+                  {isCurrentUser(message.username) && (
+                    <div 
+                      className="w-8 h-8 rounded-full flex-shrink-0 mt-1 ml-2 flex items-center justify-center text-sm text-white"
+                      style={{ backgroundColor: getUserColor(message.username) }}
+                    >
+                      {message.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
       </main>
 
-      {/* Message Input - Fixed at bottom */}
-      <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-[#ebbd34]/10 p-3">
+      {/* Message Input */}
+      <div className="sticky bottom-0 bg-white border-t border-[#ebbd34]/10 p-3">
         <div className="container max-w-3xl mx-auto">
           {/* Recording UI */}
           {isRecording ? (
-            <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2 shadow-md">
+            <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2">
               <div className="flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse"></div>
                 <span className="text-sm text-gray-600">
@@ -930,13 +859,6 @@ const BubbleChat = () => {
           @keyframes pulse-2 {
             0%, 100% { transform: scaleY(1); }
             66% { transform: scaleY(1.7); }
-          }
-          
-          * {
-            -webkit-transform-style: preserve-3d;
-            transform-style: preserve-3d;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
           }
         `}
       </style>
