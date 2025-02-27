@@ -1,12 +1,11 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { PerspectiveCamera, Environment, useAspect } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber';
+import { PerspectiveCamera, Environment } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/web';
 import { BubbleData } from '@/types/bubble';
 import BubbleCard3D from './BubbleCard3D';
 import BubbleContent from './BubbleContent';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Feed3DContainerProps {
   bubbles: BubbleData[];
@@ -19,9 +18,6 @@ const Scene = ({ bubbles, currentIndex, onBubbleClick }: {
   currentIndex: number;
   onBubbleClick: (id: string) => void;
 }) => {
-  const { size, viewport } = useThree();
-  const aspect = size.width / size.height;
-  
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={60} />
@@ -113,18 +109,18 @@ const Feed3DContainer = ({ bubbles, onBubbleClick }: Feed3DContainerProps) => {
     setCurrentIndex(index);
     api.start({ y: -index * 100 });
   };
-  
+
   return (
     <div 
       ref={containerRef}
-      className="h-screen w-full relative overflow-hidden touch-none"
+      className="h-full w-full relative overflow-hidden touch-none"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onWheel={handleWheel}
     >
       {/* 3D Canvas - Render bubbles */}
-      <Canvas className="absolute inset-0 z-0" dpr={[1, 2]}>
+      <Canvas className="absolute inset-0 z-0">
         <Scene 
           bubbles={bubbles} 
           currentIndex={currentIndex}

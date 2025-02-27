@@ -3,8 +3,6 @@ import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useSpring } from '@react-spring/three';
 import { BubbleData } from '@/types/bubble';
-import { Mesh, Group } from 'three';
-// Import the animated components from react-spring/three
 import { animated } from '@react-spring/three';
 
 interface BubbleCard3DProps {
@@ -48,9 +46,8 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
     return () => cancelAnimationFrame(animationId);
   }, [isActive]);
 
-  // Create an AnimatedMesh component
-  // Use 'any' to bypass TypeScript errors with @react-spring/three typings
-  const AnimatedMesh = animated('mesh') as unknown as React.FC<any>;
+  // Use a simplified approach to types
+  const AnimatedMesh = animated('mesh');
 
   return (
     <AnimatedMesh
