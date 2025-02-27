@@ -812,7 +812,7 @@ const Index = () => {
       )}
       
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
+      <nav className="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-md border-b border-[#ebbd34]/10 shadow-sm">
         <div className="container mx-auto">
           <div className="flex items-center justify-between h-16 px-4">
             {/* Logo and Search Section */}
@@ -821,9 +821,9 @@ const Index = () => {
                 <img 
                   src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
                   alt="Bubble Trouble"
-                  className="w-8 h-8"
+                  className="w-9 h-9"
                 />
-                <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
+                <span className="text-xl font-bold text-[#ebbd34] hidden sm:inline">
                   Bubble Trouble
                 </span>
               </Link>
@@ -841,7 +841,7 @@ const Index = () => {
             </div>
 
             {/* Navigation Links */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Link 
                 to="/my-bubbles" 
                 className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
@@ -869,14 +869,14 @@ const Index = () => {
                       size="icon"
                       className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
                     >
-                      <Avatar className="h-8 w-8 border border-[#ebbd34]/20">
-                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
+                      <Avatar className="h-9 w-9 border-2 border-[#ebbd34]/20">
+                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] font-bold">
                           {getUserInitials(profile?.display_name, user?.email)}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
+                  <DropdownMenuContent align="end" className="w-56 bg-white z-[100] shadow-lg rounded-lg border border-[#ebbd34]/10">
                     <DropdownMenuItem className="flex flex-col items-start p-3">
                       <span className="font-medium text-[#ebbd34]">
                         {profile?.display_name || user?.email}
@@ -928,61 +928,73 @@ const Index = () => {
         </div>
       </nav>
       
-      <div className="pt-32 pb-12 px-4 sm:px-6 relative z-0">
+      <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-8">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-4xl font-bold text-[#ebbd34]">Bubble World</h1>
-              <p className="text-[#ebbd34]/70">Explore ephemeral bubbles that last for just 24 hours</p>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2">
+                Bubble World
+              </h1>
+              <p className="text-[#ebbd34]/80 text-lg max-w-xl">
+                Explore ephemeral bubbles that last for just 24 hours. Join conversations and reflect on ideas before they disappear!
+              </p>
             </div>
             
             <Button
               onClick={() => setNewBubbleDialog(true)}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white"
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white shadow-md transform hover:scale-105 transition-all duration-200"
+              size="lg"
             >
-              <Plus className="mr-1 h-4 w-4" />
+              <Plus className="mr-2 h-5 w-5" />
               New 24h Bubble
             </Button>
           </div>
           
           {isLoadingBubbles ? (
-            <div className="text-center py-16">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#ebbd34] mx-auto"></div>
-              <p className="mt-4 text-[#ebbd34]">Loading bubbles...</p>
+            <div className="text-center py-24 bg-white/30 rounded-xl backdrop-blur-sm shadow-sm">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-4 border-[#ebbd34] mx-auto"></div>
+              <p className="mt-6 text-[#ebbd34] text-xl font-medium">Loading bubbles...</p>
+              <p className="text-[#ebbd34]/60 mt-2">Please wait while we gather the latest conversations</p>
             </div>
           ) : bubblesError ? (
-            <div className="text-center py-16 px-4">
-              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100">
-                <X className="w-8 h-8 text-red-500" />
+            <div className="text-center py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm">
+              <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-red-100">
+                <X className="w-10 h-10 text-red-500" />
               </div>
-              <h3 className="text-xl font-medium text-gray-800">Error Loading Bubbles</h3>
-              <p className="text-gray-500 mt-2 max-w-md mx-auto">There was a problem loading the bubbles. Please try refreshing the page.</p>
+              <h3 className="text-2xl font-medium text-gray-800 mb-2">Error Loading Bubbles</h3>
+              <p className="text-gray-600 mt-2 max-w-md mx-auto mb-6">
+                There was a problem loading the bubbles. Please check your connection and try again.
+              </p>
               <Button
                 onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
                 variant="outline"
-                className="mt-4"
+                size="lg"
+                className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
               >
                 Retry
               </Button>
             </div>
           ) : filteredBubbles.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
-                <Clock className="w-8 h-8 text-[#ebbd34]" />
+            <div className="text-center py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm">
+              <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-[#ebbd34]/10">
+                <Clock className="w-10 h-10 text-[#ebbd34]" />
               </div>
-              <h3 className="text-xl font-medium text-[#ebbd34]">No active bubbles found</h3>
-              <p className="text-gray-500 mt-2">Bubbles only last for 24 hours. Create a new one!</p>
+              <h3 className="text-2xl font-medium text-[#ebbd34] mb-3">No active bubbles found</h3>
+              <p className="text-gray-600 max-w-md mx-auto mt-2 mb-8">
+                Bubbles only last for 24 hours. Start a conversation by creating a new bubble!
+              </p>
               <Button
                 onClick={() => setNewBubbleDialog(true)}
-                className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-md px-8 py-6 text-lg"
+                size="lg"
               >
-                <Plus className="mr-1 h-4 w-4" />
-                Create Bubble
+                <Plus className="mr-2 h-5 w-5" />
+                Create Your First Bubble
               </Button>
             </div>
           ) : (
-            <div className="h-[60vh] w-full bg-white/10 rounded-lg p-2">
+            <div className="h-[75vh] min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10">
               <BubbleWorld 
                 topics={bubbleDataForComponent}
                 onBubbleClick={(bubbleId) => {
@@ -1009,34 +1021,35 @@ const Index = () => {
       
       {/* New Bubble Dialog */}
       <Dialog open={newBubbleDialog} onOpenChange={setNewBubbleDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px] rounded-lg p-6 bg-white/95 backdrop-blur-md">
           <DialogHeader>
-            <DialogTitle className="text-[#ebbd34]">Create a 24h Bubble</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl text-[#ebbd34] font-bold">Create a 24h Bubble</DialogTitle>
+            <DialogDescription className="text-base">
               Create a new bubble that will last for exactly 24 hours before exploding.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-[#ebbd34]">Name</Label>
+              <Label htmlFor="name" className="text-[#ebbd34] font-medium">Name</Label>
               <Input
                 id="name"
                 value={newBubbleInfo.name}
                 onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter bubble name"
                 maxLength={50}
+                className="bg-white/80 h-11 text-base"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="topic" className="text-[#ebbd34]">Topic</Label>
+              <Label htmlFor="topic" className="text-[#ebbd34] font-medium">Topic</Label>
               <Select
                 value={newBubbleInfo.topic}
                 onValueChange={(value) => setNewBubbleInfo(prev => ({ ...prev, topic: value }))}
               >
-                <SelectTrigger id="topic">
+                <SelectTrigger id="topic" className="bg-white/80 h-11 text-base">
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[300px]">
                   <SelectItem value="general">General</SelectItem>
                   <SelectItem value="tech">Technology</SelectItem>
                   <SelectItem value="science">Science</SelectItem>
@@ -1061,20 +1074,22 @@ const Index = () => {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description" className="text-[#ebbd34]">Description (Optional)</Label>
+              <Label htmlFor="description" className="text-[#ebbd34] font-medium">Description (Optional)</Label>
               <Textarea
                 id="description"
                 value={newBubbleInfo.description}
                 onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter a brief description"
-                className="resize-none"
-                rows={3}
+                className="resize-none bg-white/80 text-base"
+                rows={4}
                 maxLength={200}
               />
             </div>
-            <div className="flex items-center rounded-md bg-[#ebbd34]/10 p-3 mt-2">
-              <Clock className="h-5 w-5 text-[#ebbd34] mr-2" />
-              <span className="text-sm text-[#ebbd34]">This bubble will automatically expire after 24 hours</span>
+            <div className="flex items-center rounded-lg bg-[#ebbd34]/10 p-4 mt-2">
+              <Clock className="h-6 w-6 text-[#ebbd34] mr-3 flex-shrink-0" />
+              <span className="text-sm text-[#ebbd34]">
+                This bubble will automatically expire after 24 hours. Join conversations and reflect on ideas before they disappear!
+              </span>
             </div>
           </div>
           <DialogFooter>
@@ -1082,7 +1097,8 @@ const Index = () => {
               variant={isCreatingBubble ? "outline" : "default"}
               onClick={handleCreateBubble}
               disabled={isCreatingBubble || !newBubbleInfo.name.trim()}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white w-full sm:w-auto py-6 text-base"
+              size="lg"
             >
               {isCreatingBubble ? (
                 <>
@@ -1099,65 +1115,73 @@ const Index = () => {
       <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
         if (!open) setChatOpen(false);
       }}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col overflow-hidden">
-          <DialogHeader className="border-b pb-3">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col overflow-hidden rounded-lg p-0 bg-white/95 backdrop-blur-md">
+          <DialogHeader className="border-b pb-3 px-4 pt-4">
             <div className="flex justify-between items-center">
-              <DialogTitle className="text-[#ebbd34]">
+              <DialogTitle className="text-xl text-[#ebbd34] font-bold">
                 {isLoadingBubbleDetails ? 'Loading...' : selectedBubble?.name}
               </DialogTitle>
               <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)}>
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
             {!isLoadingBubbleDetails && selectedBubble && (
-              <div className="flex flex-col text-sm text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Topic: {selectedBubble.topic}</span>
-                  <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20">
+              <div className="flex flex-col text-sm mt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[#ebbd34]/80 font-medium">Topic: {selectedBubble.topic}</span>
+                  <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20 font-medium">
                     <Clock className="h-3 w-3 mr-1" />
                     {formatExpiry(selectedBubble.expires_at)}
                   </Badge>
                 </div>
-                <div className="flex justify-between mt-2">
-                  <span>{selectedBubble.reflect_count} reflects</span>
+                <div className="flex justify-between items-center mt-3">
+                  <span className="text-[#ebbd34]/70 flex items-center">
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {selectedBubble.reflect_count} reflects
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleReflect(selectedBubble.id)}
-                    className="text-[#ebbd34] hover:bg-[#ebbd34]/10 -my-1 h-8 text-xs"
+                    className="text-[#ebbd34] hover:bg-[#ebbd34]/10 h-8 text-xs px-3"
                   >
                     <Sparkles className="h-3 w-3 mr-1" />
                     Reflect
                   </Button>
                 </div>
+                {selectedBubble.description && (
+                  <div className="mt-3 p-3 bg-[#ebbd34]/5 rounded-md text-sm text-gray-700">
+                    {selectedBubble.description}
+                  </div>
+                )}
               </div>
             )}
           </DialogHeader>
           
           {/* Messages Area */}
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-4 max-h-[50vh]">
             {isLoadingMessages ? (
               <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#ebbd34]"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-2 border-[#ebbd34]"></div>
               </div>
             ) : messagesError ? (
               <div className="text-center py-8 text-gray-500">
-                <X className="h-8 w-8 mx-auto mb-2 text-red-400" />
-                <p>There was an error loading messages.</p>
+                <X className="h-10 w-10 mx-auto mb-3 text-red-400" />
+                <p className="mb-3">There was an error loading messages.</p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] })}
-                  className="mt-2"
+                  className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
                 >
                   Retry
                 </Button>
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                <p>No messages yet. Start the conversation!</p>
-                <p className="text-xs mt-2 text-gray-400">This bubble will disappear in 24 hours</p>
+              <div className="text-center py-12 text-gray-500">
+                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-[#ebbd34]/30" />
+                <p className="text-lg font-medium text-[#ebbd34]/60 mb-2">No messages yet</p>
+                <p className="text-gray-500">Start the conversation! This bubble will disappear in 24 hours.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1167,19 +1191,19 @@ const Index = () => {
                     className={`flex ${message.username === (profile?.username || user?.email) ? 'justify-end' : 'justify-start'}`}
                   >
                     <div 
-                      className={`rounded-lg px-4 py-2 max-w-[80%] break-words ${
+                      className={`rounded-lg px-4 py-3 max-w-[85%] break-words shadow-sm ${
                         message.username === (profile?.username || user?.email)
                           ? 'bg-[#ebbd34] text-white'
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      <div className="flex justify-between items-baseline gap-4">
+                      <div className="flex justify-between items-baseline gap-4 mb-1">
                         <span className="font-medium text-xs">
                           {message.username === (profile?.username || user?.email) ? 'You' : message.username}
                         </span>
                         <span className="text-xs opacity-70">{formatMessageTime(message.created_at)}</span>
                       </div>
-                      <p className="mt-1 break-words">{message.content}</p>
+                      <p className="break-words">{message.content}</p>
                     </div>
                   </div>
                 ))}
@@ -1189,7 +1213,7 @@ const Index = () => {
           </ScrollArea>
           
           {/* Message Input */}
-          <div className="p-4 border-t mt-auto">
+          <div className="p-4 border-t mt-auto bg-white/80">
             <div className="flex gap-2">
               <Input
                 value={newMessage}
@@ -1197,6 +1221,7 @@ const Index = () => {
                 placeholder="Type a message..."
                 disabled={isSendingMessage}
                 maxLength={500}
+                className="bg-white h-11"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -1206,28 +1231,28 @@ const Index = () => {
               />
               <Button 
                 onClick={() => handleSendMessage()} 
-                className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90"
+                className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90 h-11 px-5"
                 disabled={isSendingMessage || !newMessage.trim()}
               >
                 {isSendingMessage ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <Send className="h-5 w-5" />
                 )}
               </Button>
             </div>
-            <div className="flex mt-2 justify-center gap-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Image className="h-4 w-4 text-gray-500" />
+            <div className="flex mt-3 justify-center gap-3">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
+                <Image className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Video className="h-4 w-4 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
+                <Video className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Mic className="h-4 w-4 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
+                <Mic className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <SmilePlus className="h-4 w-4 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
+                <SmilePlus className="h-5 w-5" />
               </Button>
             </div>
           </div>
