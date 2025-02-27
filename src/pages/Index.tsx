@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,8 +56,11 @@ const Index = () => {
   const { user, loading } = useUser();
   const navigate = useNavigate();
 
+  console.log("Index page rendering, loading:", loading, "user:", user ? "exists" : "null");
+
   // Forward authenticated users to the 3D Feed
   useEffect(() => {
+    console.log("Check for redirection, user:", user ? "logged in" : "not logged in", "loading:", loading);
     if (user && !loading) {
       console.log("User is logged in, redirecting to feed");
       navigate("/feed");
@@ -93,7 +94,9 @@ const Index = () => {
       }
     };
 
-    fetchBubbles();
+    if (!user) {  // Solo carica le bolle se l'utente non è autenticato
+      fetchBubbles();
+    }
 
     // Subscribe to changes
     const bubbleSubscription = supabase
@@ -108,7 +111,7 @@ const Index = () => {
     return () => {
       supabase.removeChannel(bubbleSubscription);
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (selectedBubbleId) {
@@ -306,12 +309,14 @@ const Index = () => {
     }
   };
 
+  // Modifica qui: aggiunta una condizione per mostrare un messaggio diverso quando caricamento è finito ma non ci sono utenti
   if (loading) {
+    console.log("Showing loading spinner");
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
         <div className="text-center">
           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#ebbd34]"></div>
-          <p className="text-[#ebbd34]">Loading...</p>
+          <p className="text-[#ebbd34]">Caricamento in corso...</p>
         </div>
       </div>
     );

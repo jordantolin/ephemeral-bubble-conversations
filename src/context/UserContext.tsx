@@ -40,23 +40,29 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     // Get initial session
     const initializeAuth = async () => {
       try {
+        console.log("Initializing auth...");
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
+          console.error("Error getting session:", error);
           throw error;
         }
         
+        console.log("Session data:", data.session ? "Session exists" : "No session");
         setSession(data.session);
         setUser(data.session?.user ?? null);
         
         if (data.session?.user) {
+          console.log("User is authenticated, fetching profile");
           await fetchUserProfile(data.session.user.id);
           // Redirect to Feed page after login (where the 3D world is)
+          console.log("Redirecting to feed page");
           navigate('/feed');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        console.log("Auth initialization completed");
         setLoading(false);
       }
     };
@@ -66,14 +72,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        console.log("Auth state changed:", event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
         if (event === 'SIGNED_IN' && newSession?.user) {
+          console.log("User signed in, fetching profile");
           await fetchUserProfile(newSession.user.id);
           // Redirect to Feed page after login (where the 3D world is)
+          console.log("Redirecting to feed after sign in");
           navigate('/feed');
         } else if (event === 'SIGNED_OUT') {
+          console.log("User signed out");
           setUserProfile(null);
           // Redirect to home page after logout
           navigate('/');
@@ -88,6 +98,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log("Fetching user profile for:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
@@ -95,9 +106,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         .single();
       
       if (error) {
+        console.error("Error fetching profile:", error);
         throw error;
       }
       
+      console.log("Profile data fetched:", data);
       setUserProfile(data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -106,6 +119,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
+      console.log("Signing out...");
       const { error } = await supabase.auth.signOut();
       
       if (error) {
