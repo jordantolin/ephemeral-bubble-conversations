@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download, Reply, MoreVertical } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dialog,
@@ -93,7 +93,7 @@ const Index = () => {
     name: "",
     description: "",
     topic: "",
-    username: profile?.username || user?.email || "",
+    username: ""
   });
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,7 +109,7 @@ const Index = () => {
   const recordingTimerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Update user info in new bubble form when profile loads
+  // Update username in new bubble form when profile or user changes
   useEffect(() => {
     if (profile?.username || user?.email) {
       setNewBubble(prev => ({
@@ -119,7 +119,7 @@ const Index = () => {
     }
   }, [profile, user]);
 
-  // Fetch bubbles with reflects
+  // Fetch bubbles from Supabase
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
@@ -165,7 +165,7 @@ const Index = () => {
       topic: newBubble.topic,
       description: newBubble.description,
       username,
-      size: "md" as const,
+      size: "sm" as const,
       expires_at: expiresAt.toISOString()
     };
 
@@ -222,7 +222,7 @@ const Index = () => {
     input.click();
   };
 
-  // Improved voice recording functionality with WhatsApp-style experience
+  // Improved voice recording functionality with better mobile support
   const handleVoiceRecord = () => {
     // If already recording, stop it
     if (isRecording) {
@@ -232,60 +232,102 @@ const Index = () => {
 
     audioChunksRef.current = [];
 
-    // Use specific audio settings for better compatibility
-    navigator.mediaDevices.getUserMedia({ 
+    // Use more compatible settings for mobile audio recording
+    const constraints = {
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true
-      } 
-    })
+      }
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
       .then(stream => {
-        // Use more widely supported audio format
-        const options = { 
-          mimeType: 'audio/webm;codecs=opus',
-          audioBitsPerSecond: 128000 // 128kbps for better quality
-        };
-        
+        // Test supported MIME types for different devices
+        const mimeTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4;codecs=opus',
+          'audio/mp4',
+          'audio/ogg;codecs=opus',
+          'audio/ogg'
+        ];
+
+        // Find the first supported MIME type
+        let options = {};
+        for (const type of mimeTypes) {
+          try {
+            if (MediaRecorder.isTypeSupported(type)) {
+              options = { 
+                mimeType: type,
+                audioBitsPerSecond: 128000
+              };
+              console.log("Using MIME type:", type);
+              break;
+            }
+          } catch (e) {
+            console.log("MIME type not supported:", type);
+          }
+        }
+
         try {
           mediaRecorderRef.current = new MediaRecorder(stream, options);
         } catch (e) {
-          // Fallback for older devices
+          console.error("MediaRecorder error:", e);
+          // Fallback to default
           mediaRecorderRef.current = new MediaRecorder(stream);
         }
         
         mediaRecorderRef.current.ondataavailable = (e) => {
-          if (e.data.size > 0) {
+          if (e.data && e.data.size > 0) {
             audioChunksRef.current.push(e.data);
           }
         };
 
         mediaRecorderRef.current.onstop = async () => {
-          const audioBlob = new Blob(audioChunksRef.current, { 
-            type: 'audio/webm' 
-          });
-          
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            const content = e.target?.result as string;
-            if (selectedBubbleId) {
-              await handleSendMessage(content);
+          try {
+            const audioBlob = new Blob(audioChunksRef.current, { 
+              type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+            });
+            
+            console.log("Audio blob created:", audioBlob.size, "bytes, type:", audioBlob.type);
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              const content = e.target?.result as string;
+              console.log("Audio data URL created, length:", content.length);
+              
+              if (selectedBubbleId) {
+                await handleSendMessage(content);
+              }
+            };
+            
+            reader.onerror = (err) => {
+              console.error("FileReader error:", err);
+              toast({
+                title: "Error processing audio",
+                description: "Could not create audio message",
+                variant: "destructive"
+              });
+            };
+            
+            reader.readAsDataURL(audioBlob);
+          } catch (error) {
+            console.error("Audio processing error:", error);
+          } finally {
+            // Clean up
+            stream.getTracks().forEach(track => track.stop());
+            setIsRecording(false);
+            setRecordingSeconds(0);
+            if (recordingTimerRef.current) {
+              window.clearInterval(recordingTimerRef.current);
+              recordingTimerRef.current = null;
             }
-          };
-          reader.readAsDataURL(audioBlob);
-          stream.getTracks().forEach(track => track.stop());
-          
-          // Reset the UI
-          setIsRecording(false);
-          setRecordingSeconds(0);
-          if (recordingTimerRef.current) {
-            window.clearInterval(recordingTimerRef.current);
-            recordingTimerRef.current = null;
           }
         };
 
-        // Capture data more frequently for better quality
-        mediaRecorderRef.current.start(200);
+        // Start recording with frequent data collection for better quality
+        mediaRecorderRef.current.start(100);
         setIsRecording(true);
         
         // Start timer
@@ -303,8 +345,8 @@ const Index = () => {
       .catch(error => {
         console.error("Media device error:", error);
         toast({
-          title: "Error",
-          description: "Could not access microphone. Please check your browser permissions.",
+          title: "Microphone Error",
+          description: "Could not access your microphone. Please check your browser permissions.",
           variant: "destructive"
         });
       });
@@ -312,7 +354,11 @@ const Index = () => {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.error("Error stopping recording:", error);
+      }
     }
   };
 
@@ -525,15 +571,17 @@ const Index = () => {
 
   // Enhanced audio playback with better mobile support
   const togglePlayAudio = (messageId: string, audioSrc: string) => {
+    console.log("Toggle audio playback for message:", messageId);
+    
     try {
       // Create new audio element if doesn't exist
       if (!audioRefs.current[messageId]) {
         const audio = new Audio();
         
-        // Set audio playback settings for better mobile compatibility
+        // Important settings for mobile compatibility
         audio.preload = 'auto';
         
-        // Add event listeners for error handling and completion
+        // Add event listeners
         audio.addEventListener('error', (e) => {
           console.error('Audio playback error:', e);
           setPlayingAudioId(null);
@@ -545,14 +593,8 @@ const Index = () => {
         });
         
         audio.addEventListener('ended', () => {
+          console.log("Audio playback ended");
           setPlayingAudioId(null);
-        });
-        
-        audio.addEventListener('canplay', () => {
-          audio.play().catch(err => {
-            console.error("Play error:", err);
-            setPlayingAudioId(null);
-          });
         });
         
         audioRefs.current[messageId] = audio;
@@ -561,7 +603,8 @@ const Index = () => {
       const audio = audioRefs.current[messageId];
 
       if (playingAudioId === messageId) {
-        // Stop playback
+        // User clicked stop
+        console.log("Stopping audio playback");
         audio.pause();
         setPlayingAudioId(null);
       } else {
@@ -570,15 +613,46 @@ const Index = () => {
           audioRefs.current[playingAudioId].pause();
         }
         
-        // Set new source and play
+        // Set source and play
+        console.log("Starting audio playback");
         audio.src = audioSrc;
-        setPlayingAudioId(messageId);
         
-        // For iOS devices that require user interaction
-        document.body.addEventListener('touchend', function playAttempt() {
-          audio.play().catch(err => console.error("Mobile play error:", err));
-          document.body.removeEventListener('touchend', playAttempt);
-        }, { once: true });
+        // Use this pattern for iOS compatibility
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log("Audio playing successfully");
+              setPlayingAudioId(messageId);
+            })
+            .catch(err => {
+              console.error("Play error:", err);
+              
+              // Special handling for devices requiring user interaction
+              if (err.name === 'NotAllowedError') {
+                toast({
+                  title: "Playback Error",
+                  description: "Click anywhere on the screen first, then try playing the audio again",
+                });
+                
+                // Add one-time event listener for user interaction
+                const unlockAudio = () => {
+                  document.removeEventListener('click', unlockAudio);
+                  document.removeEventListener('touchstart', unlockAudio);
+                  
+                  audio.play()
+                    .then(() => {
+                      console.log("Audio unlocked and playing");
+                      setPlayingAudioId(messageId);
+                    })
+                    .catch(e => console.error("Still can't play audio:", e));
+                };
+                
+                document.addEventListener('click', unlockAudio, { once: true });
+                document.addEventListener('touchstart', unlockAudio, { once: true });
+              }
+            });
+        }
       }
     } catch (error) {
       console.error("Audio toggle error:", error);
@@ -756,122 +830,123 @@ const Index = () => {
           </DialogHeader>
 
           <ScrollArea className="flex-1 p-4 space-y-4 bg-white/50">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex mb-4 ${
-                  message.username === profile?.username || message.username === user?.email 
-                  ? "justify-end" 
-                  : "justify-start"
-                }`}
-              >
-                <div className={`max-w-[80%] rounded-xl p-3 ${
-                  message.username === profile?.username || message.username === user?.email 
-                  ? "bg-[#ebbd34] text-white"
-                  : "bg-white text-gray-800 border border-[#ebbd34]/20"
-                }`}>
-                  {message.content.startsWith('data:image/') ? (
-                    <div className="relative group">
-                      <img 
-                        src={message.content} 
-                        alt="Shared image" 
-                        className="rounded-md max-w-full cursor-pointer"
-                        onClick={() => window.open(message.content, '_blank')}
-                      />
-                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                          onClick={() => handleDownloadMedia(message.content, 'jpg')}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : message.content.startsWith('data:video/') ? (
-                    <div className="relative">
-                      <video 
-                        src={message.content} 
-                        controls 
-                        className="rounded-md max-w-full"
-                      />
-                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                          onClick={() => handleDownloadMedia(message.content, 'mp4')}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : message.content.startsWith('data:audio/') ? (
-                    // WhatsApp-style audio message UI with better mobile support
-                    <div className="flex items-center gap-2 p-1">
-                      {/* Play/pause button with changing icon */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`h-10 w-10 rounded-full ${
-                          playingAudioId === message.id ? 
-                          "bg-[#ebbd34]/20 text-[#ebbd34]" : 
-                          message.username === profile?.username || message.username === user?.email ?
-                          "text-white hover:bg-white/20" :
-                          "text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                        }`}
-                        onClick={() => togglePlayAudio(message.id, message.content)}
-                      >
-                        {playingAudioId === message.id ? 
-                          <X className="h-5 w-5" /> : 
-                          <Volume2 className="h-5 w-5" />
-                        }
-                      </Button>
-                      
-                      {/* WhatsApp-style waveform visualization */}
-                      <div className="flex-1 h-8 flex items-center">
-                        <div className="w-full flex items-center justify-between space-x-0.5">
-                          {Array.from({ length: 27 }).map((_, i) => {
-                            // Create a varying height pattern like WhatsApp voice messages
-                            const heights = [
-                              3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
-                            ];
-                            const height = heights[i];
-                            const isPlaying = playingAudioId === message.id;
-                            
-                            // Determine the color based on message sender and playback state
-                            const barColor = message.username === profile?.username || message.username === user?.email 
-                              ? isPlaying ? "bg-white" : "bg-white/60" 
-                              : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
-                              
-                            return (
-                              <div 
-                                key={i}
-                                className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
-                                style={{ 
-                                  height: `${height}px`,
-                                  // Animate bars when playing
-                                  animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
-                                }}
-                              />
-                            );
-                          })}
+            {messages.map((message) => {
+              const isCurrentUser = message.username === profile?.username || message.username === user?.email;
+              
+              return (
+                <div
+                  key={message.id}
+                  className={`flex mb-4 ${isCurrentUser ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`max-w-[80%] rounded-xl p-3 ${
+                    isCurrentUser
+                      ? "bg-[#ebbd34] text-white"
+                      : "bg-white text-gray-800 border border-[#ebbd34]/20"
+                  }`}>
+                    {message.content.startsWith('data:image/') ? (
+                      <div className="relative group">
+                        <img 
+                          src={message.content} 
+                          alt="Shared image" 
+                          className="rounded-md max-w-full cursor-pointer"
+                          onClick={() => window.open(message.content, '_blank')}
+                        />
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                            onClick={() => handleDownloadMedia(message.content, 'jpg')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
+                    ) : message.content.startsWith('data:video/') ? (
+                      <div className="relative">
+                        <video 
+                          src={message.content} 
+                          controls 
+                          className="rounded-md max-w-full"
+                          playsInline // Important for iOS
+                        />
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
+                            onClick={() => handleDownloadMedia(message.content, 'mp4')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : message.content.startsWith('data:audio/') ? (
+                      // WhatsApp-style audio message UI with improved mobile support
+                      <div className="flex items-center gap-2 p-1">
+                        {/* Play/pause button with changing icon */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-10 w-10 rounded-full ${
+                            playingAudioId === message.id ? 
+                            "bg-[#ebbd34]/20 text-[#ebbd34]" : 
+                            isCurrentUser ?
+                            "text-white hover:bg-white/20" :
+                            "text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                          }`}
+                          onClick={() => togglePlayAudio(message.id, message.content)}
+                        >
+                          {playingAudioId === message.id ? 
+                            <X className="h-5 w-5" /> : 
+                            <Volume2 className="h-5 w-5" />
+                          }
+                        </Button>
+                        
+                        {/* WhatsApp-style waveform visualization */}
+                        <div className="flex-1 h-8 flex items-center">
+                          <div className="w-full flex items-center justify-between space-x-0.5">
+                            {Array.from({ length: 27 }).map((_, i) => {
+                              // Create a varying height pattern like WhatsApp voice messages
+                              const heights = [
+                                3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
+                              ];
+                              const height = heights[i];
+                              const isPlaying = playingAudioId === message.id;
+                              
+                              // Determine the color based on message sender and playback state
+                              const barColor = isCurrentUser
+                                ? isPlaying ? "bg-white" : "bg-white/60" 
+                                : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
+                                
+                              return (
+                                <div 
+                                  key={i}
+                                  className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
+                                  style={{ 
+                                    height: `${height}px`,
+                                    // Animate bars when playing
+                                    animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p>{message.content}</p>
+                    )}
+                    
+                    <div className="text-right mt-1">
+                      <span className="text-xs opacity-70">
+                        {formatMessageTime(message.timestamp)}
+                      </span>
                     </div>
-                  ) : (
-                    <p>{message.content}</p>
-                  )}
-                  
-                  <div className="text-right mt-1">
-                    <span className="text-xs opacity-70">
-                      {formatMessageTime(message.timestamp)}
-                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </ScrollArea>
 
@@ -890,7 +965,19 @@ const Index = () => {
                     variant="ghost"
                     size="sm"
                     className="text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full"
-                    onClick={stopRecording}
+                    onClick={() => {
+                      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                        mediaRecorderRef.current.stop();
+                        setIsRecording(false);
+                        setRecordingSeconds(0);
+                        if (recordingTimerRef.current) {
+                          window.clearInterval(recordingTimerRef.current);
+                          recordingTimerRef.current = null;
+                        }
+                        // Clear any recorded chunks
+                        audioChunksRef.current = [];
+                      }
+                    }}
                   >
                     <X className="h-5 w-5" />
                     <span className="ml-1">Cancel</span>

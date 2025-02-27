@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export default function Auth() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({
@@ -25,6 +26,9 @@ export default function Auth() {
     surname: "",
     username: "",
   });
+
+  // Get redirect path from location state or default to home
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLoginForm({
@@ -61,7 +65,8 @@ export default function Auth() {
         description: "Welcome back to Bubble Trouble",
       });
       
-      navigate("/");
+      // Navigate to the page the user was trying to access before being redirected to login
+      navigate(from);
     } catch (error: any) {
       toast({
         title: "Login failed",
@@ -98,6 +103,18 @@ export default function Auth() {
         throw new Error("Password must be at least 6 characters");
       }
 
+      // Check if username already exists
+      const { data: existingUsers, error: usernameError } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("username", registerForm.username);
+      
+      if (usernameError) throw usernameError;
+      
+      if (existingUsers && existingUsers.length > 0) {
+        throw new Error("Username already taken. Please choose another one.");
+      }
+
       // Register the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
@@ -114,11 +131,15 @@ export default function Auth() {
 
       if (authError) throw authError;
 
+      if (!authData.user?.id) {
+        throw new Error("Registration failed. Please try again.");
+      }
+
       // Create profile entry
       const { error: profileError } = await supabase
         .from("profiles")
         .insert({
-          id: authData.user?.id,
+          id: authData.user.id,
           username: registerForm.username,
           display_name: `${registerForm.name} ${registerForm.surname}`,
         });
@@ -135,7 +156,7 @@ export default function Auth() {
       });
       
       // Auto-login and redirect to home
-      navigate("/");
+      navigate(from);
     } catch (error: any) {
       toast({
         title: "Registration failed",
