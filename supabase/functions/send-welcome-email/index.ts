@@ -8,8 +8,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Initialize Resend with the API key
-const resend = new Resend("re_J7JGSACe_3RZYJkZ5rpcoEyp6BzKnHp8E");
+// Initialize Resend with the API key from environment
+const resendApiKey = Deno.env.get("RESEND_API_KEY");
+const resend = new Resend(resendApiKey);
 
 serve(async (req) => {
   // Handle CORS preflight request
