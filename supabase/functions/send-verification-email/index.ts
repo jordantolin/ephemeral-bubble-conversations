@@ -35,6 +35,7 @@ serve(async (req) => {
     });
 
     if (tokenError) {
+      console.error("Token generation error:", tokenError);
       throw new Error(`Error generating verification link: ${tokenError.message}`);
     }
 
@@ -47,6 +48,9 @@ serve(async (req) => {
     }
 
     const verificationUrl = `${siteUrl}/auth?verification_token=${token}`;
+    
+    console.log("Sending verification email to:", email);
+    console.log("Verification URL:", verificationUrl);
 
     const emailResponse = await resend.emails.send({
       from: "Bubble Trouble <bubbletroubleapp@gmail.com>",
@@ -202,7 +206,7 @@ serve(async (req) => {
           <body>
             <div class="container">
               <div class="header">
-                <img src="https://fmsijphhzututcmzlhfr.supabase.co/storage/v1/object/public/bubble-assets/bubble_logo.png" alt="Bubble Trouble Logo" class="logo">
+                <img src="https://fmsijphhzututcmzlhfr.supabase.co/storage/v1/object/public/bubble-assets/Bubbletroublefinallogo.png" alt="Bubble Trouble Logo" class="logo">
                 <h1 class="fancy-title">Welcome to Bubble Trouble!</h1>
               </div>
               <div class="content">
@@ -243,6 +247,8 @@ serve(async (req) => {
       `,
     });
 
+    console.log("Email response:", emailResponse);
+    
     return new Response(
       JSON.stringify(emailResponse),
       { 
@@ -251,6 +257,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error("Error in send-verification-email function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

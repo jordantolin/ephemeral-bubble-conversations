@@ -17,6 +17,7 @@ export default function Auth() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [verifyingToken, setVerifyingToken] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
 
   // Get redirect path from location state or default to home
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
@@ -39,17 +40,22 @@ export default function Auth() {
   const handleEmailVerification = async (token: string) => {
     setVerifyingToken(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      console.log("Verifying token:", token);
+      const { data, error } = await supabase.auth.verifyOtp({
         token_hash: token,
         type: 'signup'
       });
 
       if (error) throw error;
 
+      console.log("Verification successful:", data);
       toast({
         title: "Email verified successfully",
-        description: "Your account is now active. Please log in.",
+        description: "Your account is now active. Please log in to enter your 3D bubble world.",
       });
+      
+      // Switch to login tab after successful verification
+      setActiveTab("login");
 
     } catch (error: any) {
       console.error("Verification error:", error);
@@ -69,7 +75,7 @@ export default function Auth() {
 
   return (
     <AuthLayout>
-      <Tabs defaultValue="login" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-8">
           <TabsTrigger value="login">Login</TabsTrigger>
           <TabsTrigger value="register">Register</TabsTrigger>
