@@ -52,6 +52,7 @@ const Profile = () => {
     username: "",
     avatar_url: null
   });
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -70,25 +71,67 @@ const Profile = () => {
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = event.target.files?.[0];
-      if (!file || !user) return;
+      if (!file || !user) {
+        console.error("No file selected or user not logged in");
+        return;
+      }
 
+      setIsUploading(true);
+
+      // Create a unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${Date.now()}_${user.id}.${fileExt}`;
+      const filePath = `${fileName}`;
 
+      // Check if bucket exists and create if it doesn't
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+      
+      if (!avatarBucketExists) {
+        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
+        });
+        
+        if (bucketError) {
+          console.error("Error creating avatars bucket:", bucketError);
+          toast({
+            title: "Upload error",
+            description: "Could not create storage bucket. Please try again later.",
+            variant: "destructive"
+          });
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      // Upload image to storage
+      console.log("Uploading file to path:", filePath);
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { 
+          upsert: true,
+          contentType: file.type 
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
 
-      const { data: { publicUrl } } = supabase.storage
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
+      const avatarUrl = publicUrlData?.publicUrl;
+      
+      console.log("File uploaded, public URL:", avatarUrl);
+
+      // Update form data with new avatar URL
       setFormData(prev => ({
         ...prev,
-        avatar_url: publicUrl
+        avatar_url: avatarUrl
       }));
 
       toast({
@@ -96,26 +139,30 @@ const Profile = () => {
         description: "Your profile picture has been updated",
       });
     } catch (error: any) {
+      console.error("Upload process error:", error);
       toast({
         title: "Upload failed",
-        description: error.message,
+        description: error.message || "There was a problem uploading your image",
         variant: "destructive"
       });
+    } finally {
+      setIsUploading(false);
     }
   };
 
   // Fetch user's reflected bubbles
-  const { data: reflectedBubbles = [] } = useQuery({
-    queryKey: ['reflectedBubbles'],
+  const { data: reflectedBubbles = [], isLoading: isLoadingBubbles } = useQuery({
+    queryKey: ['reflectedBubbles', profile?.username],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user || !profile?.username) return [];
 
       const { data: reflects, error } = await supabase
         .from('reflects')
         .select('bubble_id')
-        .eq('username', profile?.username || user.email);
+        .eq('username', profile.username);
       
       if (error) {
+        console.error("Error fetching reflects:", error);
         toast({
           title: "Error fetching reflects",
           description: error.message,
@@ -133,6 +180,7 @@ const Profile = () => {
         .in('id', bubbleIds);
       
       if (bubblesError) {
+        console.error("Error fetching bubbles:", bubblesError);
         toast({
           title: "Error fetching bubbles",
           description: bubblesError.message,
@@ -143,7 +191,7 @@ const Profile = () => {
 
       return bubbles;
     },
-    enabled: !!user
+    enabled: !!user && !!profile?.username
   });
 
   // Get user stats from reflected bubbles
@@ -177,6 +225,7 @@ const Profile = () => {
     if (!user) return;
 
     try {
+      // Update the profile record
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -195,6 +244,7 @@ const Profile = () => {
             variant: "destructive"
           });
         } else {
+          console.error("Error updating profile:", error);
           throw error;
         }
         return;
@@ -209,6 +259,7 @@ const Profile = () => {
         }
       });
 
+      // Refresh profile data
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       
       toast({
@@ -218,9 +269,10 @@ const Profile = () => {
       
       setIsEditing(false);
     } catch (error: any) {
+      console.error("Profile update error:", error);
       toast({
         title: "Error updating profile",
-        description: error.message,
+        description: error.message || "An unexpected error occurred",
         variant: "destructive"
       });
     }
@@ -407,7 +459,12 @@ const Profile = () => {
                     </TabsList>
 
                     <TabsContent value="bubbles">
-                      {reflectedBubbles.length === 0 ? (
+                      {isLoadingBubbles ? (
+                        <div className="text-center py-8">
+                          <div className="mx-auto w-8 h-8 border-4 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                          <p className="mt-4 text-[#ebbd34]">Loading your bubbles...</p>
+                        </div>
+                      ) : reflectedBubbles.length === 0 ? (
                         <div className="text-center py-8">
                           <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
                             <Sparkles className="w-8 h-8 text-[#ebbd34]" />
@@ -526,22 +583,38 @@ const Profile = () => {
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-6">
                   <div className="flex flex-col items-center gap-2">
                     <label className="relative cursor-pointer group">
-                      <Avatar className="w-24 h-24 border-4 border-[#ebbd34] group-hover:opacity-80 transition-opacity">
-                        <AvatarImage src={formData.avatar_url || undefined} alt={formData.display_name || "Profile"} />
-                        <AvatarFallback className="bg-[#ebbd34] text-white">
-                          {getAvatarFallback()}
-                        </AvatarFallback>
+                      <Avatar className="w-24 h-24 border-4 border-[#ebbd34] group-hover:opacity-80 transition-opacity overflow-hidden">
+                        {isUploading ? (
+                          <div className="h-full w-full flex items-center justify-center bg-[#ebbd34]/10">
+                            <div className="w-8 h-8 border-4 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                          </div>
+                        ) : (
+                          <>
+                            <AvatarImage 
+                              src={formData.avatar_url || undefined} 
+                              alt={formData.display_name || "Profile"} 
+                              className="object-cover"
+                            />
+                            <AvatarFallback className="bg-[#ebbd34] text-white">
+                              {getAvatarFallback()}
+                            </AvatarFallback>
+                          </>
+                        )}
                       </Avatar>
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                        Change Photo
+                        {isUploading ? "Uploading..." : "Change Photo"}
                       </div>
                       <input
                         type="file"
                         className="hidden"
                         accept="image/*"
                         onChange={handleAvatarUpload}
+                        disabled={isUploading}
                       />
                     </label>
+                    <p className="text-xs text-gray-500 text-center mt-1 max-w-[150px]">
+                      Click the avatar to upload a new profile picture
+                    </p>
                   </div>
                   
                   <div className="w-full space-y-4">
