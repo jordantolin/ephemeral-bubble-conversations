@@ -59,6 +59,15 @@ interface Bubble {
   username: string; // Instead of created_by
 }
 
+// Helper function to ensure size is one of the allowed values
+const validateBubbleSize = (size: string): 'sm' | 'md' | 'lg' => {
+  if (size === 'sm' || size === 'md' || size === 'lg') {
+    return size;
+  }
+  // Default to 'sm' if size is not valid
+  return 'sm';
+};
+
 const Index = () => {
   const { user, profile } = useAuth();
   const location = useLocation();
@@ -259,7 +268,11 @@ const Index = () => {
         return [];
       }
       
-      return data;
+      // Ensure size is a valid type
+      return data.map(bubble => ({
+        ...bubble,
+        size: validateBubbleSize(bubble.size)
+      }));
     },
     staleTime: 10000, // Cache data for 10 seconds
     refetchInterval: 30000 // Periodically refresh every 30 seconds
@@ -319,7 +332,11 @@ const Index = () => {
         return null;
       }
       
-      return data;
+      // Ensure size is a valid type
+      return {
+        ...data,
+        size: validateBubbleSize(data.size)
+      };
     },
     enabled: !!selectedBubbleId,
     staleTime: 10000 // Cache data for 10 seconds
@@ -570,7 +587,7 @@ const Index = () => {
           name: newBubbleInfo.name,
           topic: newBubbleInfo.topic || "general",
           description: newBubbleInfo.description,
-          size: 'sm',
+          size: 'sm' as const, // Explicitly type as 'sm'
           reflect_count: 0,
           expires_at: expiresAt.toISOString(),
           username: username
@@ -680,7 +697,7 @@ const Index = () => {
       topic: bubble.topic,
       username: bubble.username,
       name: bubble.name,
-      size: bubble.size as "sm" | "md" | "lg",
+      size: bubble.size, // Already validated as "sm" | "md" | "lg"
       reflect_count: bubble.reflect_count,
       created_at: bubble.created_at,
       description: bubble.description || undefined,
