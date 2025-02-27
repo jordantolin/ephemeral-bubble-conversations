@@ -918,20 +918,22 @@ const Index = () => {
       </Dialog>
       
       {/* Add animation keyframes for the waveform */}
-      <style jsx global>{`
-        @keyframes pulse-0 {
-          0%, 100% { transform: scaleY(1); }
-          50% { transform: scaleY(1.5); }
-        }
-        @keyframes pulse-1 {
-          0%, 100% { transform: scaleY(1); }
-          33% { transform: scaleY(1.3); }
-        }
-        @keyframes pulse-2 {
-          0%, 100% { transform: scaleY(1); }
-          66% { transform: scaleY(1.7); }
-        }
-      `}</style>
+      <style>
+        {`
+          @keyframes pulse-0 {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.5); }
+          }
+          @keyframes pulse-1 {
+            0%, 100% { transform: scaleY(1); }
+            33% { transform: scaleY(1.3); }
+          }
+          @keyframes pulse-2 {
+            0%, 100% { transform: scaleY(1); }
+            66% { transform: scaleY(1.7); }
+          }
+        `}
+      </style>
     </div>
   );
 };
