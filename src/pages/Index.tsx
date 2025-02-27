@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download } from "lucide-react";
@@ -33,585 +33,305 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-// List of available topics for bubbles
-const availableTopics = [
-  "Art & Design",
-  "Books & Writing",
-  "Business",
-  "Education",
-  "Entertainment",
-  "Food & Cooking",
-  "Gaming",
-  "Health & Fitness",
-  "Music",
-  "Nature & Environment",
-  "Science & Tech",
-  "Social & Community",
-  "Sports",
-  "Travel & Adventure",
-  "World Culture"
-];
-
-interface Bubble {
-  id: string;
-  topic: string;
-  username: string;
-  name: string;
-  size: "sm" | "md" | "lg";
-  description: string | null;
-  reflect_count: number;
-  expires_at: string;
-  created_at: string;
-}
+import { BubbleData } from "@/types/bubble";
+import { connectionManager, createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
 
 interface Message {
   id: string;
+  bubble_id: string;
   content: string;
   username: string;
-  timestamp: string;
+  created_at: string;
 }
 
-// Helper function to calculate bubble size based on reflects
-const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
-  if (reflectCount >= 10) return "lg";
-  if (reflectCount >= 5) return "md";
-  return "sm";
-};
+// Match the actual database schema for bubbles
+interface Bubble {
+  id: string;
+  name: string;
+  topic: string;
+  description: string | null;
+  size: 'sm' | 'md' | 'lg';
+  expires_at: string;
+  created_at: string;
+  reflect_count: number;
+  username: string; // Instead of created_by
+}
 
-// Format timestamp to a readable time
-const formatMessageTime = (timestamp: string): string => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
-// Main Index component
 const Index = () => {
-  console.log("Index component is rendering");
-  const { user, profile, signOut } = useAuth();
-  const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [newBubble, setNewBubble] = useState({
-    name: "",
-    description: "",
-    topic: "",
-    username: ""
-  });
-  const [newMessage, setNewMessage] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [newBubbleDialog, setNewBubbleDialog] = useState(false);
+  const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<number | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const [newBubbleInfo, setNewBubbleInfo] = useState({
+    name: "",
+    topic: "general",
+    description: "",
+  });
+  const [isCreatingBubble, setIsCreatingBubble] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const searchParams = new URLSearchParams(location.search);
+  const bubbleToOpen = searchParams.get('bubble');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(50);
+  
+  // Create rate limiters and retry handlers
+  const messageLimiter = useRef(createRateLimiter(5, 5000));
+  const sendRetry = useRef(createRetryHandler(3, 1000));
+  
+  // Track channel subscriptions for cleanup
+  const activeChannels = useRef<string[]>([]);
 
-  // Check for stored bubble ID in localStorage to open a specific bubble chat
+  useEffect(() => {
+    if (bubbleToOpen) {
+      setSelectedBubbleId(bubbleToOpen);
+      setChatOpen(true);
+    }
+  }, [bubbleToOpen]);
+
+  // Check for stored bubble ID (from profile page clicks)
   useEffect(() => {
     const storedBubbleId = localStorage.getItem('openBubbleId');
     if (storedBubbleId) {
       setSelectedBubbleId(storedBubbleId);
-      setIsChatOpen(true);
-      // Clear the stored ID after using it
+      setChatOpen(true);
       localStorage.removeItem('openBubbleId');
     }
   }, []);
 
-  // Update username in new bubble form when profile or user changes
-  useEffect(() => {
-    if (profile?.username || user?.email) {
-      setNewBubble(prev => ({
-        ...prev,
-        username: profile?.username || user?.email || "",
-      }));
-    }
-  }, [profile, user]);
-
-  // Fetch bubbles from Supabase with error handling
-  const { data: allBubbles = [], isLoading: isLoadingBubbles } = useQuery({
-    queryKey: ['bubbles'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('bubbles')
-          .select('*')
-          .gte('expires_at', new Date().toISOString());
-        
-        if (error) {
-          console.error("Error fetching bubbles:", error);
-          toast({
-            title: "Error fetching bubbles",
-            description: error.message,
-            variant: "destructive"
-          });
-          return [];
-        }
-
-        return data.map(bubble => ({
-          ...bubble,
-          size: calculateBubbleSize(bubble.reflect_count || 0)
-        }));
-      } catch (err) {
-        console.error("Unexpected error fetching bubbles:", err);
-        toast({
-          title: "Error fetching bubbles",
-          description: "Could not load bubbles. Please try again.",
-          variant: "destructive"
-        });
-        return [];
-      }
-    },
-    refetchInterval: 60000, // Refetch every minute to check for expired bubbles
-    retry: 3,
-    retryDelay: 1000
-  });
-
-  // Filter bubbles based on search query
-  const bubbles = useMemo(() => {
-    if (!searchQuery.trim()) return allBubbles;
-    
-    const query = searchQuery.toLowerCase();
-    return allBubbles.filter(bubble => 
-      bubble.name.toLowerCase().includes(query) || 
-      bubble.topic.toLowerCase().includes(query) ||
-      (bubble.description && bubble.description.toLowerCase().includes(query))
-    );
-  }, [allBubbles, searchQuery]);
-
-  // Create a new bubble with better error handling
-  const handleCreateBubble = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to create a bubble",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!newBubble.name || !newBubble.topic) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      const username = profile?.username || user?.email || "";
-      
-      const newBubbleData = {
-        name: newBubble.name,
-        topic: newBubble.topic,
-        description: newBubble.description,
-        username,
-        size: "sm" as const,
-        expires_at: expiresAt.toISOString()
-      };
-
-      const { data, error } = await supabase
-        .from('bubbles')
-        .insert(newBubbleData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Error creating bubble:", error);
-        toast({
-          title: "Error creating bubble",
-          description: error.message,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setIsCreateDialogOpen(false);
-      toast({
-        title: "Success!",
-        description: "New bubble created successfully",
-      });
-
-      // Refresh bubbles list
-      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-
-      // Reset form
-      setNewBubble({ 
-        name: "", 
-        description: "", 
-        topic: "", 
-        username: profile?.username || user?.email || "" 
-      });
-      
-      // Auto-open the new bubble chat
-      setSelectedBubbleId(data.id);
-      setIsChatOpen(true);
-    } catch (err) {
-      console.error("Unexpected error creating bubble:", err);
-      toast({
-        title: "Error creating bubble",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Handle file upload with improved error handling
-  const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to send media",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedBubbleId) {
-      toast({
-        title: "Error",
-        description: "No bubble selected",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = type === 'image' ? 'image/*' : 
-                   type === 'video' ? 'video/*' : 
-                   'image/gif';
-    
-    input.onchange = async (e) => {
-      try {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) {
-          console.error("No file selected");
-          return;
-        }
-        
-        // Check file size - 10MB limit for all media
-        if (file.size > 10 * 1024 * 1024) {
-          toast({
-            title: "File too large",
-            description: "Please select a file smaller than 10MB",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const content = e.target?.result as string;
-          if (content) {
-            await handleSendMessage(content);
-          } else {
-            throw new Error("Failed to read file");
-          }
-        };
-        
-        reader.onerror = (error) => {
-          console.error("FileReader error:", error);
-          toast({
-            title: "Error reading file",
-            description: "Could not process your media file",
-            variant: "destructive"
-          });
-        };
-        
-        reader.readAsDataURL(file);
-      } catch (err) {
-        console.error("File upload error:", err);
-        toast({
-          title: "Upload error",
-          description: "Failed to upload media. Please try again.",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    input.click();
-  };
-
-  // Improved voice recording functionality with better mobile support
-  const handleVoiceRecord = () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to record audio",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // If already recording, stop it
-    if (isRecording) {
-      stopRecording();
-      return;
-    }
-
-    audioChunksRef.current = [];
-
-    // Use more compatible settings for mobile audio recording
-    const constraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
-    };
-
-    // Request microphone permission with better handling
-    navigator.mediaDevices.getUserMedia(constraints)
-      .then(stream => {
-        // Test supported MIME types for different devices
-        const mimeTypes = [
-          'audio/webm;codecs=opus',
-          'audio/webm',
-          'audio/mp4;codecs=opus',
-          'audio/mp4',
-          'audio/ogg;codecs=opus',
-          'audio/ogg'
-        ];
-
-        // Find the first supported MIME type
-        let options = {};
-        for (const type of mimeTypes) {
-          try {
-            if (MediaRecorder.isTypeSupported(type)) {
-              options = { 
-                mimeType: type,
-                audioBitsPerSecond: 128000
-              };
-              console.log("Using MIME type:", type);
-              break;
-            }
-          } catch (e) {
-            console.log("MIME type not supported:", type);
-          }
-        }
-
-        try {
-          mediaRecorderRef.current = new MediaRecorder(stream, options);
-        } catch (e) {
-          console.error("MediaRecorder error:", e);
-          // Fallback to default
-          mediaRecorderRef.current = new MediaRecorder(stream);
-        }
-        
-        mediaRecorderRef.current.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            audioChunksRef.current.push(e.data);
-          }
-        };
-
-        mediaRecorderRef.current.onstop = async () => {
-          try {
-            if (audioChunksRef.current.length === 0) {
-              console.warn("No audio data collected");
-              return;
-            }
-            
-            const audioBlob = new Blob(audioChunksRef.current, { 
-              type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
-            });
-            
-            console.log("Audio blob created:", audioBlob.size, "bytes, type:", audioBlob.type);
-            
-            // Check if the blob is valid
-            if (audioBlob.size === 0) {
-              throw new Error("Empty audio recording");
-            }
-            
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-              const content = e.target?.result as string;
-              console.log("Audio data URL created, length:", content.length);
-              
-              if (selectedBubbleId) {
-                await handleSendMessage(content);
-              }
-            };
-            
-            reader.onerror = (err) => {
-              console.error("FileReader error:", err);
-              toast({
-                title: "Error processing audio",
-                description: "Could not create audio message",
-                variant: "destructive"
-              });
-            };
-            
-            reader.readAsDataURL(audioBlob);
-          } catch (error) {
-            console.error("Audio processing error:", error);
-            toast({
-              title: "Recording error",
-              description: "Failed to process your recording",
-              variant: "destructive"
-            });
-          } finally {
-            // Clean up
-            stream.getTracks().forEach(track => track.stop());
-            setIsRecording(false);
-            setRecordingSeconds(0);
-            if (recordingTimerRef.current) {
-              window.clearInterval(recordingTimerRef.current);
-              recordingTimerRef.current = null;
-            }
-          }
-        };
-
-        // Start recording with frequent data collection for better quality
-        mediaRecorderRef.current.start(100);
-        setIsRecording(true);
-        
-        // Start timer
-        recordingTimerRef.current = window.setInterval(() => {
-          setRecordingSeconds(prev => prev + 1);
-        }, 1000);
-        
-        // Auto-stop after 60 seconds
-        setTimeout(() => {
-          if (mediaRecorderRef.current?.state === 'recording') {
-            stopRecording();
-          }
-        }, 60000);
-      })
-      .catch(error => {
-        console.error("Media device error:", error);
-        toast({
-          title: "Microphone Error",
-          description: "Could not access your microphone. Please check your browser permissions.",
-          variant: "destructive"
-        });
-      });
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (error) {
-        console.error("Error stopping recording:", error);
-        
-        // Force cleanup if error
-        if (recordingTimerRef.current) {
-          window.clearInterval(recordingTimerRef.current);
-          recordingTimerRef.current = null;
-        }
-        setIsRecording(false);
-        setRecordingSeconds(0);
-        
-        toast({
-          title: "Recording Error",
-          description: "Failed to stop recording properly",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-
-  // Format the recording time in MM:SS format
-  const formatRecordingTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Fetch messages for selected bubble with error handling
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
-    queryKey: ['messages', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return [];
-
-      try {
-        const { data, error } = await supabase
-          .from('bubble_messages')
-          .select('*')
-          .eq('bubble_id', selectedBubbleId)
-          .order('created_at', { ascending: true });
-
-        if (error) {
-          console.error("Error fetching messages:", error);
-          toast({
-            title: "Error fetching messages",
-            description: error.message,
-            variant: "destructive"
-          });
-          return [];
-        }
-
-        return data.map(msg => ({
-          id: msg.id,
-          content: msg.content,
-          username: msg.username,
-          timestamp: msg.created_at
-        }));
-      } catch (err) {
-        console.error("Unexpected error fetching messages:", err);
-        return [];
-      }
-    },
-    enabled: !!selectedBubbleId,
-    retry: 2
-  });
-
-  // Subscribe to real-time message updates
+  // Improved real-time message updates
   useEffect(() => {
     if (!selectedBubbleId) return;
 
-    let channelSubscription: any;
-
-    try {
-      const channel = supabase.channel('chat-updates')
-        .on(
-          'postgres_changes',
+    const setupMessageChannel = async () => {
+      try {
+        // Create a more robust channel name to avoid conflicts
+        const channelName = `chat-room-${selectedBubbleId}-${Date.now()}`;
+        
+        const filters = [
           {
             event: 'INSERT',
             schema: 'public',
             table: 'bubble_messages',
             filter: `bubble_id=eq.${selectedBubbleId}`
           },
-          (payload) => {
-            // Invalidate messages query to trigger a refresh
-            queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'bubble_messages',
+            filter: `bubble_id=eq.${selectedBubbleId}`
           }
-        )
-        .subscribe((status) => {
-          if (status !== 'SUBSCRIBED') {
-            console.error("Failed to subscribe to real-time updates:", status);
-          }
-        });
-
-      channelSubscription = channel;
-    } catch (err) {
-      console.error("Error subscribing to real-time updates:", err);
-    }
-
-    return () => {
-      try {
-        if (channelSubscription) {
-          supabase.removeChannel(channelSubscription);
-        }
+        ];
+        
+        await connectionManager.createChannel(
+          supabase,
+          channelName,
+          filters,
+          () => queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] })
+        );
+        
+        // Track this channel for cleanup
+        activeChannels.current.push(channelName);
       } catch (err) {
-        console.error("Error removing channel subscription:", err);
+        console.error("Error setting up real-time chat subscription:", err);
+        toast({
+          title: "Connection Error",
+          description: "Having trouble connecting to chat. Will retry automatically.",
+          variant: "destructive"
+        });
+        
+        // Try reconnecting after a delay
+        setTimeout(() => {
+          if (selectedBubbleId) {
+            setupMessageChannel();
+          }
+        }, 5000);
       }
     };
-  }, [selectedBubbleId, queryClient]);
 
-  // Send message with enhanced error handling
-  const handleSendMessage = async (content?: string) => {
+    setupMessageChannel();
+
+    return () => {
+      // Clean up only the relevant channels
+      const channelsToRemove = activeChannels.current.filter(
+        name => name.startsWith(`chat-room-${selectedBubbleId}`)
+      );
+      
+      channelsToRemove.forEach(async (channelName) => {
+        await connectionManager.removeChannel(supabase, channelName);
+        activeChannels.current = activeChannels.current.filter(name => name !== channelName);
+      });
+    };
+  }, [selectedBubbleId, queryClient, toast]);
+
+  // Enhanced real-time bubble updates with reconnection logic
+  useEffect(() => {
+    const setupBubbleChannel = async () => {
+      try {
+        const channelName = `bubble-updates-${Date.now()}`;
+        
+        const filters = [
+          { event: '*', schema: 'public', table: 'reflects' },
+          { event: '*', schema: 'public', table: 'bubbles' }
+        ];
+        
+        await connectionManager.createChannel(
+          supabase,
+          channelName,
+          filters,
+          (payload) => {
+            // Invalidate bubbles query
+            queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+            
+            // If the current bubble was updated, refresh its details
+            if (selectedBubbleId && 
+                payload.new && 
+                typeof payload.new === 'object' && 
+                'id' in payload.new && 
+                payload.new.id === selectedBubbleId) {
+              queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
+            }
+          }
+        );
+        
+        // Track this channel for cleanup
+        activeChannels.current.push(channelName);
+      } catch (err) {
+        console.error("Error setting up bubble updates subscription:", err);
+        toast({
+          title: "Connection Warning",
+          description: "Live updates connection lost. Reconnecting...",
+          variant: "destructive"
+        });
+        
+        // Try reconnecting after a delay
+        setTimeout(setupBubbleChannel, 5000);
+      }
+    };
+
+    setupBubbleChannel();
+    
+    // Global cleanup on unmount
+    return () => {
+      connectionManager.removeAllChannels(supabase);
+      activeChannels.current = [];
+    };
+  }, [queryClient, selectedBubbleId, toast]);
+
+  // Fetch all bubbles with optimized caching
+  const { data: bubbles = [], isLoading: isLoadingBubbles } = useQuery({
+    queryKey: ['bubbles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bubbles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching bubbles:", error);
+        toast({
+          title: "Error fetching bubbles",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+      
+      return data;
+    },
+    staleTime: 10000, // Cache data for 10 seconds
+    refetchInterval: 30000 // Periodically refresh every 30 seconds
+  });
+
+  // Fetch selected bubble details with optimized caching
+  const { data: selectedBubble, isLoading: isLoadingBubbleDetails } = useQuery({
+    queryKey: ['bubble', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return null;
+      
+      const { data, error } = await supabase
+        .from('bubbles')
+        .select('*')
+        .eq('id', selectedBubbleId)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching bubble details:", error);
+        toast({
+          title: "Error fetching bubble details",
+          description: error.message,
+          variant: "destructive"
+        });
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!selectedBubbleId,
+    staleTime: 10000 // Cache data for 10 seconds
+  });
+
+  // Fetch messages for selected bubble with optimized pagination
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+    queryKey: ['messages', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return [];
+      
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .order('created_at', { ascending: true })
+        .limit(100); // Limit to last 100 messages for performance
+      
+      if (error) {
+        console.error("Error fetching messages:", error);
+        toast({
+          title: "Error fetching messages",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+      
+      return data;
+    },
+    enabled: !!selectedBubbleId,
+    staleTime: 5000 // Cache data for 5 seconds
+  });
+
+  // Scroll to bottom when new messages arrive (optimized)
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  
+  useEffect(() => {
+    if (chatOpen && messages.length > 0 && messagesEndRef.current) {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+  }, [lastMessageId, chatOpen]);
+
+  const filteredBubbles = useMemo(() => {
+    if (!searchQuery.trim()) return bubbles;
+    
+    const query = searchQuery.toLowerCase();
+    return bubbles.filter((bubble) => 
+      bubble.name.toLowerCase().includes(query) || 
+      bubble.topic.toLowerCase().includes(query) ||
+      (bubble.description && bubble.description.toLowerCase().includes(query))
+    );
+  }, [bubbles, searchQuery]);
+
+  // Enhanced message sending with debounce, rate limiting and retry
+  const handleSendMessage = useCallback(async (content?: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -632,36 +352,61 @@ const Index = () => {
     
     const messageContent = content || newMessage;
     if (!messageContent.trim()) return;
-
+    
+    // Check rate limiting
+    if (!messageLimiter.current.canMakeRequest()) {
+      const waitTime = messageLimiter.current.getWaitTime();
+      toast({
+        title: "Slow down",
+        description: `Please wait ${Math.ceil(waitTime / 1000)} seconds before sending more messages`,
+        variant: "default"
+      });
+      return;
+    }
+    
+    // Start sending
+    setIsSendingMessage(true);
+    
     try {
       const username = profile?.username || user?.email || "";
-
-      const { error } = await supabase
-        .from('bubble_messages')
-        .insert({
-          bubble_id: selectedBubbleId,
-          content: messageContent,
-          username
-        });
-
-      if (error) {
-        console.error("Error sending message:", error);
-        throw error;
-      }
-
+      
+      // Save message content before clearing input
+      const messageToSend = messageContent;
       setNewMessage("");
+      
+      await sendRetry.current(async () => {
+        const { error } = await supabase
+          .from('bubble_messages')
+          .insert({
+            bubble_id: selectedBubbleId,
+            content: messageToSend,
+            username
+          });
+
+        if (error) {
+          throw error;
+        }
+      });
+      
     } catch (error: any) {
-      console.error("Message send error:", error);
+      console.error("Failed to send message after retries:", error);
       toast({
         title: "Error sending message",
         description: error.message || "Failed to send your message",
         variant: "destructive"
       });
+      
+      // If message wasn't sent, put it back in the input
+      if (content) {
+        setNewMessage(content);
+      }
+    } finally {
+      setIsSendingMessage(false);
     }
-  };
+  }, [user, profile, selectedBubbleId, newMessage, toast]);
 
-  // Reflect on a bubble with better error handling
-  const handleReflect = async (bubbleId: string) => {
+  // Optimized bubble reflection with retry logic
+  const handleReflect = useCallback(async (bubbleId: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -674,361 +419,248 @@ const Index = () => {
     try {
       const username = profile?.username || user?.email || "";
       
-      const { error } = await supabase
-        .from('reflects')
-        .insert({ 
-          bubble_id: bubbleId,
-          username
-        });
-
-      if (error) {
-        if (error.code === '23505') { // Unique violation
-          toast({
-            title: "Already reflected",
-            description: "You have already reflected this bubble",
+      await sendRetry.current(async () => {
+        const { error } = await supabase
+          .from('reflects')
+          .insert({ 
+            bubble_id: bubbleId,
+            username
           });
-        } else {
-          console.error("Error reflecting bubble:", error);
-          toast({
-            title: "Error reflecting bubble",
-            description: error.message,
-            variant: "destructive"
-          });
-        }
-        return;
-      }
-
-      toast({
-        title: "Bubble reflected!",
-        description: "This bubble will appear in your profile",
-      });
-      
-      // Refresh bubbles to update reflect count
-      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-    } catch (err) {
-      console.error("Reflect error:", err);
-      toast({
-        title: "Error reflecting bubble",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Handle bubble click for opening chat
-  const handleBubbleClick = (id: string) => {
-    setSelectedBubbleId(id);
-    setIsChatOpen(true);
-  };
-
-  // Subscribe to real-time updates for reflects and bubble changes
-  useEffect(() => {
-    let channelSubscription: any;
-    
-    try {
-      const channel = supabase.channel('db-changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'reflects' },
-          () => {
-            queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'bubble_messages' },
-          () => {
-            if (selectedBubbleId) {
-              queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
-            }
-          }
-        )
-        .subscribe((status) => {
-          if (status !== 'SUBSCRIBED') {
-            console.error("Failed to subscribe to database changes:", status);
-          }
-        });
-
-      channelSubscription = channel;
-    } catch (err) {
-      console.error("Error setting up real-time updates:", err);
-    }
-
-    return () => {
-      try {
-        if (channelSubscription) {
-          supabase.removeChannel(channelSubscription);
-        }
-      } catch (err) {
-        console.error("Error removing channel subscription:", err);
-      }
-    };
-  }, [selectedBubbleId, queryClient]);
-
-  // Fetch selected bubble details with caching
-  const { data: selectedBubble } = useQuery({
-    queryKey: ['bubble', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return null;
-
-      try {
-        const { data, error } = await supabase
-          .from('bubbles')
-          .select('*')
-          .eq('id', selectedBubbleId)
-          .single();
 
         if (error) {
-          console.error("Error fetching bubble:", error);
-          toast({
-            title: "Error fetching bubble",
-            description: error.message,
-            variant: "destructive"
-          });
-          return null;
-        }
-
-        return data as Bubble;
-      } catch (err) {
-        console.error("Unexpected error fetching bubble:", err);
-        return null;
-      }
-    },
-    enabled: !!selectedBubbleId,
-    staleTime: 30000 // Cache for 30 seconds
-  });
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (!isLoadingMessages && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, isLoadingMessages]);
-
-  // Clean up recording on component unmount
-  useEffect(() => {
-    return () => {
-      if (recordingTimerRef.current) {
-        window.clearInterval(recordingTimerRef.current);
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (err) {
-          console.error("Error stopping recorder on unmount:", err);
-        }
-      }
-      
-      // Clean up audio elements
-      Object.values(audioRefs.current).forEach(audio => {
-        try {
-          audio.pause();
-          audio.src = '';
-        } catch (err) {
-          console.error("Error cleaning up audio:", err);
-        }
-      });
-    };
-  }, []);
-
-  // Get user avatar color - matches the function in BubbleChat.tsx
-  const getUserColor = (username: string) => {
-    // Generate a hash code from the username
-    let hash = 0;
-    for (let i = 0; i < username.length; i++) {
-      hash = username.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    // Generate pastel colors (high lightness)
-    const h = hash % 360;
-    return `hsla(${h}, 70%, 80%, 0.8)`;
-  };
-
-  // Check if current user is the message sender - matches BubbleChat.tsx
-  const isCurrentUser = (username: string) => {
-    return username === profile?.username || username === user?.email;
-  };
-
-  // Enhanced audio playback with better mobile support
-  const togglePlayAudio = (messageId: string, audioSrc: string) => {
-    console.log("Toggle audio playback for message:", messageId);
-    
-    try {
-      // Create new audio element if doesn't exist
-      if (!audioRefs.current[messageId]) {
-        const audio = new Audio();
-        
-        // Important settings for mobile compatibility
-        audio.preload = 'auto';
-        
-        // Add event listeners
-        audio.addEventListener('error', (e) => {
-          console.error('Audio playback error:', e);
-          setPlayingAudioId(null);
-          toast({
-            title: "Playback Error",
-            description: "Unable to play this audio message",
-            variant: "destructive"
-          });
-        });
-        
-        audio.addEventListener('ended', () => {
-          console.log("Audio playback ended");
-          setPlayingAudioId(null);
-        });
-        
-        audioRefs.current[messageId] = audio;
-      }
-      
-      const audio = audioRefs.current[messageId];
-
-      if (playingAudioId === messageId) {
-        // User clicked stop
-        console.log("Stopping audio playback");
-        audio.pause();
-        setPlayingAudioId(null);
-      } else {
-        // Stop any currently playing audio
-        if (playingAudioId && audioRefs.current[playingAudioId]) {
-          audioRefs.current[playingAudioId].pause();
-        }
-        
-        // Set source and play
-        console.log("Starting audio playback");
-        audio.src = audioSrc;
-        
-        // Use this pattern for iOS compatibility
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log("Audio playing successfully");
-              setPlayingAudioId(messageId);
-            })
-            .catch(err => {
-              console.error("Play error:", err);
-              
-              // Special handling for devices requiring user interaction
-              if (err.name === 'NotAllowedError') {
-                toast({
-                  title: "Playback Error",
-                  description: "Click anywhere on the screen first, then try playing the audio again",
-                });
-                
-                // Add one-time event listener for user interaction
-                const unlockAudio = () => {
-                  document.removeEventListener('click', unlockAudio);
-                  document.removeEventListener('touchstart', unlockAudio);
-                  
-                  audio.play()
-                    .then(() => {
-                      console.log("Audio unlocked and playing");
-                      setPlayingAudioId(messageId);
-                    })
-                    .catch(e => console.error("Still can't play audio:", e));
-                };
-                
-                document.addEventListener('click', unlockAudio, { once: true });
-                document.addEventListener('touchstart', unlockAudio, { once: true });
-              }
+          if (error.code === '23505') { // Unique violation
+            toast({
+              title: "Already reflected",
+              description: "You have already reflected this bubble",
             });
+            return;
+          }
+          throw error;
         }
-      }
-    } catch (error) {
-      console.error("Audio toggle error:", error);
+
+        toast({
+          title: "Bubble reflected!",
+          description: "This bubble will appear in your profile",
+        });
+      });
+    } catch (error: any) {
+      console.error("Error reflecting bubble:", error);
       toast({
-        title: "Audio Error",
-        description: "There was a problem playing this audio message",
+        title: "Error reflecting bubble",
+        description: "Please try again later",
         variant: "destructive"
       });
     }
-  };
+  }, [user, profile, toast]);
 
-  // Download media from message
-  const handleDownloadMedia = (content: string, type: string) => {
-    try {
-      const link = document.createElement('a');
-      link.href = content;
-      link.download = `bubble-media-${Date.now()}.${type}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error("Download error:", err);
+  const handleCreateBubble = async () => {
+    if (!user) {
       toast({
-        title: "Download Error",
-        description: "Failed to download media",
+        title: "Authentication required",
+        description: "Please sign in to create bubbles",
         variant: "destructive"
       });
+      return;
     }
-  };
-
-  // Check if a bubble has expired - to match BubbleChat.tsx
-  const isBubbleExpired = (expires_at: string | null) => {
-    if (!expires_at) return false;
-    return new Date(expires_at) < new Date();
-  };
-
-  // Return default bubbles if loading takes too long
-  const defaultBubbles = useMemo(() => {
-    if (!isLoadingBubbles || allBubbles.length > 0) return [];
     
-    return [
-      {
-        id: "default-1",
-        topic: "Welcome",
-        username: "system",
-        name: "Welcome to Bubble Trouble!",
-        size: "lg" as "lg",
-        reflect_count: 10,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        description: "Tap on bubbles to start chatting!"
-      },
-      {
-        id: "default-2",
-        topic: "Getting Started",
-        username: "system",
-        name: "How to use Bubble Trouble",
-        size: "md" as "md",
-        reflect_count: 5,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        description: "Create bubbles, chat, and reflect on topics you love!"
+    try {
+      setIsCreatingBubble(true);
+      
+      // Simple validation
+      if (!newBubbleInfo.name.trim()) {
+        toast({
+          title: "Missing information",
+          description: "Please provide a name for your bubble",
+          variant: "destructive"
+        });
+        return;
       }
-    ];
-  }, [isLoadingBubbles, allBubbles]);
+      
+      // Calculate expiry date (default: 7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      const username = profile?.username || user?.email || "";
+      
+      const { data, error } = await supabase
+        .from('bubbles')
+        .insert({
+          name: newBubbleInfo.name,
+          topic: newBubbleInfo.topic || "general",
+          description: newBubbleInfo.description,
+          size: 'sm',
+          reflect_count: 0,
+          expires_at: expiresAt.toISOString(),
+          username: username
+        })
+        .select()
+        .single();
+        
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Bubble Created!",
+        description: `Your bubble "${newBubbleInfo.name}" has been created`
+      });
+      
+      // Reset form and close dialog
+      setNewBubbleInfo({
+        name: "",
+        topic: "general",
+        description: ""
+      });
+      setNewBubbleDialog(false);
+      
+      // Refresh bubbles list and select the new bubble
+      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+      
+      // Open the new bubble's chat
+      if (data) {
+        setSelectedBubbleId(data.id);
+        setChatOpen(true);
+      }
+    } catch (error: any) {
+      console.error("Error creating bubble:", error);
+      toast({
+        title: "Error creating bubble",
+        description: error.message || "An error occurred while creating your bubble",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingBubble(false);
+    }
+  };
 
-  // Determine which bubbles to display: real data, filtered data, or defaults
-  const displayBubbles = searchQuery.trim()
-    ? bubbles
-    : allBubbles.length > 0
-      ? allBubbles
-      : defaultBubbles;
+  const formatMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    }).format(date);
+  };
+
+  const formatExpiry = (expiryDate: string) => {
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    const diffDays = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return "Expired";
+    } else if (diffDays === 0) {
+      return "Expires today";
+    } else if (diffDays === 1) {
+      return "Expires tomorrow";
+    } else {
+      return `Expires in ${diffDays} days`;
+    }
+  };
+
+  const toggleAudio = () => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleVolumeChange = (value: number) => {
+    setVolume(value);
+    if (audioRef.current) {
+      audioRef.current.volume = value / 100;
+    }
+  };
+
+  const handleDownloadAudio = () => {
+    if (!audioRef.current?.src) return;
+    
+    const anchor = document.createElement('a');
+    anchor.href = audioRef.current.src;
+    anchor.download = 'bubble-ambient.mp3';
+    anchor.click();
+  };
+
+  // Map to BubbleData needed for BubbleWorld component
+  const bubbleDataForComponent = useMemo(() => {
+    return filteredBubbles.map((bubble): BubbleData => ({
+      id: bubble.id,
+      topic: bubble.topic,
+      username: bubble.username,
+      name: bubble.name,
+      size: bubble.size as "sm" | "md" | "lg",
+      reflect_count: bubble.reflect_count,
+      created_at: bubble.created_at,
+      description: bubble.description || undefined,
+      expires_at: bubble.expires_at
+    }));
+  }, [filteredBubbles]);
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] font-montserrat">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
+    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
+      <audio 
+        ref={audioRef} 
+        src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_3611db2d6d.mp3?filename=relaxing-mountains-rivers-118571.mp3"
+        loop
+        preload="auto"
+      />
+      
+      {/* Audio Controls */}
+      <div className="fixed bottom-4 right-4 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 rounded-lg shadow-sm p-3 flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleAudio}
+          className="text-[#ebbd34]"
+        >
+          <Volume2 className={`h-4 w-4 ${!isPlaying && 'opacity-50'}`} />
+        </Button>
+        
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={volume}
+          onChange={(e) => handleVolumeChange(Number(e.target.value))}
+          className="w-20 accent-[#ebbd34]"
+        />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDownloadAudio}
+          className="text-[#ebbd34]"
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
-          <div className="flex items-center justify-between h-16 px-2 sm:px-4">
+          <div className="flex items-center justify-between h-16 px-4">
             {/* Logo and Search Section */}
-            <div className="flex items-center gap-2 sm:gap-6 flex-1">
-              <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-6 flex-1">
+              <Link to="/" className="flex items-center gap-2 shrink-0">
                 <img 
                   src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
                   alt="Bubble Trouble"
-                  className="w-7 h-7 sm:w-8 sm:h-8"
+                  className="w-8 h-8"
                 />
-                <span className="text-sm sm:text-xl font-semibold text-[#ebbd34] whitespace-nowrap">
+                <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
                   Bubble Trouble
                 </span>
-              </div>
+              </Link>
               
               <div className="relative flex-1 max-w-md hidden sm:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
                 <input
                   type="search"
-                  placeholder="Search in the bubbles world..."
+                  placeholder="Search bubbles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
@@ -1040,7 +672,7 @@ const Index = () => {
             <div className="flex items-center gap-1">
               <Link 
                 to="/my-bubbles" 
-                className={`nav-link flex items-center gap-1 px-2 sm:px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
                   location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
                 }`}
               >
@@ -1049,13 +681,14 @@ const Index = () => {
               </Link>
               <Link 
                 to="/feed" 
-                className={`nav-link flex items-center gap-1 px-2 sm:px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
                   location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Feed</span>
               </Link>
+              
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1076,509 +709,297 @@ const Index = () => {
                         @{profile?.username || user?.email?.split('@')[0]}
                       </span>
                     </DropdownMenuItem>
-                    <Link to="/profile">
-                      <DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
                         <span>Profile</span>
-                      </DropdownMenuItem>
-                    </Link>
-                    <DropdownMenuItem onClick={signOut}>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      navigate('/auth/logout');
+                    }}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Link to="/auth">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-[#ebbd34] hover:bg-[#ebbd34]/5"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Sign In
-                  </Button>
-                </Link>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => navigate('/auth')}
+                  className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white ml-2"
+                >
+                  Sign In
+                </Button>
               )}
             </div>
           </div>
         </div>
-      </nav>
-      
-      {/* Mobile Search Bar */}
-      <div className="fixed top-16 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 sm:hidden">
-        <div className="px-2 py-2">
+
+        {/* Mobile Search Bar */}
+        <div className="sm:hidden px-4 pb-3">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
             <input
               type="search"
               placeholder="Search bubbles..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
+              className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
             />
           </div>
         </div>
-      </div>
+      </nav>
       
-      <main className="flex flex-col items-center justify-start w-full min-h-[calc(100dvh-64px)] pt-28 sm:pt-20">
-        {displayBubbles.length === 0 && searchQuery.trim() !== "" ? (
-          <div className="flex flex-col items-center justify-center h-[calc(100dvh-180px)] text-center p-4">
-            <img 
-              src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-              alt="No results" 
-              className="w-16 h-16 opacity-40 mb-3"
-            />
-            <h3 className="text-xl font-semibold text-[#ebbd34]">No bubbles found</h3>
-            <p className="text-[#ebbd34]/70 max-w-sm mt-2">
-              No bubbles match your search "{searchQuery}". Try a different search or create a new bubble!
-            </p>
+      <div className="pt-32 pb-12 px-4 sm:px-6 relative z-0">
+        {/* Bubble World and Filtering UI */}
+        <div className="container mx-auto">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-4xl font-bold text-[#ebbd34]">Bubble World</h1>
+            
             <Button
-              onClick={() => user ? setIsCreateDialogOpen(true) : navigate('/auth')}
-              className="mt-6 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              onClick={() => setNewBubbleDialog(true)}
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              {user ? "Create New Bubble" : "Sign In to Create"}
+              <Plus className="mr-1 h-4 w-4" />
+              New Bubble
             </Button>
           </div>
-        ) : (
-          <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
-            {displayBubbles.length > 0 ? (
-              <BubbleWorld 
-                topics={displayBubbles}
-                onBubbleClick={handleBubbleClick}
-              />
-            ) : (
-              <div className="h-full w-full flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border-4 border-[#ebbd34]/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
-                <p className="text-[#ebbd34] mt-4">Loading bubbles...</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <Button
-          onClick={() => user ? setIsCreateDialogOpen(true) : navigate('/auth')}
-          className="fixed bottom-6 right-6 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-lg rounded-full w-14 h-14 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8 sm:rounded-lg"
-          size="icon"
-        >
-          <Plus className="w-7 h-7 sm:w-5 sm:h-5 sm:mr-2" />
-          <span className="hidden sm:inline">{user ? "Create Bubble" : "Sign In"}</span>
-        </Button>
-      </main>
-
-      {/* Chat Dialog - Updated to match BubbleChat.tsx design */}
-      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 bg-[#FEF7E4] border border-[#ebbd34]/20 rounded-xl overflow-hidden">
-          {/* Header - Matching BubbleChat.tsx style */}
-          <DialogHeader className="p-3 bg-[#ebbd34] text-white">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <DialogTitle className="text-xl font-semibold text-white">
-                  {selectedBubble?.name || "Loading..."}
-                </DialogTitle>
-                <DialogDescription className="text-white/80 text-sm">
-                  {selectedBubble?.topic || "Please wait..."}
-                </DialogDescription>
-              </div>
-              
-              <div className="flex items-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-white hover:bg-white/20"
-                  onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-                  disabled={!selectedBubble || isBubbleExpired(selectedBubble.expires_at)}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  <span>Reflect</span>
-                </Button>
-              </div>
+          
+          {isLoadingBubbles ? (
+            <div className="text-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#ebbd34] mx-auto"></div>
+              <p className="mt-4 text-[#ebbd34]">Loading bubbles...</p>
             </div>
-          </DialogHeader>
-
-          {/* Bubble exploded notice - to match BubbleChat.tsx */}
-          {selectedBubble && isBubbleExpired(selectedBubble.expires_at) && (
-            <div className="bg-red-500/80 text-white py-2 text-center">
-              <p className="font-medium">This bubble has exploded and can no longer receive messages.</p>
+          ) : filteredBubbles.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
+                <Sparkles className="w-8 h-8 text-[#ebbd34]" />
+              </div>
+              <h3 className="text-xl font-medium text-[#ebbd34]">No bubbles found</h3>
+              <p className="text-gray-500 mt-2">Try a different search or create your own bubble</p>
+              <Button
+                onClick={() => setNewBubbleDialog(true)}
+                className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Create Bubble
+              </Button>
+            </div>
+          ) : (
+            <div className="h-[60vh] w-full">
+              <BubbleWorld 
+                topics={bubbleDataForComponent}
+                onBubbleClick={(bubbleId) => {
+                  setSelectedBubbleId(bubbleId);
+                  setChatOpen(true);
+                }}
+              />
             </div>
           )}
-
-          {/* Messages area - Matching BubbleChat.tsx style */}
-          <ScrollArea className="flex-1 p-4 space-y-4 bg-white/50">
-            {isLoadingMessages ? (
-              <div className="flex flex-col items-center justify-center h-40 text-center">
-                <div className="w-8 h-8 border-2 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin mb-3"></div>
-                <p className="text-[#ebbd34]/70">Loading messages...</p>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 text-center">
-                <MessageCircle className="w-10 h-10 text-[#ebbd34]/30 mb-2" />
-                <p className="text-[#ebbd34]/70">
-                  No messages yet. Be the first to chat!
-                </p>
-              </div>
-            ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex mb-4 ${isCurrentUser(message.username) ? "justify-end" : "justify-start"}`}
-                >
-                  {!isCurrentUser(message.username) && (
-                    <div 
-                      className="w-8 h-8 rounded-full flex-shrink-0 mt-1 mr-2 flex items-center justify-center text-sm text-white"
-                      style={{ backgroundColor: getUserColor(message.username) }}
-                    >
-                      {message.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  
-                  <div className={`max-w-[75%] rounded-xl p-3 ${
-                    isCurrentUser(message.username)
-                      ? "bg-[#ebbd34] text-white"
-                      : "bg-white text-gray-800 border border-[#ebbd34]/20"
-                  }`}>
-                    {!isCurrentUser(message.username) && (
-                      <p className="text-xs font-medium mb-1 text-[#ebbd34]/80">
-                        @{message.username.split('@')[0]}
-                      </p>
-                    )}
-                    
-                    {message.content.startsWith('data:image/') ? (
-                      <div className="relative group">
-                        <img 
-                          src={message.content} 
-                          alt="Shared image" 
-                          className="rounded-md max-w-full cursor-pointer"
-                          onClick={() => window.open(message.content, '_blank')}
-                        />
-                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                            onClick={() => handleDownloadMedia(message.content, 'jpg')}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : message.content.startsWith('data:video/') ? (
-                      <div className="relative group">
-                        <video 
-                          src={message.content} 
-                          controls 
-                          className="rounded-md max-w-full"
-                          playsInline
-                        />
-                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full bg-black/30 hover:bg-black/50 text-white"
-                            onClick={() => handleDownloadMedia(message.content, 'mp4')}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : message.content.startsWith('data:audio/') ? (
-                      <div className="flex items-center gap-2 p-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-10 w-10 rounded-full ${
-                            playingAudioId === message.id ? 
-                            "bg-[#ebbd34]/20 text-[#ebbd34]" : 
-                            isCurrentUser(message.username) ?
-                            "text-white hover:bg-white/20" :
-                            "text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                          }`}
-                          onClick={() => togglePlayAudio(message.id, message.content)}
-                        >
-                          {playingAudioId === message.id ? 
-                            <X className="h-5 w-5" /> : 
-                            <Volume2 className="h-5 w-5" />
-                          }
-                        </Button>
-                        
-                        <div className="flex-1 h-8 flex items-center">
-                          <div className="w-full flex items-center justify-between space-x-0.5">
-                            {Array.from({ length: 27 }).map((_, i) => {
-                              const heights = [
-                                3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
-                              ];
-                              const height = heights[i];
-                              const isPlaying = playingAudioId === message.id;
-                              
-                              const barColor = isCurrentUser(message.username)
-                                ? isPlaying ? "bg-white" : "bg-white/60" 
-                                : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
-                                
-                              return (
-                                <div 
-                                  key={i}
-                                  className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
-                                  style={{ 
-                                    height: `${height}px`,
-                                    animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="break-words">{message.content}</p>
-                    )}
-                    
-                    <div className={`text-right mt-1 ${
-                      isCurrentUser(message.username) ? "text-white/70" : "text-gray-500"
-                    }`}>
-                      <span className="text-xs">
-                        {formatMessageTime(message.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {isCurrentUser(message.username) && (
-                    <div 
-                      className="w-8 h-8 rounded-full flex-shrink-0 mt-1 ml-2 flex items-center justify-center text-sm text-white"
-                      style={{ backgroundColor: getUserColor(message.username) }}
-                    >
-                      {message.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </ScrollArea>
-
-          {/* Message input area - Matching BubbleChat.tsx style */}
-          <div className="p-3 bg-white/80 backdrop-blur-md border-t border-[#ebbd34]/10">
-            {/* Recording UI */}
-            {isRecording ? (
-              <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2 shadow-md">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse"></div>
-                  <span className="text-sm text-gray-600">
-                    {formatRecordingTime(recordingSeconds)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full"
-                    onClick={() => {
-                      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                        mediaRecorderRef.current.stop();
-                        setIsRecording(false);
-                        setRecordingSeconds(0);
-                        if (recordingTimerRef.current) {
-                          window.clearInterval(recordingTimerRef.current);
-                          recordingTimerRef.current = null;
-                        }
-                        audioChunksRef.current = [];
-                      }
-                    }}
-                  >
-                    <X className="h-5 w-5" />
-                    <span className="ml-1">Cancel</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full"
-                    onClick={stopRecording}
-                  >
-                    <Send className="h-4 w-4 mr-1" />
-                    <span>Send</span>
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {/* Media buttons */}
-                {user && selectedBubble && !isBubbleExpired(selectedBubble.expires_at) && (
-                  <div className="flex gap-2 shrink-0">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('image')}
-                    >
-                      <Image className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('video')}
-                    >
-                      <Video className="h-5 w-5" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                      onClick={() => handleFileUpload('gif')}
-                    >
-                      <SmilePlus className="h-5 w-5" />
-                    </Button>
-                  </div>
-                )}
-                
-                {!user ? (
-                  <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-center">
-                    <p className="text-gray-500 text-sm">
-                      <Link to="/auth" className="text-[#ebbd34] hover:underline">Sign in</Link> to join the conversation
-                    </p>
-                  </div>
-                ) : selectedBubble && isBubbleExpired(selectedBubble.expires_at) ? (
-                  <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-center">
-                    <p className="text-gray-500 text-sm">This bubble has exploded</p>
-                  </div>
-                ) : (
-                  <>
-                    <Input
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-gray-800 placeholder-gray-500 focus-visible:ring-[#ebbd34]/20"
-                    />
-                    
-                    {newMessage.trim() ? (
-                      <Button 
-                        onClick={() => handleSendMessage()}
-                        size="icon" 
-                        className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                      >
-                        <Send className="h-5 w-5" />
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={handleVoiceRecord}
-                        size="icon" 
-                        className={`rounded-full ${
-                          isRecording 
-                            ? "bg-red-500 hover:bg-red-600 text-white" 
-                            : "bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                        }`}
-                      >
-                        <Mic className="h-5 w-5" />
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Bubble Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-[#FEF7E4] border-none rounded-2xl p-8">
+        </div>
+      </div>
+      
+      {/* New Bubble Dialog */}
+      <Dialog open={newBubbleDialog} onOpenChange={setNewBubbleDialog}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-[#ebbd34] text-xl">Create New Bubble</DialogTitle>
-            <DialogDescription className="text-[#ebbd34]/70">
-              Choose a topic and name for your new bubble community.
+            <DialogTitle className="text-[#ebbd34]">Create a New Bubble</DialogTitle>
+            <DialogDescription>
+              Create a new bubble for ephemeral conversations. Bubbles automatically expire after 7 days.
             </DialogDescription>
           </DialogHeader>
-
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name" className="text-[#ebbd34]">Name</Label>
+              <Input
+                id="name"
+                value={newBubbleInfo.name}
+                onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter bubble name"
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="topic" className="text-[#ebbd34]">Topic</Label>
               <Select
-                value={newBubble.topic}
-                onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
+                value={newBubbleInfo.topic}
+                onValueChange={(value) => setNewBubbleInfo(prev => ({ ...prev, topic: value }))}
               >
-                <SelectTrigger className="w-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34]">
-                  <SelectValue placeholder="Select a category" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#FEF7E4] border-[#ebbd34]/20 z-[100]">
-                  {availableTopics.map((topic) => (
-                    <SelectItem key={topic} value={topic} className="text-[#ebbd34]">
-                      {topic}
-                    </SelectItem>
-                  ))}
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="tech">Technology</SelectItem>
+                  <SelectItem value="science">Science</SelectItem>
+                  <SelectItem value="arts">Arts & Culture</SelectItem>
+                  <SelectItem value="social">Social</SelectItem>
+                  <SelectItem value="health">Health & Wellness</SelectItem>
+                  <SelectItem value="education">Education</SelectItem>
+                  <SelectItem value="gaming">Gaming</SelectItem>
+                  <SelectItem value="sports">Sports</SelectItem>
+                  <SelectItem value="food">Food & Cooking</SelectItem>
+                  <SelectItem value="travel">Travel</SelectItem>
+                  <SelectItem value="music">Music</SelectItem>
+                  <SelectItem value="movies">Movies & TV</SelectItem>
+                  <SelectItem value="books">Books & Literature</SelectItem>
+                  <SelectItem value="environment">Environment</SelectItem>
+                  <SelectItem value="business">Business & Finance</SelectItem>
+                  <SelectItem value="philosophy">Philosophy</SelectItem>
+                  <SelectItem value="politics">Politics</SelectItem>
+                  <SelectItem value="news">Current Events</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-[#ebbd34]">Bubble Name</Label>
-              <Input
-                id="name"
-                value={newBubble.name}
-                onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
-                placeholder="Give your bubble a name..."
-                className="bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="text-[#ebbd34]">Description</Label>
+              <Label htmlFor="description" className="text-[#ebbd34]">Description (Optional)</Label>
               <Textarea
                 id="description"
-                value={newBubble.description}
-                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
-                placeholder="What's your bubble about?"
-                className="bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
+                value={newBubbleInfo.description}
+                onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter a brief description"
+                className="resize-none"
+                rows={3}
               />
             </div>
           </div>
-
           <DialogFooter>
             <Button
-              variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
-              className="border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
-            >
-              Cancel
-            </Button>
-            <Button 
+              variant={isCreatingBubble ? "loading" : "default"}
               onClick={handleCreateBubble}
+              disabled={isCreatingBubble || !newBubbleInfo.name.trim()}
               className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
             >
-              Create Bubble
+              {isCreatingBubble ? "Creating..." : "Create Bubble"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Add animation keyframes for the waveform */}
-      <style>
-        {`
-          @keyframes pulse-0 {
-            0%, 100% { transform: scaleY(1); }
-            50% { transform: scaleY(1.5); }
-          }
-          @keyframes pulse-1 {
-            0%, 100% { transform: scaleY(1); }
-            33% { transform: scaleY(1.3); }
-          }
-          @keyframes pulse-2 {
-            0%, 100% { transform: scaleY(1); }
-            66% { transform: scaleY(1.7); }
-          }
+      {/* Chat Dialog */}
+      <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
+        if (!open) setChatOpen(false);
+      }}>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="border-b pb-3">
+            <div className="flex justify-between items-center">
+              <DialogTitle className="text-[#ebbd34]">
+                {isLoadingBubbleDetails ? 'Loading...' : selectedBubble?.name}
+              </DialogTitle>
+              <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {!isLoadingBubbleDetails && selectedBubble && (
+              <div className="flex flex-col text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Topic: {selectedBubble.topic}</span>
+                  <span className="text-xs text-gray-400">
+                    {formatExpiry(selectedBubble.expires_at)}
+                  </span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span>{selectedBubble.reflect_count} reflects</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleReflect(selectedBubble.id)}
+                    className="text-[#ebbd34] hover:bg-[#ebbd34]/10 -my-1 h-8 text-xs"
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Reflect
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogHeader>
           
-          * {
-            -webkit-transform-style: preserve-3d;
-            transform-style: preserve-3d;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-          }
-        `}
-      </style>
+          {/* Messages Area */}
+          <ScrollArea className="flex-1 p-4">
+            {isLoadingMessages ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#ebbd34]"></div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <p>No messages yet. Start the conversation!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((message: Message) => (
+                  <div 
+                    key={message.id}
+                    className={`flex ${message.username === (profile?.username || user?.email) ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div 
+                      className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                        message.username === (profile?.username || user?.email)
+                          ? 'bg-[#ebbd34] text-white'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      <div className="flex justify-between items-baseline gap-4">
+                        <span className="font-medium text-xs">
+                          {message.username === (profile?.username || user?.email) ? 'You' : message.username}
+                        </span>
+                        <span className="text-xs opacity-70">{formatMessageTime(message.created_at)}</span>
+                      </div>
+                      <p className="mt-1 break-words">{message.content}</p>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </ScrollArea>
+          
+          {/* Message Input */}
+          <div className="p-4 border-t mt-auto">
+            <div className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                disabled={isSendingMessage}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <Button 
+                onClick={() => handleSendMessage()} 
+                className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90"
+                disabled={isSendingMessage}
+              >
+                {isSendingMessage ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <div className="flex mt-2 justify-center gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <Image className="h-4 w-4 text-gray-500" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <Video className="h-4 w-4 text-gray-500" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <Mic className="h-4 w-4 text-gray-500" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <SmilePlus className="h-4 w-4 text-gray-500" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

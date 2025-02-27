@@ -1,84 +1,205 @@
 
 import * as THREE from 'three';
-import { BubbleData } from '@/types/bubble';
 
-const BUBBLE_COLOR = 0xFFD700; // Bright yellow color
-
+// Optimize geometry creation for better performance
 export const createBubbleGeometry = (size: number) => {
-  return new THREE.SphereGeometry(size, 32, 32);
+  // Use fewer segments for better performance across many bubbles
+  const segments = Math.max(16, Math.min(32, Math.floor(size * 32)));
+  return new THREE.SphereGeometry(size, segments, segments);
 };
 
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
-    color: BUBBLE_COLOR,
+    color: 0xebbd34,
     transparent: true,
-    opacity: 0.8, // Slightly more transparent to better see text inside
-    metalness: 0.3, // Increased metalness for more shine
-    roughness: 0.1, // Reduced roughness for more shine
-    transmission: 0.2, // Increased transmission for better text visibility
-    thickness: 0.8, // Adjusted thickness
+    opacity: 0.7,
+    metalness: 0.1,
+    roughness: 0.2,
+    transmission: 0.3,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.1
+    depthWrite: true,
+    side: THREE.FrontSide // FrontSide for better performance
   });
 };
 
 export const createCentralWorldGeometry = () => {
-  return new THREE.SphereGeometry(3, 64, 64);
+  return new THREE.SphereGeometry(2, 32, 32);
 };
 
 export const createCentralWorldMaterial = () => {
-  // Create a smooth grey material that's slightly transparent
   return new THREE.MeshPhysicalMaterial({
-    color: 0x8E9196, // Neutral grey color
-    transparent: true, // Enable transparency
-    opacity: 0.7, // Make it partially transparent
-    metalness: 0.2,
-    roughness: 0.3,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.2,
-    reflectivity: 0.5,
-    envMapIntensity: 0.8,
-    transmission: 0.1 // Add slight transmission for see-through effect
+    color: 0xebbd34,
+    transparent: true,
+    opacity: 0.2,
+    metalness: 0.1,
+    roughness: 0.5,
+    transmission: 0.1,
+    depthWrite: true
   });
 };
 
-export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanvasElement => {
+export const createTextCanvas = (text: string, fontSize: number = 32) => {
   const canvas = document.createElement('canvas');
-  const pixelRatio = Math.min(window.devicePixelRatio, 2);
-  canvas.width = 512 * pixelRatio;
-  canvas.height = 256 * pixelRatio;
-  const context = canvas.getContext('2d');
-
-  if (context) {
-    context.scale(pixelRatio, pixelRatio);
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Enhanced text rendering for in-bubble visibility
-    context.font = `bold ${fontSize}px Montserrat, Arial`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    
-    // White glow/outline for better contrast inside bubble
-    context.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    context.lineWidth = 5;
-    context.strokeText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
-    
-    // Deep black fill for maximum readability
-    context.fillStyle = '#000000';
-    context.fillText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
-  }
-
+  canvas.width = 512;
+  canvas.height = 256;
+  
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = 'transparent';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  
+  context.font = `bold ${fontSize}px Arial, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  
+  // Add stroke for better visibility
+  context.strokeStyle = '#000000';
+  context.lineWidth = 4;
+  context.strokeText(text, canvas.width/2, canvas.height/2);
+  
+  context.fillStyle = '#FFFFFF';
+  context.fillText(text, canvas.width/2, canvas.height/2);
+  
   return canvas;
 };
 
-export const calculateOrbitPosition = (index: number, totalBubbles: number, time: number) => {
-  const angle = (index / totalBubbles) * Math.PI * 2 + time;
-  const orbitRadius = 6 + Math.sin(time * 0.5 + index) * 0.5; // Varying radius for more natural look
-  const heightOffset = Math.sin(angle * 2) * 0.5; // Vertical oscillation
+// Connection management for real-time updates
+export const connectionManager = {
+  channels: new Map<string, any>(),
+  
+  createChannel: async (supabase: any, channelName: string, filters: any[], callback: (payload: any) => void) => {
+    // Check if channel already exists
+    if (connectionManager.channels.has(channelName)) {
+      return connectionManager.channels.get(channelName);
+    }
+    
+    try {
+      // Create channel with optimized configuration
+      const channel = supabase.channel(channelName, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' },
+          retryIntervalMs: 5000,
+          timeout: 10000
+        }
+      });
+      
+      // Add filters
+      filters.forEach(filter => {
+        channel.on(
+          'postgres_changes',
+          filter,
+          (payload: any) => {
+            console.log(`[${channelName}] Event received:`, filter.event);
+            callback(payload);
+          }
+        );
+      });
+      
+      // Subscribe with error handling
+      const status = await new Promise<string>((resolve) => {
+        channel.subscribe((status: string) => {
+          console.log(`[${channelName}] Status: ${status}`);
+          resolve(status);
+        });
+      });
+      
+      if (status === 'SUBSCRIBED') {
+        connectionManager.channels.set(channelName, channel);
+        return channel;
+      } else {
+        throw new Error(`Channel subscription failed with status: ${status}`);
+      }
+      
+    } catch (error) {
+      console.error(`[${channelName}] Channel creation error:`, error);
+      throw error;
+    }
+  },
+  
+  removeChannel: async (supabase: any, channelName: string) => {
+    const channel = connectionManager.channels.get(channelName);
+    if (channel) {
+      try {
+        await supabase.removeChannel(channel);
+        connectionManager.channels.delete(channelName);
+        console.log(`[${channelName}] Channel removed successfully`);
+        return true;
+      } catch (error) {
+        console.error(`[${channelName}] Channel removal error:`, error);
+        connectionManager.channels.delete(channelName); // Remove from map anyway
+        return false;
+      }
+    }
+    return false;
+  },
+  
+  removeAllChannels: async (supabase: any) => {
+    const promises: Promise<boolean>[] = [];
+    connectionManager.channels.forEach((_, channelName) => {
+      promises.push(connectionManager.removeChannel(supabase, channelName));
+    });
+    await Promise.allSettled(promises);
+    connectionManager.channels.clear();
+  }
+};
 
+// Rate limiting utility for message sending
+// Helps prevent flooding the server
+export const createRateLimiter = (maxRequests: number = 5, timeWindowMs: number = 5000) => {
+  let requestTimestamps: number[] = [];
+  
   return {
-    x: Math.cos(angle) * orbitRadius,
-    y: Math.sin(angle) * orbitRadius * 0.6 + heightOffset,
-    z: Math.sin(angle * 2) * (orbitRadius * 0.3)
+    canMakeRequest: () => {
+      const now = Date.now();
+      // Remove timestamps outside the window
+      requestTimestamps = requestTimestamps.filter(
+        timestamp => now - timestamp < timeWindowMs
+      );
+      
+      // Check if we can make another request
+      if (requestTimestamps.length < maxRequests) {
+        requestTimestamps.push(now);
+        return true;
+      }
+      
+      return false;
+    },
+    
+    getWaitTime: () => {
+      if (requestTimestamps.length === 0) return 0;
+      const now = Date.now();
+      const oldestAllowedTime = now - timeWindowMs;
+      
+      if (requestTimestamps.length < maxRequests) return 0;
+      
+      const waitTime = requestTimestamps[0] - oldestAllowedTime;
+      return Math.max(0, waitTime);
+    },
+    
+    reset: () => {
+      requestTimestamps = [];
+    }
+  };
+};
+
+// Retry utility for network operations
+export const createRetryHandler = (maxRetries: number = 3, initialDelayMs: number = 1000) => {
+  return async <T>(operation: () => Promise<T>): Promise<T> => {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        console.warn(`Operation failed, retrying (${attempt + 1}/${maxRetries})`, error);
+        
+        // Exponential backoff
+        const delay = initialDelayMs * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError;
   };
 };
