@@ -1,146 +1,178 @@
 
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Search, Sparkles, TrendingUp, User, ArrowLeft } from "lucide-react";
+import Feed3DContainer from "@/components/feed/Feed3DContainer";
 import { BubbleData } from "@/types/bubble";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, User, TrendingUp, Sparkles, Star } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Sparkle } from "lucide-react";
 
 const Feed = () => {
-  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
+  const { toast } = useToast();
+  const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  const { data: bubbles = [] } = useQuery({
-    queryKey: ['bubbles', 'top-reflected'],
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch trending bubbles
+  const { data: bubbles = [], isLoading: isLoadingBubbles } = useQuery({
+    queryKey: ['trendingBubbles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .order('reflect_count', { ascending: false })
-        .limit(20);
-      
-      if (error) throw error;
-      
-      return data.map(bubble => ({
-        ...bubble,
-        size: bubble.size as "sm" | "md" | "lg"
-      })) as BubbleData[];
+      try {
+        // Fetch bubbles ordered by reflect_count
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .order('reflect_count', { ascending: false })
+          .limit(20);
+          
+        if (error) throw error;
+        
+        return data as BubbleData[];
+      } catch (error: any) {
+        console.error('Error fetching bubbles:', error);
+        toast({
+          title: "Error loading feed",
+          description: error.message || "Could not load bubbles",
+          variant: "destructive"
+        });
+        return [];
+      }
     }
   });
 
+  // Handle bubble selection
+  const handleBubbleClick = (id: string) => {
+    setActiveBubbleId(id);
+    // Navigate to detailed view or open dialog
+    navigate(`/?bubbleId=${id}`);
+  };
+  
+  const getAvatarFallback = () => {
+    if (profile?.display_name) {
+      const nameParts = profile.display_name.split(" ");
+      if (nameParts.length >= 2) {
+        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+      }
+      return profile.display_name.substring(0, 2).toUpperCase();
+    }
+    
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+
+    return "BT";
+  };
+
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
+    <div className="h-screen w-full overflow-hidden relative bg-gradient-to-b from-[#1a1a1a] to-[#121212]">
+      {/* Navigation */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-md border-b border-white/10">
         <div className="container mx-auto">
           <div className="flex items-center justify-between h-16 px-4">
-            {/* Logo and Search Section */}
-            <div className="flex items-center gap-6 flex-1">
-              <Link to="/" className="flex items-center gap-2 shrink-0">
-                <img 
-                  src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                  alt="Bubble Trouble"
-                  className="w-8 h-8"
-                />
-                <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
-                  Bubble Trouble
-                </span>
+            {/* Logo and Back Button */}
+            <div className="flex items-center gap-4">
+              <Link to="/" className="flex items-center gap-2">
+                <ArrowLeft className="w-5 h-5 text-white" />
+                <span className="text-white font-medium">Back to World</span>
               </Link>
-              
-              <div className="relative flex-1 max-w-md hidden sm:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
-                <input
-                  type="search"
-                  placeholder="Search bubbles..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
-                />
-              </div>
             </div>
 
-            {/* Navigation Links */}
+            {/* Nav Icons */}
             <div className="flex items-center gap-1">
               <Link 
                 to="/my-bubbles" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
-                }`}
+                className="nav-link flex items-center gap-2 px-4 py-2 rounded-full text-white hover:bg-white/10 transition-colors"
               >
-                <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">My Bubbles</span>
+                <Sparkles className="w-5 h-5" />
               </Link>
               <Link 
                 to="/feed" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
-                }`}
+                className="nav-link flex items-center gap-2 px-4 py-2 rounded-full text-white bg-white/20 transition-colors"
               >
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Feed</span>
+                <TrendingUp className="w-5 h-5" />
               </Link>
-              <Link 
-                to="/profile" 
-                className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
-              >
-                <User className="w-5 h-5" />
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="hover:bg-white/10 rounded-full text-white"
+                  >
+                    <User className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
+                  <DropdownMenuItem className="flex flex-col items-start p-3">
+                    <span className="font-medium text-[#ebbd34]">
+                      {profile?.display_name || user?.email}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      @{profile?.username || user?.email?.split('@')[0]}
+                    </span>
+                  </DropdownMenuItem>
+                  <Link to="/profile">
+                    <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>My Profile</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link to="/">
+                    <DropdownMenuItem>
+                      <Sparkle className="mr-2 h-4 w-4" />
+                      <span>Bubble World</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem onClick={signOut}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Mobile Search Bar */}
-        <div className="sm:hidden px-4 pb-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
-            <input
-              type="search"
-              placeholder="Search bubbles..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
-            />
-          </div>
+      {/* Main Feed Area */}
+      {isLoadingBubbles ? (
+        <div className="h-screen w-full flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-white/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
+          <p className="text-white mt-4">Loading bubble feed...</p>
         </div>
-      </nav>
-      
-      <main className="container mx-auto px-4 pt-28 sm:pt-20 pb-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-light text-primary mb-2">
-            Top Bubbles
-          </h1>
-          <div className="h-px w-24 bg-primary/20 mx-auto" />
-        </div>
-
-        <ScrollArea className="h-[calc(100vh-200px)] w-full max-w-2xl mx-auto rounded-xl">
-          <div className="space-y-8 p-4">
-            {bubbles.map((bubble) => (
-              <div 
-                key={bubble.id}
-                className="relative w-full aspect-square max-w-[200px] mx-auto animate-float-slow"
-              >
-                <div className="absolute inset-0 bg-[#ebc942] rounded-full flex items-center justify-center p-6 hover:scale-105 transition-transform">
-                  <div className="text-center">
-                    <h3 className="text-primary-foreground font-medium mb-1">
-                      {bubble.name}
-                    </h3>
-                    <p className="text-xs text-primary-foreground/80 mb-2">
-                      {bubble.topic}
-                    </p>
-                    <div className="flex items-center justify-center space-x-1 text-primary-foreground">
-                      <Star className="w-4 h-4" />
-                      <span className="text-sm">{bubble.reflect_count}</span>
-                    </div>
-                    <p className="mt-2 text-xs text-primary-foreground/80">
-                      by {bubble.username}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
+      ) : bubbles.length === 0 ? (
+        <div className="h-screen w-full flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4">
+            <Sparkles className="w-10 h-10 text-[#ebbd34]" />
           </div>
-        </ScrollArea>
-      </main>
+          <h2 className="text-2xl font-bold text-white mb-2">No bubbles found</h2>
+          <p className="text-white/70 mb-6">Be the first to create a bubble and start a conversation!</p>
+          <Button 
+            onClick={() => navigate('/')}
+            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+          >
+            Explore Bubble World
+          </Button>
+        </div>
+      ) : (
+        // 3D Feed Container
+        <Feed3DContainer 
+          bubbles={bubbles} 
+          onBubbleClick={handleBubbleClick} 
+        />
+      )}
     </div>
   );
 };
