@@ -1,9 +1,10 @@
+
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
-import { Search, User, TrendingUp, Sparkles } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, ArrowRight, Clock, Calendar, ExternalLink, MessageSquare, Users } from "lucide-react";
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import {
@@ -12,10 +13,29 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 const MyBubbles = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -24,29 +44,188 @@ const MyBubbles = () => {
   const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
   const animationFrameRef = useRef<number>();
   const [selectedBubble, setSelectedBubble] = useState<BubbleData | null>(null);
+  const [selectedTab, setSelectedTab] = useState<"recent" | "participated" | "reflected">("recent");
+  const { toast } = useToast();
+  const { user, profile } = useAuth();
   
-  const { data: bubbles = [] } = useQuery({
-    queryKey: ['bubbles', 'my-all'],
+  // Query for recent bubbles (last 24 hours)
+  const { data: recentBubbles = [], isLoading: isLoadingRecent } = useQuery({
+    queryKey: ['bubbles', 'recent'],
     queryFn: async () => {
-      // Get all bubbles created in the last 24 hours
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: recentBubbles, error: recentError } = await supabase
+      const { data, error } = await supabase
         .from('bubbles')
         .select('*')
         .gte('created_at', yesterday)
         .order('created_at', { ascending: false });
       
-      if (recentError) throw recentError;
+      if (error) throw error;
 
-      return recentBubbles.map(bubble => ({
+      return data.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
     }
   });
 
+  // Query for bubbles the user has participated in (sent messages to)
+  const { data: participatedBubbles = [], isLoading: isLoadingParticipated } = useQuery({
+    queryKey: ['bubbles', 'participated', profile?.username],
+    queryFn: async () => {
+      if (!profile?.username) return [];
+      
+      // Get all message authors for this user
+      const { data: messages, error: msgError } = await supabase
+        .from('bubble_messages')
+        .select('bubble_id')
+        .eq('username', profile.username)
+        .order('created_at', { ascending: false });
+      
+      if (msgError) throw msgError;
+      
+      if (messages.length === 0) return [];
+      
+      // Get unique bubble IDs
+      const uniqueBubbleIds = [...new Set(messages.map(msg => msg.bubble_id))];
+      
+      // Fetch the bubble details
+      const { data: bubbles, error: bubbleError } = await supabase
+        .from('bubbles')
+        .select('*')
+        .in('id', uniqueBubbleIds);
+      
+      if (bubbleError) throw bubbleError;
+      
+      return bubbles.map(bubble => ({
+        ...bubble,
+        size: bubble.size as "sm" | "md" | "lg"
+      })) as BubbleData[];
+    },
+    enabled: !!profile?.username
+  });
+
+  // Query for bubbles the user has reflected
+  const { data: reflectedBubbles = [], isLoading: isLoadingReflected } = useQuery({
+    queryKey: ['bubbles', 'reflected', profile?.username],
+    queryFn: async () => {
+      if (!profile?.username) return [];
+      
+      // Get all reflects by this user
+      const { data: reflects, error: reflectError } = await supabase
+        .from('reflects')
+        .select('bubble_id')
+        .eq('username', profile.username);
+      
+      if (reflectError) throw reflectError;
+      
+      if (reflects.length === 0) return [];
+      
+      // Get unique bubble IDs
+      const bubbleIds = reflects.map(reflect => reflect.bubble_id);
+      
+      // Fetch the bubble details
+      const { data: bubbles, error: bubbleError } = await supabase
+        .from('bubbles')
+        .select('*')
+        .in('id', bubbleIds);
+      
+      if (bubbleError) throw bubbleError;
+      
+      return bubbles.map(bubble => ({
+        ...bubble,
+        size: bubble.size as "sm" | "md" | "lg"
+      })) as BubbleData[];
+    },
+    enabled: !!profile?.username
+  });
+
+  // Determine which bubbles to display in the 3D world based on active tab
+  const getActiveBubbles = () => {
+    let bubbles: BubbleData[] = [];
+    
+    switch (selectedTab) {
+      case "recent":
+        bubbles = recentBubbles;
+        break;
+      case "participated":
+        bubbles = participatedBubbles;
+        break;
+      case "reflected":
+        bubbles = reflectedBubbles;
+        break;
+    }
+    
+    // Apply search filter if there's a query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      return bubbles.filter(bubble => 
+        bubble.name.toLowerCase().includes(query) || 
+        bubble.topic.toLowerCase().includes(query) ||
+        (bubble.description && bubble.description.toLowerCase().includes(query))
+      );
+    }
+    
+    return bubbles;
+  };
+
+  const activeBubbles = getActiveBubbles();
+  const isLoading = isLoadingRecent || isLoadingParticipated || isLoadingReflected;
+
+  // Fetch messages for the selected bubble to show preview
+  const { data: bubbleMessages = [] } = useQuery({
+    queryKey: ['bubble-messages', selectedBubble?.id],
+    queryFn: async () => {
+      if (!selectedBubble) return [];
+      
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubble.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (error) throw error;
+      
+      return data;
+    },
+    enabled: !!selectedBubble
+  });
+
+  // Get counts of participants for all bubbles
+  const { data: participantCounts = {} } = useQuery({
+    queryKey: ['bubble-participants'],
+    queryFn: async () => {
+      const allBubbles = [...recentBubbles, ...participatedBubbles, ...reflectedBubbles];
+      
+      if (allBubbles.length === 0) return {};
+      
+      // Get unique bubble IDs
+      const uniqueBubbleIds = [...new Set(allBubbles.map(b => b.id))];
+      
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('bubble_id, username')
+        .in('bubble_id', uniqueBubbleIds);
+      
+      if (error) throw error;
+      
+      // Count unique usernames per bubble
+      const counts: Record<string, number> = {};
+      
+      uniqueBubbleIds.forEach(id => {
+        const messages = data.filter(msg => msg.bubble_id === id);
+        const uniqueUsernames = [...new Set(messages.map(msg => msg.username))];
+        counts[id] = uniqueUsernames.length;
+      });
+      
+      return counts;
+    },
+    enabled: recentBubbles.length > 0 || participatedBubbles.length > 0 || reflectedBubbles.length > 0
+  });
+
+  // Create 3D bubble visualization
   useEffect(() => {
-    if (!containerRef.current || !bubbles.length) return;
+    if (!containerRef.current || activeBubbles.length === 0) return;
 
     const container = containerRef.current;
     const width = container.clientWidth;
@@ -102,7 +281,7 @@ const MyBubbles = () => {
     scene.add(ring);
 
     // Create and position bubbles
-    bubbles.forEach((bubble) => {
+    activeBubbles.forEach((bubble) => {
       const group = new THREE.Group();
       const size = bubble.size === 'lg' ? 0.6 : 
                    bubble.size === 'md' ? 0.4 : 0.3;
@@ -269,7 +448,7 @@ const MyBubbles = () => {
         }
         
         if (obj.userData?.id) {
-          const bubble = bubbles.find(b => b.id === obj.userData.id);
+          const bubble = activeBubbles.find(b => b.id === obj.userData.id);
           if (bubble) {
             setSelectedBubble(bubble);
           }
@@ -287,10 +466,80 @@ const MyBubbles = () => {
       }
       if (renderer) {
         renderer.dispose();
-        container.removeChild(renderer.domElement);
+        if (container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
       }
+      // Clean up bubbles
+      Object.values(bubblesRef.current).forEach(bubble => {
+        scene.remove(bubble);
+      });
+      bubblesRef.current = {};
     };
-  }, [bubbles]);
+  }, [activeBubbles]);
+
+  // Format relative time (like "2 hours ago")
+  const formatRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now.getTime() - date.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else if (diffMins > 0) {
+      return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    } else {
+      return 'Just now';
+    }
+  };
+
+  // Format the date for bubble expiration
+  const formatExpirationTime = (expiresAt: string) => {
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    
+    // Calculate time remaining
+    const diffMs = expires.getTime() - now.getTime();
+    
+    if (diffMs <= 0) {
+      return "Expired";
+    }
+    
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (diffHours > 23) {
+      return `Expires in ${Math.floor(diffHours / 24)} day(s)`;
+    }
+    
+    return `Expires in ${diffHours}h ${diffMins}m`;
+  };
+
+  // Check if a bubble has expired
+  const isBubbleExpired = (expiresAt: string) => {
+    return new Date(expiresAt) < new Date();
+  };
+
+  // Get a random user color for avatars
+  const getUserColor = (username: string) => {
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = hash % 360;
+    return `hsla(${h}, 70%, 80%, 0.8)`;
+  };
+
+  // Handle going to bubble chat
+  const goToBubbleChat = (bubbleId: string) => {
+    navigate(`/bubbles/${bubbleId}`);
+  };
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -342,12 +591,33 @@ const MyBubbles = () => {
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Feed</span>
               </Link>
-              <Link 
-                to="/profile" 
-                className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
-              >
-                <User className="w-5 h-5" />
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
+                  >
+                    <User className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
+                  <DropdownMenuItem className="flex flex-col items-start p-3">
+                    <span className="font-medium text-[#ebbd34]">
+                      {profile?.display_name || user?.email}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      @{profile?.username || user?.email?.split('@')[0]}
+                    </span>
+                  </DropdownMenuItem>
+                  <Link to="/profile">
+                    <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                  </Link>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -367,38 +637,226 @@ const MyBubbles = () => {
         </div>
       </nav>
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
+      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8">
+        <div className="text-center mb-6">
           <h1 className="text-4xl font-light text-primary mb-2">
-            Recent Bubbles
+            My Bubble Space
           </h1>
           <p className="text-primary/60">
-            All bubbles created in the last 24 hours
+            Your personal collection of bubbles
           </p>
           <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
         </div>
 
-        <div 
-          ref={containerRef}
-          style={{ 
-            position: 'relative',
-            width: '600px',
-            height: '600px',
-            margin: '0 auto',
-            zIndex: 10
-          }}
-        />
+        {/* Tabs for different bubble categories */}
+        <div className="max-w-3xl mx-auto">
+          <Tabs 
+            defaultValue="recent" 
+            className="w-full" 
+            onValueChange={(value) => setSelectedTab(value as "recent" | "participated" | "reflected")}
+          >
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger 
+                value="recent" 
+                className="data-[state=active]:bg-[#ebbd34]/20 text-[#ebbd34]"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Recent Bubbles
+              </TabsTrigger>
+              <TabsTrigger 
+                value="participated" 
+                className="data-[state=active]:bg-[#ebbd34]/20 text-[#ebbd34]"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                My Chats
+              </TabsTrigger>
+              <TabsTrigger 
+                value="reflected" 
+                className="data-[state=active]:bg-[#ebbd34]/20 text-[#ebbd34]"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                My Reflections
+              </TabsTrigger>
+            </TabsList>
 
-        <Dialog open={!!selectedBubble} onOpenChange={() => setSelectedBubble(null)}>
-          <DialogContent>
+            <TabsContent value="recent">
+              <div className="mb-4 text-center">
+                <p className="text-[#ebbd34]/80">Bubbles created in the last 24 hours</p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="participated">
+              <div className="mb-4 text-center">
+                <p className="text-[#ebbd34]/80">Bubbles you've chatted in</p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="reflected">
+              <div className="mb-4 text-center">
+                <p className="text-[#ebbd34]/80">Bubbles you've reflected on</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-[400px]">
+            <div className="w-12 h-12 border-4 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin"></div>
+            <p className="ml-4 text-[#ebbd34]">Loading your bubbles...</p>
+          </div>
+        ) : activeBubbles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6 bg-white/50 rounded-xl shadow-sm">
+            <img 
+              src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+              alt="No bubbles" 
+              className="w-20 h-20 opacity-40 mb-4"
+            />
+            <h3 className="text-xl font-semibold text-[#ebbd34] mb-2">No bubbles found</h3>
+            <p className="text-[#ebbd34]/70 max-w-md mb-6">
+              {searchQuery 
+                ? `No bubbles match "${searchQuery}". Try a different search.` 
+                : selectedTab === "recent" 
+                  ? "There are no recent bubbles created in the last 24 hours." 
+                  : selectedTab === "participated" 
+                    ? "You haven't participated in any bubble chats yet." 
+                    : "You haven't reflected on any bubbles yet."}
+            </p>
+            <Button 
+              onClick={() => navigate('/')} 
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+            >
+              Go to Bubble World
+            </Button>
+          </div>
+        ) : (
+          <div 
+            ref={containerRef}
+            style={{ 
+              position: 'relative',
+              width: '100%',
+              height: '500px',
+              margin: '0 auto',
+              zIndex: 10,
+              maxWidth: '700px'
+            }}
+            className="bg-white/50 rounded-xl shadow-sm overflow-hidden border border-[#ebbd34]/10"
+          />
+        )}
+
+        {/* Bubble details dialog */}
+        <Dialog open={!!selectedBubble} onOpenChange={(open) => !open && setSelectedBubble(null)}>
+          <DialogContent className="sm:max-w-[550px] bg-white/95 backdrop-blur-md">
             <DialogHeader>
-              <DialogTitle>{selectedBubble?.name}</DialogTitle>
-              <DialogDescription>
-                {!selectedBubble?.expires_at || new Date(selectedBubble.expires_at) > new Date() 
-                  ? selectedBubble?.description || "This bubble is still active"
-                  : "This bubble has already exploded"}
+              <DialogTitle className="text-[#ebbd34] text-2xl flex items-center">
+                {selectedBubble?.name}
+                {isBubbleExpired(selectedBubble?.expires_at || '') && (
+                  <Badge className="ml-2 bg-red-500 text-white">Expired</Badge>
+                )}
+              </DialogTitle>
+              <DialogDescription className="flex items-center text-[#ebbd34]/80">
+                <span>{selectedBubble?.topic}</span>
+                <span className="mx-2">•</span>
+                <span>by @{selectedBubble?.username.split('@')[0]}</span>
               </DialogDescription>
             </DialogHeader>
+            
+            {selectedBubble && (
+              <>
+                <div className="space-y-4">
+                  {/* Bubble stats */}
+                  <div className="flex items-center justify-between bg-[#ebbd34]/5 rounded-lg p-3">
+                    <div className="flex items-center">
+                      <Sparkles className="w-4 h-4 text-[#ebbd34] mr-2" />
+                      <span className="text-[#ebbd34]">{selectedBubble.reflect_count} reflects</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Users className="w-4 h-4 text-[#ebbd34] mr-2" />
+                      <span className="text-[#ebbd34]">{participantCounts[selectedBubble.id] || 0} participants</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 text-[#ebbd34] mr-2" />
+                      <span className="text-[#ebbd34]">{formatRelativeTime(selectedBubble.created_at)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Bubble expiration */}
+                  <div className={`flex items-center justify-center p-2 rounded-md ${
+                    isBubbleExpired(selectedBubble.expires_at) 
+                      ? "bg-red-100 text-red-600" 
+                      : "bg-yellow-100 text-amber-600"
+                  }`}>
+                    <Clock className="w-4 h-4 mr-2" />
+                    <span>{formatExpirationTime(selectedBubble.expires_at)}</span>
+                  </div>
+                  
+                  {/* Bubble description */}
+                  {selectedBubble.description && (
+                    <div className="bg-[#ebbd34]/5 p-4 rounded-lg">
+                      <h4 className="text-[#ebbd34] font-medium mb-2">About this bubble</h4>
+                      <p className="text-gray-700">{selectedBubble.description}</p>
+                    </div>
+                  )}
+                  
+                  {/* Recent messages */}
+                  {bubbleMessages.length > 0 ? (
+                    <div className="space-y-2">
+                      <h4 className="text-[#ebbd34] font-medium">Recent Messages</h4>
+                      {bubbleMessages.map((message: any) => (
+                        <div key={message.id} className="flex items-start gap-2 bg-white/80 p-3 rounded-lg shadow-sm">
+                          <div 
+                            className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm text-white"
+                            style={{ backgroundColor: getUserColor(message.username) }}
+                          >
+                            {message.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center">
+                              <p className="text-sm font-medium text-[#ebbd34]">
+                                @{message.username.split('@')[0]}
+                              </p>
+                              <span className="text-xs text-gray-500 ml-2">
+                                {formatRelativeTime(message.created_at)}
+                              </span>
+                            </div>
+                            <p className="text-gray-700 text-sm line-clamp-1">
+                              {message.content.startsWith('data:image/') 
+                                ? '[Image]' 
+                                : message.content.startsWith('data:video/') 
+                                  ? '[Video]' 
+                                  : message.content.startsWith('data:audio/') 
+                                    ? '[Audio]' 
+                                    : message.content}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-4 bg-[#ebbd34]/5 rounded-lg">
+                      <p className="text-gray-500">No messages in this bubble yet</p>
+                    </div>
+                  )}
+                </div>
+                
+                <DialogFooter className="flex sm:justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedBubble(null)}
+                    className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => selectedBubble && goToBubbleChat(selectedBubble.id)}
+                    className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                    disabled={isBubbleExpired(selectedBubble.expires_at)}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Join Chat
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </main>

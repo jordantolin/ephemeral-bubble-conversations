@@ -1,9 +1,9 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, TrendingUp, Sparkles, Trophy, Star, Edit, LogOut, Save, Sparkle } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, Trophy, Star, Edit, LogOut, Save, Sparkle, Upload, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { 
   Card, 
@@ -53,6 +53,8 @@ const Profile = () => {
     avatar_url: null
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,10 +66,47 @@ const Profile = () => {
         username: profile.username || "",
         avatar_url: profile.avatar_url || null
       });
+      // Set preview image from profile
+      setPreviewImage(profile.avatar_url);
     }
   }, [profile]);
 
-  // Handle avatar upload
+  // Function to check if storage buckets exist and create them if needed
+  const ensureStorageBucketsExist = async () => {
+    try {
+      // Check if the avatars bucket exists
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.error("Error checking buckets:", bucketsError);
+        return false;
+      }
+      
+      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+      
+      if (!avatarBucketExists) {
+        console.log("Creating avatars bucket");
+        const { error: createError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 2 // 2MB limit
+        });
+        
+        if (createError) {
+          console.error("Error creating avatars bucket:", createError);
+          return false;
+        }
+        
+        console.log("Avatars bucket created successfully");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Storage bucket check failed:", error);
+      return false;
+    }
+  };
+
+  // Handle avatar upload with improved error handling and feedback
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = event.target.files?.[0];
@@ -78,36 +117,58 @@ const Profile = () => {
 
       setIsUploading(true);
 
+      // Check file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 2MB",
+          variant: "destructive"
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      // Set preview image immediately for better UX
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewImage(objectUrl);
+
+      // Make sure storage buckets exist
+      const bucketsExist = await ensureStorageBucketsExist();
+      if (!bucketsExist) {
+        toast({
+          title: "Storage error",
+          description: "Could not access storage. Please try again later.",
+          variant: "destructive"
+        });
+        setIsUploading(false);
+        return;
+      }
+
       // Create a unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${user.id}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const fileName = `avatar_${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = fileName;
 
-      // Check if bucket exists and create if it doesn't
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
-      
-      if (!avatarBucketExists) {
-        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
-          public: true,
-          fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
-        });
-        
-        if (bucketError) {
-          console.error("Error creating avatars bucket:", bucketError);
-          toast({
-            title: "Upload error",
-            description: "Could not create storage bucket. Please try again later.",
-            variant: "destructive"
-          });
-          setIsUploading(false);
-          return;
+      console.log("Uploading file to avatars bucket, path:", filePath);
+
+      // First check if an old avatar exists and remove it
+      if (formData.avatar_url) {
+        try {
+          const oldFileName = formData.avatar_url.split('/').pop();
+          if (oldFileName && oldFileName.startsWith('avatar_')) {
+            console.log("Removing old avatar:", oldFileName);
+            await supabase.storage
+              .from('avatars')
+              .remove([oldFileName]);
+          }
+        } catch (error) {
+          console.warn("Error removing old avatar:", error);
+          // Continue with upload even if removing old avatar fails
         }
       }
 
       // Upload image to storage
-      console.log("Uploading file to path:", filePath);
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { 
           upsert: true,
@@ -140,6 +201,8 @@ const Profile = () => {
       });
     } catch (error: any) {
       console.error("Upload process error:", error);
+      // Revert preview image on error
+      setPreviewImage(formData.avatar_url);
       toast({
         title: "Upload failed",
         description: error.message || "There was a problem uploading your image",
@@ -148,6 +211,11 @@ const Profile = () => {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Trigger file input click when avatar is clicked
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   // Fetch user's reflected bubbles
@@ -225,6 +293,16 @@ const Profile = () => {
     if (!user) return;
 
     try {
+      // Basic form validation
+      if (!formData.username || !formData.display_name) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required fields",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Update the profile record
       const { error } = await supabase
         .from('profiles')
@@ -564,7 +642,19 @@ const Profile = () => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => setIsEditing(false)}
+                      onClick={() => {
+                        setIsEditing(false);
+                        // Reset form data to profile data
+                        if (profile) {
+                          setFormData({
+                            display_name: profile.display_name || "",
+                            username: profile.username || "",
+                            avatar_url: profile.avatar_url || null
+                          });
+                          // Reset preview image
+                          setPreviewImage(profile.avatar_url);
+                        }
+                      }}
                       className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
                     >
                       Cancel
@@ -573,8 +663,13 @@ const Profile = () => {
                       size="sm"
                       onClick={handleSaveProfile}
                       className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white gap-1.5"
+                      disabled={isUploading}
                     >
-                      <Save className="h-4 w-4" />
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
                       <span>Save</span>
                     </Button>
                   </div>
@@ -582,16 +677,27 @@ const Profile = () => {
                 
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-6">
                   <div className="flex flex-col items-center gap-2">
-                    <label className="relative cursor-pointer group">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      disabled={isUploading}
+                    />
+                    
+                    {/* Avatar with upload overlay */}
+                    <div className="relative cursor-pointer group" onClick={triggerFileInput}>
                       <Avatar className="w-24 h-24 border-4 border-[#ebbd34] group-hover:opacity-80 transition-opacity overflow-hidden">
                         {isUploading ? (
                           <div className="h-full w-full flex items-center justify-center bg-[#ebbd34]/10">
-                            <div className="w-8 h-8 border-4 border-[#ebbd34]/20 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                            <Loader2 className="w-8 h-8 text-[#ebbd34] animate-spin" />
                           </div>
                         ) : (
                           <>
                             <AvatarImage 
-                              src={formData.avatar_url || undefined} 
+                              src={previewImage || undefined} 
                               alt={formData.display_name || "Profile"} 
                               className="object-cover"
                             />
@@ -601,17 +707,14 @@ const Profile = () => {
                           </>
                         )}
                       </Avatar>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                      
+                      {/* Upload overlay */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                        <Upload className="h-5 w-5 mb-1" />
                         {isUploading ? "Uploading..." : "Change Photo"}
                       </div>
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        disabled={isUploading}
-                      />
-                    </label>
+                    </div>
+                    
                     <p className="text-xs text-gray-500 text-center mt-1 max-w-[150px]">
                       Click the avatar to upload a new profile picture
                     </p>
@@ -627,6 +730,7 @@ const Profile = () => {
                         onChange={handleInputChange}
                         placeholder="Your name"
                         className="mt-1 border-[#ebbd34]/20"
+                        required
                       />
                     </div>
                     
@@ -639,6 +743,7 @@ const Profile = () => {
                         onChange={handleInputChange}
                         placeholder="username"
                         className="mt-1 border-[#ebbd34]/20"
+                        required
                       />
                       <p className="text-xs text-gray-500 mt-1">This will be used as your @username</p>
                     </div>
