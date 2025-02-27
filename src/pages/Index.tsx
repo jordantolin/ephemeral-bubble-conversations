@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download, Bell } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -34,6 +34,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BubbleData } from "@/types/bubble";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   id: string;
@@ -593,8 +595,47 @@ const Index = () => {
     }));
   }, [filteredBubbles]);
 
+  // Get user initials for avatar
+  const getUserInitials = (displayName?: string | null, email?: string | null) => {
+    if (displayName) {
+      return displayName.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
+    }
+    if (email) {
+      return email.substring(0, 2).toUpperCase();
+    }
+    return 'BT';
+  };
+
+  // Get topic color class
+  const getTopicColorClass = (topic: string) => {
+    const topicColors: Record<string, string> = {
+      general: "bg-slate-500",
+      tech: "bg-blue-500",
+      science: "bg-green-500",
+      arts: "bg-purple-500",
+      social: "bg-pink-500",
+      health: "bg-teal-500",
+      education: "bg-indigo-500",
+      gaming: "bg-red-500",
+      sports: "bg-amber-500",
+      food: "bg-emerald-500",
+      travel: "bg-cyan-500",
+      music: "bg-violet-500",
+      movies: "bg-rose-500",
+      books: "bg-lime-500",
+      environment: "bg-green-600",
+      business: "bg-gray-600",
+      philosophy: "bg-indigo-600",
+      politics: "bg-red-600",
+      news: "bg-blue-600",
+      other: "bg-gray-500"
+    };
+    
+    return topicColors[topic] || "bg-yellow-500";
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-secondary/20 overflow-x-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-white via-amber-50/20 to-yellow-50 overflow-x-hidden relative">
       <audio 
         ref={audioRef} 
         src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_3611db2d6d.mp3?filename=relaxing-mountains-rivers-118571.mp3"
@@ -603,12 +644,12 @@ const Index = () => {
       />
       
       {/* Audio Controls */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white bg-opacity-90 p-3 rounded-lg shadow-lg flex items-center gap-3">
+      <div className="fixed bottom-4 right-4 z-50 bg-white bg-opacity-90 p-3 rounded-lg shadow-lg flex items-center gap-3 backdrop-blur-sm border border-amber-100">
         <Button
           variant="outline"
           size="icon"
           onClick={toggleAudio}
-          className="text-yellow-500"
+          className="text-amber-500 hover:bg-amber-50 hover:text-amber-600"
         >
           <Volume2 className={`h-4 w-4 ${!isPlaying && 'opacity-50'}`} />
         </Button>
@@ -619,21 +660,21 @@ const Index = () => {
           max="100"
           value={volume}
           onChange={(e) => handleVolumeChange(Number(e.target.value))}
-          className="w-20 accent-yellow-500"
+          className="w-20 accent-amber-500"
         />
         
         <Button
           variant="ghost"
           size="icon"
           onClick={handleDownloadAudio}
-          className="text-yellow-500"
+          className="text-amber-500 hover:bg-amber-50 hover:text-amber-600"
         >
           <Download className="h-4 w-4" />
         </Button>
       </div>
       
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
+      <nav className="fixed top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-md shadow-sm border-b border-amber-100">
         <div className="container mx-auto">
           <div className="flex items-center justify-between h-16 px-4">
             {/* Logo and Search Section */}
@@ -642,44 +683,44 @@ const Index = () => {
                 <img 
                   src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
                   alt="Bubble Trouble"
-                  className="w-8 h-8"
+                  className="w-8 h-8 drop-shadow-sm"
                 />
-                <span className="text-xl font-semibold hidden sm:inline text-[#ebbd34]">
+                <span className="text-xl font-semibold hidden sm:inline text-amber-500">
                   Bubble Trouble
                 </span>
               </Link>
               
               <div className="relative flex-1 max-w-md hidden sm:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-amber-400" />
                 <input
                   type="search"
                   placeholder="Search bubbles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
+                  className="w-full pl-10 pr-4 py-2 rounded-full border border-amber-100 bg-white text-amber-900 placeholder:text-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
                 />
               </div>
             </div>
 
             {/* Navigation Links */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-3">
               <Link 
                 to="/my-bubbles" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-amber-600 hover:bg-amber-50 transition-colors ${
+                  location.pathname === '/my-bubbles' ? 'bg-amber-100/70' : ''
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">My Bubbles</span>
+                <span className="hidden sm:inline font-medium">My Bubbles</span>
               </Link>
               <Link 
                 to="/feed" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-amber-600 hover:bg-amber-50 transition-colors ${
+                  location.pathname === '/feed' ? 'bg-amber-100/70' : ''
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Feed</span>
+                <span className="hidden sm:inline font-medium">Feed</span>
               </Link>
               
               {user ? (
@@ -688,31 +729,35 @@ const Index = () => {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
+                      className="hover:bg-amber-50 rounded-full text-amber-600 ml-2"
                     >
-                      <User className="w-5 h-5" />
+                      <Avatar className="h-8 w-8 border border-amber-200">
+                        <AvatarFallback className="bg-amber-100 text-amber-700">
+                          {getUserInitials(profile?.display_name, user?.email)}
+                        </AvatarFallback>
+                      </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
-                    <DropdownMenuItem className="flex flex-col items-start p-3">
-                      <span className="font-medium text-[#ebbd34]">
+                  <DropdownMenuContent align="end" className="w-56 bg-white z-[100] rounded-lg shadow-lg border border-amber-100">
+                    <DropdownMenuItem className="flex flex-col items-start p-4 border-b border-amber-100">
+                      <span className="font-medium text-amber-800">
                         {profile?.display_name || user?.email}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-amber-500 mt-1">
                         @{profile?.username || user?.email?.split('@')[0]}
                       </span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                    <DropdownMenuItem asChild className="hover:bg-amber-50">
+                      <Link to="/profile" className="cursor-pointer p-3">
+                        <User className="mr-2 h-4 w-4 text-amber-500" />
+                        <span className="text-amber-800">Profile</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => {
                       navigate('/auth/logout');
-                    }}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
+                    }} className="hover:bg-amber-50 p-3">
+                      <LogOut className="mr-2 h-4 w-4 text-amber-500" />
+                      <span className="text-amber-800">Log out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -721,7 +766,7 @@ const Index = () => {
                   variant="default" 
                   size="sm"
                   onClick={() => navigate('/auth')}
-                  className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white ml-2"
+                  className="bg-amber-500 hover:bg-amber-600 text-white ml-2 rounded-full px-6"
                 >
                   Sign In
                 </Button>
@@ -733,55 +778,58 @@ const Index = () => {
         {/* Mobile Search Bar */}
         <div className="sm:hidden px-4 pb-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-amber-400" />
             <input
               type="search"
               placeholder="Search bubbles..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
+              className="w-full pl-10 pr-4 py-2 rounded-full border border-amber-100 bg-white text-amber-900 placeholder:text-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none text-sm"
             />
           </div>
         </div>
       </nav>
       
-      <div className="pt-32 pb-12 px-4 sm:px-6 relative z-0">
+      <div className="pt-32 pb-20 px-4 sm:px-6 relative z-0">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold text-[#ebbd34]">Bubble World</h1>
+          <div className="flex justify-between items-center mb-12">
+            <div>
+              <h1 className="text-4xl font-bold text-amber-700 mb-2">Bubble World</h1>
+              <p className="text-amber-600/80 max-w-md">Explore and join ephemeral conversations that vanish after 7 days</p>
+            </div>
             
             <Button
               onClick={() => setNewBubbleDialog(true)}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white"
+              className="bg-amber-500 hover:bg-amber-600 text-white rounded-full px-6 shadow-sm transition-all hover:shadow"
             >
-              <Plus className="mr-1 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" />
               New Bubble
             </Button>
           </div>
           
           {isLoadingBubbles ? (
-            <div className="text-center py-16">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#ebbd34] mx-auto"></div>
-              <p className="mt-4 text-[#ebbd34]">Loading bubbles...</p>
+            <div className="text-center py-16 bg-white/50 rounded-2xl backdrop-blur-sm shadow-sm border border-amber-100">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mx-auto"></div>
+              <p className="mt-4 text-amber-600 font-medium">Loading bubbles...</p>
             </div>
           ) : filteredBubbles.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
-                <Sparkles className="w-8 h-8 text-[#ebbd34]" />
+            <div className="text-center py-16 bg-white/50 rounded-2xl backdrop-blur-sm shadow-sm border border-amber-100">
+              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-amber-100">
+                <Sparkles className="w-8 h-8 text-amber-500" />
               </div>
-              <h3 className="text-xl font-medium text-[#ebbd34]">No bubbles found</h3>
-              <p className="text-gray-500 mt-2">Try a different search or create your own bubble</p>
+              <h3 className="text-xl font-medium text-amber-700">No bubbles found</h3>
+              <p className="text-amber-600/80 mt-2 max-w-md mx-auto">Try a different search or create your own bubble to start a conversation</p>
               <Button
                 onClick={() => setNewBubbleDialog(true)}
-                className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                className="mt-6 bg-amber-500 hover:bg-amber-600 text-white rounded-full px-6 shadow-sm transition-all hover:shadow"
               >
-                <Plus className="mr-1 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4" />
                 Create Bubble
               </Button>
             </div>
           ) : (
-            <div className="h-[60vh] w-full">
+            <div className="h-[65vh] w-full bg-white/30 rounded-2xl p-4 backdrop-blur-sm shadow-sm border border-amber-100">
               <BubbleWorld 
                 topics={bubbleDataForComponent}
                 onBubbleClick={(bubbleId) => {
@@ -796,33 +844,34 @@ const Index = () => {
       
       {/* New Bubble Dialog */}
       <Dialog open={newBubbleDialog} onOpenChange={setNewBubbleDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px] bg-white rounded-xl border border-amber-100">
           <DialogHeader>
-            <DialogTitle className="text-[#ebbd34]">Create a New Bubble</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-amber-700 text-xl">Create a New Bubble</DialogTitle>
+            <DialogDescription className="text-amber-600/80">
               Create a new bubble for ephemeral conversations. Bubbles automatically expire after 7 days.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="text-[#ebbd34]">Name</Label>
+          <div className="grid gap-6 py-6">
+            <div className="grid gap-3">
+              <Label htmlFor="name" className="text-amber-800 font-medium">Bubble Name</Label>
               <Input
                 id="name"
                 value={newBubbleInfo.name}
                 onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter bubble name"
+                className="border-amber-200 focus:border-amber-400 focus:ring-amber-300"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="topic" className="text-[#ebbd34]">Topic</Label>
+            <div className="grid gap-3">
+              <Label htmlFor="topic" className="text-amber-800 font-medium">Topic</Label>
               <Select
                 value={newBubbleInfo.topic}
                 onValueChange={(value) => setNewBubbleInfo(prev => ({ ...prev, topic: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-amber-200 focus:border-amber-400 focus:ring-amber-300">
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-amber-100 bg-white">
                   <SelectItem value="general">General</SelectItem>
                   <SelectItem value="tech">Technology</SelectItem>
                   <SelectItem value="science">Science</SelectItem>
@@ -846,24 +895,31 @@ const Index = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="text-[#ebbd34]">Description (Optional)</Label>
+            <div className="grid gap-3">
+              <Label htmlFor="description" className="text-amber-800 font-medium">Description <span className="text-amber-400 text-sm font-normal">(Optional)</span></Label>
               <Textarea
                 id="description"
                 value={newBubbleInfo.description}
                 onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Enter a brief description"
-                className="resize-none"
+                placeholder="Enter a brief description about your bubble"
+                className="resize-none border-amber-200 focus:border-amber-400 focus:ring-amber-300"
                 rows={3}
               />
             </div>
           </div>
           <DialogFooter>
             <Button
+              variant="outline"
+              onClick={() => setNewBubbleDialog(false)}
+              className="border-amber-200 text-amber-700 hover:bg-amber-50"
+            >
+              Cancel
+            </Button>
+            <Button
               variant={isCreatingBubble ? "loading" : "default"}
               onClick={handleCreateBubble}
               disabled={isCreatingBubble || !newBubbleInfo.name.trim()}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              className="bg-amber-500 hover:bg-amber-600 text-white"
             >
               {isCreatingBubble ? "Creating..." : "Create Bubble"}
             </Button>
@@ -875,33 +931,41 @@ const Index = () => {
       <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
         if (!open) setChatOpen(false);
       }}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col overflow-hidden">
-          <DialogHeader className="border-b pb-3">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col overflow-hidden rounded-xl p-0 bg-white border border-amber-100">
+          <DialogHeader className="border-b border-amber-100 px-6 py-4">
             <div className="flex justify-between items-center">
-              <DialogTitle className="text-[#ebbd34]">
-                {isLoadingBubbleDetails ? 'Loading...' : selectedBubble?.name}
-              </DialogTitle>
-              <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)}>
-                <X className="h-4 w-4" />
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${selectedBubble?.topic ? getTopicColorClass(selectedBubble.topic) : 'bg-amber-500'}`}></div>
+                <DialogTitle className="text-amber-700 text-xl">
+                  {isLoadingBubbleDetails ? 'Loading...' : selectedBubble?.name}
+                </DialogTitle>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)} className="text-amber-400 hover:text-amber-600 hover:bg-amber-50">
+                <X className="h-5 w-5" />
               </Button>
             </div>
             {!isLoadingBubbleDetails && selectedBubble && (
-              <div className="flex flex-col text-sm text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Topic: {selectedBubble.topic}</span>
-                  <span className="text-xs text-gray-400">
+              <div className="flex flex-col text-sm text-amber-600/80 mt-2">
+                <div className="flex justify-between items-center">
+                  <Badge variant="outline" className="border-amber-200 text-amber-600 font-normal px-2 py-0.5">
+                    {selectedBubble.topic.charAt(0).toUpperCase() + selectedBubble.topic.slice(1)}
+                  </Badge>
+                  <span className="text-xs text-amber-500 font-medium">
                     {formatExpiry(selectedBubble.expires_at)}
                   </span>
                 </div>
-                <div className="flex justify-between mt-1">
-                  <span>{selectedBubble.reflect_count} reflects</span>
+                <div className="flex justify-between items-center mt-3">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                    <span className="text-amber-600">{selectedBubble.reflect_count} reflects</span>
+                  </span>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => handleReflect(selectedBubble.id)}
-                    className="text-[#ebbd34] hover:bg-[#ebbd34]/10 -my-1 h-8 text-xs"
+                    className="text-amber-600 border-amber-200 hover:bg-amber-50 -my-1 h-8 text-xs"
                   >
-                    <Sparkles className="h-3 w-3 mr-1" />
+                    <Sparkles className="h-3 w-3 mr-1 text-amber-400" />
                     Reflect
                   </Button>
                 </div>
@@ -910,28 +974,36 @@ const Index = () => {
           </DialogHeader>
           
           {/* Messages Area */}
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-6">
             {isLoadingMessages ? (
               <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#ebbd34]"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-amber-500"></div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                <p>No messages yet. Start the conversation!</p>
+              <div className="text-center py-10 text-amber-500">
+                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-amber-300" />
+                <p className="font-medium">No messages yet</p>
+                <p className="text-sm text-amber-400 mt-1">Be the first to start this conversation!</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {messages.map((message: Message) => (
                   <div 
                     key={message.id}
                     className={`flex ${message.username === (profile?.username || user?.email) ? 'justify-end' : 'justify-start'}`}
                   >
+                    {message.username !== (profile?.username || user?.email) && (
+                      <Avatar className="h-8 w-8 mr-2 mt-1 border border-amber-200">
+                        <AvatarFallback className="bg-amber-100 text-amber-700 text-xs">
+                          {message.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div 
-                      className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                      className={`rounded-xl px-4 py-3 max-w-[80%] ${
                         message.username === (profile?.username || user?.email)
-                          ? 'bg-[#ebbd34] text-white'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-amber-50 text-amber-900 border border-amber-100'
                       }`}
                     >
                       <div className="flex justify-between items-baseline gap-4">
@@ -940,8 +1012,15 @@ const Index = () => {
                         </span>
                         <span className="text-xs opacity-70">{formatMessageTime(message.created_at)}</span>
                       </div>
-                      <p className="mt-1">{message.content}</p>
+                      <p className="mt-2">{message.content}</p>
                     </div>
+                    {message.username === (profile?.username || user?.email) && (
+                      <Avatar className="h-8 w-8 ml-2 mt-1 border border-amber-200">
+                        <AvatarFallback className="bg-amber-100 text-amber-700 text-xs">
+                          {getUserInitials(profile?.display_name, user?.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
                 ))}
                 <div ref={messagesEndRef} />
@@ -950,12 +1029,13 @@ const Index = () => {
           </ScrollArea>
           
           {/* Message Input */}
-          <div className="p-4 border-t mt-auto">
+          <div className="p-4 border-t border-amber-100 mt-auto">
             <div className="flex gap-2">
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
+                className="border-amber-200 focus:border-amber-400 focus:ring-amber-300"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -963,22 +1043,22 @@ const Index = () => {
                   }
                 }}
               />
-              <Button onClick={() => handleSendMessage()} className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90">
+              <Button onClick={() => handleSendMessage()} className="bg-amber-500 hover:bg-amber-600 text-white">
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex mt-2 justify-center gap-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Image className="h-4 w-4 text-gray-500" />
+            <div className="flex mt-3 justify-center gap-3">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-amber-400 hover:bg-amber-50 hover:text-amber-600">
+                <Image className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Video className="h-4 w-4 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-amber-400 hover:bg-amber-50 hover:text-amber-600">
+                <Video className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Mic className="h-4 w-4 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-amber-400 hover:bg-amber-50 hover:text-amber-600">
+                <Mic className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <SmilePlus className="h-4 w-4 text-gray-500" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-amber-400 hover:bg-amber-50 hover:text-amber-600">
+                <SmilePlus className="h-4 w-4" />
               </Button>
             </div>
           </div>
