@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,17 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react";
 
 export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [verifyingToken, setVerifyingToken] = useState(false);
   const [loginForm, setLoginForm] = useState({
     email: "",
     password: "",
@@ -29,6 +34,48 @@ export default function Auth() {
 
   // Get redirect path from location state or default to home
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
+
+  // Check for verification token in URL
+  useEffect(() => {
+    const verificationToken = searchParams.get('verification_token');
+    if (verificationToken) {
+      handleEmailVerification(verificationToken);
+    }
+  }, [searchParams]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate(from);
+    }
+  }, [user, navigate, from]);
+
+  const handleEmailVerification = async (token: string) => {
+    setVerifyingToken(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: 'signup'
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email verified successfully",
+        description: "Your account is now active. Please log in.",
+      });
+
+    } catch (error: any) {
+      console.error("Verification error:", error);
+      toast({
+        title: "Verification failed",
+        description: error.message || "Invalid or expired verification link",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingToken(false);
+    }
+  };
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLoginForm({
@@ -115,7 +162,7 @@ export default function Auth() {
         throw new Error("Username already taken. Please choose another one.");
       }
 
-      // Register the user
+      // Disable Supabase's auto-email and use our custom email
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
         password: registerForm.password,
@@ -126,6 +173,7 @@ export default function Auth() {
             surname: registerForm.surname,
             username: registerForm.username,
           },
+          emailRedirectTo: `${window.location.origin}/auth`,
         },
       });
 
@@ -150,13 +198,54 @@ export default function Auth() {
         throw profileError;
       }
 
+      // If the user has a session token, sign them out since we want to verify their email first
+      if (authData.session) {
+        await supabase.auth.signOut();
+      }
+
+      // Now send our custom email
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              email: registerForm.email,
+              username: registerForm.username,
+              verificationToken: authData.user.confirmation_token
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Custom email error:", errorData);
+          // Continue with registration even if custom email fails
+        }
+      } catch (emailError) {
+        console.error("Error sending custom verification email:", emailError);
+        // Continue with registration even if custom email fails
+      }
+
       toast({
         title: "Registration successful!",
-        description: "Welcome to Bubble Trouble",
+        description: "Please check your email to verify your account before logging in.",
       });
       
-      // Auto-login and redirect to home
-      navigate(from);
+      // Reset form
+      setRegisterForm({
+        email: "",
+        password: "",
+        confirmPassword: "",
+        name: "",
+        surname: "",
+        username: "",
+      });
+
     } catch (error: any) {
       toast({
         title: "Registration failed",
@@ -167,6 +256,22 @@ export default function Auth() {
       setIsLoading(false);
     }
   };
+
+  if (verifyingToken) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] p-4">
+        <div className="text-center">
+          <img 
+            src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+            alt="Bubble Trouble" 
+            className="w-16 h-16 mx-auto mb-4"
+          />
+          <h1 className="text-xl font-bold text-[#ebbd34] mb-4">Verifying your email...</h1>
+          <Loader2 className="h-8 w-8 animate-spin text-[#ebbd34] mx-auto" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] p-4">

@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend("re_BnXkLYnN_Ftf5ja1Q983MnzG4aR53Cc5b");
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,7 +18,8 @@ serve(async (req) => {
 
   try {
     const { email, username, verificationToken } = await req.json()
-    const verificationUrl = `${Deno.env.get('SITE_URL')}/verify?token=${verificationToken}`
+    const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:5173'
+    const verificationUrl = `${siteUrl}/auth?verification_token=${verificationToken}`
 
     const emailResponse = await resend.emails.send({
       from: "Bubble Trouble <bubbletroubleapp@gmail.com>",
@@ -78,7 +79,7 @@ serve(async (req) => {
           <body>
             <div class="container">
               <div class="header">
-                <img src="https://your-app-url.com/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" alt="Bubble Trouble Logo" class="logo">
+                <img src="https://fmsijphhzututcmzlhfr.supabase.co/storage/v1/object/public/bubble-assets/bubble_logo.png" alt="Bubble Trouble Logo" class="logo">
                 <h1 style="color: #ebbd34; margin-top: 15px;">Welcome to Bubble Trouble!</h1>
               </div>
               <div class="content">
