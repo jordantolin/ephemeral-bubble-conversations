@@ -54,10 +54,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     interactionRef.current.zoom.target = camera.position.z;
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: "high-performance"
-    });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     container.appendChild(renderer.domElement);
@@ -116,7 +113,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubbleGroup.add(createSprite(topic.topic, 0.2, isMobile ? 28 : 32));
       bubbleGroup.add(createSprite(`⭐ ${topic.reflect_count}`, -0.8, isMobile ? 24 : 28));
 
-      // Set initial position
       const position = calculateOrbitPosition(index, topics.length, 0);
       bubbleGroup.position.set(position.x, position.y, position.z);
       
@@ -128,6 +124,49 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       bubblesRef.current[topic.id] = bubbleGroup;
       scene.add(bubbleGroup);
     });
+
+    // Handle pinch zoom for mobile
+    let initialPinchDistance = 0;
+    const getPinchDistance = (e: TouchEvent) => {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      return Math.hypot(
+        touch1.clientX - touch2.clientX,
+        touch1.clientY - touch2.clientY
+      );
+    };
+
+    // Touch events for pinch zoom
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        initialPinchDistance = getPinchDistance(e);
+        interactionRef.current.pinchDistance = initialPinchDistance;
+      } else if (e.touches.length === 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        startInteraction(touch.clientX, touch.clientY);
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const currentDistance = getPinchDistance(e);
+        const delta = (currentDistance - interactionRef.current.pinchDistance) * 0.01;
+        interactionRef.current.zoom.target = Math.max(
+          interactionRef.current.zoom.min,
+          Math.min(interactionRef.current.zoom.max,
+            interactionRef.current.zoom.target - delta
+          )
+        );
+        interactionRef.current.pinchDistance = currentDistance;
+      } else if (e.touches.length === 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        moveInteraction(touch.clientX, touch.clientY);
+      }
+    }, { passive: false });
 
     // Handle bubble clicks
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
