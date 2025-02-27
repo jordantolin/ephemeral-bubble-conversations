@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
@@ -27,110 +28,118 @@ export const createCentralWorldGeometry = () => {
 
 export const createCentralWorldMaterial = () => {
   const canvas = document.createElement('canvas');
-  canvas.width = 4096; // Increased resolution for better detail
+  canvas.width = 4096;
   canvas.height = 2048;
   const ctx = canvas.getContext('2d');
   
   if (ctx) {
-    // Ocean base with gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#0EA5E9');
-    gradient.addColorStop(1, '#0369A1');
-    ctx.fillStyle = gradient;
+    // Ocean base - soft blue
+    ctx.fillStyle = '#E0F2FE';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Detailed continent paths
+    // Function to draw continent with real coordinates
+    const drawContinent = (path: number[][], fillColor: string) => {
+      ctx.beginPath();
+      path.forEach((point, index) => {
+        const [x, y] = point;
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          // Use curves for natural coastlines
+          const prevPoint = path[index - 1];
+          const cpX = (prevPoint[0] + x) / 2;
+          const cpY = (prevPoint[1] + y) / 2;
+          ctx.quadraticCurveTo(prevPoint[0], prevPoint[1], cpX, cpY);
+        }
+      });
+      ctx.closePath();
+      
+      // Fill with subtle gradient
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, fillColor);
+      gradient.addColorStop(1, fillColor.replace(')', ', 0.9)'));
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    };
+
+    // Real continent coordinates (normalized to canvas size)
     const continents = {
       northAmerica: [
-        [800, 200], [1000, 180], [1200, 250], [1300, 400],
-        [1200, 500], [1000, 450], [900, 480], [800, 400],
-        [750, 350], [780, 250]
+        [820, 280], [920, 200], [1100, 180], [1300, 220],
+        [1400, 380], [1300, 480], [1100, 520], [900, 500],
+        [800, 450], [750, 380], [780, 300]
       ],
       southAmerica: [
-        [1100, 600], [1200, 700], [1150, 900], [1000, 1000],
-        [900, 950], [850, 800], [900, 700], [1000, 650]
+        [1050, 600], [1150, 650], [1200, 800], [1150, 950],
+        [1050, 1050], [950, 1000], [900, 850], [950, 700]
       ],
       europe: [
-        [2000, 250], [2200, 200], [2400, 250], [2300, 400],
-        [2100, 450], [1900, 400], [1950, 300]
+        [1900, 250], [2100, 200], [2300, 220], [2400, 300],
+        [2300, 400], [2100, 380], [1950, 350]
       ],
       africa: [
-        [2000, 500], [2200, 450], [2400, 500], [2450, 700],
-        [2300, 900], [2100, 950], [1900, 800], [1850, 600]
+        [1950, 450], [2150, 420], [2350, 450], [2400, 600],
+        [2300, 800], [2150, 850], [1950, 750], [1900, 600]
       ],
       asia: [
-        [2300, 200], [2800, 250], [3000, 400], [2900, 600],
-        [2700, 700], [2500, 650], [2400, 500], [2300, 400]
+        [2350, 200], [2800, 150], [3200, 250], [3300, 400],
+        [3200, 550], [2900, 600], [2600, 550], [2400, 400]
       ],
       australia: [
         [3000, 700], [3200, 750], [3300, 850], [3200, 950],
         [3000, 900], [2900, 800]
       ],
       antarctica: [
-        [1500, 1700], [2000, 1750], [2500, 1800], [3000, 1750],
-        [2800, 1900], [2000, 1950], [1200, 1850]
+        [1500, 1600], [2000, 1650], [2500, 1700], [3000, 1650],
+        [2800, 1800], [2000, 1850], [1200, 1750]
       ]
     };
 
-    // Function to draw detailed continent
-    const drawContinent = (points: number[][], color: string) => {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(points[0][0], points[0][1]);
-      
-      // Use curves for smoother coastlines
-      for (let i = 1; i < points.length; i++) {
-        const xc = (points[i][0] + points[i-1][0]) / 2;
-        const yc = (points[i][1] + points[i-1][1]) / 2;
-        ctx.quadraticCurveTo(points[i-1][0], points[i-1][1], xc, yc);
-      }
-      
-      ctx.closePath();
-      ctx.fill();
-
-      // Add terrain detail
-      ctx.save();
-      ctx.clip();
-      ctx.globalAlpha = 0.1;
-      for (let i = 0; i < 5; i++) {
-        ctx.fillStyle = i % 2 === 0 ? '#34D399' : '#6EE7B7';
-        for (let j = 0; j < 20; j++) {
-          const x = points[0][0] + Math.random() * 200 - 100;
-          const y = points[0][1] + Math.random() * 200 - 100;
-          ctx.beginPath();
-          ctx.arc(x, y, 20 + Math.random() * 40, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-    };
-
-    // Draw all continents with enhanced detail
-    Object.values(continents).forEach(points => {
-      drawContinent(points, '#4ADE80');
+    // Draw each continent with minimal style
+    Object.entries(continents).forEach(([name, path]) => {
+      drawContinent(path, 'rgba(148, 163, 184, 0.8)'); // Slate-400 with transparency
     });
 
-    // Add ice caps
-    ctx.fillStyle = '#F0FDFA';
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.arc(canvas.width/2, 100, 400, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(canvas.width/2, canvas.height - 100, 400, 0, Math.PI * 2);
-    ctx.fill();
+    // Add subtle grid lines
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
+    ctx.lineWidth = 1;
 
-    // Add cloud layer
-    ctx.fillStyle = '#FFFFFF';
-    ctx.globalAlpha = 0.15;
-    for (let i = 0; i < 50; i++) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
-      const size = 100 + Math.random() * 200;
+    // Draw latitude lines
+    for (let y = 0; y < canvas.height; y += canvas.height / 18) {
       ctx.beginPath();
-      ctx.arc(x, y, size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
     }
+
+    // Draw longitude lines
+    for (let x = 0; x < canvas.width; x += canvas.width / 36) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+
+    // Add subtle poles
+    const polarGradient = ctx.createRadialGradient(
+      canvas.width/2, 50, 0,
+      canvas.width/2, 50, 400
+    );
+    polarGradient.addColorStop(0, 'rgba(241, 245, 249, 0.4)');
+    polarGradient.addColorStop(1, 'rgba(241, 245, 249, 0)');
+    
+    ctx.fillStyle = polarGradient;
+    ctx.fillRect(0, 0, canvas.width, 200);
+    
+    const southPolarGradient = ctx.createRadialGradient(
+      canvas.width/2, canvas.height - 50, 0,
+      canvas.width/2, canvas.height - 50, 400
+    );
+    southPolarGradient.addColorStop(0, 'rgba(241, 245, 249, 0.4)');
+    southPolarGradient.addColorStop(1, 'rgba(241, 245, 249, 0)');
+    
+    ctx.fillStyle = southPolarGradient;
+    ctx.fillRect(0, canvas.height - 200, canvas.width, 200);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -139,11 +148,11 @@ export const createCentralWorldMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     map: texture,
     bumpMap: texture,
-    bumpScale: 0.15,
+    bumpScale: 0.05,
     transparent: false,
-    metalness: 0.1,
+    metalness: 0.2,
     roughness: 0.8,
-    clearcoat: 0.5,
+    clearcoat: 0.3,
     clearcoatRoughness: 0.2
   });
 };
