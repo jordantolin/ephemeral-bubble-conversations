@@ -8,31 +8,51 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Initialize Resend with the API key from environment
-const resendApiKey = Deno.env.get("RESEND_API_KEY");
-const resend = new Resend(resendApiKey);
-
 serve(async (req) => {
+  console.log("Received request to send-welcome-email function");
+  
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // Get Resend API key from environment
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY not found in environment variables");
+      throw new Error("RESEND_API_KEY is not set in environment variables");
+    }
+    
+    console.log("RESEND_API_KEY is set");
+    const resend = new Resend(resendApiKey);
+    
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase environment variables");
       throw new Error("Missing Supabase environment variables");
     }
-
+    
+    console.log("Supabase environment variables are set");
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Parse request body
-    const { email, name, username } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+      console.log("Request body parsed successfully:", JSON.stringify(body));
+    } catch (error) {
+      console.error("Error parsing request body:", error);
+      throw new Error("Invalid request body: " + error.message);
+    }
+    
+    const { email, name, username } = body;
     
     if (!email) {
+      console.error("Email is required but was not provided");
       return new Response(
         JSON.stringify({ success: false, error: "Email is required" }),
         {
@@ -44,16 +64,19 @@ serve(async (req) => {
 
     // Get origin for proper redirection
     const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_URL") || "https://bubbletroubleapp.com";
+    console.log("Using origin:", origin);
     
     // Ensure the redirect URL specifically goes to the auth page
     const redirectUrl = `${origin}/auth`;
+    console.log("Redirect URL:", redirectUrl);
 
     // Generate email verification link
+    console.log("Generating verification link for email:", email);
     const { data, error } = await supabase.auth.admin.generateLink({
       type: 'signup',
       email,
       options: {
-        redirectTo: redirectUrl, // Ensure redirection to the auth page
+        redirectTo: redirectUrl,
       }
     });
 
@@ -71,10 +94,10 @@ serve(async (req) => {
     // Get the verification URL
     const actionLink = data.properties.action_link;
     if (!actionLink) {
+      console.error("No verification link generated");
       throw new Error("No verification link generated");
     }
 
-    // Log the generated link for verification and debugging
     console.log("Generated verification link:", actionLink);
     console.log("Redirects to:", redirectUrl);
     
@@ -91,7 +114,6 @@ serve(async (req) => {
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #FEF7E4; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
           <tr>
             <td style="padding: 30px 0; text-align: center; background-color: #FEF7E4;">
-              <img src="https://bubbletroubleapp.com/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" alt="Bubble Trouble" style="width: 100px; height: 100px;">
               <h1 style="color: #ebbd34; font-size: 24px; margin: 15px 0 0;">Benvenuto su Bubble Trouble!</h1>
             </td>
           </tr>
@@ -133,34 +155,82 @@ serve(async (req) => {
     `;
 
     try {
-      // Send the email using Resend - using bubbletroubleapp@gmail.com after it's verified
+      console.log("Sending email via Resend to:", email);
+      console.log("From: bubbletroubleapp@gmail.com");
+      console.log("Subject: Verifica il tuo account Bubble Trouble");
+      
+      // Send the email using Resend
       const emailResponse = await resend.emails.send({
-        from: "Bubble Trouble <bubbletroubleapp@gmail.com>", 
+        from: "Bubble Trouble <onboarding@resend.dev>", // Using Resend's default domain until your domain is verified
         to: email,
         subject: "Verifica il tuo account Bubble Trouble",
         html: emailTemplate
       });
 
-      console.log("Email sent via Resend:", emailResponse);
+      console.log("Email sent successfully via Resend:", emailResponse);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "Verification email sent via Resend",
+          details: "A custom welcome email has been sent from Bubble Trouble via Resend."
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     } catch (emailError) {
       console.error("Error sending email via Resend:", emailError);
-      // Continue execution even if email sending fails
-      // The user can still use the Supabase-generated email
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Verification email sent via Resend",
-        details: "A custom welcome email has been sent from Bubble Trouble via Resend."
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("Error details:", JSON.stringify(emailError));
+      
+      // Try to send via Supabase's built-in email service as a fallback
+      try {
+        console.log("Attempting to send via Supabase built-in email service");
+        const { error: supabaseEmailError } = await supabase.auth.resend({
+          type: 'signup',
+          email: email,
+          options: {
+            emailRedirectTo: redirectUrl,
+          }
+        });
+        
+        if (supabaseEmailError) {
+          console.error("Supabase email error:", supabaseEmailError);
+          throw supabaseEmailError;
+        }
+        
+        console.log("Email sent successfully via Supabase");
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: "Verification email sent via Supabase",
+            details: "Fallback to Supabase email service succeeded."
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      } catch (supabaseEmailError) {
+        console.error("Both Resend and Supabase email sending failed:", supabaseEmailError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Failed to send email via both Resend and Supabase",
+            resendError: emailError.message,
+            supabaseError: supabaseEmailError.message
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
-    );
+    }
   } catch (error) {
-    console.error("Error in send-welcome-email function:", error);
+    console.error("Unhandled error in send-welcome-email function:", error);
+    console.error("Error details:", JSON.stringify(error, null, 2));
     
     return new Response(
       JSON.stringify({ 

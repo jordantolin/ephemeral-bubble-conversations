@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -237,8 +238,12 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      // Lowercase the email to ensure consistency
+      const lowerCaseEmail = email.toLowerCase();
+      
+      // Sign up with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: lowerCaseEmail,
         password,
         options: {
           data: {
@@ -251,54 +256,41 @@ const Auth = () => {
       
       if (error) throw error;
 
-      // Create a profile entry in the users table
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            username,
-            display_name: fullName, // Changed from full_name to display_name
-            created_at: new Date().toISOString(),
-          });
-
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-        }
-
-        // Send a custom welcome email via our function
-        try {
-          // Convert the email address to lowercase to avoid case-sensitivity issues
-          const lowerCaseEmail = email.toLowerCase();
-          
-          console.log("Sending welcome email to:", lowerCaseEmail);
-          const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
-            body: { 
-              email: lowerCaseEmail, 
-              name: fullName, 
-              username 
-            }
-          });
-          
-          if (emailError) {
-            console.error("Error sending welcome email:", emailError);
-          } else {
-            console.log("Welcome email request sent successfully");
-          }
-        } catch (emailError) {
-          console.error("Failed to call send-welcome-email function:", emailError);
-        }
-      }
+      // Skip profile creation for now due to RLS policy issues
+      // We'll handle it after the user verifies their email
       
       // Save the email for the success message
-      setSignupEmail(email.toLowerCase());
+      setSignupEmail(lowerCaseEmail);
       setSignupSuccess(true);
       
       toast({
         title: "Account creato!",
         description: "Controlla la tua email per la verifica.",
       });
+      
+      console.log("Registration successful, verification email should be sent by Supabase");
+      
+      // Try our custom email function as a backup
+      try {
+        console.log("Trying to send custom welcome email via Edge Function");
+        const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+          body: { 
+            email: lowerCaseEmail, 
+            name: fullName, 
+            username 
+          }
+        });
+        
+        if (emailError) {
+          console.error("Error sending custom welcome email:", emailError);
+        } else {
+          console.log("Custom welcome email request sent successfully");
+        }
+      } catch (emailError) {
+        console.error("Failed to call send-welcome-email function:", emailError);
+      }
     } catch (error: any) {
+      console.error("Registration error:", error);
       toast({
         title: "Errore",
         description: error.message,
@@ -318,7 +310,7 @@ const Auth = () => {
     
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.toLowerCase(), // Use lowercase for consistency
         password,
       });
       
@@ -351,7 +343,8 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Use direct Supabase resend for verification
+      console.log("Attempting to resend verification email to:", signupEmail);
+      // Use Supabase built-in resend
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: signupEmail,
@@ -362,9 +355,11 @@ const Auth = () => {
       
       if (error) throw error;
       
+      console.log("Supabase resend successful");
+      
       // Also try our custom email function
       try {
-        console.log("Resending welcome email to:", signupEmail);
+        console.log("Trying to send custom welcome email via Edge Function");
         await supabase.functions.invoke('send-welcome-email', {
           body: { 
             email: signupEmail, 
@@ -372,6 +367,7 @@ const Auth = () => {
             username 
           }
         });
+        console.log("Custom resend request sent successfully");
       } catch (customEmailError) {
         console.error("Error sending custom welcome email:", customEmailError);
       }
@@ -381,6 +377,7 @@ const Auth = () => {
         description: "Controlla la tua casella di posta per il link di verifica",
       });
     } catch (error: any) {
+      console.error("Error resending verification email:", error);
       toast({
         title: "Errore",
         description: error.message,
@@ -422,7 +419,9 @@ const Auth = () => {
               <AlertCircle className="h-4 w-4 text-blue-600" />
               <AlertTitle className="text-blue-800">Controlla la tua casella di posta</AlertTitle>
               <AlertDescription className="text-blue-700">
-                Riceverai un'email da <span className="font-medium">bubbletroubleapp@gmail.com</span> con un link di verifica.
+                Riceverai un'email da noreply@mail.app.supabase.io o bubbletroubleapp@gmail.com con un link di verifica.
+                <br /><br />
+                <strong>Controlla anche nella cartella spam/junk se non la trovi.</strong>
               </AlertDescription>
             </Alert>
             
