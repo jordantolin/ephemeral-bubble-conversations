@@ -141,7 +141,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       } else {
         // TouchEvent
         clientX = event.changedTouches[0].clientX;
-        clientY = event.changedTouches[0].clientY;
+        clientY = event.clientY;
       }
 
       const x = (clientX - rect.left) / rect.width * 2 - 1;
@@ -164,22 +164,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Mouse wheel zoom
+    // Mouse wheel zoom with improved sensitivity
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const zoom = interactionRef.current.zoom;
-      const delta = e.deltaY * 0.01;
+      const delta = e.deltaY * 0.005; // Reduced sensitivity for smoother zoom
       zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
     };
 
-    // Track if we're dragging to differentiate between clicks and drags
-    let isDragging = false;
-    let dragStartTime = 0;
-
     // Unified interaction handling for both mouse and touch
     const startInteraction = (clientX: number, clientY: number) => {
-      isDragging = false;
-      dragStartTime = Date.now();
       interactionRef.current.isInteracting = true;
       interactionRef.current.lastX = clientX;
       interactionRef.current.lastY = clientY;
@@ -188,16 +182,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const moveInteraction = (clientX: number, clientY: number) => {
       if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
-      const timeSinceStart = Date.now() - dragStartTime;
-      if (timeSinceStart > 100) {
-        isDragging = true;
-      }
+      const deltaX = (clientX - interactionRef.current.lastX) * 0.01; // Increased sensitivity
+      const deltaY = (clientY - interactionRef.current.lastY) * 0.01;
 
-      const deltaX = (clientX - interactionRef.current.lastX);
-      const deltaY = (clientY - interactionRef.current.lastY);
-
-      centralWorldRef.current.rotation.y += deltaX * 0.005;
-      centralWorldRef.current.rotation.x += deltaY * 0.005;
+      centralWorldRef.current.rotation.y += deltaX;
+      centralWorldRef.current.rotation.x += deltaY;
 
       // Limit vertical rotation
       centralWorldRef.current.rotation.x = Math.max(
@@ -206,8 +195,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       );
 
       interactionRef.current.momentum = {
-        x: deltaX * 0.005,
-        y: deltaY * 0.005
+        x: deltaX * 0.8, // Increased momentum
+        y: deltaY * 0.8
       };
 
       interactionRef.current.lastX = clientX;
@@ -217,29 +206,34 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const endInteraction = (event?: MouseEvent | TouchEvent) => {
       if (!interactionRef.current.isInteracting) return;
       
+      const wasInteracting = interactionRef.current.isInteracting;
       interactionRef.current.isInteracting = false;
 
-      // Only trigger click if we haven't been dragging
-      if (!isDragging && event) {
+      // Handle click only if it wasn't a drag
+      if (event && Math.abs(event instanceof MouseEvent ? 
+          event.clientX - interactionRef.current.lastX : 
+          event.changedTouches[0].clientX - interactionRef.current.lastX) < 5) {
         handleBubbleClick(event);
       }
-      
-      // Apply momentum
-      const decay = 0.95;
-      const applyMomentum = () => {
-        if (!centralWorldRef.current) return;
-        
-        const momentum = interactionRef.current.momentum;
-        if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-          centralWorldRef.current.rotation.y += momentum.x;
-          centralWorldRef.current.rotation.x += momentum.y;
-          momentum.x *= decay;
-          momentum.y *= decay;
-          requestAnimationFrame(applyMomentum);
-        }
-      };
 
-      applyMomentum();
+      // Apply momentum with improved physics
+      if (wasInteracting) {
+        const decay = 0.95;
+        const applyMomentum = () => {
+          if (!centralWorldRef.current) return;
+          
+          const momentum = interactionRef.current.momentum;
+          if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
+            centralWorldRef.current.rotation.y += momentum.x;
+            centralWorldRef.current.rotation.x += momentum.y;
+            momentum.x *= decay;
+            momentum.y *= decay;
+            requestAnimationFrame(applyMomentum);
+          }
+        };
+
+        applyMomentum();
+      }
     };
 
     // Mouse events
