@@ -1,9 +1,8 @@
 
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { useSpring } from '@react-spring/three';
+import { useSpring, animated } from '@react-spring/three';
 import { BubbleData } from '@/types/bubble';
-import { animated } from '@react-spring/three';
 
 interface BubbleCard3DProps {
   bubble: BubbleData;
@@ -31,8 +30,10 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
 
     // Update bubble appearance when active state changes
     const material = meshRef.current.material as THREE.MeshPhysicalMaterial;
-    material.opacity = isActive ? 0.8 : 0.4;
-    material.transmission = isActive ? 0.3 : 0.1;
+    if (material) {
+      material.opacity = isActive ? 0.8 : 0.4;
+      material.transmission = isActive ? 0.3 : 0.1;
+    }
     
     // Add gentle floating animation
     const animate = () => {
@@ -46,17 +47,12 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
     return () => cancelAnimationFrame(animationId);
   }, [isActive]);
 
-  // IMPORTANT: Typed correctly to work with @react-spring/three
-  // @ts-ignore - We need to ignore TypeScript errors with the animated component
-  const AnimatedMesh = animated.mesh;
-
   return (
-    <AnimatedMesh
+    <animated.mesh
       ref={meshRef}
-      position={spring.position}
-      scale={spring.scale}
+      position={spring.position as any}
+      scale={spring.scale as any}
     >
-      {/* Bubble mesh */}
       <sphereGeometry args={[1.5, 32, 32]} />
       <meshPhysicalMaterial
         color={0xFFD700}
@@ -70,11 +66,10 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
         clearcoatRoughness={0.1}
       />
       
-      {/* Content container */}
       <group ref={textRef} position={[0, 0, 1.51]}>
         {/* We'll use HTML overlay for actual content rendering */}
       </group>
-    </AnimatedMesh>
+    </animated.mesh>
   );
 };
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useMemo } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -109,6 +108,8 @@ const Index = () => {
   const recordingTimerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  console.log("Index component rendering");
+
   // Update username in new bubble form when profile or user changes
   useEffect(() => {
     if (profile?.username || user?.email) {
@@ -123,6 +124,7 @@ const Index = () => {
   const { data: allBubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
+      console.log("Fetching bubbles");
       const { data, error } = await supabase
         .from('bubbles')
         .select('*')
@@ -137,6 +139,7 @@ const Index = () => {
         return [];
       }
 
+      console.log("Bubbles fetched:", data.length);
       return data.map(bubble => ({
         ...bubble,
         size: calculateBubbleSize(bubble.reflect_count || 0)
@@ -810,10 +813,17 @@ const Index = () => {
           </div>
         ) : (
           <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
-            <BubbleWorld 
-              topics={bubbles}
-              onBubbleClick={handleBubbleClick}
-            />
+            {allBubbles.length > 0 ? (
+              <BubbleWorld 
+                topics={allBubbles}
+                onBubbleClick={handleBubbleClick}
+              />
+            ) : (
+              <div className="h-full w-full flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border-4 border-[#ebbd34]/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                <p className="text-[#ebbd34] mt-4">Loading bubbles...</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -908,273 +918,4 @@ const Index = () => {
                     ) : message.content.startsWith('data:audio/') ? (
                       // WhatsApp-style audio message UI with improved mobile support
                       <div className="flex items-center gap-2 p-1">
-                        {/* Play/pause button with changing icon */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-10 w-10 rounded-full ${
-                            playingAudioId === message.id ? 
-                            "bg-[#ebbd34]/20 text-[#ebbd34]" : 
-                            isCurrentUser ?
-                            "text-white hover:bg-white/20" :
-                            "text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                          }`}
-                          onClick={() => togglePlayAudio(message.id, message.content)}
-                        >
-                          {playingAudioId === message.id ? 
-                            <X className="h-5 w-5" /> : 
-                            <Volume2 className="h-5 w-5" />
-                          }
-                        </Button>
-                        
-                        {/* WhatsApp-style waveform visualization */}
-                        <div className="flex-1 h-8 flex items-center">
-                          <div className="w-full flex items-center justify-between space-x-0.5">
-                            {Array.from({ length: 27 }).map((_, i) => {
-                              // Create a varying height pattern like WhatsApp voice messages
-                              const heights = [
-                                3, 5, 7, 4, 9, 5, 2, 8, 6, 3, 7, 9, 5, 3, 8, 6, 2, 5, 9, 4, 6, 3, 7, 8, 5, 2, 4
-                              ];
-                              const height = heights[i];
-                              const isPlaying = playingAudioId === message.id;
-                              
-                              // Determine the color based on message sender and playback state
-                              const barColor = isCurrentUser
-                                ? isPlaying ? "bg-white" : "bg-white/60" 
-                                : isPlaying ? "bg-[#ebbd34]" : "bg-[#ebbd34]/60";
-                                
-                              return (
-                                <div 
-                                  key={i}
-                                  className={`w-1 rounded-full transition-all duration-300 ${barColor}`}
-                                  style={{ 
-                                    height: `${height}px`,
-                                    // Animate bars when playing
-                                    animation: isPlaying ? `pulse-${i % 3} 1.2s infinite` : 'none',
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p>{message.content}</p>
-                    )}
-                    
-                    <div className="text-right mt-1">
-                      <span className="text-xs opacity-70">
-                        {formatMessageTime(message.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </ScrollArea>
-
-          <div className="p-3 bg-white border-t border-[#ebbd34]/20">
-            {/* WhatsApp-style recording UI */}
-            {isRecording ? (
-              <div className="flex items-center justify-between bg-[#FEF7E4] rounded-full px-4 py-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse"></div>
-                  <span className="text-sm text-gray-600">
-                    {formatRecordingTime(recordingSeconds)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full"
-                    onClick={() => {
-                      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                        mediaRecorderRef.current.stop();
-                        setIsRecording(false);
-                        setRecordingSeconds(0);
-                        if (recordingTimerRef.current) {
-                          window.clearInterval(recordingTimerRef.current);
-                          recordingTimerRef.current = null;
-                        }
-                        // Clear any recorded chunks
-                        audioChunksRef.current = [];
-                      }
-                    }}
-                  >
-                    <X className="h-5 w-5" />
-                    <span className="ml-1">Cancel</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full"
-                    onClick={stopRecording}
-                  >
-                    <Send className="h-4 w-4 mr-1" />
-                    <span>Send</span>
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex gap-2 shrink-0">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    onClick={() => handleFileUpload('image')}
-                  >
-                    <Image className="h-5 w-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    onClick={() => handleFileUpload('video')}
-                  >
-                    <Video className="h-5 w-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    onClick={() => handleFileUpload('gif')}
-                  >
-                    <SmilePlus className="h-5 w-5" />
-                  </Button>
-                </div>
-                
-                <Input
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-gray-800 placeholder-gray-500 focus-visible:ring-[#ebbd34]/20"
-                />
-                
-                {newMessage.trim() ? (
-                  <Button 
-                    onClick={() => handleSendMessage()}
-                    size="icon" 
-                    className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                  >
-                    <Send className="h-5 w-5" />
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleVoiceRecord}
-                    size="icon" 
-                    className={`rounded-full ${
-                      isRecording 
-                        ? "bg-red-500 hover:bg-red-600 text-white" 
-                        : "bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                    }`}
-                  >
-                    <Mic className="h-5 w-5" />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Bubble Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-[#FEF7E4] border-none rounded-2xl p-8">
-          <DialogHeader>
-            <DialogTitle className="text-[#ebbd34] text-xl">Create New Bubble</DialogTitle>
-            <DialogDescription className="text-[#ebbd34]/70">
-              Choose a topic and name for your new bubble community.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="topic" className="text-[#ebbd34]">Topic</Label>
-              <Select
-                value={newBubble.topic}
-                onValueChange={(value) => setNewBubble({ ...newBubble, topic: value })}
-              >
-                <SelectTrigger className="w-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34]">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#FEF7E4] border-[#ebbd34]/20 z-[100]">
-                  {availableTopics.map((topic) => (
-                    <SelectItem key={topic} value={topic} className="text-[#ebbd34]">
-                      {topic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="text-[#ebbd34]">Bubble Name</Label>
-              <Input
-                id="name"
-                value={newBubble.name}
-                onChange={(e) => setNewBubble({ ...newBubble, name: e.target.value })}
-                placeholder="Give your bubble a name..."
-                className="bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="text-[#ebbd34]">Description</Label>
-              <Textarea
-                id="description"
-                value={newBubble.description}
-                onChange={(e) => setNewBubble({ ...newBubble, description: e.target.value })}
-                placeholder="What's your bubble about?"
-                className="bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
-              className="border-[#ebbd34]/20 text-[#ebbd34] hover:text-[#ebbd34]/70"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCreateBubble}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-            >
-              Create Bubble
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Add animation keyframes for the waveform */}
-      <style>
-        {`
-          @keyframes pulse-0 {
-            0%, 100% { transform: scaleY(1); }
-            50% { transform: scaleY(1.5); }
-          }
-          @keyframes pulse-1 {
-            0%, 100% { transform: scaleY(1); }
-            33% { transform: scaleY(1.3); }
-          }
-          @keyframes pulse-2 {
-            0%, 100% { transform: scaleY(1); }
-            66% { transform: scaleY(1.7); }
-          }
-        `}
-      </style>
-    </div>
-  );
-};
-
-export default Index;
+                        {/* Play/pause button with changing icon
