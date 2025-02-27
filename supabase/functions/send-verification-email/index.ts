@@ -25,32 +25,45 @@ serve(async (req) => {
     const { email, username, userId } = await req.json()
     const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:5173'
     
-    // Generate a token for this user
-    const { data: tokenData, error: tokenError } = await supabase.auth.admin.generateLink({
-      type: 'signup',
-      email: email,
-      options: {
-        redirectTo: `${siteUrl}/auth`
-      }
-    });
-
-    if (tokenError) {
-      console.error("Token generation error:", tokenError);
-      throw new Error(`Error generating verification link: ${tokenError.message}`);
-    }
-
-    // Extract the token from the URL
-    const fullUrl = tokenData.properties.action_link;
-    const token = new URL(fullUrl).searchParams.get('token');
+    // Instead of using the standard Supabase email, we'll create a custom verification link
+    // First, generate a secure random token
+    const tokenBytes = new Uint8Array(32);
+    crypto.getRandomValues(tokenBytes);
+    const token = Array.from(tokenBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
     
-    if (!token) {
-      throw new Error('Failed to extract verification token from generated link');
+    // Store this token in the database with an expiration
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiration
+    
+    // Store the verification token in a custom table if it exists, otherwise use auth.users metadata
+    try {
+      // First try to update the user's metadata with the verification token
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        userId,
+        {
+          user_metadata: {
+            verification_token: token,
+            verification_token_expires_at: expiresAt.toISOString(),
+          }
+        }
+      );
+      
+      if (updateError) {
+        console.error("Error updating user metadata:", updateError);
+        throw updateError;
+      }
+    } catch (err) {
+      console.error("Failed to store verification token:", err);
+      throw new Error("Failed to generate verification link");
     }
-
-    const verificationUrl = `${siteUrl}/auth?verification_token=${token}`;
+    
+    // Create a verification URL that points to our app
+    const verificationUrl = `${siteUrl}/auth?custom_verification_token=${token}&user_id=${userId}`;
     
     console.log("Sending verification email to:", email);
-    console.log("Verification URL:", verificationUrl);
+    console.log("Custom verification URL:", verificationUrl);
 
     const emailResponse = await resend.emails.send({
       from: "Bubble Trouble <bubbletroubleapp@gmail.com>",
@@ -248,6 +261,17 @@ serve(async (req) => {
     });
 
     console.log("Email response:", emailResponse);
+    
+    // Also disable the default Supabase email confirmation
+    try {
+      await supabase.auth.admin.updateUserById(
+        userId,
+        { email_confirm: true }
+      );
+    } catch (confirmError) {
+      console.error("Failed to auto-confirm email:", confirmError);
+      // Continue anyway
+    }
     
     return new Response(
       JSON.stringify(emailResponse),
