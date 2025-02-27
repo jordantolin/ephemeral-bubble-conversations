@@ -27,7 +27,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function Profile() {
-  const { user, profile } = useAuth();
+  const { user, profile, isLoading } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -44,10 +44,12 @@ export default function Profile() {
     defaultValues: formData,
   });
 
+  // Initialize form with profile data when it's available
   useEffect(() => {
     if (profile) {
+      console.log("Profile data loaded:", profile);
       const initialData = {
-        username: profile.username,
+        username: profile.username || "",
         display_name: profile.display_name || "",
         avatar_url: profile.avatar_url,
       };
@@ -55,6 +57,34 @@ export default function Profile() {
       form.reset(initialData);
     }
   }, [profile, form]);
+
+  // Show a loading state or error if profile is missing but auth is completed
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto border-4 border-[#ebbd34] border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-lg text-[#ebbd34]">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
+        <div className="text-center">
+          <p className="mt-4 text-lg text-red-500">Authentication required</p>
+          <Button 
+            onClick={() => window.location.href = '/auth'} 
+            className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+          >
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Handle avatar upload
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,16 +229,15 @@ export default function Profile() {
     setIsEditing(false);
   };
 
-  if (!user || !profile) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto border-4 border-[#ebbd34] border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-lg text-[#ebbd34]">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
+  // Fallback profile data if profile is null but user exists
+  const fallbackProfile = {
+    username: user?.email?.split('@')[0] || "user",
+    display_name: user?.email?.split('@')[0] || "User",
+    avatar_url: null,
+    updated_at: new Date().toISOString()
+  };
+
+  const displayProfile = profile || fallbackProfile;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] py-8 px-4">
@@ -340,7 +369,7 @@ export default function Profile() {
                 </div>
                 <div className="flex items-center text-sm text-gray-500 mt-1">
                   <UploadCloud className="w-4 h-4 mr-1 text-[#ebbd34]" />
-                  <p>Last updated: {new Date(profile.updated_at).toLocaleDateString()}</p>
+                  <p>Last updated: {new Date(displayProfile.updated_at).toLocaleDateString()}</p>
                 </div>
               </div>
             </form>

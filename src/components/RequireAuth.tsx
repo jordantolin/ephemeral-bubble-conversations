@@ -13,16 +13,27 @@ export default function RequireAuth({ children }: RequireAuthProps) {
   const location = useLocation();
   const { toast } = useToast();
 
+  // Only show toast when loading is complete and user is not authenticated
   useEffect(() => {
+    let timeoutId: number | null = null;
+    
     if (!isLoading && !user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to access this page",
-        variant: "destructive",
-      });
+      // Small delay to prevent flashing toast on initial load
+      timeoutId = window.setTimeout(() => {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to access this page",
+          variant: "destructive",
+        });
+      }, 500);
     }
+    
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [isLoading, user, toast]);
 
+  // Simple loading state with timeout to prevent infinite loading
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
@@ -34,9 +45,11 @@ export default function RequireAuth({ children }: RequireAuthProps) {
     );
   }
 
+  // If not authenticated, redirect to auth page
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // If authenticated, render children
   return <>{children}</>;
 }
