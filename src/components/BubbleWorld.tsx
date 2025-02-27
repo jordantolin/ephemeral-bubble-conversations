@@ -169,46 +169,70 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       e.preventDefault();
       const zoom = interactionRef.current.zoom;
       const delta = e.deltaY * 0.01;
-      zoom.target = Math.max(
-        zoom.min,
-        Math.min(zoom.max, zoom.target + delta)
-      );
+      zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
     };
+
+    // Track if we're dragging to differentiate between clicks and drags
+    let isDragging = false;
+    let dragStartTime = 0;
 
     // Unified interaction handling for both mouse and touch
-    const startInteraction = (x: number, y: number) => {
+    const startInteraction = (clientX: number, clientY: number) => {
+      isDragging = false;
+      dragStartTime = Date.now();
       interactionRef.current.isInteracting = true;
-      interactionRef.current.lastX = x;
-      interactionRef.current.lastY = y;
+      interactionRef.current.lastX = clientX;
+      interactionRef.current.lastY = clientY;
     };
 
-    const moveInteraction = (x: number, y: number) => {
-      if (!interactionRef.current.isInteracting || !centralWorld) return;
+    const moveInteraction = (clientX: number, clientY: number) => {
+      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
-      const deltaX = (x - interactionRef.current.lastX) * 0.005;
-      const deltaY = (y - interactionRef.current.lastY) * 0.005;
+      const timeSinceStart = Date.now() - dragStartTime;
+      if (timeSinceStart > 100) {
+        isDragging = true;
+      }
 
-      centralWorld.rotation.y += deltaX;
-      centralWorld.rotation.x += deltaY;
+      const deltaX = (clientX - interactionRef.current.lastX);
+      const deltaY = (clientY - interactionRef.current.lastY);
 
-      interactionRef.current.momentum = { x: deltaX, y: deltaY };
-      interactionRef.current.lastX = x;
-      interactionRef.current.lastY = y;
+      centralWorldRef.current.rotation.y += deltaX * 0.005;
+      centralWorldRef.current.rotation.x += deltaY * 0.005;
+
+      // Limit vertical rotation
+      centralWorldRef.current.rotation.x = Math.max(
+        -Math.PI / 3,
+        Math.min(Math.PI / 3, centralWorldRef.current.rotation.x)
+      );
+
+      interactionRef.current.momentum = {
+        x: deltaX * 0.005,
+        y: deltaY * 0.005
+      };
+
+      interactionRef.current.lastX = clientX;
+      interactionRef.current.lastY = clientY;
     };
 
-    const endInteraction = () => {
+    const endInteraction = (event?: MouseEvent | TouchEvent) => {
       if (!interactionRef.current.isInteracting) return;
       
       interactionRef.current.isInteracting = false;
+
+      // Only trigger click if we haven't been dragging
+      if (!isDragging && event) {
+        handleBubbleClick(event);
+      }
       
+      // Apply momentum
       const decay = 0.95;
       const applyMomentum = () => {
-        if (!centralWorld) return;
+        if (!centralWorldRef.current) return;
         
         const momentum = interactionRef.current.momentum;
         if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-          centralWorld.rotation.y += momentum.x;
-          centralWorld.rotation.x += momentum.y;
+          centralWorldRef.current.rotation.y += momentum.x;
+          centralWorldRef.current.rotation.x += momentum.y;
           momentum.x *= decay;
           momentum.y *= decay;
           requestAnimationFrame(applyMomentum);
@@ -228,14 +252,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     });
 
     container.addEventListener('mouseup', (e) => {
-      if (!interactionRef.current.isInteracting) {
-        handleBubbleClick(e);
-      }
-      endInteraction();
+      endInteraction(e);
     });
 
-    container.addEventListener('mouseleave', endInteraction);
-    container.addEventListener('wheel', handleWheel, { passive: false });
+    container.addEventListener('mouseleave', () => {
+      endInteraction();
+    });
 
     // Touch events
     container.addEventListener('touchstart', (e) => {
@@ -253,11 +275,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     }, { passive: false });
 
     container.addEventListener('touchend', (e) => {
-      if (!interactionRef.current.isInteracting && e.changedTouches.length === 1) {
-        handleBubbleClick(e);
-      }
-      endInteraction();
+      endInteraction(e);
     });
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
 
     // Animation loop
     let time = 0;
