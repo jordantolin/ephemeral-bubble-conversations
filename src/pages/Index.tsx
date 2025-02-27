@@ -89,11 +89,6 @@ const Index = () => {
   const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom of messages when new ones arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
     queryKey: ['bubbles'],
@@ -119,6 +114,42 @@ const Index = () => {
     },
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
+  
+  // Fetch messages for selected bubble
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', selectedBubbleId],
+    queryFn: async () => {
+      if (!selectedBubbleId) return [];
+
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error fetching messages",
+          description: error.message,
+          variant: "destructive"
+        });
+        return [];
+      }
+
+      return data.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        username: msg.username,
+        timestamp: msg.created_at
+      }));
+    },
+    enabled: !!selectedBubbleId
+  });
+
+  // Scroll to bottom of messages when new ones arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Check for bubble in URL and open it
   useEffect(() => {
@@ -262,37 +293,6 @@ const Index = () => {
         });
       });
   };
-
-  // Fetch messages for selected bubble
-  const { data: messages = [] } = useQuery({
-    queryKey: ['messages', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return [];
-
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .eq('bubble_id', selectedBubbleId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        toast({
-          title: "Error fetching messages",
-          description: error.message,
-          variant: "destructive"
-        });
-        return [];
-      }
-
-      return data.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        username: msg.username,
-        timestamp: msg.created_at
-      }));
-    },
-    enabled: !!selectedBubbleId
-  });
 
   // Subscribe to real-time message updates
   useEffect(() => {
