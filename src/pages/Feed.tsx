@@ -57,7 +57,7 @@ const Feed = () => {
   const handleBubbleClick = (id: string) => {
     setActiveBubbleId(id);
     // Navigate to detailed view or open dialog
-    navigate(`/?bubbleId=${id}`);
+    navigate(`/feed?bubbleId=${id}`);
   };
   
   const getAvatarFallback = () => {
@@ -75,6 +75,13 @@ const Feed = () => {
 
     return "BT";
   };
+
+  useEffect(() => {
+    // Set loading to false when bubbles are loaded
+    if (!isLoadingBubbles) {
+      setIsLoading(false);
+    }
+  }, [isLoadingBubbles]);
 
   return (
     <div className="h-screen w-full overflow-hidden relative bg-gradient-to-b from-[#1a1a1a] to-[#121212]">

@@ -2,9 +2,7 @@
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useSpring } from '@react-spring/three';
-import { Text } from 'troika-three-text';
 import { BubbleData } from '@/types/bubble';
-import { createBubbleMaterial } from '@/utils/bubbleUtils';
 import { Mesh, Group } from 'three';
 // Import the animated components from react-spring/three
 import { animated } from '@react-spring/three';
@@ -17,8 +15,8 @@ interface BubbleCard3DProps {
 }
 
 const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DProps) => {
-  const meshRef = useRef<Mesh>(null);
-  const textRef = useRef<Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const textRef = useRef<THREE.Group>(null);
   const distance = index - currentIndex;
   
   // Calculate position based on current index
@@ -50,7 +48,8 @@ const BubbleCard3D = ({ bubble, isActive, index, currentIndex }: BubbleCard3DPro
     return () => cancelAnimationFrame(animationId);
   }, [isActive]);
 
-  // Using the JSX.IntrinsicElements approach for typings
+  // Create an AnimatedMesh component
+  // Use 'any' to bypass TypeScript errors with @react-spring/three typings
   const AnimatedMesh = animated('mesh') as unknown as React.FC<any>;
 
   return (
