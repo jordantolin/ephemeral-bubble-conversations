@@ -42,6 +42,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     moveThreshold: 5 // Threshold to differentiate between click and drag
   });
 
+  // Create default topics if none provided to prevent loading state
+  const displayTopics = topics.length === 0 ? [
+    {
+      id: "default-1",
+      topic: "Welcome",
+      username: "system",
+      name: "Hello World",
+      size: "lg" as "lg",
+      reflect_count: 10,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: "default-2",
+      topic: "Getting Started",
+      username: "system",
+      name: "Welcome Tour",
+      size: "md" as "md",
+      reflect_count: 5,
+      created_at: new Date().toISOString()
+    }
+  ] : topics;
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -95,7 +117,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     scene.add(centralWorld);
 
     // Create bubbles with orbital movement
-    topics.forEach((topic, index) => {
+    displayTopics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
       const baseSize = topic.size === 'lg' ? 0.8 : 
@@ -168,7 +190,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       ));
 
       // Set initial position
-      const position = calculateOrbitPosition(index, topics.length, 0);
+      const position = calculateOrbitPosition(index, displayTopics.length, 0);
       bubbleGroup.position.set(position.x, position.y, position.z);
       
       bubblesRef.current[topic.id] = bubbleGroup;
@@ -589,7 +611,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
       renderer.dispose();
     };
-  }, [topics, onBubbleClick]);
+  }, [onBubbleClick]);
 
   return (
     <div 
