@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -24,7 +24,6 @@ const Feed = () => {
   const { toast } = useToast();
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch trending bubbles
   const { data: bubbles = [], isLoading: isLoadingBubbles } = useQuery({
@@ -59,32 +58,9 @@ const Feed = () => {
     // Navigate to detailed view or open dialog
     navigate(`/feed?bubbleId=${id}`);
   };
-  
-  const getAvatarFallback = () => {
-    if (profile?.display_name) {
-      const nameParts = profile.display_name.split(" ");
-      if (nameParts.length >= 2) {
-        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
-      }
-      return profile.display_name.substring(0, 2).toUpperCase();
-    }
-    
-    if (user?.email) {
-      return user.email.substring(0, 2).toUpperCase();
-    }
-
-    return "BT";
-  };
-
-  useEffect(() => {
-    // Set loading to false when bubbles are loaded
-    if (!isLoadingBubbles) {
-      setIsLoading(false);
-    }
-  }, [isLoadingBubbles]);
 
   return (
-    <div className="h-screen w-full overflow-hidden relative bg-gradient-to-b from-[#1a1a1a] to-[#121212]">
+    <div className="min-h-screen w-full bg-gradient-to-b from-[#1a1a1a] to-[#121212]">
       {/* Navigation */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-md border-b border-white/10">
         <div className="container mx-auto">
@@ -154,32 +130,35 @@ const Feed = () => {
       </div>
 
       {/* Main Feed Area */}
-      {isLoadingBubbles ? (
-        <div className="h-screen w-full flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-white/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
-          <p className="text-white mt-4">Loading bubble feed...</p>
-        </div>
-      ) : bubbles.length === 0 ? (
-        <div className="h-screen w-full flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4">
-            <Sparkles className="w-10 h-10 text-[#ebbd34]" />
+      <div className="pt-16">
+        {isLoadingBubbles ? (
+          <div className="h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center">
+            <div className="w-12 h-12 border-4 border-white/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
+            <p className="text-white mt-4">Loading bubble feed...</p>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">No bubbles found</h2>
-          <p className="text-white/70 mb-6">Be the first to create a bubble and start a conversation!</p>
-          <Button 
-            onClick={() => navigate('/')}
-            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-          >
-            Explore Bubble World
-          </Button>
-        </div>
-      ) : (
-        // 3D Feed Container
-        <Feed3DContainer 
-          bubbles={bubbles} 
-          onBubbleClick={handleBubbleClick} 
-        />
-      )}
+        ) : bubbles.length === 0 ? (
+          <div className="h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4">
+              <Sparkles className="w-10 h-10 text-[#ebbd34]" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">No bubbles found</h2>
+            <p className="text-white/70 mb-6">Be the first to create a bubble and start a conversation!</p>
+            <Button 
+              onClick={() => navigate('/')}
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+            >
+              Explore Bubble World
+            </Button>
+          </div>
+        ) : (
+          <div className="h-[calc(100vh-64px)]">
+            <Feed3DContainer 
+              bubbles={bubbles} 
+              onBubbleClick={handleBubbleClick} 
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
