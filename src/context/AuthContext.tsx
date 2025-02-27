@@ -45,13 +45,12 @@ export function useAuth(): AuthContextType {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with isLoading false to prevent initial loading screen
   const navigate = useNavigate();
 
   // Fetch profile data
   const fetchProfile = async (userId: string) => {
     try {
-      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -65,11 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!data) {
         console.log('No profile found for user:', userId);
-        return null;
+        // Return a default profile if none exists
+        return {
+          id: userId,
+          username: user?.email?.split('@')[0] || '',
+          display_name: user?.email?.split('@')[0] || '',
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as Profile;
       }
 
-      console.log('Profile data received:', data);
-      
       // Type the raw data and ensure updated_at is present
       const rawData = data as RawProfileData;
       const profileWithUpdatedAt: Profile = {
@@ -84,72 +89,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return profileWithUpdatedAt;
     } catch (error) {
       console.error('Error fetching profile:', error);
-      return null;
+      // Return a default profile on error
+      return {
+        id: userId,
+        username: user?.email?.split('@')[0] || '',
+        display_name: user?.email?.split('@')[0] || '',
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as Profile;
     }
   };
 
   // Initialize auth state
   useEffect(() => {
-    console.log('AuthProvider initializing...');
     let mounted = true;
     
-    async function getInitialSession() {
+    const initAuth = async () => {
       try {
-        console.log('Getting initial session...');
+        // Get the initial session
         const { data } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
-        if (data.session) {
-          console.log('Valid session found, setting user');
-          setUser(data.session.user);
-          
-          if (data.session.user.id) {
-            const profileData = await fetchProfile(data.session.user.id);
-            if (mounted && profileData) {
-              setProfile(profileData);
-            }
+        const currentUser = data.session?.user || null;
+        setUser(currentUser);
+        
+        if (currentUser?.id) {
+          const profileData = await fetchProfile(currentUser.id);
+          if (mounted && profileData) {
+            setProfile(profileData);
           }
-        } else {
-          console.log('No valid session found');
-          setUser(null);
-          setProfile(null);
         }
       } catch (error) {
-        console.error('Error getting session:', error);
+        console.error('Error initializing auth:', error);
       } finally {
         if (mounted) {
-          console.log('Setting isLoading to false');
           setIsLoading(false);
         }
       }
-    }
+    };
     
-    getInitialSession();
+    // Run auth initialization
+    initAuth();
 
-    // Listen for auth changes
+    // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
-        
         if (!mounted) return;
         
-        if (session?.user) {
-          setUser(session.user);
-          
+        const currentUser = session?.user || null;
+        setUser(currentUser);
+        
+        if (currentUser?.id) {
           if (event === 'SIGNED_IN') {
-            console.log('User signed in, fetching profile');
-            const profileData = await fetchProfile(session.user.id);
+            const profileData = await fetchProfile(currentUser.id);
             if (mounted && profileData) {
               setProfile(profileData);
             }
           }
         } else {
-          setUser(null);
           setProfile(null);
-          
           if (event === 'SIGNED_OUT') {
-            console.log('User signed out');
             navigate('/auth');
           }
         }
@@ -159,17 +160,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => {
-      console.log('Cleaning up AuthProvider...');
       mounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, user?.email]);
 
-  // Set up real-time subscription for profile updates when user changes
+  // Set up real-time subscription for profile updates
   useEffect(() => {
     if (!user?.id) return;
     
-    console.log('Setting up real-time profile subscription for user:', user.id);
     const profileChannel = supabase
       .channel('profile-changes')
       .on(
@@ -181,9 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           filter: `id=eq.${user.id}`
         },
         async (payload) => {
-          console.log('Real-time profile update received:', payload);
           if (payload.new) {
-            // Type the raw data from real-time updates
             const rawData = payload.new as RawProfileData;
             const updatedProfile: Profile = {
               id: rawData.id,
