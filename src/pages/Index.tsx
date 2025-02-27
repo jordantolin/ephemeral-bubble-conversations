@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -26,11 +27,29 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+const availableTopics = [
+  "Art & Design",
+  "Books & Writing",
+  "Business",
+  "Education",
+  "Entertainment",
+  "Food & Cooking",
+  "Gaming",
+  "Health & Fitness",
+  "Music",
+  "Nature & Environment",
+  "Science & Tech",
+  "Social & Community",
+  "Sports",
+  "Travel & Adventure",
+  "World Culture"
+];
+
 const Index = () => {
   const [isCreateBubbleOpen, setIsCreateBubbleOpen] = useState(false);
   const [bubbleName, setBubbleName] = useState("");
   const [bubbleDescription, setBubbleDescription] = useState("");
-  const [bubbleCategory, setBubbleCategory] = useState("General");
+  const [bubbleTopic, setBubbleTopic] = useState("General");
   const [messageText, setMessageText] = useState("");
   const [isMessageOptionsOpen, setIsMessageOptionsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,7 +63,7 @@ const Index = () => {
   const [isEditBubbleOpen, setIsEditBubbleOpen] = useState(false);
   const [editedBubbleName, setEditedBubbleName] = useState("");
   const [editedBubbleDescription, setEditedBubbleDescription] = useState("");
-  const [editedBubbleCategory, setEditedBubbleCategory] = useState("General");
+  const [editedBubbleTopic, setEditedBubbleTopic] = useState("General");
   const [isDeleteBubbleOpen, setIsDeleteBubbleOpen] = useState(false);
   const location = useLocation();
   const { toast } = useToast();
@@ -112,7 +131,13 @@ const Index = () => {
     try {
       const { data, error } = await supabase
         .from('bubbles')
-        .insert([{ name: bubbleName, description: bubbleDescription, category: bubbleCategory }])
+        .insert([{ 
+          name: bubbleName, 
+          description: bubbleDescription, 
+          topic: bubbleTopic,
+          size: "sm",
+          username: "@user" 
+        }])
         .select();
 
       if (error) {
@@ -134,7 +159,7 @@ const Index = () => {
       setIsCreateBubbleOpen(false);
       setBubbleName("");
       setBubbleDescription("");
-      setBubbleCategory("General");
+      setBubbleTopic("General");
     } catch (error) {
       console.error("Unexpected error creating bubble:", error);
       toast({
@@ -201,7 +226,7 @@ const Index = () => {
     setSelectedBubble(bubble);
     setEditedBubbleName(bubble.name);
     setEditedBubbleDescription(bubble.description);
-    setEditedBubbleCategory(bubble.category);
+    setEditedBubbleTopic(bubble.topic);
     setIsEditBubbleOpen(true);
   };
 
@@ -221,7 +246,7 @@ const Index = () => {
         .update({
           name: editedBubbleName,
           description: editedBubbleDescription,
-          category: editedBubbleCategory,
+          topic: editedBubbleTopic,
         })
         .eq('id', selectedBubble.id)
         .select();
@@ -391,7 +416,7 @@ const Index = () => {
                   <p className="text-gray-600 mt-2">{bubble.description}</p>
                   <div className="mt-4">
                     <span className="inline-block bg-[#ebbd34]/10 rounded-full px-3 py-1 text-sm font-semibold text-[#ebbd34] mr-2 mb-2">
-                      {bubble.category}
+                      {bubble.topic}
                     </span>
                   </div>
                 </div>
@@ -424,12 +449,12 @@ const Index = () => {
               <Textarea id="description" value={bubbleDescription} onChange={(e) => setBubbleDescription(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="category" className="text-right">
-                Category
+              <Label htmlFor="topic" className="text-right">
+                Topic
               </Label>
-              <Select value={bubbleCategory} onValueChange={setBubbleCategory}>
+              <Select value={bubbleTopic} onValueChange={setBubbleTopic}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="General">General</SelectItem>
@@ -473,12 +498,12 @@ const Index = () => {
               <Textarea id="edit-description" value={editedBubbleDescription} onChange={(e) => setEditedBubbleDescription(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-category" className="text-right">
-                Category
+              <Label htmlFor="edit-topic" className="text-right">
+                Topic
               </Label>
-              <Select value={editedBubbleCategory} onValueChange={setEditedBubbleCategory}>
+              <Select value={editedBubbleTopic} onValueChange={setEditedBubbleTopic}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="General">General</SelectItem>
