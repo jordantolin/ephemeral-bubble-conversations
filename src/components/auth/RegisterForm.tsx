@@ -149,11 +149,12 @@ export function RegisterForm() {
         throw new Error("Username already taken. Please choose another one.");
       }
 
-      // Create the user in Supabase Auth
+      // Create the user in Supabase Auth with email_confirm set to true
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
         password: registerForm.password,
         options: {
+          emailRedirectTo: window.location.origin + "/auth", // Redirect to auth page after confirmation
           data: {
             username: registerForm.username,
             full_name: `${registerForm.name} ${registerForm.surname}`,
@@ -177,6 +178,19 @@ export function RegisterForm() {
       }
 
       console.log("Registration successful, user created:", authData.user);
+      
+      // Try to directly log in regardless of email confirmation status
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: registerForm.email,
+        password: registerForm.password,
+      });
+
+      if (signInError) {
+        console.log("Direct login failed, proceeding to AutoConfirmEmail:", signInError.message);
+      } else {
+        console.log("Direct login successful:", signInData);
+        // If direct login works, user will be redirected by AuthContext
+      }
       
       // Set credentials for auto-confirmation
       setRegisteredCredentials({

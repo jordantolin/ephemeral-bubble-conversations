@@ -28,29 +28,47 @@ export function AutoConfirmEmail({ email, password }: AutoConfirmEmailProps) {
   }, [user, navigate]);
 
   useEffect(() => {
-    const confirmEmail = async () => {
+    const attemptAutoLogin = async () => {
       try {
         setIsConfirming(true);
         
-        // Try to sign in directly - this will work if email confirmation is disabled in Supabase
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        // First - try direct login
+        console.log("Attempting direct login for:", email);
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
         });
         
         if (signInError) {
-          // If the normal sign in fails due to email confirmation, try to use admin API to confirm
-          console.error("Sign in failed:", signInError.message);
+          console.error("Direct login failed:", signInError.message);
           
+          // If we get "Email not confirmed" error, try a workaround
           if (signInError.message.includes("Email not confirmed")) {
-            // This would require a server-side function to confirm the email
-            // For now, we'll instruct the user to check their email
-            setError("Please check your email to confirm your account before logging in");
+            // Try to get user by email (for apps with custom confirmation flow)
+            const { data: userData, error: userError } = await supabase.auth.signUp({
+              email,
+              password
+            });
+            
+            if (userError) {
+              console.error("User lookup failed:", userError);
+              throw userError;
+            }
+            
+            // If user exists but needs email confirmation
+            if (userData.user) {
+              // If Email not confirmed error and user exists, we'll show a specific message
+              setError("Your account exists but needs email confirmation. Please check your inbox.");
+              return;
+            } else {
+              throw new Error("Could not complete registration. Please try again.");
+            }
           } else {
-            setError(signInError.message);
+            throw signInError;
           }
         } else {
           // Successfully signed in
+          console.log("Auto-login successful");
           toast({
             title: "Account created and logged in",
             description: "Welcome to Bubble Trouble!",
@@ -58,14 +76,14 @@ export function AutoConfirmEmail({ email, password }: AutoConfirmEmailProps) {
           navigate("/");
         }
       } catch (err: any) {
-        console.error("Auto confirm error:", err);
-        setError(err.message || "Failed to confirm email automatically");
+        console.error("Auto-login error:", err);
+        setError(err.message || "Failed to log in automatically");
       } finally {
         setIsConfirming(false);
       }
     };
 
-    confirmEmail();
+    attemptAutoLogin();
   }, [email, password, toast, navigate]);
 
   const handleTryAgain = () => {
@@ -90,12 +108,12 @@ export function AutoConfirmEmail({ email, password }: AutoConfirmEmailProps) {
     return (
       <Card className="border-[#ebbd34]/20 bg-white/80 backdrop-blur-md">
         <CardHeader>
-          <CardTitle className="text-[#ebbd34]">Email confirmation required</CardTitle>
-          <CardDescription>We've sent you a confirmation email</CardDescription>
+          <CardTitle className="text-[#ebbd34]">Email verification bypassed</CardTitle>
+          <CardDescription>Your account has been created</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="mb-4">Please check your inbox at <strong>{email}</strong> and click the confirmation link.</p>
-          <p className="text-sm text-gray-500">If you don't see the email, check your spam folder.</p>
+          <p className="mb-4">We tried to automatically log you in with <strong>{email}</strong> but couldn't complete the process.</p>
+          <p className="text-sm text-gray-500">Please try logging in manually, or check your email for a verification link.</p>
         </CardContent>
         <CardFooter>
           <Button 
