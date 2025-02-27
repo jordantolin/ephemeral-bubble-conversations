@@ -2,8 +2,7 @@
 import * as THREE from 'three';
 import { BubbleData } from '@/types/bubble';
 
-// Changed to a brighter yellow color for better visibility
-const BUBBLE_COLOR = 0xFFC20A; 
+const BUBBLE_COLOR = 0xFFD700; // Bright yellow color
 
 export const createBubbleGeometry = (size: number) => {
   return new THREE.SphereGeometry(size, 32, 32);
@@ -13,15 +12,13 @@ export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     color: BUBBLE_COLOR,
     transparent: true,
-    opacity: 0.9, // Increased opacity for better visibility
-    metalness: 0.4, // Increased metalness for more shine
+    opacity: 0.8, // Slightly more transparent to better see text inside
+    metalness: 0.3, // Increased metalness for more shine
     roughness: 0.1, // Reduced roughness for more shine
-    transmission: 0.1, // Reduced transmission for better visibility
-    thickness: 1.0, // Increased thickness
+    transmission: 0.2, // Increased transmission for better text visibility
+    thickness: 0.8, // Adjusted thickness
     clearcoat: 1.0,
-    clearcoatRoughness: 0.1,
-    emissive: new THREE.Color(0x665500), // Adding slight emission for better visibility
-    emissiveIntensity: 0.2
+    clearcoatRoughness: 0.1
   });
 };
 
