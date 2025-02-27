@@ -27,15 +27,18 @@ export const createCentralWorldGeometry = () => {
 };
 
 export const createCentralWorldMaterial = () => {
-  // Create a smooth grey material instead of the Earth texture
+  // Create a smooth grey material that's slightly transparent
   return new THREE.MeshPhysicalMaterial({
     color: 0x8E9196, // Neutral grey color
+    transparent: true, // Enable transparency
+    opacity: 0.7, // Make it partially transparent
     metalness: 0.2,
     roughness: 0.3,
     clearcoat: 0.5,
     clearcoatRoughness: 0.2,
     reflectivity: 0.5,
-    envMapIntensity: 0.8
+    envMapIntensity: 0.8,
+    transmission: 0.1 // Add slight transmission for see-through effect
   });
 };
 
