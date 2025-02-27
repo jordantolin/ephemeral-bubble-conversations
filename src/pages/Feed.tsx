@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, User, TrendingUp, Sparkles, ArrowUp, MessageCircle, Heart } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, ArrowUp, MessageCircle, Heart, Star } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import * as THREE from 'three';
