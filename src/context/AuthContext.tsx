@@ -56,10 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
+        return null;
+      }
+
+      if (!data) {
+        console.log('No profile found for user:', userId);
         return null;
       }
 
@@ -69,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const rawData = data as RawProfileData;
       const profileWithUpdatedAt: Profile = {
         id: rawData.id,
-        username: rawData.username,
-        display_name: rawData.display_name,
+        username: rawData.username || '',
+        display_name: rawData.display_name || '',
         avatar_url: rawData.avatar_url,
         created_at: rawData.created_at,
         updated_at: rawData.updated_at || rawData.created_at // Fallback to created_at if updated_at is missing
@@ -88,112 +93,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('AuthProvider initializing...');
     let mounted = true;
     
-    const initializeAuth = async () => {
+    async function getInitialSession() {
       try {
         console.log('Getting initial session...');
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
-        console.log('Session received:', session ? 'Valid session' : 'No session');
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          console.log('Fetching profile for user:', session.user.id);
-          const profileData = await fetchProfile(session.user.id);
-          if (mounted && profileData) {
-            console.log('Setting profile data');
-            setProfile(profileData);
+        if (data.session) {
+          console.log('Valid session found, setting user');
+          setUser(data.session.user);
+          
+          if (data.session.user.id) {
+            const profileData = await fetchProfile(data.session.user.id);
+            if (mounted && profileData) {
+              setProfile(profileData);
+            }
           }
+        } else {
+          console.log('No valid session found');
+          setUser(null);
+          setProfile(null);
         }
-        
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
         if (mounted) {
           console.log('Setting isLoading to false');
           setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
       }
-    };
+    }
     
-    initializeAuth();
+    getInitialSession();
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      
-      if (!mounted) return;
-      
-      setUser(session?.user ?? null);
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('User signed in, fetching profile');
-        const profileData = await fetchProfile(session.user.id);
-        if (mounted && profileData) {
-          setProfile(profileData);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
-        setProfile(null);
-        if (mounted) {
-          navigate('/auth');
-        }
-      }
-      
-      if (mounted) {
-        setIsLoading(false);
-      }
-    });
-
-    // Set up real-time subscription for profile updates only if we have a user
-    let profileSubscription: any = null;
-    
-    if (user?.id) {
-      console.log('Setting up real-time profile subscription for user:', user.id);
-      profileSubscription = supabase
-        .channel('profile-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'profiles',
-            filter: `id=eq.${user.id}`
-          },
-          async (payload) => {
-            console.log('Real-time profile update received:', payload);
-            if (mounted && payload.new) {
-              // Type the raw data from real-time updates
-              const rawData = payload.new as RawProfileData;
-              const updatedProfile: Profile = {
-                id: rawData.id,
-                username: rawData.username,
-                display_name: rawData.display_name,
-                avatar_url: rawData.avatar_url,
-                created_at: rawData.created_at,
-                updated_at: rawData.updated_at || rawData.created_at
-              };
-              setProfile(updatedProfile);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event);
+        
+        if (!mounted) return;
+        
+        if (session?.user) {
+          setUser(session.user);
+          
+          if (event === 'SIGNED_IN') {
+            console.log('User signed in, fetching profile');
+            const profileData = await fetchProfile(session.user.id);
+            if (mounted && profileData) {
+              setProfile(profileData);
             }
           }
-        )
-        .subscribe();
-    }
+        } else {
+          setUser(null);
+          setProfile(null);
+          
+          if (event === 'SIGNED_OUT') {
+            console.log('User signed out');
+            navigate('/auth');
+          }
+        }
+        
+        setIsLoading(false);
+      }
+    );
 
     return () => {
       console.log('Cleaning up AuthProvider...');
       mounted = false;
-      subscription.unsubscribe();
-      if (profileSubscription) {
-        profileSubscription.unsubscribe();
-      }
+      authListener.subscription.unsubscribe();
     };
-  }, [navigate, user?.id]);
+  }, [navigate]);
+
+  // Set up real-time subscription for profile updates when user changes
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    console.log('Setting up real-time profile subscription for user:', user.id);
+    const profileChannel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
+        async (payload) => {
+          console.log('Real-time profile update received:', payload);
+          if (payload.new) {
+            // Type the raw data from real-time updates
+            const rawData = payload.new as RawProfileData;
+            const updatedProfile: Profile = {
+              id: rawData.id,
+              username: rawData.username || '',
+              display_name: rawData.display_name || '',
+              avatar_url: rawData.avatar_url,
+              created_at: rawData.created_at,
+              updated_at: rawData.updated_at || rawData.created_at
+            };
+            setProfile(updatedProfile);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      profileChannel.unsubscribe();
+    };
+  }, [user?.id]);
 
   const signIn = async (email: string): Promise<void> => {
     try {
