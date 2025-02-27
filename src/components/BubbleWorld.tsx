@@ -139,9 +139,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         clientX = event.clientX;
         clientY = event.clientY;
       } else {
-        // TouchEvent
-        clientX = event.changedTouches[0].clientX;
-        clientY = event.clientY;
+        // TouchEvent - correctly access coordinates from changedTouches
+        const touch = event.changedTouches[0];
+        clientX = touch.clientX;
+        clientY = touch.clientY;
       }
 
       const x = (clientX - rect.left) / rect.width * 2 - 1;
@@ -168,7 +169,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const zoom = interactionRef.current.zoom;
-      const delta = e.deltaY * 0.005; // Reduced sensitivity for smoother zoom
+      const delta = e.deltaY * 0.005;
       zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
     };
 
@@ -182,7 +183,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const moveInteraction = (clientX: number, clientY: number) => {
       if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
-      const deltaX = (clientX - interactionRef.current.lastX) * 0.01; // Increased sensitivity
+      const deltaX = (clientX - interactionRef.current.lastX) * 0.01;
       const deltaY = (clientY - interactionRef.current.lastY) * 0.01;
 
       centralWorldRef.current.rotation.y += deltaX;
@@ -195,7 +196,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       );
 
       interactionRef.current.momentum = {
-        x: deltaX * 0.8, // Increased momentum
+        x: deltaX * 0.8,
         y: deltaY * 0.8
       };
 
@@ -210,10 +211,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       interactionRef.current.isInteracting = false;
 
       // Handle click only if it wasn't a drag
-      if (event && Math.abs(event instanceof MouseEvent ? 
-          event.clientX - interactionRef.current.lastX : 
-          event.changedTouches[0].clientX - interactionRef.current.lastX) < 5) {
-        handleBubbleClick(event);
+      if (event) {
+        const currentX = event instanceof MouseEvent ? 
+          event.clientX : 
+          event.changedTouches[0].clientX;
+        
+        if (Math.abs(currentX - interactionRef.current.lastX) < 5) {
+          handleBubbleClick(event);
+        }
       }
 
       // Apply momentum with improved physics
@@ -257,14 +262,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
         e.preventDefault();
-        startInteraction(e.touches[0].clientX, e.touches[0].clientY);
+        const touch = e.touches[0];
+        startInteraction(touch.clientX, touch.clientY);
       }
     }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
       if (e.touches.length === 1) {
         e.preventDefault();
-        moveInteraction(e.touches[0].clientX, e.touches[0].clientY);
+        const touch = e.touches[0];
+        moveInteraction(touch.clientX, touch.clientY);
       }
     }, { passive: false });
 
