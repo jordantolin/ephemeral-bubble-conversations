@@ -93,7 +93,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
-    // Create bubbles with orbital movement
+    // Create bubbles with orbital movement and random starting positions
     topics.forEach((topic, index) => {
       const bubbleGroup = new THREE.Group();
       
@@ -117,6 +117,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           nameScale: finalSize * 1.4,
           topicScale: finalSize * 1.2,
           reflectScale: finalSize
+        },
+        // Add random movement properties for floating effect
+        movement: {
+          speed: 0.2 + Math.random() * 0.3,  // Random speed between 0.2 and 0.5
+          amplitude: 0.1 + Math.random() * 0.2,  // Random amplitude between 0.1 and 0.3
+          phaseX: Math.random() * Math.PI * 2,  // Random starting phase
+          phaseY: Math.random() * Math.PI * 2,
+          phaseZ: Math.random() * Math.PI * 2,
+          frequency: 0.5 + Math.random() * 0.5  // Random frequency between 0.5 and 1
         }
       };
 
@@ -166,8 +175,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         isMobile ? 22 : 26
       ));
 
-      // Set initial position
-      const position = calculateOrbitPosition(index, topics.length, 0);
+      // Set initial position with some randomization
+      const position = calculateOrbitPosition(index, topics.length, Math.random() * Math.PI * 2);
       bubbleGroup.position.set(position.x, position.y, position.z);
       
       bubblesRef.current[topic.id] = bubbleGroup;
@@ -446,7 +455,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Update bubbles position and scale based on zoom
       Object.values(bubblesRef.current).forEach(bubble => {
         const index = bubble.userData.orbitIndex;
+        const movement = bubble.userData.movement;
+        
+        // Calculate base orbit position
         const pos = calculateOrbitPosition(index, Object.keys(bubblesRef.current).length, time);
+        
+        // Add random floating movement
+        const floatX = Math.sin(time * movement.frequency + movement.phaseX) * movement.amplitude;
+        const floatY = Math.cos(time * movement.frequency + movement.phaseY) * movement.amplitude;
+        const floatZ = Math.sin(time * movement.frequency + movement.phaseZ) * movement.amplitude;
+        
+        pos.x += floatX;
+        pos.y += floatY;
+        pos.z += floatZ;
         
         const rotationOffset = new THREE.Euler(
           centralWorld.rotation.x,
@@ -456,7 +477,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const rotatedPosition = new THREE.Vector3(pos.x, pos.y, pos.z)
           .applyEuler(rotationOffset);
         
-        bubble.position.copy(rotatedPosition);
+        // Apply smooth movement using TWEEN
+        new TWEEN.Tween(bubble.position)
+          .to(rotatedPosition, 1000) // Smooth transition over 1 second
+          .easing(TWEEN.Easing.Quadratic.InOut)
+          .start();
         
         // Face bubbles toward camera
         bubble.quaternion.copy(camera.quaternion);

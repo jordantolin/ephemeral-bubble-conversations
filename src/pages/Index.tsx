@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BubbleData } from "@/types/bubble";
 
 const availableTopics = [
   "Art & Design",
@@ -86,6 +87,18 @@ const Index = () => {
 
       return data;
     },
+  });
+
+  // Filter bubbles based on search query
+  const filteredBubbles = bubbles.filter((bubble: BubbleData) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    return (
+      bubble.name.toLowerCase().includes(query) ||
+      bubble.description?.toLowerCase().includes(query) ||
+      bubble.topic.toLowerCase().includes(query)
+    );
   });
 
   useEffect(() => {
@@ -168,6 +181,10 @@ const Index = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value);
   };
 
   const handleSendMessage = () => {
@@ -351,7 +368,7 @@ const Index = () => {
                   type="search"
                   placeholder="Search in the bubbles world..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearch}
                   className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
                 />
               </div>
@@ -388,7 +405,7 @@ const Index = () => {
               type="search"
               placeholder="Search bubbles..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearch}
               className="w-full pl-8 pr-3 py-1.5 text-sm rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
             />
           </div>
@@ -400,6 +417,11 @@ const Index = () => {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl sm:text-3xl font-semibold text-[#ebbd34]">
             Explore Bubbles
+            {searchQuery && (
+              <span className="ml-2 text-lg text-[#ebbd34]/70">
+                Showing results for "{searchQuery}"
+              </span>
+            )}
           </h1>
           <Button onClick={() => setIsCreateBubbleOpen(true)} className="bg-[#ebbd34] text-white hover:bg-[#ca9627] shadow-sm">
             <Plus className="w-4 h-4 mr-2" />
@@ -417,9 +439,13 @@ const Index = () => {
             <div className="w-full h-full flex items-center justify-center bg-[#ebbd34]/5">
               <div className="text-red-500 font-semibold">Error loading bubbles. Please try again.</div>
             </div>
+          ) : filteredBubbles.length === 0 ? (
+            <div className="w-full h-full flex items-center justify-center bg-[#ebbd34]/5">
+              <div className="text-[#ebbd34] font-semibold">No bubbles found matching your search.</div>
+            </div>
           ) : (
             <BubbleWorld 
-              topics={bubbles} 
+              topics={filteredBubbles} 
               onBubbleClick={handleBubbleClick} 
             />
           )}
@@ -427,7 +453,7 @@ const Index = () => {
 
         {/* Bubbles Grid List */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {!isLoading && !isError && bubbles && bubbles.map((bubble) => (
+          {!isLoading && !isError && filteredBubbles.map((bubble) => (
             <div key={bubble.id} className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="p-4">
                 <div className="flex items-center justify-between">
