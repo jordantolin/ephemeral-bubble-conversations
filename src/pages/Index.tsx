@@ -90,6 +90,7 @@ const Index = () => {
   const searchParams = new URLSearchParams(location.search);
   const bubbleToOpen = searchParams.get('bubble');
   const [explodingBubbleId, setExplodingBubbleId] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   
   // Create rate limiters and retry handlers
   const messageLimiter = useRef(createRateLimiter(5, 5000));
@@ -98,6 +99,7 @@ const Index = () => {
   // Track channel subscriptions for cleanup
   const activeChannels = useRef<string[]>([]);
 
+  // Check URL params for bubble to open
   useEffect(() => {
     if (bubbleToOpen) {
       setSelectedBubbleId(bubbleToOpen);
@@ -114,6 +116,45 @@ const Index = () => {
       localStorage.removeItem('openBubbleId');
     }
   }, []);
+
+  // Handle online/offline status for better user experience
+  useEffect(() => {
+    const handleOnline = () => {
+      // Refresh data when coming back online
+      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+      if (selectedBubbleId) {
+        queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
+        queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+      }
+      
+      // Show toast notification
+      toast({
+        title: "You're back online!",
+        description: "Reconnected to Bubble Trouble",
+        variant: "default"
+      });
+      
+      setIsReconnecting(false);
+    };
+    
+    const handleOffline = () => {
+      toast({
+        title: "You're offline",
+        description: "Waiting for connection to resume",
+        variant: "destructive"
+      });
+      
+      setIsReconnecting(true);
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [queryClient, selectedBubbleId, toast]);
 
   // Improved real-time message updates
   useEffect(() => {
@@ -148,8 +189,11 @@ const Index = () => {
         
         // Track this channel for cleanup
         activeChannels.current.push(channelName);
+        setIsReconnecting(false);
       } catch (err) {
         console.error("Error setting up real-time chat subscription:", err);
+        setIsReconnecting(true);
+        
         toast({
           title: "Connection Error",
           description: "Having trouble connecting to chat. Will retry automatically.",
@@ -212,8 +256,11 @@ const Index = () => {
         
         // Track this channel for cleanup
         activeChannels.current.push(channelName);
+        setIsReconnecting(false);
       } catch (err) {
         console.error("Error setting up bubble updates subscription:", err);
+        setIsReconnecting(true);
+        
         toast({
           title: "Connection Warning",
           description: "Live updates connection lost. Reconnecting...",
@@ -235,68 +282,93 @@ const Index = () => {
   }, [queryClient, selectedBubbleId, toast]);
 
   // Function to check if a bubble is expired (more than 24 hours old)
-  const isBubbleExpired = (bubble: Bubble) => {
-    const expiryTime = new Date(bubble.expires_at);
-    const now = new Date();
-    return expiryTime < now;
-  };
+  const isBubbleExpired = useCallback((bubble: Bubble) => {
+    if (!bubble || !bubble.expires_at) return true;
+    
+    try {
+      const expiryTime = new Date(bubble.expires_at);
+      const now = new Date();
+      return expiryTime < now;
+    } catch (error) {
+      console.error("Error checking bubble expiry:", error);
+      return true; // Consider expired on error to prevent issues
+    }
+  }, []);
 
   // Fetch all bubbles with optimized caching
-  const { data: allBubbles = [], isLoading: isLoadingBubbles } = useQuery({
+  const { data: allBubbles = [], isLoading: isLoadingBubbles, error: bubblesError } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
-      // Get the current time minus 24 hours
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-      
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .gte('expires_at', twentyFourHoursAgo.toISOString()) // Only fetch non-expired bubbles
-        .order('created_at', { ascending: false });
-      
-      if (error) {
+      try {
+        // Get the current time minus 24 hours
+        const twentyFourHoursAgo = new Date();
+        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+        
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .gte('expires_at', twentyFourHoursAgo.toISOString()) // Only fetch non-expired bubbles
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (!data || !Array.isArray(data)) {
+          console.warn("Unexpected data format from bubbles query:", data);
+          return [];
+        }
+        
+        // Ensure size is a valid type
+        return data.map(bubble => ({
+          ...bubble,
+          size: validateBubbleSize(bubble.size)
+        }));
+      } catch (error) {
         console.error("Error fetching bubbles:", error);
         toast({
           title: "Error fetching bubbles",
-          description: error.message,
+          description: "Please check your connection and try again",
           variant: "destructive"
         });
         return [];
       }
-      
-      // Ensure size is a valid type
-      return data.map(bubble => ({
-        ...bubble,
-        size: validateBubbleSize(bubble.size)
-      }));
     },
     staleTime: 10000, // Cache data for 10 seconds
-    refetchInterval: 30000 // Periodically refresh every 30 seconds
+    refetchInterval: 30000, // Periodically refresh every 30 seconds
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   // Filter out expired bubbles
   const bubbles = useMemo(() => {
+    if (!allBubbles || !Array.isArray(allBubbles)) return [];
     return allBubbles.filter(bubble => !isBubbleExpired(bubble));
-  }, [allBubbles]);
+  }, [allBubbles, isBubbleExpired]);
 
   // Handle bubble explosion animation and removal
   useEffect(() => {
     const checkForExpiringBubbles = () => {
       bubbles.forEach(bubble => {
-        const expiryTime = new Date(bubble.expires_at);
-        const now = new Date();
-        const timeLeft = expiryTime.getTime() - now.getTime();
+        if (!bubble || !bubble.expires_at) return;
         
-        // If bubble is about to expire in the next minute, trigger animation
-        if (timeLeft > 0 && timeLeft < 60000 && explodingBubbleId !== bubble.id) {
-          setExplodingBubbleId(bubble.id);
+        try {
+          const expiryTime = new Date(bubble.expires_at);
+          const now = new Date();
+          const timeLeft = expiryTime.getTime() - now.getTime();
           
-          // After 5 seconds, refresh the bubble list to remove the exploded bubble
-          setTimeout(() => {
-            setExplodingBubbleId(null);
-            queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-          }, 5000);
+          // If bubble is about to expire in the next minute, trigger animation
+          if (timeLeft > 0 && timeLeft < 60000 && explodingBubbleId !== bubble.id) {
+            setExplodingBubbleId(bubble.id);
+            
+            // After 5 seconds, refresh the bubble list to remove the exploded bubble
+            setTimeout(() => {
+              setExplodingBubbleId(null);
+              queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+            }, 5000);
+          }
+        } catch (error) {
+          console.error("Error calculating bubble expiry:", error);
         }
       });
     };
@@ -308,35 +380,45 @@ const Index = () => {
   }, [bubbles, explodingBubbleId, queryClient]);
 
   // Fetch selected bubble details with optimized caching
-  const { data: selectedBubble, isLoading: isLoadingBubbleDetails } = useQuery({
+  const { data: selectedBubble, isLoading: isLoadingBubbleDetails, error: bubbleDetailsError } = useQuery({
     queryKey: ['bubble', selectedBubbleId],
     queryFn: async () => {
       if (!selectedBubbleId) return null;
       
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .eq('id', selectedBubbleId)
-        .single();
-      
-      if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .eq('id', selectedBubbleId)
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (!data) {
+          return null;
+        }
+        
+        // Ensure size is a valid type
+        return {
+          ...data,
+          size: validateBubbleSize(data.size)
+        };
+      } catch (error) {
         console.error("Error fetching bubble details:", error);
         toast({
           title: "Error fetching bubble details",
-          description: error.message,
+          description: "Please check your connection and try again",
           variant: "destructive"
         });
         return null;
       }
-      
-      // Ensure size is a valid type
-      return {
-        ...data,
-        size: validateBubbleSize(data.size)
-      };
     },
     enabled: !!selectedBubbleId,
-    staleTime: 10000 // Cache data for 10 seconds
+    staleTime: 10000, // Cache data for 10 seconds
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   // Close chat dialog if selected bubble is expired
@@ -349,35 +431,46 @@ const Index = () => {
         variant: "destructive"
       });
     }
-  }, [selectedBubble, chatOpen, toast]);
+  }, [selectedBubble, chatOpen, toast, isBubbleExpired]);
 
   // Fetch messages for selected bubble with optimized pagination
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+  const { data: messages = [], isLoading: isLoadingMessages, error: messagesError } = useQuery({
     queryKey: ['messages', selectedBubbleId],
     queryFn: async () => {
       if (!selectedBubbleId) return [];
       
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .eq('bubble_id', selectedBubbleId)
-        .order('created_at', { ascending: true })
-        .limit(100); // Limit to last 100 messages for performance
-      
-      if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('bubble_messages')
+          .select('*')
+          .eq('bubble_id', selectedBubbleId)
+          .order('created_at', { ascending: true })
+          .limit(100); // Limit to last 100 messages for performance
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (!data || !Array.isArray(data)) {
+          console.warn("Unexpected data format from messages query:", data);
+          return [];
+        }
+        
+        return data;
+      } catch (error) {
         console.error("Error fetching messages:", error);
         toast({
           title: "Error fetching messages",
-          description: error.message,
+          description: "Please check your connection and try again",
           variant: "destructive"
         });
         return [];
       }
-      
-      return data;
     },
-    enabled: !!selectedBubbleId,
-    staleTime: 5000 // Cache data for 5 seconds
+    enabled: !!selectedBubbleId && chatOpen,
+    staleTime: 5000, // Cache data for 5 seconds
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
   // Scroll to bottom when new messages arrive (optimized)
@@ -393,6 +486,7 @@ const Index = () => {
   }, [lastMessageId, chatOpen]);
 
   const filteredBubbles = useMemo(() => {
+    if (!bubbles || !Array.isArray(bubbles)) return [];
     if (!searchQuery.trim()) return bubbles;
     
     const query = searchQuery.toLowerCase();
@@ -483,11 +577,13 @@ const Index = () => {
       // If message wasn't sent, put it back in the input
       if (content) {
         setNewMessage(content);
+      } else {
+        setNewMessage(messageContent);
       }
     } finally {
       setIsSendingMessage(false);
     }
-  }, [user, profile, selectedBubbleId, selectedBubble, newMessage, toast]);
+  }, [user, profile, selectedBubbleId, selectedBubble, newMessage, toast, isBubbleExpired]);
 
   // Optimized bubble reflection with retry logic
   const handleReflect = useCallback(async (bubbleId: string) => {
@@ -503,7 +599,7 @@ const Index = () => {
     // Find the bubble to check if it's expired
     const bubble = bubbles.find(b => b.id === bubbleId);
     
-    if (bubble && isBubbleExpired(bubble)) {
+    if (!bubble || (bubble && isBubbleExpired(bubble))) {
       toast({
         title: "Bubble Expired",
         description: "This bubble has expired and is no longer available for reflection",
@@ -547,7 +643,7 @@ const Index = () => {
         variant: "destructive"
       });
     }
-  }, [user, profile, bubbles, toast]);
+  }, [user, profile, bubbles, toast, isBubbleExpired]);
 
   const handleCreateBubble = async () => {
     if (!user) {
@@ -630,38 +726,50 @@ const Index = () => {
   };
 
   const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true
-    }).format(date);
+    try {
+      const date = new Date(timestamp);
+      return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+      }).format(date);
+    } catch (error) {
+      console.error("Error formatting message time:", error);
+      return "Unknown time";
+    }
   };
 
   const formatExpiry = (expiryDate: string) => {
-    const expiry = new Date(expiryDate);
-    const now = new Date();
-    
-    // Calculate time difference in milliseconds
-    const timeDiff = expiry.getTime() - now.getTime();
-    
-    if (timeDiff <= 0) {
-      return "Expired";
-    }
-    
-    // Format remaining time
-    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m remaining`;
-    } else {
-      return `${minutes}m remaining`;
+    try {
+      const expiry = new Date(expiryDate);
+      const now = new Date();
+      
+      // Calculate time difference in milliseconds
+      const timeDiff = expiry.getTime() - now.getTime();
+      
+      if (timeDiff <= 0) {
+        return "Expired";
+      }
+      
+      // Format remaining time
+      const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m remaining`;
+      } else {
+        return `${minutes}m remaining`;
+      }
+    } catch (error) {
+      console.error("Error formatting expiry time:", error);
+      return "Time unknown";
     }
   };
 
   // Map to BubbleData needed for BubbleWorld component
   const bubbleDataForComponent = useMemo(() => {
+    if (!filteredBubbles || !Array.isArray(filteredBubbles)) return [];
+    
     return filteredBubbles.map((bubble): BubbleData => ({
       id: bubble.id,
       topic: bubble.topic,
@@ -678,17 +786,31 @@ const Index = () => {
 
   // Get user initials for avatar
   const getUserInitials = (displayName?: string | null, email?: string | null) => {
-    if (displayName) {
-      return displayName.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
-    }
-    if (email) {
-      return email.substring(0, 2).toUpperCase();
+    try {
+      if (displayName) {
+        return displayName.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
+      }
+      if (email) {
+        return email.substring(0, 2).toUpperCase();
+      }
+    } catch (error) {
+      console.error("Error generating user initials:", error);
     }
     return 'BT';
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
+      {/* Reconnection indicator */}
+      {isReconnecting && (
+        <div className="fixed top-16 inset-x-0 z-50 flex justify-center">
+          <div className="bg-amber-100 text-amber-800 px-4 py-2 rounded-md shadow-md flex items-center">
+            <div className="w-3 h-3 bg-amber-500 rounded-full animate-pulse mr-2"></div>
+            <span>Reconnecting to Bubble Trouble...</span>
+          </div>
+        </div>
+      )}
+      
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
@@ -829,6 +951,21 @@ const Index = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#ebbd34] mx-auto"></div>
               <p className="mt-4 text-[#ebbd34]">Loading bubbles...</p>
             </div>
+          ) : bubblesError ? (
+            <div className="text-center py-16 px-4">
+              <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100">
+                <X className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-medium text-gray-800">Error Loading Bubbles</h3>
+              <p className="text-gray-500 mt-2 max-w-md mx-auto">There was a problem loading the bubbles. Please try refreshing the page.</p>
+              <Button
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
+                variant="outline"
+                className="mt-4"
+              >
+                Retry
+              </Button>
+            </div>
           ) : filteredBubbles.length === 0 ? (
             <div className="text-center py-16">
               <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
@@ -852,7 +989,7 @@ const Index = () => {
                   // Find bubble to check if it's expired
                   const bubble = bubbles.find(b => b.id === bubbleId);
                   
-                  if (bubble && isBubbleExpired(bubble)) {
+                  if (!bubble || (bubble && isBubbleExpired(bubble))) {
                     toast({
                       title: "Bubble Expired",
                       description: "This bubble has expired and is no longer available",
@@ -887,6 +1024,7 @@ const Index = () => {
                 value={newBubbleInfo.name}
                 onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter bubble name"
+                maxLength={50}
               />
             </div>
             <div className="grid gap-2">
@@ -895,7 +1033,7 @@ const Index = () => {
                 value={newBubbleInfo.topic}
                 onValueChange={(value) => setNewBubbleInfo(prev => ({ ...prev, topic: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="topic">
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
@@ -931,6 +1069,7 @@ const Index = () => {
                 placeholder="Enter a brief description"
                 className="resize-none"
                 rows={3}
+                maxLength={200}
               />
             </div>
             <div className="flex items-center rounded-md bg-[#ebbd34]/10 p-3 mt-2">
@@ -940,12 +1079,17 @@ const Index = () => {
           </div>
           <DialogFooter>
             <Button
-              variant={isCreatingBubble ? "loading" : "default"}
+              variant={isCreatingBubble ? "outline" : "default"}
               onClick={handleCreateBubble}
               disabled={isCreatingBubble || !newBubbleInfo.name.trim()}
               className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
             >
-              {isCreatingBubble ? "Creating..." : "Create 24h Bubble"}
+              {isCreatingBubble ? (
+                <>
+                  <span className="mr-2">Creating...</span>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                </>
+              ) : "Create 24h Bubble"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -996,6 +1140,19 @@ const Index = () => {
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#ebbd34]"></div>
               </div>
+            ) : messagesError ? (
+              <div className="text-center py-8 text-gray-500">
+                <X className="h-8 w-8 mx-auto mb-2 text-red-400" />
+                <p>There was an error loading messages.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] })}
+                  className="mt-2"
+                >
+                  Retry
+                </Button>
+              </div>
             ) : messages.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
@@ -1010,7 +1167,7 @@ const Index = () => {
                     className={`flex ${message.username === (profile?.username || user?.email) ? 'justify-end' : 'justify-start'}`}
                   >
                     <div 
-                      className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                      className={`rounded-lg px-4 py-2 max-w-[80%] break-words ${
                         message.username === (profile?.username || user?.email)
                           ? 'bg-[#ebbd34] text-white'
                           : 'bg-gray-100 text-gray-800'
@@ -1039,6 +1196,7 @@ const Index = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
                 disabled={isSendingMessage}
+                maxLength={500}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -1049,7 +1207,7 @@ const Index = () => {
               <Button 
                 onClick={() => handleSendMessage()} 
                 className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90"
-                disabled={isSendingMessage}
+                disabled={isSendingMessage || !newMessage.trim()}
               >
                 {isSendingMessage ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
