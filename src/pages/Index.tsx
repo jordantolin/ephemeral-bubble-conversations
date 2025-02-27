@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// List of available topics for bubbles
 const availableTopics = [
   "Art & Design",
   "Books & Writing",
@@ -84,7 +85,9 @@ const formatMessageTime = (timestamp: string): string => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+// Main Index component
 const Index = () => {
+  console.log("Index component is rendering");
   const { user, profile, signOut } = useAuth();
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -157,6 +160,7 @@ const Index = () => {
     );
   }, [allBubbles, searchQuery]);
 
+  // Create a new bubble
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
       toast({
@@ -776,7 +780,7 @@ const Index = () => {
       <div className="fixed top-16 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 sm:hidden">
         <div className="px-2 py-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 w-4" />
             <input
               type="search"
               placeholder="Search bubbles..."
@@ -810,10 +814,17 @@ const Index = () => {
           </div>
         ) : (
           <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
-            <BubbleWorld 
-              topics={bubbles}
-              onBubbleClick={handleBubbleClick}
-            />
+            {allBubbles.length > 0 ? (
+              <BubbleWorld 
+                topics={bubbles}
+                onBubbleClick={handleBubbleClick}
+              />
+            ) : (
+              <div className="h-full w-full flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border-4 border-[#ebbd34]/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
+                <p className="text-[#ebbd34] mt-4">Loading bubbles...</p>
+              </div>
+            )}
           </div>
         )}
 
