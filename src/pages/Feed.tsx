@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, User, TrendingUp, Sparkles, ArrowUp, MessageCircle, Heart, Star } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import * as THREE from 'three';
 import { createBubbleGeometry, createBubbleMaterial } from '@/utils/bubbleUtils';
@@ -22,31 +22,41 @@ const Feed = () => {
   const bubbleCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const bubbleObserver = useRef<IntersectionObserver | null>(null);
   
-  // Add a loading state
+  // Fetch bubbles data
   const { data: bubbles = [], isLoading } = useQuery({
     queryKey: ['bubbles', 'top-reflected'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .order('reflect_count', { ascending: false })
-        .limit(20);
-      
-      if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('bubbles')
+          .select('*')
+          .order('reflect_count', { ascending: false })
+          .limit(20);
+        
+        if (error) {
+          console.error("Supabase error:", error);
+          toast({
+            title: "Error fetching bubbles",
+            description: error.message,
+            variant: "destructive"
+          });
+          return [];
+        }
+        
+        return data.map(bubble => ({
+          ...bubble,
+          size: bubble.reflect_count >= 10 ? "lg" : bubble.reflect_count >= 5 ? "md" : "sm"
+        })) as BubbleData[];
+      } catch (err) {
+        console.error("Unexpected error:", err);
         toast({
           title: "Error fetching bubbles",
-          description: error.message,
+          description: "An unexpected error occurred",
           variant: "destructive"
         });
         return [];
       }
-      
-      return data.map(bubble => ({
-        ...bubble,
-        size: bubble.reflect_count >= 10 ? "lg" : bubble.reflect_count >= 5 ? "md" : "sm"
-      })) as BubbleData[];
-    },
-    refetchInterval: 30000 // Refetch every 30 seconds to keep the feed updated
+    }
   });
 
   // Filter bubbles based on search query
@@ -57,9 +67,12 @@ const Feed = () => {
       )
     : bubbles;
 
+  console.log("Filtered bubbles:", filteredBubbles); // Debug
+
   // Initialize the 3D bubble in each card
   useEffect(() => {
     if (viewMode !== "tiktok" || !filteredBubbles.length) return;
+    console.log("Setting up 3D bubbles");
 
     bubbleCanvasRefs.current = bubbleCanvasRefs.current.slice(0, filteredBubbles.length);
     
@@ -68,92 +81,111 @@ const Feed = () => {
     const cameras: THREE.PerspectiveCamera[] = [];
     const bubbleMeshes: THREE.Mesh[] = [];
     
-    filteredBubbles.forEach((bubble, index) => {
-      const canvas = bubbleCanvasRefs.current[index];
-      if (!canvas) return;
-      
-      // Setup renderer
-      const renderer = new THREE.WebGLRenderer({
-        canvas,
-        alpha: true,
-        antialias: true
+    try {
+      filteredBubbles.forEach((bubble, index) => {
+        const canvas = bubbleCanvasRefs.current[index];
+        if (!canvas) {
+          console.log(`Canvas ${index} not found`);
+          return;
+        }
+        
+        // Setup renderer
+        const renderer = new THREE.WebGLRenderer({
+          canvas,
+          alpha: true,
+          antialias: true
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 300);
+        renderers[index] = renderer;
+        
+        // Setup scene
+        const scene = new THREE.Scene();
+        scenes[index] = scene;
+        
+        // Setup camera
+        const camera = new THREE.PerspectiveCamera(
+          50,
+          (canvas.clientWidth || 300) / (canvas.clientHeight || 300),
+          0.1,
+          1000
+        );
+        camera.position.z = 5;
+        cameras[index] = camera;
+        
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+        
+        // Create bubble with size based on reflects
+        const baseSize = bubble.reflect_count >= 10 ? 1.5 : 
+                        bubble.reflect_count >= 5 ? 1.2 : 0.9;
+        const geometry = createBubbleGeometry(baseSize);
+        const material = createBubbleMaterial();
+        const bubbleMesh = new THREE.Mesh(geometry, material);
+        bubbleMeshes[index] = bubbleMesh;
+        scene.add(bubbleMesh);
+        
+        // Custom color based on reflect count
+        if (bubble.reflect_count >= 15) {
+          (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#FFD700'); // Gold
+        } else if (bubble.reflect_count >= 10) {
+          (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#FFA500'); // Orange
+        } else if (bubble.reflect_count >= 5) {
+          (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#ebbd34'); // Yellow
+        }
       });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      renderers[index] = renderer;
-      
-      // Setup scene
-      const scene = new THREE.Scene();
-      scenes[index] = scene;
-      
-      // Setup camera
-      const camera = new THREE.PerspectiveCamera(
-        50,
-        canvas.clientWidth / canvas.clientHeight,
-        0.1,
-        1000
-      );
-      camera.position.z = 5;
-      cameras[index] = camera;
-      
-      // Add lights
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-      scene.add(ambientLight);
-      
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-      directionalLight.position.set(5, 5, 5);
-      scene.add(directionalLight);
-      
-      // Create bubble with size based on reflects
-      const baseSize = bubble.reflect_count >= 10 ? 1.5 : 
-                      bubble.reflect_count >= 5 ? 1.2 : 0.9;
-      const geometry = createBubbleGeometry(baseSize);
-      const material = createBubbleMaterial();
-      const bubbleMesh = new THREE.Mesh(geometry, material);
-      bubbleMeshes[index] = bubbleMesh;
-      scene.add(bubbleMesh);
-      
-      // Custom color based on reflect count
-      if (bubble.reflect_count >= 15) {
-        (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#FFD700'); // Gold
-      } else if (bubble.reflect_count >= 10) {
-        (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#FFA500'); // Orange
-      } else if (bubble.reflect_count >= 5) {
-        (bubbleMesh.material as THREE.MeshPhysicalMaterial).color.set('#ebbd34'); // Yellow
-      }
-    });
+    } catch (err) {
+      console.error("Error setting up THREE.js:", err);
+    }
     
     // Animation loop
     let animationFrameId: number;
     
     const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
-      
-      filteredBubbles.forEach((_, index) => {
-        if (!bubbleMeshes[index] || !renderers[index] || !scenes[index] || !cameras[index]) return;
+      try {
+        animationFrameId = requestAnimationFrame(animate);
         
-        // Add subtle floating animation
-        bubbleMeshes[index].rotation.x = Math.sin(Date.now() * 0.001) * 0.2;
-        bubbleMeshes[index].rotation.y = Math.cos(Date.now() * 0.001) * 0.2;
-        
-        // Render only if canvas is visible (improves performance)
-        if (bubbleRefs.current[index]?.closest('.active-card')) {
-          renderers[index].render(scenes[index], cameras[index]);
-        }
-      });
+        filteredBubbles.forEach((_, index) => {
+          if (!bubbleMeshes[index] || !renderers[index] || !scenes[index] || !cameras[index]) return;
+          
+          // Add subtle floating animation
+          bubbleMeshes[index].rotation.x = Math.sin(Date.now() * 0.001) * 0.2;
+          bubbleMeshes[index].rotation.y = Math.cos(Date.now() * 0.001) * 0.2;
+          
+          // Render only if canvas is visible (improves performance)
+          if (bubbleRefs.current[index]?.closest('.active-card')) {
+            renderers[index].render(scenes[index], cameras[index]);
+          }
+        });
+      } catch (err) {
+        console.error("Animation error:", err);
+        cancelAnimationFrame(animationFrameId);
+      }
     };
     
     animate();
     
     return () => {
       cancelAnimationFrame(animationFrameId);
-      renderers.forEach(renderer => renderer.dispose());
+      renderers.forEach(renderer => {
+        try {
+          renderer.dispose();
+        } catch (err) {
+          console.error("Error disposing renderer:", err);
+        }
+      });
     };
   }, [filteredBubbles, viewMode]);
   
   // Setup intersection observer for scroll snapping
   useEffect(() => {
     if (viewMode !== "tiktok" || !filteredBubbles.length) return;
+    console.log("Setting up observer");
     
     bubbleRefs.current = bubbleRefs.current.slice(0, filteredBubbles.length);
     
@@ -192,29 +224,6 @@ const Feed = () => {
       }
     };
   }, [filteredBubbles, viewMode]);
-
-  // Subscribe to real-time updates for reflects
-  useEffect(() => {
-    const channel = supabase.channel('reflects-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'reflects' },
-        (payload) => {
-          // Show a toast notification when a new reflection happens
-          if (payload.eventType === 'INSERT') {
-            toast({
-              title: "New reflection!",
-              description: "Someone just reflected a bubble"
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [toast]);
 
   // Handle manual navigation between cards
   const navigateToCard = (index: number) => {
@@ -436,48 +445,13 @@ const Feed = () => {
             </div>
           </div>
         ) : (
-          // Original card grid view
-          <motion.div 
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: {
-                opacity: 1,
-                transition: {
-                  staggerChildren: 0.1
-                }
-              }
-            }}
-          >
+          // Card grid view
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4">
             {filteredBubbles.map((bubble, index) => (
-              <motion.div 
+              <div 
                 key={bubble.id}
                 className="relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow"
-                variants={{
-                  hidden: { y: 20, opacity: 0 },
-                  visible: {
-                    y: 0,
-                    opacity: 1,
-                    transition: {
-                      type: "spring",
-                      stiffness: 100,
-                      damping: 12
-                    }
-                  },
-                  hover: { 
-                    scale: 1.05,
-                    boxShadow: "0 10px 25px rgba(235, 189, 52, 0.2)",
-                    transition: { 
-                      type: "spring", 
-                      stiffness: 300,
-                      damping: 10
-                    }
-                  }
-                }}
-                whileHover="hover"
-                layoutId={`bubble-${bubble.id}`}
+                onClick={() => handleOpenBubble(bubble.id)}
               >
                 {index < 3 && (
                   <div className={`absolute top-0 right-0 m-2 p-1 px-2 text-xs text-white rounded-md font-medium ${
@@ -527,9 +501,9 @@ const Feed = () => {
                     View Bubble <ArrowUp className="w-3 h-3 ml-1 rotate-45" />
                   </Link>
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         )}
       </main>
     </div>
