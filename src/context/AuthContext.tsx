@@ -13,6 +13,16 @@ interface Profile {
   created_at: string;
 }
 
+// Define the type for raw profile data from Supabase
+interface RawProfileData {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at?: string; // Make updated_at optional since it might not exist in the raw data
+}
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
@@ -52,10 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      // Ensure updated_at is present in the profile data
+      // Type the raw data and ensure updated_at is present
+      const rawData = data as RawProfileData;
       const profileWithUpdatedAt: Profile = {
-        ...data,
-        updated_at: data.updated_at || data.created_at // Fallback to created_at if updated_at is missing
+        id: rawData.id,
+        username: rawData.username,
+        display_name: rawData.display_name,
+        avatar_url: rawData.avatar_url,
+        created_at: rawData.created_at,
+        updated_at: rawData.updated_at || rawData.created_at // Fallback to created_at if updated_at is missing
       };
 
       return profileWithUpdatedAt;
@@ -112,11 +127,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         async (payload) => {
           if (payload.new) {
-            // Ensure updated_at is present in real-time updates
-            const profileData = payload.new as any;
+            // Type the raw data from real-time updates
+            const rawData = payload.new as RawProfileData;
             const updatedProfile: Profile = {
-              ...profileData,
-              updated_at: profileData.updated_at || profileData.created_at
+              id: rawData.id,
+              username: rawData.username,
+              display_name: rawData.display_name,
+              avatar_url: rawData.avatar_url,
+              created_at: rawData.created_at,
+              updated_at: rawData.updated_at || rawData.created_at
             };
             setProfile(updatedProfile);
           }
