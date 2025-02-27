@@ -2,8 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, LogIn } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@/context/UserContext";
 
 const availableTopics = [
   "Art & Design",
@@ -64,13 +65,6 @@ interface Message {
   timestamp: string;
 }
 
-// Helper function to calculate bubble size based on reflects
-const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
-  if (reflectCount >= 10) return "lg";
-  if (reflectCount >= 5) return "md";
-  return "sm";
-};
-
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -79,13 +73,14 @@ const Index = () => {
     name: "",
     description: "",
     topic: "",
-    username: "@user"
   });
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useUser();
 
   // Fetch bubbles with reflects
   const { data: bubbles = [] } = useQuery({
@@ -105,15 +100,22 @@ const Index = () => {
         return [];
       }
 
-      return data.map(bubble => ({
-        ...bubble,
-        size: calculateBubbleSize(bubble.reflect_count || 0)
-      }));
+      return data;
     },
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
 
   const handleCreateBubble = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create a bubble",
+        variant: "destructive"
+      });
+      navigate("/auth");
+      return;
+    }
+
     if (!newBubble.name || !newBubble.topic) {
       toast({
         title: "Missing Information",
@@ -130,8 +132,9 @@ const Index = () => {
       name: newBubble.name,
       topic: newBubble.topic,
       description: newBubble.description,
-      username: newBubble.username,
-      size: "md" as const,
+      username: user.id,
+      size: "sm" as const,
+      reflect_count: 0,
       expires_at: expiresAt.toISOString()
     };
 
@@ -156,10 +159,23 @@ const Index = () => {
       description: "New bubble created successfully",
     });
 
-    setNewBubble({ name: "", description: "", topic: "", username: "@user" });
+    setNewBubble({ name: "", description: "", topic: "" });
+    
+    // Refresh bubbles list
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
   };
 
   const handleFileUpload = async (type: 'image' | 'video' | 'gif') => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to send messages",
+        variant: "destructive"
+      });
+      navigate("/auth");
+      return;
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = type === 'image' ? 'image/*' : 
@@ -181,6 +197,16 @@ const Index = () => {
   };
 
   const handleVoiceRecord = () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to send messages",
+        variant: "destructive"
+      });
+      navigate("/auth");
+      return;
+    }
+
     let mediaRecorder: MediaRecorder | null = null;
     const chunks: Blob[] = [];
 
@@ -285,6 +311,16 @@ const Index = () => {
   }, [selectedBubbleId, queryClient]);
 
   const handleSendMessage = async (content?: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to send messages",
+        variant: "destructive"
+      });
+      navigate("/auth");
+      return;
+    }
+
     if (!selectedBubbleId) return;
     
     const messageContent = content || newMessage;
@@ -295,7 +331,7 @@ const Index = () => {
       .insert({
         bubble_id: selectedBubbleId,
         content: messageContent,
-        username: "@user"
+        username: user.id
       });
 
     if (error) {
@@ -311,11 +347,21 @@ const Index = () => {
   };
 
   const handleReflect = async (bubbleId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to reflect bubbles",
+        variant: "destructive"
+      });
+      navigate("/auth");
+      return;
+    }
+
     const { error } = await supabase
       .from('reflects')
       .insert({ 
         bubble_id: bubbleId,
-        username: "@user" 
+        username: user.id 
       });
 
     if (error) {
@@ -342,6 +388,7 @@ const Index = () => {
 
     // Invalidate queries to refresh data
     queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    queryClient.invalidateQueries({ queryKey: ['reflectedBubbles'] });
   };
 
   const handleBubbleClick = (id: string) => {
@@ -357,6 +404,7 @@ const Index = () => {
         { event: '*', schema: 'public', table: 'reflects' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+          queryClient.invalidateQueries({ queryKey: ['reflectedBubbles'] });
         }
       )
       .on(
@@ -399,6 +447,29 @@ const Index = () => {
       return data as Bubble;
     },
     enabled: !!selectedBubbleId
+  });
+
+  // Check if the current user has already reflected this bubble
+  const { data: hasReflected } = useQuery({
+    queryKey: ['hasReflected', selectedBubbleId, user?.id],
+    queryFn: async () => {
+      if (!selectedBubbleId || !user) return false;
+
+      const { data, error } = await supabase
+        .from('reflects')
+        .select('*')
+        .eq('bubble_id', selectedBubbleId)
+        .eq('username', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking reflection status:", error);
+        return false;
+      }
+
+      return !!data;
+    },
+    enabled: !!selectedBubbleId && !!user
   });
 
   return (
@@ -451,12 +522,22 @@ const Index = () => {
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Feed</span>
               </Link>
-              <Link 
-                to="/profile" 
-                className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
-              >
-                <User className="w-5 h-5" />
-              </Link>
+              {user ? (
+                <Link 
+                  to="/profile" 
+                  className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
+                >
+                  <User className="w-5 h-5" />
+                </Link>
+              ) : (
+                <Link 
+                  to="/auth" 
+                  className="flex items-center gap-1 px-2 sm:px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -494,7 +575,7 @@ const Index = () => {
         </div>
 
         <Button
-          onClick={() => setIsCreateDialogOpen(true)}
+          onClick={() => user ? setIsCreateDialogOpen(true) : navigate("/auth")}
           className="fixed bottom-6 right-6 z-50 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-lg rounded-full w-14 h-14 p-0 sm:static sm:w-auto sm:h-auto sm:p-4 sm:mt-8 sm:rounded-lg"
           size="icon"
         >
@@ -516,8 +597,10 @@ const Index = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="ml-4 hover:bg-[#ebbd34]/10 transition-colors border-[#ebbd34]/20 text-[#ebbd34]"
+                    className={`ml-4 hover:bg-[#ebbd34]/10 transition-colors border-[#ebbd34]/20 ${hasReflected ? 'bg-[#ebbd34]/20 text-[#ebbd34]' : 'text-[#ebbd34]'}`}
                     onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
+                    disabled={hasReflected}
+                    title={hasReflected ? "Already reflected" : "Reflect this bubble"}
                   >
                     <Sparkles className="h-5 w-5" />
                   </Button>
@@ -528,11 +611,11 @@ const Index = () => {
                     <div
                       key={message.id}
                       className={`flex flex-col ${
-                        message.username === "@user" ? "items-end" : "items-start"
+                        message.username === user?.id ? "items-end" : "items-start"
                       }`}
                     >
                       <div className={`max-w-[80%] rounded-3xl p-3 ${
-                        message.username === "@user"
+                        message.username === user?.id
                           ? "bg-[#ebbd34] text-white"
                           : "bg-[#ebbd34]/10 text-[#ebbd34]"
                       }`}>
@@ -559,7 +642,7 @@ const Index = () => {
                         )}
                       </div>
                       <span className="text-xs text-[#ebbd34]/50 mt-1 px-2">
-                        {message.username} • {new Date(message.timestamp).toLocaleTimeString()}
+                        {message.username === user?.id ? "You" : message.username} • {new Date(message.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
                   ))}
@@ -602,7 +685,7 @@ const Index = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      placeholder="Type your message..."
+                      placeholder={user ? "Type your message..." : "Sign in to chat"}
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={(e) => {
@@ -611,12 +694,14 @@ const Index = () => {
                           handleSendMessage();
                         }
                       }}
+                      disabled={!user}
                       className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
                     />
                     <Button 
                       onClick={() => handleSendMessage()}
                       size="icon" 
-                      className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                      disabled={!user || !newMessage.trim()}
+                      className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white disabled:bg-[#ebbd34]/30"
                     >
                       <Send className="h-5 w-5" />
                     </Button>
