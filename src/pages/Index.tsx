@@ -24,18 +24,25 @@ const Index = () => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // Add a delay to ensure DOM is fully rendered before initializing Three.js
+    // Debug logs to help track initialization
+    console.log("Component mounted, initializing 3D world");
+    
+    // Add a slightly longer delay to ensure DOM is fully rendered before initializing Three.js
     const timer = setTimeout(() => {
       setIsLoaded(true);
-      console.log("3D world should be loaded now");
-    }, 500);
+      console.log("3D world should be loaded now - isLoaded set to true");
+    }, 1000);
     
-    return () => clearTimeout(timer);
+    return () => {
+      console.log("Component unmounting, clearing timeout");
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleBubbleClick = (id: string) => {
     const bubble = bubbleData.find(b => b.id === id);
     if (bubble) {
+      console.log(`Bubble clicked: ${bubble.name} - ${bubble.topic}`);
       toast({
         title: bubble.name,
         description: `Topic: ${bubble.topic} - Reflections: ${bubble.reflect_count}`,
@@ -44,8 +51,8 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-purple-50 to-white">
-      <div className="text-center py-12 px-4">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-amber-50 to-white">
+      <div className="text-center py-8 px-4 border-b border-amber-200">
         <h1 className="text-4xl md:text-5xl font-bold text-amber-500 mb-3 tracking-tight">
           Bubble Hub
         </h1>
@@ -54,13 +61,14 @@ const Index = () => {
           Explore bubbles made in the last 24 hours
         </p>
       </div>
+      
       <div className="flex-1 w-full relative" style={{ minHeight: '75vh' }}>
-        {isLoaded && (
+        {isLoaded ? (
           <BubbleWorld topics={bubbleData} onBubbleClick={handleBubbleClick} />
-        )}
-        {!isLoaded && (
+        ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+            <div className="w-16 h-16 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+            <p className="ml-4 text-amber-600 font-medium">Loading Bubble World...</p>
           </div>
         )}
       </div>
