@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -10,6 +9,18 @@ import {
   createCentralWorldGeometry,
   createCentralWorldMaterial,
 } from '@/utils/bubbleUtils';
+
+// Format time remaining for display - moved outside the useEffect
+const formatTimeRemaining = (expiryTime: Date) => {
+  const now = new Date();
+  const timeDiff = expiryTime.getTime() - now.getTime();
+  if (timeDiff <= 0) return "Expired";
+  
+  const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+  const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  return `${hours}h ${minutes}m`;
+};
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,16 +106,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const createExplosionParticles = (position: THREE.Vector3, size: number) => {
       const particleCount = 200;
       const geometry = new THREE.BufferGeometry();
-      const positions = new Float32Array(particleCount * 3);
+      const initialPositions = new Float32Array(particleCount * 3); // Renamed from positions
       const colors = new Float32Array(particleCount * 3);
       
       // Random positions in a sphere
       for (let i = 0; i < particleCount; i++) {
         const i3 = i * 3;
         // Start at center
-        positions[i3] = 0;
-        positions[i3 + 1] = 0;
-        positions[i3 + 2] = 0;
+        initialPositions[i3] = 0;
+        initialPositions[i3 + 1] = 0;
+        initialPositions[i3 + 2] = 0;
         
         // Bright gold color
         colors[i3] = 0.9;     // R
@@ -112,7 +123,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         colors[i3 + 2] = 0.2;  // B
       }
       
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('position', new THREE.BufferAttribute(initialPositions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       
       const material = new THREE.PointsMaterial({
@@ -261,18 +272,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         sprite.position.copy(position);
         return sprite;
-      };
-
-      // Format time remaining for display
-      const formatTimeRemaining = (expiryTime: Date) => {
-        const now = new Date();
-        const timeDiff = expiryTime.getTime() - now.getTime();
-        if (timeDiff <= 0) return "Expired";
-        
-        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        
-        return `${hours}h ${minutes}m`;
       };
 
       // Position text labels within bubble
