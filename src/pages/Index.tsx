@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -51,21 +52,26 @@ const Index = () => {
   const [newBubbleName, setNewBubbleName] = useState("");
   const [newBubbleDescription, setNewBubbleDescription] = useState("");
   const [hasReflected, setHasReflected] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false); // Nuovo stato per tracciare i reindirizzamenti
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user, loading } = useUser();
   const navigate = useNavigate();
 
-  console.log("Index page rendering, loading:", loading, "user:", user ? "exists" : "null");
+  console.log("Index page rendering, loading:", loading, "user:", user ? "exists" : "null", "isRedirecting:", isRedirecting);
 
   // Forward authenticated users to the 3D Feed
   useEffect(() => {
-    console.log("Check for redirection, user:", user ? "logged in" : "not logged in", "loading:", loading);
-    if (user && !loading) {
+    console.log("Check for redirection, user:", user ? "logged in" : "not logged in", "loading:", loading, "isRedirecting:", isRedirecting);
+    if (user && !loading && !isRedirecting) {
       console.log("User is logged in, redirecting to feed");
-      navigate("/feed");
+      setIsRedirecting(true);
+      // Aggiungiamo un piccolo ritardo per evitare possibili loop
+      setTimeout(() => {
+        navigate("/feed");
+      }, 100);
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isRedirecting]);
 
   useEffect(() => {
     const fetchBubbles = async () => {
@@ -94,7 +100,7 @@ const Index = () => {
       }
     };
 
-    if (!user) {  // Solo carica le bolle se l'utente non è autenticato
+    if (!user && !loading) {  // Solo carica le bolle se l'utente non è autenticato e il caricamento è terminato
       fetchBubbles();
     }
 
@@ -111,7 +117,7 @@ const Index = () => {
     return () => {
       supabase.removeChannel(bubbleSubscription);
     };
-  }, [user]);
+  }, [user, loading]);
 
   useEffect(() => {
     if (selectedBubbleId) {
@@ -309,14 +315,16 @@ const Index = () => {
     }
   };
 
-  // Modifica qui: aggiunta una condizione per mostrare un messaggio diverso quando caricamento è finito ma non ci sono utenti
-  if (loading) {
-    console.log("Showing loading spinner");
+  // Modifica qui: aggiungiamo una verifica più esplicita per mostrare lo spinner di caricamento
+  // e per evitare possibili loop di rendering
+  if (loading || (user && !isRedirecting)) {
+    console.log("Showing loading spinner. Loading:", loading, "User:", user ? "exists" : "null", "isRedirecting:", isRedirecting);
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
         <div className="text-center">
           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-[#ebbd34]"></div>
           <p className="text-[#ebbd34]">Caricamento in corso...</p>
+          <p className="text-[#ebbd34]/70 text-sm mt-2">Preparazione del mondo 3D</p>
         </div>
       </div>
     );
