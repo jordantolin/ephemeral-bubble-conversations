@@ -35,7 +35,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       max: 25  // Increased max zoom for better close-up view
     },
     pinchDistance: 0,
-    lastPinchTime: 0
+    lastPinchTime: 0,
+    isDragging: false,
+    dragThreshold: 5, // Pixels the user needs to drag to count as dragging
+    startTime: 0
   });
 
   useEffect(() => {
@@ -194,6 +197,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         e.preventDefault();
         const touch = e.touches[0];
         startInteraction(touch.clientX, touch.clientY);
+        // Reset the drag state on touch start
+        interactionRef.current.isDragging = false;
+        interactionRef.current.startTime = Date.now();
       }
     }, { passive: false });
 
@@ -224,12 +230,29 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       } else if (e.touches.length === 1) {
         e.preventDefault();
         const touch = e.touches[0];
+        
+        // Check if we've moved enough to count as dragging
+        const dx = touch.clientX - interactionRef.current.lastX;
+        const dy = touch.clientY - interactionRef.current.lastY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > interactionRef.current.dragThreshold) {
+          interactionRef.current.isDragging = true;
+        }
+        
         moveInteraction(touch.clientX, touch.clientY);
       }
     }, { passive: false });
 
-    // Handle bubble clicks with improved touch detection
+    // Improved bubble click detection
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
+      // If we're dragging, don't treat it as a click
+      if (interactionRef.current.isDragging) return;
+      
+      // Check if this was a quick tap (less than 300ms)
+      const touchDuration = Date.now() - interactionRef.current.startTime;
+      if (touchDuration > 300) return;
+      
       const rect = container.getBoundingClientRect();
       let clientX: number;
       let clientY: number;
@@ -248,18 +271,46 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const y = -(clientY - rect.top) / rect.height * 2 + 1;
 
       mouseRef.current.set(x, y);
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
+      if (cameraRef.current) {
+        raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
 
-      const intersects = raycasterRef.current.intersectObjects(
-        Object.values(bubblesRef.current).map(group => group.children[0]),
-        true
-      );
+        // First, get all the bubble meshes (first child of each bubble group)
+        const bubbleMeshes: THREE.Object3D[] = [];
+        Object.values(bubblesRef.current).forEach(group => {
+          if (group.children[0]) {
+            bubbleMeshes.push(group.children[0]);
+          }
+        });
 
-      if (intersects.length > 0) {
-        const bubble = intersects[0].object;
-        const bubbleGroup = bubble.parent;
-        if (bubbleGroup && bubbleGroup.userData.id) {
-          onBubbleClick(bubbleGroup.userData.id);
+        // Then check for intersections
+        const intersects = raycasterRef.current.intersectObjects(bubbleMeshes, false);
+
+        if (intersects.length > 0) {
+          // Get the parent group of the intersected bubble
+          const bubbleGroup = intersects[0].object.parent;
+          if (bubbleGroup && bubbleGroup.userData && bubbleGroup.userData.id) {
+            // Add a small visual feedback on click
+            const bubble = intersects[0].object;
+            const scale = { value: 1 };
+            new TWEEN.Tween(scale)
+              .to({ value: 1.2 }, 150)
+              .easing(TWEEN.Easing.Quadratic.Out)
+              .onUpdate(() => {
+                bubble.scale.set(scale.value, scale.value, scale.value);
+              })
+              .chain(
+                new TWEEN.Tween(scale)
+                  .to({ value: 1 }, 150)
+                  .easing(TWEEN.Easing.Quadratic.In)
+                  .onUpdate(() => {
+                    bubble.scale.set(scale.value, scale.value, scale.value);
+                  })
+              )
+              .start();
+            
+            // Call the click handler with the bubble ID
+            onBubbleClick(bubbleGroup.userData.id);
+          }
         }
       }
     };
@@ -311,17 +362,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const wasInteracting = interactionRef.current.isInteracting;
       interactionRef.current.isInteracting = false;
 
-      // Handle click only if it wasn't a drag
+      // Handle click or tap only if it wasn't a drag
       if (event) {
-        const currentX = event instanceof MouseEvent ? 
-          event.clientX : 
-          event.changedTouches[0].clientX;
-        
-        // More lenient threshold for mobile tap detection
-        const clickThreshold = isMobile ? 10 : 5;
-        if (Math.abs(currentX - interactionRef.current.lastX) < clickThreshold) {
-          handleBubbleClick(event);
-        }
+        handleBubbleClick(event);
       }
 
       // Apply momentum with improved physics for smoother deceleration
@@ -347,9 +390,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Mouse events
     container.addEventListener('mousedown', (e) => {
       startInteraction(e.clientX, e.clientY);
+      interactionRef.current.isDragging = false;
+      interactionRef.current.startTime = Date.now();
     });
 
     container.addEventListener('mousemove', (e) => {
+      if (interactionRef.current.isInteracting) {
+        // Check if we've moved enough to count as dragging
+        const dx = e.clientX - interactionRef.current.lastX;
+        const dy = e.clientY - interactionRef.current.lastY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > interactionRef.current.dragThreshold) {
+          interactionRef.current.isDragging = true;
+        }
+      }
       moveInteraction(e.clientX, e.clientY);
     });
 
@@ -362,22 +417,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     });
 
     // Touch events
-    container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        startInteraction(touch.clientX, touch.clientY);
-      }
-    }, { passive: false });
-
-    container.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 1) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        moveInteraction(touch.clientX, touch.clientY);
-      }
-    }, { passive: false });
-
     container.addEventListener('touchend', (e) => {
       endInteraction(e);
     });

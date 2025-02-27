@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, X } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, Star, X, StopCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dialog,
@@ -71,6 +71,13 @@ const calculateBubbleSize = (reflectCount: number): "sm" | "md" | "lg" => {
   return "sm";
 };
 
+// Format recording time as mm:ss
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -84,6 +91,19 @@ const Index = () => {
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isReflectAnimating, setIsReflectAnimating] = useState(false);
+  
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingTimer, setRecordingTimer] = useState<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const audioVisualizerRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -162,6 +182,255 @@ const Index = () => {
     }
   }, [location.search]);
 
+  // Clean up recording resources on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current);
+      }
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, [recordingTimer]);
+
+  // Draw audio visualizer
+  const drawAudioVisualizer = () => {
+    if (!analyserRef.current || !audioVisualizerRef.current) return;
+    
+    const canvas = audioVisualizerRef.current;
+    const canvasCtx = canvas.getContext('2d');
+    if (!canvasCtx) return;
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+    
+    const analyser = analyserRef.current;
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const draw = () => {
+      animationFrameRef.current = requestAnimationFrame(draw);
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
+      canvasCtx.fillStyle = 'rgba(235, 189, 52, 0.1)';
+      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+      
+      const barWidth = (WIDTH / bufferLength) * 2.5;
+      let x = 0;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = dataArray[i] / 4;
+        
+        canvasCtx.fillStyle = `rgba(235, 189, 52, ${Math.min(1, dataArray[i] / 150)})`;
+        canvasCtx.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
+        
+        x += barWidth + 1;
+      }
+    };
+    
+    draw();
+  };
+
+  // Start voice recording with WhatsApp-like press and hold
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Setup audio context and analyser for visualization
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      
+      const audioContext = audioContextRef.current;
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      if (!analyserRef.current) {
+        analyserRef.current = audioContext.createAnalyser();
+      }
+      
+      source.connect(analyserRef.current);
+      
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      
+      // Start timer
+      let seconds = 0;
+      const timer = window.setInterval(() => {
+        seconds++;
+        setRecordingTime(seconds);
+        
+        // Auto-stop after 2 minutes (120 seconds)
+        if (seconds >= 120) {
+          stopVoiceRecording();
+        }
+      }, 1000);
+      
+      setRecordingTimer(timer);
+      
+      // Start visualizer
+      drawAudioVisualizer();
+      
+      toast({
+        title: "Recording started",
+        description: "Release to stop recording or slide up to cancel",
+      });
+    } catch (error) {
+      console.error("Error starting voice recording:", error);
+      toast({
+        title: "Error",
+        description: "Could not access microphone",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Stop voice recording and send audio
+  const stopVoiceRecording = async () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+    
+    // Clear timer
+    if (recordingTimer) {
+      clearInterval(recordingTimer);
+      setRecordingTimer(null);
+    }
+    
+    // Stop visualizer
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    return new Promise<void>((resolve) => {
+      if (!mediaRecorderRef.current) {
+        setIsRecording(false);
+        setRecordingTime(0);
+        resolve();
+        return;
+      }
+      
+      mediaRecorderRef.current.onstop = async () => {
+        // Only send if we have audio chunks
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          
+          // Don't send extremely short recordings (less than 0.5 seconds)
+          if (recordingTime > 0.5) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              const content = e.target?.result as string;
+              if (selectedBubbleId) {
+                await handleSendMessage(content);
+              }
+            };
+            reader.readAsDataURL(audioBlob);
+          } else {
+            toast({
+              title: "Recording too short",
+              description: "Hold the button longer to record a message",
+              variant: "destructive"
+            });
+          }
+        }
+        
+        // Close audio tracks
+        mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+        
+        // Reset states
+        setIsRecording(false);
+        setRecordingTime(0);
+        audioChunksRef.current = [];
+        mediaRecorderRef.current = null;
+        
+        resolve();
+      };
+      
+      mediaRecorderRef.current.stop();
+    });
+  };
+
+  // Cancel voice recording
+  const cancelVoiceRecording = () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
+    
+    // Clear timer
+    if (recordingTimer) {
+      clearInterval(recordingTimer);
+      setRecordingTimer(null);
+    }
+    
+    // Stop visualizer
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    // Stop media recorder without sending
+    mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    mediaRecorderRef.current.stop();
+    
+    // Reset states
+    setIsRecording(false);
+    setRecordingTime(0);
+    audioChunksRef.current = [];
+    mediaRecorderRef.current = null;
+    
+    toast({
+      title: "Recording cancelled",
+      variant: "destructive"
+    });
+  };
+
+  // Handle press and hold for voice recording
+  const handleMicPress = () => {
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      startVoiceRecording();
+    }, 300); // Short delay to differentiate from a tap
+  };
+
+  const handleMicRelease = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    
+    if (isRecording) {
+      stopVoiceRecording();
+    }
+  };
+
+  // Handle slide to cancel (for mobile touch events)
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isRecording) return;
+    
+    const touch = e.touches[0];
+    const element = e.currentTarget;
+    const rect = element.getBoundingClientRect();
+    
+    // If finger moved significantly upward, cancel recording
+    if (touch.clientY < rect.top - 50) {
+      cancelVoiceRecording();
+    }
+  };
+
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
       toast({
@@ -180,7 +449,7 @@ const Index = () => {
       topic: newBubble.topic,
       description: newBubble.description,
       username: newBubble.username,
-      size: "md" as const,
+      size: "sm" as const,
       expires_at: expiresAt.toISOString()
     };
 
@@ -244,54 +513,6 @@ const Index = () => {
       }
     };
     input.click();
-  };
-
-  const handleVoiceRecord = () => {
-    let mediaRecorder: MediaRecorder | null = null;
-    const chunks: Blob[] = [];
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
-        
-        mediaRecorder.ondataavailable = (e) => {
-          chunks.push(e.data);
-        };
-
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            const content = e.target?.result as string;
-            if (selectedBubbleId) {
-              await handleSendMessage(content);
-            }
-          };
-          reader.readAsDataURL(audioBlob);
-          stream.getTracks().forEach(track => track.stop());
-        };
-
-        mediaRecorder.start();
-        
-        toast({
-          title: "Recording...",
-          description: "Click again to stop recording",
-        });
-
-        // Stop recording after 1 minute
-        setTimeout(() => {
-          if (mediaRecorder?.state === 'recording') {
-            mediaRecorder.stop();
-          }
-        }, 60000);
-      })
-      .catch(error => {
-        toast({
-          title: "Error",
-          description: "Could not access microphone",
-          variant: "destructive"
-        });
-      });
   };
 
   // Subscribe to real-time message updates
@@ -685,6 +906,40 @@ const Index = () => {
               </>
             )}
           </ScrollArea>
+          
+          {/* Voice recording overlay (visible when recording) */}
+          {isRecording && (
+            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-50">
+              <div className="bg-[#FEF7E4] rounded-2xl p-6 w-4/5 max-w-sm">
+                <div className="flex flex-col items-center">
+                  <div className="mb-4 relative">
+                    <canvas 
+                      ref={audioVisualizerRef} 
+                      width="240" 
+                      height="80" 
+                      className="rounded-lg bg-[#ebbd34]/5"
+                    />
+                    <div className="text-[#ebbd34] font-bold text-center mt-2">
+                      {formatTime(recordingTime)}
+                    </div>
+                  </div>
+                  
+                  <div className="text-[#ebbd34]/70 text-center text-sm mb-4">
+                    Release to send, slide up to cancel
+                  </div>
+                  
+                  <Button 
+                    variant="outline"
+                    size="icon"
+                    className="h-12 w-12 rounded-full border-red-500 text-red-500 hover:bg-red-50"
+                    onClick={cancelVoiceRecording}
+                  >
+                    <StopCircle className="h-6 w-6" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2 p-4 bg-gradient-to-b from-transparent to-[#ebbd34]/5 border-t border-[#ebbd34]/10">
             <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -715,38 +970,52 @@ const Index = () => {
               >
                 <SmilePlus className="h-5 w-5" />
               </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="shrink-0 rounded-full border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={handleVoiceRecord}
-                title="Record voice message"
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
             </div>
-            <form 
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-            >
-              <Input
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20"
-              />
-              <Button 
-                type="submit"
-                size="icon" 
-                className="rounded-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                disabled={!newMessage.trim()}
-              >
-                <Send className="h-5 w-5" />
-              </Button>
-            </form>
+            
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <Input
+                  placeholder="Type your message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="rounded-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34] placeholder-[#ebbd34]/50 focus-visible:ring-[#ebbd34]/20 pr-12"
+                />
+                
+                {!newMessage.trim() ? (
+                  <div 
+                    className="absolute right-0 top-0 bottom-0 flex items-center justify-center w-12"
+                    onTouchStart={() => handleMicPress()}
+                    onTouchEnd={() => handleMicRelease()}
+                    onTouchMove={(e) => handleTouchMove(e)}
+                    onMouseDown={() => handleMicPress()}
+                    onMouseUp={() => handleMicRelease()}
+                    onMouseLeave={() => {
+                      if (isRecording) handleMicRelease();
+                    }}
+                  >
+                    <div className={`flex items-center justify-center h-10 w-10 rounded-full ${isRecording ? 'bg-red-500 text-white scale-110' : 'text-[#ebbd34] hover:bg-[#ebbd34]/10'} transition-all cursor-pointer`}>
+                      <Mic className="h-5 w-5" />
+                    </div>
+                  </div>
+                ) : (
+                  <Button 
+                    type="submit"
+                    size="icon" 
+                    className="absolute right-0 top-0 bottom-0 h-full rounded-full bg-transparent hover:bg-transparent text-[#ebbd34]"
+                    onClick={() => handleSendMessage()}
+                    disabled={!newMessage.trim()}
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
