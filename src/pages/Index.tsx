@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download } from "lucide-react";
@@ -120,7 +120,7 @@ const Index = () => {
   }, [profile, user]);
 
   // Fetch bubbles from Supabase
-  const { data: bubbles = [] } = useQuery({
+  const { data: allBubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -144,6 +144,18 @@ const Index = () => {
     },
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
+
+  // Filter bubbles based on search query
+  const bubbles = useMemo(() => {
+    if (!searchQuery.trim()) return allBubbles;
+    
+    const query = searchQuery.toLowerCase();
+    return allBubbles.filter(bubble => 
+      bubble.name.toLowerCase().includes(query) || 
+      bubble.topic.toLowerCase().includes(query) ||
+      (bubble.description && bubble.description.toLowerCase().includes(query))
+    );
+  }, [allBubbles, searchQuery]);
 
   const handleCreateBubble = async () => {
     if (!newBubble.name || !newBubble.topic) {
@@ -734,7 +746,7 @@ const Index = () => {
                     <User className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
                   <DropdownMenuItem className="flex flex-col items-start p-3">
                     <span className="font-medium text-[#ebbd34]">
                       {profile?.display_name || user?.email}
@@ -777,12 +789,33 @@ const Index = () => {
       </div>
       
       <main className="flex flex-col items-center justify-start w-full min-h-[calc(100dvh-64px)] pt-28 sm:pt-20">
-        <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
-          <BubbleWorld 
-            topics={bubbles}
-            onBubbleClick={handleBubbleClick}
-          />
-        </div>
+        {bubbles.length === 0 && searchQuery.trim() !== "" ? (
+          <div className="flex flex-col items-center justify-center h-[calc(100dvh-180px)] text-center p-4">
+            <img 
+              src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+              alt="No results" 
+              className="w-16 h-16 opacity-40 mb-3"
+            />
+            <h3 className="text-xl font-semibold text-[#ebbd34]">No bubbles found</h3>
+            <p className="text-[#ebbd34]/70 max-w-sm mt-2">
+              No bubbles match your search "{searchQuery}". Try a different search or create a new bubble!
+            </p>
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="mt-6 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create New Bubble
+            </Button>
+          </div>
+        ) : (
+          <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
+            <BubbleWorld 
+              topics={bubbles}
+              onBubbleClick={handleBubbleClick}
+            />
+          </div>
+        )}
 
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
@@ -799,14 +832,7 @@ const Index = () => {
         <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 bg-[#FEF7E4] border border-[#ebbd34]/20 rounded-xl overflow-hidden">
           <DialogHeader className="flex flex-row items-center justify-between p-3 bg-[#ebbd34]">
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/10"
-                onClick={() => setIsChatOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              {/* Removed the X button for closing the chat */}
               
               <div>
                 <DialogTitle className="text-white text-xl font-semibold">
@@ -1081,7 +1107,7 @@ const Index = () => {
                 <SelectTrigger className="w-full bg-[#ebbd34]/5 border-[#ebbd34]/20 text-[#ebbd34]">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#FEF7E4] border-[#ebbd34]/20">
+                <SelectContent className="bg-[#FEF7E4] border-[#ebbd34]/20 z-[100]">
                   {availableTopics.map((topic) => (
                     <SelectItem key={topic} value={topic} className="text-[#ebbd34]">
                       {topic}
