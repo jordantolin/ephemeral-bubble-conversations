@@ -97,6 +97,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
+      // Store original size in userData for zoom scaling
+      bubbleGroup.userData = {
+        id: topic.id,
+        orbitIndex: index,
+        originalScale: finalSize,
+        textScales: {
+          nameScale: finalSize * 2.5,
+          topicScale: finalSize * 2.5,
+          reflectScale: finalSize * 2.5
+        }
+      };
+
       // Add text labels
       const createSprite = (text: string, yOffset: number, fontSize: number = 32) => {
         const canvas = createTextCanvas(text, fontSize);
@@ -121,11 +133,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const position = calculateOrbitPosition(index, topics.length, 0);
       bubbleGroup.position.set(position.x, position.y, position.z);
       
-      bubbleGroup.userData = {
-        id: topic.id,
-        orbitIndex: index,
-      };
-
       bubblesRef.current[topic.id] = bubbleGroup;
       scene.add(bubbleGroup);
     });
@@ -331,12 +338,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       animationFrameRef.current = requestAnimationFrame(animate);
       time += 0.002;
       
+      // Update zoom with smooth interpolation
       const zoom = interactionRef.current.zoom;
       zoom.current += (zoom.target - zoom.current) * 0.1;
       if (camera) {
         camera.position.z = zoom.current;
       }
 
+      // Calculate zoom scaling factor for bubbles
+      // Make bubbles appear relatively larger when zoomed in
+      const zoomFactor = 1 + ((interactionRef.current.zoom.max - zoom.current) / 
+                              (interactionRef.current.zoom.max - interactionRef.current.zoom.min));
+      
+      // Update bubbles position and scale based on zoom
       Object.values(bubblesRef.current).forEach(bubble => {
         const index = bubble.userData.orbitIndex;
         const pos = calculateOrbitPosition(index, Object.keys(bubblesRef.current).length, time);
@@ -350,7 +364,48 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           .applyEuler(rotationOffset);
         
         bubble.position.copy(rotatedPosition);
+        
+        // Face bubbles toward camera
         bubble.quaternion.copy(camera.quaternion);
+        
+        // Scale the bubble and text based on zoom level
+        const origScale = bubble.userData.originalScale;
+        const bubbleMesh = bubble.children[0] as THREE.Mesh;
+        
+        // Apply scale to bubble (first child is the bubble mesh)
+        const scaleFactor = origScale * zoomFactor;
+        bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        
+        // Scale text labels (other children are sprites)
+        for (let i = 1; i < bubble.children.length; i++) {
+          const sprite = bubble.children[i] as THREE.Sprite;
+          const textScales = bubble.userData.textScales;
+          const textScaleFactor = zoomFactor * 0.8; // slightly less aggressive scaling for text
+          
+          // Adjust position and scale based on which text element it is
+          if (i === 1) { // Name text (top)
+            sprite.scale.set(
+              textScales.nameScale * textScaleFactor,
+              textScales.nameScale * textScaleFactor * 0.5,
+              1
+            );
+            sprite.position.y = origScale * 1.2 * zoomFactor;
+          } else if (i === 2) { // Topic text (middle)
+            sprite.scale.set(
+              textScales.topicScale * textScaleFactor,
+              textScales.topicScale * textScaleFactor * 0.5,
+              1
+            );
+            sprite.position.y = origScale * 0.2 * zoomFactor;
+          } else if (i === 3) { // Reflect count text (bottom)
+            sprite.scale.set(
+              textScales.reflectScale * textScaleFactor,
+              textScales.reflectScale * textScaleFactor * 0.5,
+              1
+            );
+            sprite.position.y = -origScale * 0.8 * zoomFactor;
+          }
+        }
       });
 
       if (!interactionRef.current.isInteracting) {
