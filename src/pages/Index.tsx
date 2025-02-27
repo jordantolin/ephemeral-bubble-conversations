@@ -831,28 +831,35 @@ const Index = () => {
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="sm:max-w-[600px] h-[80vh] sm:h-[700px] flex flex-col p-0 bg-[#FEF7E4] border border-[#ebbd34]/20 rounded-xl overflow-hidden">
           <DialogHeader className="flex flex-row items-center justify-between p-3 bg-[#ebbd34]">
-            <div className="flex items-center gap-2">
-              {/* Removed the X button for closing the chat */}
-              
-              <div>
-                <DialogTitle className="text-white text-xl font-semibold">
-                  {selectedBubble?.name}
-                </DialogTitle>
-                <DialogDescription className="text-white/80 text-sm">
-                  {selectedBubble?.description || selectedBubble?.topic}
-                </DialogDescription>
-              </div>
+            <div className="flex-1">
+              <DialogTitle className="text-white text-xl font-semibold">
+                {selectedBubble?.name}
+              </DialogTitle>
+              <DialogDescription className="text-white/80 text-sm">
+                {selectedBubble?.description || selectedBubble?.topic}
+              </DialogDescription>
             </div>
             
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20"
-              onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              <span>Reflect</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20"
+                onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                <span>Reflect</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20 ml-1 h-8 w-8"
+                onClick={() => setIsChatOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </DialogHeader>
 
           <ScrollArea className="flex-1 p-4 space-y-4 bg-white/50">
