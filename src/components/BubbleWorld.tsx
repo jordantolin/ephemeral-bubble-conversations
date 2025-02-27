@@ -21,6 +21,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const centralWorldRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
+  const particlesRef = useRef<{[key: string]: THREE.Points}>({});
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -90,8 +91,104 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
+    // Create explosion particles function
+    const createExplosionParticles = (position: THREE.Vector3, size: number) => {
+      const particleCount = 200;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+      
+      // Random positions in a sphere
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        // Start at center
+        positions[i3] = 0;
+        positions[i3 + 1] = 0;
+        positions[i3 + 2] = 0;
+        
+        // Bright gold color
+        colors[i3] = 0.9;     // R
+        colors[i3 + 1] = 0.7;  // G
+        colors[i3 + 2] = 0.2;  // B
+      }
+      
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      
+      const material = new THREE.PointsMaterial({
+        size: 0.1,
+        transparent: true,
+        opacity: 1,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true
+      });
+      
+      const particles = new THREE.Points(geometry, material);
+      particles.position.copy(position);
+      scene.add(particles);
+      
+      // Explosion animation
+      const positions = particles.geometry.attributes.position.array;
+      const dirs = [];
+      
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        // Random direction for each particle
+        dirs.push({
+          x: (Math.random() - 0.5) * 5,
+          y: (Math.random() - 0.5) * 5, 
+          z: (Math.random() - 0.5) * 5
+        });
+      }
+      
+      // Animation timeline 
+      const duration = 1500;
+      new TWEEN.Tween({ progress: 0, opacity: 1 })
+        .to({ progress: 1, opacity: 0 }, duration)
+        .easing(TWEEN.Easing.Exponential.Out)
+        .onUpdate(({ progress, opacity }) => {
+          for (let i = 0; i < particleCount; i++) {
+            const i3 = i * 3;
+            positions[i3] = dirs[i].x * progress * size;
+            positions[i3 + 1] = dirs[i].y * progress * size;
+            positions[i3 + 2] = dirs[i].z * progress * size;
+          }
+          particles.geometry.attributes.position.needsUpdate = true;
+          (particles.material as THREE.PointsMaterial).opacity = 1 - progress;
+        })
+        .onComplete(() => {
+          scene.remove(particles);
+        })
+        .start();
+      
+      return particles;
+    };
+
     // Create bubbles with enhanced random positioning
     topics.forEach((topic, index) => {
+      // Skip if bubble is already in exploding animation
+      if (topic.isExploding) {
+        // Create explosion effect if not already created
+        if (!particlesRef.current[topic.id]) {
+          // Use the last known position or a default
+          const lastKnownBubble = bubblesRef.current[topic.id];
+          if (lastKnownBubble) {
+            const position = lastKnownBubble.position.clone();
+            const size = topic.size === 'lg' ? 0.8 : 
+                        topic.size === 'md' ? 0.6 : 0.4;
+            const finalSize = size * (1 + topic.reflect_count * 0.1);
+            
+            particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
+            
+            // Remove the original bubble
+            scene.remove(lastKnownBubble);
+            delete bubblesRef.current[topic.id];
+          }
+        }
+        return;
+      }
+      
       const bubbleGroup = new THREE.Group();
       
       const baseSize = topic.size === 'lg' ? 0.8 : 
@@ -104,6 +201,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const bubble = new THREE.Mesh(geometry, material);
       bubbleGroup.add(bubble);
 
+      // Calculate time until expiry
+      const now = new Date();
+      const expiryTime = topic.expires_at ? new Date(topic.expires_at) : new Date(now.getTime() + 24*60*60*1000);
+      const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
+      const expiryRatio = timeUntilExpiry / (24*60*60*1000); // 0-1 value, 1 is fresh, 0 is expired
+      
+      // Make newer bubbles more vibrant
+      if (material instanceof THREE.MeshPhysicalMaterial) {
+        // Adjust bubble appearance based on expiry time
+        material.opacity = 0.5 + (expiryRatio * 0.5); // More transparent as it ages
+        material.transmission = 0.2 + (expiryRatio * 0.2);
+        material.emissive = new THREE.Color(0xebbd34);
+        material.emissiveIntensity = 0.05 + (expiryRatio * 0.15); // Glow fades as it ages
+      }
+
       bubbleGroup.userData = {
         id: topic.id,
         orbitIndex: index,
@@ -113,16 +225,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           topicScale: finalSize * 1.2,
           reflectScale: finalSize
         },
-        // Add random movement parameters
+        // More random movement based on expiry time
         movement: {
-          speed: Math.random() * 0.002 + 0.001,
-          radius: Math.random() * 3 + 2,
+          speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
+          radius: Math.random() * 3 + 2 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
           angle: Math.random() * Math.PI * 2,
-          verticalSpeed: Math.random() * 0.002 - 0.001,
-          verticalRange: Math.random() * 2,
+          verticalSpeed: (Math.random() * 0.003 - 0.0015) * expiryRatio, // More up/down movement when fresh
+          verticalRange: Math.random() * 2 * expiryRatio, // Higher amplitude when fresh
           verticalOffset: Math.random() * Math.PI * 2,
-          rotationSpeed: Math.random() * 0.01 - 0.005
-        }
+          rotationSpeed: Math.random() * 0.01 - 0.005,
+          wobble: Math.random() * 0.002 * expiryRatio // Extra random movement
+        },
+        expiryRatio, // Store for animation use
+        expiryTime // Store actual time
       };
 
       // Create text labels with enhanced visibility
@@ -148,6 +263,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         return sprite;
       };
 
+      // Format time remaining for display
+      const formatTimeRemaining = (expiryTime: Date) => {
+        const now = new Date();
+        const timeDiff = expiryTime.getTime() - now.getTime();
+        if (timeDiff <= 0) return "Expired";
+        
+        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        return `${hours}h ${minutes}m`;
+      };
+
       // Position text labels within bubble
       bubbleGroup.add(createLabelSprite(
         topic.name, 
@@ -163,8 +290,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       bubbleGroup.add(createLabelSprite(
         `⭐ ${topic.reflect_count}`, 
-        new THREE.Vector3(0, -finalSize * 0.6, 0), 
+        new THREE.Vector3(0, -finalSize * 0.5, 0), 
         isMobile ? 22 : 26
+      ));
+      
+      // Add time remaining label
+      bubbleGroup.add(createLabelSprite(
+        `⏱ ${formatTimeRemaining(expiryTime)}`, 
+        new THREE.Vector3(0, -finalSize * 0.8, 0), 
+        isMobile ? 20 : 24
       ));
 
       // Set initial random position
@@ -452,9 +586,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Update bubble positions with enhanced random movement
       Object.values(bubblesRef.current).forEach(bubble => {
         const movement = bubble.userData.movement;
+        const expiryRatio = bubble.userData.expiryRatio || 1;
         
         // Calculate new position with random movement
         const angle = time * movement.speed + movement.angle;
+        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.2;
         const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
         
         // Apply rotation from central world
@@ -464,9 +600,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           centralWorld.rotation.z
         );
         
-        const x = Math.cos(angle) * movement.radius;
+        const x = Math.cos(angle) * movement.radius + wobble;
         const y = verticalMovement;
-        const z = Math.sin(angle) * movement.radius;
+        const z = Math.sin(angle) * movement.radius + wobble;
         
         const position = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
         bubble.position.copy(position);
@@ -483,6 +619,45 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const scaleFactor = origScale * zoomFactor;
         bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
         
+        // Update bubble appearance based on time remaining
+        if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
+          // Update expiry ratio
+          const now = new Date();
+          const expiryTime = bubble.userData.expiryTime || new Date();
+          const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
+          const updatedExpiryRatio = timeUntilExpiry / (24*60*60*1000);
+          bubble.userData.expiryRatio = updatedExpiryRatio;
+          
+          // Pulse effect as bubble gets closer to expiry
+          if (updatedExpiryRatio < 0.1) {
+            const pulseIntensity = 0.2 + Math.sin(time * 20) * 0.2;
+            bubbleMesh.material.emissiveIntensity = pulseIntensity;
+            bubbleMesh.material.opacity = 0.5 + pulseIntensity * 0.5;
+          }
+        }
+        
+        // Update time remaining label if needed
+        if (bubble.children.length >= 4) {
+          const timeRemainingSprite = bubble.children[3] as THREE.Sprite;
+          if (bubble.userData.expiryTime) {
+            const now = new Date();
+            const expiryTime = bubble.userData.expiryTime;
+            
+            // If it's been more than a minute, update the label
+            if (now.getTime() % 60000 < 1000) {
+              const formattedTime = formatTimeRemaining(expiryTime);
+              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 20 : 24);
+              const texture = new THREE.CanvasTexture(canvas);
+              texture.needsUpdate = true;
+              
+              if (timeRemainingSprite.material instanceof THREE.SpriteMaterial) {
+                timeRemainingSprite.material.map = texture;
+                timeRemainingSprite.material.needsUpdate = true;
+              }
+            }
+          }
+        }
+        
         // Scale text sprites
         for (let i = 1; i < bubble.children.length; i++) {
           const sprite = bubble.children[i] as THREE.Sprite;
@@ -496,9 +671,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           } else if (i === 2) {
             baseScale = textScales.topicScale;
             sprite.position.set(0, -scaleFactor * 0.2, 0);
-          } else {
+          } else if (i === 3) {
             baseScale = textScales.reflectScale;
-            sprite.position.set(0, -scaleFactor * 0.6, 0);
+            sprite.position.set(0, -scaleFactor * 0.5, 0);
+          } else {
+            baseScale = textScales.reflectScale * 0.9;
+            sprite.position.set(0, -scaleFactor * 0.8, 0);
           }
           
           sprite.scale.set(

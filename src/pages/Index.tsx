@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download } from "lucide-react";
+import { MessageCircle, Search, User, TrendingUp, Sparkles, Plus, Send, Image, Video, Mic, SmilePlus, LogOut, X, Volume2, Download, Clock } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -34,6 +34,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BubbleData } from "@/types/bubble";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { connectionManager, createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
 
 interface Message {
@@ -81,6 +83,7 @@ const Index = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(50);
+  const [explodingBubbleId, setExplodingBubbleId] = useState<string | null>(null);
   
   // Create rate limiters and retry handlers
   const messageLimiter = useRef(createRateLimiter(5, 5000));
@@ -225,13 +228,25 @@ const Index = () => {
     };
   }, [queryClient, selectedBubbleId, toast]);
 
+  // Function to check if a bubble is expired (more than 24 hours old)
+  const isBubbleExpired = (bubble: Bubble) => {
+    const expiryTime = new Date(bubble.expires_at);
+    const now = new Date();
+    return expiryTime < now;
+  };
+
   // Fetch all bubbles with optimized caching
-  const { data: bubbles = [], isLoading: isLoadingBubbles } = useQuery({
+  const { data: allBubbles = [], isLoading: isLoadingBubbles } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
+      // Get the current time minus 24 hours
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      
       const { data, error } = await supabase
         .from('bubbles')
         .select('*')
+        .gte('expires_at', twentyFourHoursAgo.toISOString()) // Only fetch non-expired bubbles
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -249,6 +264,38 @@ const Index = () => {
     staleTime: 10000, // Cache data for 10 seconds
     refetchInterval: 30000 // Periodically refresh every 30 seconds
   });
+
+  // Filter out expired bubbles
+  const bubbles = useMemo(() => {
+    return allBubbles.filter(bubble => !isBubbleExpired(bubble));
+  }, [allBubbles]);
+
+  // Handle bubble explosion animation and removal
+  useEffect(() => {
+    const checkForExpiringBubbles = () => {
+      bubbles.forEach(bubble => {
+        const expiryTime = new Date(bubble.expires_at);
+        const now = new Date();
+        const timeLeft = expiryTime.getTime() - now.getTime();
+        
+        // If bubble is about to expire in the next minute, trigger animation
+        if (timeLeft > 0 && timeLeft < 60000 && explodingBubbleId !== bubble.id) {
+          setExplodingBubbleId(bubble.id);
+          
+          // After 5 seconds, refresh the bubble list to remove the exploded bubble
+          setTimeout(() => {
+            setExplodingBubbleId(null);
+            queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+          }, 5000);
+        }
+      });
+    };
+    
+    // Check for expiring bubbles every 10 seconds
+    const interval = setInterval(checkForExpiringBubbles, 10000);
+    
+    return () => clearInterval(interval);
+  }, [bubbles, explodingBubbleId, queryClient]);
 
   // Fetch selected bubble details with optimized caching
   const { data: selectedBubble, isLoading: isLoadingBubbleDetails } = useQuery({
@@ -277,6 +324,18 @@ const Index = () => {
     enabled: !!selectedBubbleId,
     staleTime: 10000 // Cache data for 10 seconds
   });
+
+  // Close chat dialog if selected bubble is expired
+  useEffect(() => {
+    if (selectedBubble && isBubbleExpired(selectedBubble) && chatOpen) {
+      setChatOpen(false);
+      toast({
+        title: "Bubble Expired",
+        description: "This bubble has expired and is no longer available",
+        variant: "destructive"
+      });
+    }
+  }, [selectedBubble, chatOpen, toast]);
 
   // Fetch messages for selected bubble with optimized pagination
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
@@ -350,6 +409,17 @@ const Index = () => {
       return;
     }
     
+    // Check if the selected bubble has expired
+    if (selectedBubble && isBubbleExpired(selectedBubble)) {
+      toast({
+        title: "Bubble Expired",
+        description: "This bubble has expired and is no longer available for messages",
+        variant: "destructive"
+      });
+      setChatOpen(false);
+      return;
+    }
+    
     const messageContent = content || newMessage;
     if (!messageContent.trim()) return;
     
@@ -403,7 +473,7 @@ const Index = () => {
     } finally {
       setIsSendingMessage(false);
     }
-  }, [user, profile, selectedBubbleId, newMessage, toast]);
+  }, [user, profile, selectedBubbleId, selectedBubble, newMessage, toast]);
 
   // Optimized bubble reflection with retry logic
   const handleReflect = useCallback(async (bubbleId: string) => {
@@ -411,6 +481,18 @@ const Index = () => {
       toast({
         title: "Authentication required",
         description: "Please sign in to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Find the bubble to check if it's expired
+    const bubble = bubbles.find(b => b.id === bubbleId);
+    
+    if (bubble && isBubbleExpired(bubble)) {
+      toast({
+        title: "Bubble Expired",
+        description: "This bubble has expired and is no longer available for reflection",
         variant: "destructive"
       });
       return;
@@ -451,7 +533,7 @@ const Index = () => {
         variant: "destructive"
       });
     }
-  }, [user, profile, toast]);
+  }, [user, profile, bubbles, toast]);
 
   const handleCreateBubble = async () => {
     if (!user) {
@@ -476,9 +558,9 @@ const Index = () => {
         return;
       }
       
-      // Calculate expiry date (default: 7 days)
+      // Set expiry date to 24 hours from now
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      expiresAt.setHours(expiresAt.getHours() + 24);
       
       const username = profile?.username || user?.email || "";
       
@@ -502,7 +584,7 @@ const Index = () => {
       
       toast({
         title: "Bubble Created!",
-        description: `Your bubble "${newBubbleInfo.name}" has been created`
+        description: `Your bubble "${newBubbleInfo.name}" will be active for 24 hours`
       });
       
       // Reset form and close dialog
@@ -545,16 +627,22 @@ const Index = () => {
   const formatExpiry = (expiryDate: string) => {
     const expiry = new Date(expiryDate);
     const now = new Date();
-    const diffDays = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 0) {
+    // Calculate time difference in milliseconds
+    const timeDiff = expiry.getTime() - now.getTime();
+    
+    if (timeDiff <= 0) {
       return "Expired";
-    } else if (diffDays === 0) {
-      return "Expires today";
-    } else if (diffDays === 1) {
-      return "Expires tomorrow";
+    }
+    
+    // Format remaining time
+    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m remaining`;
     } else {
-      return `Expires in ${diffDays} days`;
+      return `${minutes}m remaining`;
     }
   };
 
@@ -596,9 +684,21 @@ const Index = () => {
       reflect_count: bubble.reflect_count,
       created_at: bubble.created_at,
       description: bubble.description || undefined,
-      expires_at: bubble.expires_at
+      expires_at: bubble.expires_at,
+      isExploding: explodingBubbleId === bubble.id
     }));
-  }, [filteredBubbles]);
+  }, [filteredBubbles, explodingBubbleId]);
+
+  // Get user initials for avatar
+  const getUserInitials = (displayName?: string | null, email?: string | null) => {
+    if (displayName) {
+      return displayName.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
+    }
+    if (email) {
+      return email.substring(0, 2).toUpperCase();
+    }
+    return 'BT';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
@@ -697,7 +797,11 @@ const Index = () => {
                       size="icon"
                       className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
                     >
-                      <User className="w-5 h-5" />
+                      <Avatar className="h-8 w-8 border border-[#ebbd34]/20">
+                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
+                          {getUserInitials(profile?.display_name, user?.email)}
+                        </AvatarFallback>
+                      </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
@@ -756,14 +860,17 @@ const Index = () => {
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold text-[#ebbd34]">Bubble World</h1>
+            <div>
+              <h1 className="text-4xl font-bold text-[#ebbd34]">Bubble World</h1>
+              <p className="text-[#ebbd34]/70">Explore ephemeral bubbles that last for just 24 hours</p>
+            </div>
             
             <Button
               onClick={() => setNewBubbleDialog(true)}
               className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white"
             >
               <Plus className="mr-1 h-4 w-4" />
-              New Bubble
+              New 24h Bubble
             </Button>
           </div>
           
@@ -775,10 +882,10 @@ const Index = () => {
           ) : filteredBubbles.length === 0 ? (
             <div className="text-center py-16">
               <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
-                <Sparkles className="w-8 h-8 text-[#ebbd34]" />
+                <Clock className="w-8 h-8 text-[#ebbd34]" />
               </div>
-              <h3 className="text-xl font-medium text-[#ebbd34]">No bubbles found</h3>
-              <p className="text-gray-500 mt-2">Try a different search or create your own bubble</p>
+              <h3 className="text-xl font-medium text-[#ebbd34]">No active bubbles found</h3>
+              <p className="text-gray-500 mt-2">Bubbles only last for 24 hours. Create a new one!</p>
               <Button
                 onClick={() => setNewBubbleDialog(true)}
                 className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
@@ -788,10 +895,22 @@ const Index = () => {
               </Button>
             </div>
           ) : (
-            <div className="h-[60vh] w-full">
+            <div className="h-[60vh] w-full bg-white/10 rounded-lg p-2">
               <BubbleWorld 
                 topics={bubbleDataForComponent}
                 onBubbleClick={(bubbleId) => {
+                  // Find bubble to check if it's expired
+                  const bubble = bubbles.find(b => b.id === bubbleId);
+                  
+                  if (bubble && isBubbleExpired(bubble)) {
+                    toast({
+                      title: "Bubble Expired",
+                      description: "This bubble has expired and is no longer available",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
                   setSelectedBubbleId(bubbleId);
                   setChatOpen(true);
                 }}
@@ -805,9 +924,9 @@ const Index = () => {
       <Dialog open={newBubbleDialog} onOpenChange={setNewBubbleDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-[#ebbd34]">Create a New Bubble</DialogTitle>
+            <DialogTitle className="text-[#ebbd34]">Create a 24h Bubble</DialogTitle>
             <DialogDescription>
-              Create a new bubble for ephemeral conversations. Bubbles automatically expire after 7 days.
+              Create a new bubble that will last for exactly 24 hours before exploding.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -864,6 +983,10 @@ const Index = () => {
                 rows={3}
               />
             </div>
+            <div className="flex items-center rounded-md bg-[#ebbd34]/10 p-3 mt-2">
+              <Clock className="h-5 w-5 text-[#ebbd34] mr-2" />
+              <span className="text-sm text-[#ebbd34]">This bubble will automatically expire after 24 hours</span>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -872,7 +995,7 @@ const Index = () => {
               disabled={isCreatingBubble || !newBubbleInfo.name.trim()}
               className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
             >
-              {isCreatingBubble ? "Creating..." : "Create Bubble"}
+              {isCreatingBubble ? "Creating..." : "Create 24h Bubble"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -896,11 +1019,12 @@ const Index = () => {
               <div className="flex flex-col text-sm text-muted-foreground">
                 <div className="flex justify-between">
                   <span>Topic: {selectedBubble.topic}</span>
-                  <span className="text-xs text-gray-400">
+                  <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20">
+                    <Clock className="h-3 w-3 mr-1" />
                     {formatExpiry(selectedBubble.expires_at)}
-                  </span>
+                  </Badge>
                 </div>
-                <div className="flex justify-between mt-1">
+                <div className="flex justify-between mt-2">
                   <span>{selectedBubble.reflect_count} reflects</span>
                   <Button
                     variant="ghost"
@@ -926,6 +1050,7 @@ const Index = () => {
               <div className="text-center py-8 text-gray-500">
                 <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                 <p>No messages yet. Start the conversation!</p>
+                <p className="text-xs mt-2 text-gray-400">This bubble will disappear in 24 hours</p>
               </div>
             ) : (
               <div className="space-y-4">

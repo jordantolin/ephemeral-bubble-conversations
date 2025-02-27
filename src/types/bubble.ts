@@ -9,6 +9,7 @@ export interface BubbleData {
   created_at?: string;
   description?: string;
   expires_at?: string;
+  isExploding?: boolean;
 }
 
 export interface BubbleWorldProps {
