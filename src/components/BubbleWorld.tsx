@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -104,12 +103,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         originalScale: finalSize,
         textScales: {
           nameScale: finalSize * 2.5,
-          topicScale: finalSize * 2.5,
-          reflectScale: finalSize * 2.5
+          topicScale: finalSize * 2.0,
+          reflectScale: finalSize * 1.8
         }
       };
 
-      // Add text labels
+      // Create label container for better positioning
+      const labelContainer = new THREE.Group();
+      labelContainer.position.y = finalSize * 1.5; // Position above bubble
+      bubbleGroup.add(labelContainer);
+
+      // Add text labels to the label container
       const createSprite = (text: string, yOffset: number, fontSize: number = 32) => {
         const canvas = createTextCanvas(text, fontSize);
         const texture = new THREE.CanvasTexture(canvas);
@@ -120,14 +124,22 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           transparent: true,
         });
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(finalSize * 2.5, finalSize * 1.25, 1);
-        sprite.position.y = finalSize * yOffset;
+        
+        // Set scale based on text type
+        const scaleFactor = yOffset === 0 ? 2.5 : // Name (largest)
+                            yOffset === 1 ? 2.0 : // Topic (medium)
+                            1.8; // Reflect count (smallest)
+        
+        sprite.scale.set(finalSize * scaleFactor, finalSize * scaleFactor * 0.5, 1);
+        sprite.position.y = finalSize * yOffset * 0.8; // Tighter spacing
+        
         return sprite;
       };
 
-      bubbleGroup.add(createSprite(topic.name, 1.2, isMobile ? 36 : 48));
-      bubbleGroup.add(createSprite(topic.topic, 0.2, isMobile ? 28 : 32));
-      bubbleGroup.add(createSprite(`⭐ ${topic.reflect_count}`, -0.8, isMobile ? 24 : 28));
+      // Add text labels to the label container with tighter spacing
+      labelContainer.add(createSprite(topic.name, 0, isMobile ? 36 : 48));
+      labelContainer.add(createSprite(topic.topic, 1, isMobile ? 28 : 32));
+      labelContainer.add(createSprite(`⭐ ${topic.reflect_count}`, 2, isMobile ? 24 : 28));
 
       // Set initial position
       const position = calculateOrbitPosition(index, topics.length, 0);
@@ -376,35 +388,35 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const scaleFactor = origScale * zoomFactor;
         bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
         
-        // Scale text labels (other children are sprites)
-        for (let i = 1; i < bubble.children.length; i++) {
-          const sprite = bubble.children[i] as THREE.Sprite;
+        // Scale label container (second child)
+        const labelContainer = bubble.children[1] as THREE.Group;
+        labelContainer.position.y = origScale * 1.5 * zoomFactor; // Keep it above the bubble
+        
+        // Scale individual labels within the container
+        for (let i = 0; i < labelContainer.children.length; i++) {
+          const sprite = labelContainer.children[i] as THREE.Sprite;
           const textScales = bubble.userData.textScales;
           const textScaleFactor = zoomFactor * 0.8; // slightly less aggressive scaling for text
           
-          // Adjust position and scale based on which text element it is
-          if (i === 1) { // Name text (top)
-            sprite.scale.set(
-              textScales.nameScale * textScaleFactor,
-              textScales.nameScale * textScaleFactor * 0.5,
-              1
-            );
-            sprite.position.y = origScale * 1.2 * zoomFactor;
-          } else if (i === 2) { // Topic text (middle)
-            sprite.scale.set(
-              textScales.topicScale * textScaleFactor,
-              textScales.topicScale * textScaleFactor * 0.5,
-              1
-            );
-            sprite.position.y = origScale * 0.2 * zoomFactor;
-          } else if (i === 3) { // Reflect count text (bottom)
-            sprite.scale.set(
-              textScales.reflectScale * textScaleFactor,
-              textScales.reflectScale * textScaleFactor * 0.5,
-              1
-            );
-            sprite.position.y = -origScale * 0.8 * zoomFactor;
+          // Get the appropriate scale factor based on label type
+          let baseScale, heightFactor;
+          if (i === 0) { // Name (top)
+            baseScale = textScales.nameScale;
+            heightFactor = 0;
+          } else if (i === 1) { // Topic (middle)
+            baseScale = textScales.topicScale;
+            heightFactor = 1;
+          } else { // Reflect count (bottom)
+            baseScale = textScales.reflectScale;
+            heightFactor = 2;
           }
+          
+          sprite.scale.set(
+            baseScale * textScaleFactor,
+            baseScale * textScaleFactor * 0.5,
+            1
+          );
+          sprite.position.y = origScale * heightFactor * 0.8 * zoomFactor; // Maintain spacing
         }
       });
 

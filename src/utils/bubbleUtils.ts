@@ -172,29 +172,20 @@ export const createTextCanvas = (text: string, fontSize: number = 48): HTMLCanva
 
   if (context) {
     context.scale(pixelRatio, pixelRatio);
-    context.fillStyle = 'transparent';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     
     // Enhanced text rendering
     context.font = `bold ${fontSize}px Montserrat, Arial`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     
-    // Strong white outline
-    context.strokeStyle = '#FFFFFF';
-    context.lineWidth = 8;
+    // Strong white outline for better readability
+    context.strokeStyle = 'white';
+    context.lineWidth = 6;
     context.strokeText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
     
-    // Dark fill for contrast
+    // Deep black fill for maximum readability
     context.fillStyle = '#000000';
-    context.fillText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
-    
-    // Add glow effect
-    context.shadowColor = 'rgba(255, 255, 255, 0.8)';
-    context.shadowBlur = 15;
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-    context.fillStyle = '#FFFFFF';
     context.fillText(text, canvas.width / (2 * pixelRatio), canvas.height / (2 * pixelRatio));
   }
 
