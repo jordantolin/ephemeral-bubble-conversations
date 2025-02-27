@@ -27,6 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/context/UserContext";
+import { BubbleData } from "@/types/bubble";
 
 const availableTopics = [
   "Art & Design",
@@ -51,7 +52,7 @@ interface Bubble {
   topic: string;
   username: string;
   name: string;
-  size: "sm" | "md" | "lg";
+  size: string;
   description: string | null;
   reflect_count: number;
   expires_at: string;
@@ -64,6 +65,31 @@ interface Message {
   username: string;
   timestamp: string;
 }
+
+// Helper function to ensure size is one of the allowed values
+const normalizeBubbleSize = (size: string): "sm" | "md" | "lg" => {
+  if (size === "sm" || size === "md" || size === "lg") {
+    return size;
+  }
+  
+  // Default size based on what makes sense for your application
+  return "sm";
+};
+
+// Helper to convert database bubble to BubbleData
+const toBubbleData = (bubble: Bubble): BubbleData => {
+  return {
+    id: bubble.id,
+    topic: bubble.topic,
+    username: bubble.username,
+    name: bubble.name,
+    size: normalizeBubbleSize(bubble.size),
+    reflect_count: bubble.reflect_count,
+    created_at: bubble.created_at,
+    description: bubble.description || undefined,
+    expires_at: bubble.expires_at
+  };
+};
 
 const Index = () => {
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
@@ -83,7 +109,7 @@ const Index = () => {
   const { user } = useUser();
 
   // Fetch bubbles with reflects
-  const { data: bubbles = [] } = useQuery({
+  const { data: rawBubbles = [] } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -100,10 +126,13 @@ const Index = () => {
         return [];
       }
 
-      return data;
+      return data as Bubble[];
     },
     refetchInterval: 60000 // Refetch every minute to check for expired bubbles
   });
+
+  // Convert raw bubbles to properly typed BubbleData
+  const bubbles: BubbleData[] = rawBubbles.map(toBubbleData);
 
   const handleCreateBubble = async () => {
     if (!user) {
