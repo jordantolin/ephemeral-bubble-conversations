@@ -54,7 +54,7 @@ export function RegisterForm() {
       // Check if email already exists in auth
       const { data: authUser, error: authCheckError } = await supabase.auth.signInWithPassword({
         email: registerForm.email,
-        password: "dummy-password-for-check", // We expect this to fail, we just want to check if the email exists
+        password: "dummy-password-for-check",
       });
       
       // If sign-in didn't fail with "Invalid login credentials", email might already exist
@@ -88,6 +88,7 @@ export function RegisterForm() {
             name: registerForm.name,
             surname: registerForm.surname,
             username: registerForm.username,
+            display_name: `${registerForm.name} ${registerForm.surname}`,
           },
           emailRedirectTo: `${window.location.origin}/auth`,
         },
@@ -104,39 +105,9 @@ export function RegisterForm() {
 
       console.log("User created successfully:", authData.user.id);
 
-      // Create profile entry with explicit RLS policy bypass using service role
-      try {
-        // First, try to cleanup any existing profile with this email (in case it wasn't properly deleted)
-        const { error: deleteError } = await supabase
-          .from("profiles")
-          .delete()
-          .eq("username", registerForm.email);
-        
-        if (deleteError && !deleteError.message.includes("no rows")) {
-          console.warn("Error cleaning up existing profile:", deleteError);
-        }
-
-        // Now create the new profile
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            id: authData.user.id,
-            username: registerForm.username,
-            display_name: `${registerForm.name} ${registerForm.surname}`,
-          });
-
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-          // If profile creation fails, attempt to clean up auth user
-          await supabase.auth.signOut();
-          throw new Error(`Profile creation failed: ${profileError.message}`);
-        }
-      } catch (profileError: any) {
-        console.error("Exception during profile creation:", profileError);
-        // Attempt to clean up auth if profile creation fails
-        await supabase.auth.signOut();
-        throw profileError;
-      }
+      // We'll rely on the database trigger to create the profile
+      // We don't need to manually create the profile here since this is done by a trigger in the database
+      // This will automatically happen when the user is created in auth.users
 
       // If the user has a session token, sign them out since we want to verify their email first
       if (authData.session) {
