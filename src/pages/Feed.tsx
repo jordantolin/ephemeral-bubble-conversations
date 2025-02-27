@@ -24,7 +24,7 @@ const Feed = () => {
         console.log("Fetching bubbles for 3D world...");
         const { data, error } = await supabase
           .from("bubbles")
-          .select("id, name, description, user_id, created_at, profiles(username)")
+          .select("id, name, description, user_id, created_at, expires_at, profiles(username)")
           .order("created_at", { ascending: false });
           
         if (error) {
@@ -41,6 +41,8 @@ const Feed = () => {
           size: Math.random() > 0.7 ? "lg" : Math.random() > 0.4 ? "md" : "sm",
           reflect_count: Math.floor(Math.random() * 10),
           created_at: bubble.created_at,
+          description: bubble.description,
+          expires_at: bubble.expires_at
         }));
         
         console.log("Bubbles fetched:", bubbleData.length);
