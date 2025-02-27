@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { Button } from "@/components/ui/button";
@@ -478,6 +479,13 @@ const Index = () => {
       </div>
       
       <main className="flex flex-col items-center justify-start w-full min-h-[calc(100dvh-64px)] pt-28 sm:pt-20">
+        {/* New section - Bubble World heading */}
+        <div className="w-full max-w-4xl text-center mb-6 px-4">
+          <h2 className="text-3xl font-bold text-[#ebbd34]">Bubble World</h2>
+          <p className="text-[#ebbd34]/80 mt-2">Explore bubbles made in the last 24 hours</p>
+          <div className="h-1 w-16 bg-[#ebbd34] mx-auto mt-3 rounded-full"></div>
+        </div>
+        
         <div className="w-full h-[calc(100dvh-180px)] sm:w-[90%] sm:h-[700px] sm:max-w-4xl relative sm:rounded-3xl overflow-hidden bg-[#FEF7E4]/50 backdrop-blur-sm sm:shadow-xl sm:border sm:border-[#ebbd34]/10">
           <BubbleWorld 
             topics={bubbles}
