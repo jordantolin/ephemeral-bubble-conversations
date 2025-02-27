@@ -42,7 +42,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     isMobile: false, // Track if we're on mobile
     touchId: null as number | null, // Track the primary touch ID for better multi-touch handling
     lastTapTime: 0, // For detecting double taps
-    pinchStartAngle: 0 // Add this property to fix the TypeScript error
+    pinchStartAngle: 0 // For tracking rotation in pinch gestures
   });
 
   useEffect(() => {
@@ -147,7 +147,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       };
 
       // Create text labels that will appear inside the bubble
-      // Use smaller font sizes for inside-bubble text
       const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
         const canvas = createTextCanvas(text, fontSize);
         const texture = new THREE.CanvasTexture(canvas);
@@ -173,7 +172,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       };
 
       // Add text positioned within the bubble
-      // Texts are positioned with Y-offsets to stack them inside the bubble
       bubbleGroup.add(createLabelSprite(
         topic.name, 
         new THREE.Vector3(0, finalSize * 0.2, 0), 
@@ -200,8 +198,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       scene.add(bubbleGroup);
     });
 
-    // IMPROVED TOUCH CONTROLS FOR SMARTPHONES
-
+    // TOUCH CONTROLS FOR SMARTPHONES
     // Get pinch distance between two touches
     const getPinchDistance = (e: TouchEvent) => {
       const touch1 = e.touches[0];
@@ -212,11 +209,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       );
     };
 
-    // Detect and track the primary touch ID for consistent multi-touch handling
+    // Detect and track the primary touch ID
     const getPrimaryTouchId = (e: TouchEvent): number | null => {
       if (e.touches.length === 0) return null;
       
-      // If we already have a touchId and it's still present, keep using it
       if (interactionRef.current.touchId !== null) {
         for (let i = 0; i < e.touches.length; i++) {
           if (e.touches[i].identifier === interactionRef.current.touchId) {
@@ -225,7 +221,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       }
       
-      // Otherwise use the first touch
       return e.touches[0].identifier;
     };
 
@@ -242,9 +237,41 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return null;
     };
 
-    // Enhanced touchstart handler with better multi-touch support
+    // Single finger rotation handler
+    const handleSingleFingerMove = (touch: Touch) => {
+      if (!centralWorldRef.current) return;
+      
+      const dx = touch.clientX - interactionRef.current.lastX;
+      const dy = touch.clientY - interactionRef.current.lastY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance > interactionRef.current.dragThreshold) {
+        interactionRef.current.isDragging = true;
+      }
+      
+      // Apply rotation with improved responsiveness on mobile
+      const rotationSensitivity = isMobile ? 0.012 : 0.008; // Increased for mobile
+      
+      // Scale sensitivity based on zoom level for consistent feel
+      const zoomScaleFactor = interactionRef.current.zoom.current / interactionRef.current.zoom.min;
+      const adjustedSensitivity = rotationSensitivity * zoomScaleFactor;
+      
+      centralWorldRef.current.rotation.y += dx * adjustedSensitivity;
+      centralWorldRef.current.rotation.x += dy * adjustedSensitivity;
+      
+      // Store momentum for inertia effect
+      interactionRef.current.momentum = {
+        x: dx * adjustedSensitivity * 0.9,
+        y: dy * adjustedSensitivity * 0.9
+      };
+      
+      interactionRef.current.lastX = touch.clientX;
+      interactionRef.current.lastY = touch.clientY;
+    };
+
+    // Enhanced touchstart handler
     container.addEventListener('touchstart', (e) => {
-      e.preventDefault(); // Prevent default behavior like scrolling
+      e.preventDefault();
       
       // Handle double-tap to reset view
       const now = Date.now();
@@ -270,7 +297,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         interactionRef.current.pinchDistance = initialDistance;
         interactionRef.current.lastPinchTime = now;
         
-        // Detect pinch orientation to determine if it's a zoom or rotation
+        // Detect pinch orientation for rotation
         const touch1 = e.touches[0];
         const touch2 = e.touches[1];
         const angle = Math.atan2(
@@ -278,7 +305,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           touch2.clientX - touch1.clientX
         );
         
-        // Store reference angle for rotation detection
         interactionRef.current.pinchStartAngle = angle;
       } else if (e.touches.length === 1) {
         // Single finger pan/rotation
@@ -291,7 +317,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     }, { passive: false });
 
-    // Enhanced touchmove with better gesture handling
+    // Enhanced touchmove handler
     container.addEventListener('touchmove', (e) => {
       e.preventDefault();
       
@@ -299,11 +325,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       if (e.touches.length === 2) {
         const currentTime = Date.now();
         
-        // Improved pinch-to-zoom with smoother response
+        // Pinch-to-zoom with smoother response
         const currentDistance = getPinchDistance(e);
         const deltaDistance = currentDistance - interactionRef.current.pinchDistance;
         
-        // Scale zoom sensitivity based on current zoom level for better control
+        // Scale zoom sensitivity based on current zoom level
         const zoomSensitivity = isMobile ? 0.02 : 0.01;
         const adaptiveSensitivity = zoomSensitivity * (interactionRef.current.zoom.current / interactionRef.current.zoom.min);
         
@@ -333,46 +359,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       } 
       // Handle single-finger rotation
-      else if (e.touches.length === 1) {
+      else if (e.touches.length === 1 && interactionRef.current.isInteracting) {
         const primaryTouch = e.touches[0];
-        
-        // Enhanced drag detection with precise threshold
-        const dx = primaryTouch.clientX - interactionRef.current.lastX;
-        const dy = primaryTouch.clientY - interactionRef.current.lastY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance > interactionRef.current.dragThreshold) {
-          interactionRef.current.isDragging = true;
-        }
-        
-        // Apply rotation to the central world with improved sensitivity
-        if (interactionRef.current.isInteracting && centralWorldRef.current) {
-          // Adjust sensitivity for different screen sizes and devices
-          const rotationSensitivity = isMobile ? 0.015 : 0.008;
-          
-          // Scale sensitivity based on zoom level for consistent feel
-          const zoomScaleFactor = interactionRef.current.zoom.current / interactionRef.current.zoom.min;
-          const adaptiveRotationSensitivity = rotationSensitivity * zoomScaleFactor;
-          
-          // More intuitive rotation - horizontal movement rotates around Y axis
-          centralWorldRef.current.rotation.y += dx * adaptiveRotationSensitivity;
-          
-          // Vertical movement rotates around X axis
-          centralWorldRef.current.rotation.x += dy * adaptiveRotationSensitivity;
-          
-          // Store momentum for inertia effect
-          interactionRef.current.momentum = {
-            x: dx * adaptiveRotationSensitivity * 0.9,
-            y: dy * adaptiveRotationSensitivity * 0.9
-          };
-        }
-        
-        interactionRef.current.lastX = primaryTouch.clientX;
-        interactionRef.current.lastY = primaryTouch.clientY;
+        handleSingleFingerMove(primaryTouch);
       }
     }, { passive: false });
 
-    // Enhanced touchend with better tap detection and inertia
+    // Enhanced touchend handler
     container.addEventListener('touchend', (e) => {
       e.preventDefault();
       
@@ -387,16 +380,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const wasTap = !interactionRef.current.isDragging && tapDuration < 300;
         
         // Handle bubble selection on tap
-        if (wasTap) {
+        if (wasTap && e.changedTouches.length > 0) {
           handleBubbleClick(e);
         }
         
-        // Apply momentum for a natural feeling inertia effect
+        // Apply momentum for natural inertia
         if (wasInteracting && centralWorldRef.current) {
-          // Customize decay for different devices
           const decay = isMobile ? 0.92 : 0.95;
           
-          // Apply smoother deceleration with dynamic friction
           const applyMomentum = () => {
             if (!centralWorldRef.current) return;
             
@@ -407,7 +398,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               centralWorldRef.current.rotation.y += momentum.x;
               centralWorldRef.current.rotation.x += momentum.y;
               
-              // Apply adaptive decay based on velocity for more natural physics
+              // Apply adaptive decay for natural physics
               const speedFactor = Math.min(1, Math.max(0.8, 
                 Math.sqrt(momentum.x * momentum.x + momentum.y * momentum.y) * 10));
               
@@ -441,7 +432,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       interactionRef.current.momentum = { x: 0, y: 0 };
     }, { passive: false });
 
-    // Improved bubble click detection optimized for mobile
+    // Improved bubble click detection
     const handleBubbleClick = (event: MouseEvent | TouchEvent) => {
       // If we're dragging, don't treat it as a click
       if (interactionRef.current.isDragging) return;
@@ -510,89 +501,52 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Mouse events (for desktop compatibility)
     container.addEventListener('mousedown', (e) => {
-      startInteraction(e.clientX, e.clientY);
+      interactionRef.current.isInteracting = true;
+      interactionRef.current.lastX = e.clientX;
+      interactionRef.current.lastY = e.clientY;
       interactionRef.current.isDragging = false;
       interactionRef.current.startTime = Date.now();
     });
 
     container.addEventListener('mousemove', (e) => {
-      if (interactionRef.current.isInteracting) {
-        // Check if we've moved enough to count as dragging
-        const dx = e.clientX - interactionRef.current.lastX;
-        const dy = e.clientY - interactionRef.current.lastY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance > interactionRef.current.dragThreshold) {
-          interactionRef.current.isDragging = true;
-        }
+      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
+      
+      const dx = e.clientX - interactionRef.current.lastX;
+      const dy = e.clientY - interactionRef.current.lastY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance > interactionRef.current.dragThreshold) {
+        interactionRef.current.isDragging = true;
       }
-      moveInteraction(e.clientX, e.clientY);
+      
+      // Apply rotation
+      const sensitivity = 0.01;
+      centralWorldRef.current.rotation.y += dx * sensitivity;
+      centralWorldRef.current.rotation.x += dy * sensitivity;
+      
+      // Store momentum
+      interactionRef.current.momentum = {
+        x: dx * sensitivity * 0.8,
+        y: dy * sensitivity * 0.8
+      };
+      
+      interactionRef.current.lastX = e.clientX;
+      interactionRef.current.lastY = e.clientY;
     });
 
     container.addEventListener('mouseup', (e) => {
-      endInteraction(e);
-    });
-
-    container.addEventListener('mouseleave', () => {
-      endInteraction();
-    });
-
-    // Mouse wheel zoom with improved sensitivity and smoother behavior
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const zoom = interactionRef.current.zoom;
-      // Non-linear scaling for smoother zoom at different distances
-      const zoomSensitivity = 0.005 * (zoom.current / zoom.min);
-      const delta = e.deltaY * zoomSensitivity;
-      
-      zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-
-    // Unified interaction handling for both mouse and touch
-    const startInteraction = (clientX: number, clientY: number) => {
-      interactionRef.current.isInteracting = true;
-      interactionRef.current.lastX = clientX;
-      interactionRef.current.lastY = clientY;
-    };
-
-    const moveInteraction = (clientX: number, clientY: number) => {
-      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
-
-      // Adjusted sensitivity for better mobile control
-      const isMobile = interactionRef.current.isMobile;
-      const sensitivity = isMobile ? 0.02 : 0.01;
-      const deltaX = (clientX - interactionRef.current.lastX) * sensitivity;
-      const deltaY = (clientY - interactionRef.current.lastY) * sensitivity;
-
-      centralWorldRef.current.rotation.y += deltaX;
-      centralWorldRef.current.rotation.x += deltaY;
-
-      interactionRef.current.momentum = {
-        x: deltaX * 0.8,
-        y: deltaY * 0.8
-      };
-
-      interactionRef.current.lastX = clientX;
-      interactionRef.current.lastY = clientY;
-    };
-
-    const endInteraction = (event?: MouseEvent | TouchEvent) => {
-      if (!interactionRef.current.isInteracting) return;
-      
       const wasInteracting = interactionRef.current.isInteracting;
       interactionRef.current.isInteracting = false;
 
-      // Handle click or tap only if it wasn't a drag
-      if (event) {
-        handleBubbleClick(event);
+      // Handle click only if it wasn't a drag
+      if (!interactionRef.current.isDragging) {
+        handleBubbleClick(e);
       }
 
-      // Improved momentum physics - more responsive on mobile
-      if (wasInteracting) {
-        const isMobile = interactionRef.current.isMobile;
-        const decay = isMobile ? 0.9 : 0.95; // Faster decay on mobile for more control
+      // Apply momentum for desktop
+      if (wasInteracting && centralWorldRef.current) {
+        const decay = 0.95;
+        
         const applyMomentum = () => {
           if (!centralWorldRef.current) return;
           
@@ -608,15 +562,31 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
         applyMomentum();
       }
+    });
+
+    container.addEventListener('mouseleave', () => {
+      interactionRef.current.isInteracting = false;
+    });
+
+    // Mouse wheel zoom
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoom = interactionRef.current.zoom;
+      const zoomSensitivity = 0.005 * (zoom.current / zoom.min);
+      const delta = e.deltaY * zoomSensitivity;
+      
+      zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
     };
 
-    // Improved animation loop with smoother bubble movement
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    // Animation loop
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       time += 0.002;
       
-      // Smoother zoom transition - faster on mobile
+      // Smoother zoom transition
       const zoom = interactionRef.current.zoom;
       const isMobile = interactionRef.current.isMobile;
       const zoomLerpFactor = isMobile ? 0.2 : 0.1;
@@ -625,18 +595,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         camera.position.z = zoom.current;
       }
 
-      // Calculate zoom scaling factor with improved formula
+      // Calculate zoom scaling factor
       const zoomRange = interactionRef.current.zoom.max - interactionRef.current.zoom.min;
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.2);
       
-      // Update bubbles with improved floating movement
+      // Update bubbles with floating movement
       Object.values(bubblesRef.current).forEach(bubble => {
         const userData = bubble.userData;
         const movement = userData.movement;
         const origPos = movement.originalPosition;
         
-        // Calculate smoother floating movement using unique parameters for each axis
+        // Calculate smoother floating movement
         const floatX = Math.sin(time * movement.frequency.x + movement.phase.x) * movement.amplitude.x;
         const floatY = Math.cos(time * movement.frequency.y + movement.phase.y) * movement.amplitude.y;
         const floatZ = Math.sin(time * movement.frequency.z + movement.phase.z) * movement.amplitude.z;
@@ -648,17 +618,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           centralWorld.rotation.z
         );
         
-        // Calculate target position with orbit and floating combined
+        // Calculate target position
         const targetPos = new THREE.Vector3(
           origPos.x + floatX,
           origPos.y + floatY,
           origPos.z + floatZ
         ).applyEuler(rotationOffset);
         
-        // Smoother movement for mobile - faster transition
+        // Smoother movement - faster on mobile
         const transitionDuration = isMobile ? 800 : 1200;
         
-        // Use TWEEN for smoother transitions between positions
+        // Use TWEEN for smoother transitions
         new TWEEN.Tween(bubble.position)
           .to(targetPos, transitionDuration)
           .easing(TWEEN.Easing.Quadratic.Out)
@@ -702,7 +672,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       });
 
-      // Gentle auto-rotation - slower on mobile for better control
+      // Gentle auto-rotation - slower on mobile
       if (!interactionRef.current.isInteracting) {
         centralWorld.rotation.y += isMobile ? 0.0002 : 0.0003;
       }
