@@ -1,4 +1,4 @@
-
+<lov-code>
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -65,6 +65,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    
+    console.log("BubbleWorld initialization with topics:", topics);
 
     const container = containerRef.current;
     const scene = new THREE.Scene();
@@ -779,54 +781,4 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Handle window resize
     let resizeTimeout: number;
     const handleResize = () => {
-      if (resizeTimeout) {
-        window.clearTimeout(resizeTimeout);
-      }
-
-      resizeTimeout = window.setTimeout(() => {
-        if (!container || !camera || !renderer) return;
-        
-        const width = container.clientWidth;
-        const height = container.clientHeight;
-        
-        const isMobile = width < 768;
-        
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height);
-      }, 100);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      container.removeEventListener('touchstart', onTouchStart);
-      container.removeEventListener('touchmove', onTouchMove);
-      container.removeEventListener('touchend', onTouchEnd);
-      container.removeEventListener('mousedown', onMouseDown);
-      container.removeEventListener('mousemove', onMouseMove);
-      container.removeEventListener('mouseup', onMouseUp);
-      container.removeEventListener('mouseleave', onMouseLeave);
-      container.removeEventListener('wheel', onWheel);
-      
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (renderer.domElement && container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
-  }, [topics, onBubbleClick, navigate]);
-
-  return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full touch-none select-none"
-      style={{ touchAction: 'none' }}
-    />
-  );
-};
-
-export default BubbleWorld;
+      if

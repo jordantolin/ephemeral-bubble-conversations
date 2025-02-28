@@ -78,7 +78,7 @@ const InstallButton = () => {
       onClick={handleInstallClick}
     >
       <Download className="h-4 w-4" />
-      Installa App
+      Install App
     </Button>
   );
 };
