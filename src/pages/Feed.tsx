@@ -18,6 +18,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
 
+interface Activity {
+  id: string;
+  username: string;
+  bubble_id: string;
+  content?: string;
+  created_at: string;
+  activity_type: 'new_bubble' | 'new_message' | 'reflect';
+  bubble?: {
+    id: string;
+    name: string;
+    description?: string;
+    topic?: string;
+    reflect_count?: number;
+  };
+}
+
+interface Comment {
+  id: string;
+  bubble_id: string;
+  username: string;
+  content: string;
+  created_at: string;
+}
+
 const Feed = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -33,9 +57,10 @@ const Feed = () => {
   const pageSize = 5;
   
   const [isSendingComment, setIsSendingComment] = useState(false);
-  const commentLimiter = useState(createRateLimiter(5, 10000))[0];
-  const sendRetry = useState(createRetryHandler(3, 1000))[0];
+  const commentLimiter = useState(() => createRateLimiter(5, 10000))[0];
+  const sendRetry = useState(() => createRetryHandler(3, 1000))[0];
 
+  // Since bubble_activities doesn't exist, we'll create a simulated activity feed from existing tables
   const { data: activityFeed = [], isLoading, error, refetch } = useQuery({
     queryKey: ['feed', currentPage],
     queryFn: async () => {
@@ -43,49 +68,106 @@ const Feed = () => {
         // Calculate pagination offset
         const offset = (currentPage - 1) * pageSize;
         
-        // Get recent activities
-        const { data: activities, error, count } = await supabase
-          .from('bubble_activities')
+        // Get recent bubbles as "new_bubble" activities
+        const { data: recentBubbles, error: bubblesError, count: bubblesCount } = await supabase
+          .from('bubbles')
           .select('*', { count: 'exact' })
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1);
           
-        if (error) {
-          throw error;
+        if (bubblesError) {
+          throw bubblesError;
         }
         
-        // Update total pages
-        if (count !== null) {
-          setTotalPages(Math.max(1, Math.ceil(count / pageSize)));
-        }
-        
-        // Fetch related bubbles for activities
-        const bubbleIds = activities
-          ?.map(activity => activity.bubble_id)
-          .filter((id, index, array) => array.indexOf(id) === index) || [];
+        // Get recent messages as "new_message" activities
+        const { data: recentMessages, error: messagesError } = await supabase
+          .from('bubble_messages')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(pageSize);
           
-        if (bubbleIds.length === 0) {
-          return activities || [];
+        if (messagesError) {
+          throw messagesError;
         }
         
-        const { data: bubbles, error: bubblesError } = await supabase
+        // Get recent reflects as "reflect" activities
+        const { data: recentReflects, error: reflectsError } = await supabase
+          .from('reflects')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(pageSize);
+          
+        if (reflectsError) {
+          throw reflectsError;
+        }
+        
+        // Update total pages based on the most numerous type
+        if (bubblesCount !== null) {
+          setTotalPages(Math.max(1, Math.ceil(bubblesCount / pageSize)));
+        }
+        
+        // Combine all bubble IDs for fetching bubble details
+        const bubbleIds = [
+          ...(recentBubbles?.map(b => b.id) || []),
+          ...(recentMessages?.map(m => m.bubble_id).filter(Boolean) || []),
+          ...(recentReflects?.map(r => r.bubble_id) || [])
+        ].filter((id, index, self) => id && self.indexOf(id) === index);
+        
+        // Fetch all related bubbles info in a single query
+        const { data: bubblesData, error: bubblesFetchError } = await supabase
           .from('bubbles')
           .select('*')
           .in('id', bubbleIds);
-          
-        if (bubblesError) {
-          console.error("Error fetching related bubbles:", bubblesError);
-          return activities || [];
+        
+        if (bubblesFetchError) {
+          throw bubblesFetchError;
         }
         
-        // Combine activities with related bubble data
-        return (activities || []).map(activity => {
-          const relatedBubble = bubbles?.find(b => b.id === activity.bubble_id);
-          return {
-            ...activity,
-            bubble: relatedBubble || null
-          };
-        });
+        // Create combined activity feed
+        const combinedActivities: Activity[] = [
+          // Map bubbles to activities
+          ...(recentBubbles?.map(bubble => ({
+            id: `bubble_${bubble.id}`,
+            username: bubble.username,
+            bubble_id: bubble.id,
+            created_at: bubble.created_at,
+            activity_type: 'new_bubble' as const,
+            bubble: bubble
+          })) || []),
+          
+          // Map messages to activities
+          ...(recentMessages?.map(message => {
+            const relatedBubble = bubblesData?.find(b => b.id === message.bubble_id);
+            return {
+              id: `message_${message.id}`,
+              username: message.username,
+              bubble_id: message.bubble_id,
+              content: message.content,
+              created_at: message.created_at,
+              activity_type: 'new_message' as const,
+              bubble: relatedBubble
+            };
+          }) || []),
+          
+          // Map reflects to activities
+          ...(recentReflects?.map(reflect => {
+            const relatedBubble = bubblesData?.find(b => b.id === reflect.bubble_id);
+            return {
+              id: `reflect_${reflect.id}`,
+              username: reflect.username,
+              bubble_id: reflect.bubble_id,
+              created_at: reflect.created_at,
+              activity_type: 'reflect' as const,
+              bubble: relatedBubble
+            };
+          }) || [])
+        ];
+        
+        // Sort combined activities by creation date
+        return combinedActivities.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ).slice(0, pageSize);
+        
       } catch (error) {
         console.error("Error fetching feed:", error);
         toast({
@@ -100,6 +182,7 @@ const Feed = () => {
     refetchInterval: 300000
   });
 
+  // Since bubble_comments doesn't exist, we'll use bubble_messages for comments
   const { data: comments = [], refetch: refetchComments } = useQuery({
     queryKey: ['comments', selectedBubbleId],
     queryFn: async () => {
@@ -107,7 +190,7 @@ const Feed = () => {
       
       try {
         const { data, error } = await supabase
-          .from('bubble_comments')
+          .from('bubble_messages')
           .select('*')
           .eq('bubble_id', selectedBubbleId)
           .order('created_at', { ascending: true });
@@ -116,7 +199,14 @@ const Feed = () => {
           throw error;
         }
         
-        return data || [];
+        // Map bubble_messages to comment structure
+        return data?.map((message): Comment => ({
+          id: message.id,
+          bubble_id: message.bubble_id || "",
+          username: message.username,
+          content: message.content,
+          created_at: message.created_at
+        })) || [];
       } catch (error) {
         console.error("Error fetching comments:", error);
         toast({
@@ -178,9 +268,10 @@ const Feed = () => {
       const commentText = comment.trim();
       setComment("");
       
+      // Use the retry handler around our operation
       await sendRetry(async () => {
         const { error } = await supabase
-          .from('bubble_comments')
+          .from('bubble_messages')
           .insert({
             bubble_id: selectedBubbleId,
             username: profile?.username || user.email || 'anonymous',
@@ -242,7 +333,7 @@ const Feed = () => {
     }
   };
 
-  const renderActivityContent = (activity: any) => {
+  const renderActivityContent = (activity: Activity) => {
     const activityType = activity.activity_type;
     const username = activity.username;
     const content = activity.content;
@@ -398,7 +489,7 @@ const Feed = () => {
           </Card>
         ) : (
           <>
-            {activityFeed.map((activity: any, index: number) => (
+            {activityFeed.map((activity: Activity, index: number) => (
               <Card key={activity.id || index} className="mb-6 overflow-hidden">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
@@ -490,7 +581,7 @@ const Feed = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {comments.map((comment: any) => (
+                  {comments.map((comment: Comment) => (
                     <div key={comment.id} className="flex gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] text-xs">
