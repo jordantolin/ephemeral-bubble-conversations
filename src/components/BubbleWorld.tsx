@@ -65,6 +65,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    
+    console.log("BubbleWorld initialization with topics:", topics);
 
     const container = containerRef.current;
     const scene = new THREE.Scene();
@@ -133,6 +135,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
     centralWorld.castShadow = true;
     centralWorld.receiveShadow = true;
+    // Adjust central world size
+    centralWorld.scale.set(1.2, 1.2, 1.2);
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
@@ -226,151 +230,156 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return particles;
     };
 
-    // Create bubbles with enhanced random positioning and improved visuals
-    topics.forEach((topic, index) => {
-      // Skip if bubble is already in exploding animation
-      if (topic.isExploding) {
-        // Create explosion effect if not already created
-        if (!particlesRef.current[topic.id]) {
-          // Use the last known position or a default
-          const lastKnownBubble = bubblesRef.current[topic.id];
-          if (lastKnownBubble) {
-            const position = lastKnownBubble.position.clone();
-            const size = topic.size === 'lg' ? 0.9 : 
-                        topic.size === 'md' ? 0.7 : 0.5;
-            const finalSize = size * (1 + topic.reflect_count * 0.1);
-            
-            particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
-            
-            // Remove the original bubble
-            scene.remove(lastKnownBubble);
-            delete bubblesRef.current[topic.id];
+    // Check if topics array exists and has items
+    if (topics && topics.length > 0) {
+      // Create bubbles with enhanced random positioning and improved visuals
+      topics.forEach((topic, index) => {
+        // Skip if bubble is already in exploding animation
+        if (topic.isExploding) {
+          // Create explosion effect if not already created
+          if (!particlesRef.current[topic.id]) {
+            // Use the last known position or a default
+            const lastKnownBubble = bubblesRef.current[topic.id];
+            if (lastKnownBubble) {
+              const position = lastKnownBubble.position.clone();
+              const size = topic.size === 'lg' ? 1.3 : 
+                          topic.size === 'md' ? 1.0 : 0.7;
+              const finalSize = size * (1 + topic.reflect_count * 0.1);
+              
+              particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
+              
+              // Remove the original bubble
+              scene.remove(lastKnownBubble);
+              delete bubblesRef.current[topic.id];
+            }
           }
+          return;
         }
-        return;
-      }
-      
-      const bubbleGroup = new THREE.Group();
-      
-      // Larger base sizes for better visibility
-      const baseSize = topic.size === 'lg' ? 0.9 : 
-                      topic.size === 'md' ? 0.7 : 0.5;
-      const reflectScale = 1 + (topic.reflect_count * 0.1);
-      const finalSize = baseSize * reflectScale;
-      
-      const geometry = createBubbleGeometry(finalSize);
-      const material = createBubbleMaterial();
-      const bubble = new THREE.Mesh(geometry, material);
-      bubble.castShadow = true;
-      bubble.receiveShadow = true;
-      bubbleGroup.add(bubble);
-
-      // Calculate time until expiry
-      const now = new Date();
-      const expiryTime = topic.expires_at ? new Date(topic.expires_at) : new Date(now.getTime() + 24*60*60*1000);
-      const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
-      const expiryRatio = timeUntilExpiry / (24*60*60*1000); // 0-1 value, 1 is fresh, 0 is expired
-      
-      // Make newer bubbles more vibrant
-      if (material instanceof THREE.MeshPhysicalMaterial) {
-        // Enhanced bubble appearance based on expiry time
-        material.opacity = 0.5 + (expiryRatio * 0.5); // More transparent as it ages
-        material.transmission = 0.2 + (expiryRatio * 0.3);
-        material.emissive = new THREE.Color(0xebbd34);
-        material.emissiveIntensity = 0.05 + (expiryRatio * 0.25); // Stronger glow for fresh bubbles
-        material.clearcoat = 1.0;
-        material.clearcoatRoughness = 0.1;
-        material.metalness = 0.1;
-        material.roughness = 0.2;
-      }
-
-      bubbleGroup.userData = {
-        id: topic.id,
-        orbitIndex: index,
-        originalScale: finalSize,
-        textScales: {
-          nameScale: finalSize * 1.6, // Larger text scales for better readability
-          topicScale: finalSize * 1.4,
-          reflectScale: finalSize * 1.2,
-          timeScale: finalSize
-        },
-        // More interesting movement patterns
-        movement: {
-          speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
-          radius: Math.random() * 3.5 + 2 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
-          angle: Math.random() * Math.PI * 2,
-          verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
-          verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
-          verticalOffset: Math.random() * Math.PI * 2,
-          rotationSpeed: Math.random() * 0.012 - 0.006,
-          wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
-        },
-        expiryRatio, // Store for animation use
-        expiryTime // Store actual time
-      };
-
-      // Create text labels with enhanced visibility
-      const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
-        const canvas = createTextCanvas(text, fontSize);
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
         
-        const spriteMaterial = new THREE.SpriteMaterial({ 
-          map: texture,
-          transparent: true,
-          depthTest: false
-        });
+        const bubbleGroup = new THREE.Group();
         
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(
-          finalSize * 1.6, // Wider text for better readability
-          finalSize * 0.8, 
-          1
+        // Larger base sizes for better visibility
+        const baseSize = topic.size === 'lg' ? 1.3 : 
+                        topic.size === 'md' ? 1.0 : 0.7;
+        const reflectScale = 1 + (topic.reflect_count * 0.1);
+        const finalSize = baseSize * reflectScale;
+        
+        const geometry = createBubbleGeometry(finalSize);
+        const material = createBubbleMaterial();
+        const bubble = new THREE.Mesh(geometry, material);
+        bubble.castShadow = true;
+        bubble.receiveShadow = true;
+        bubbleGroup.add(bubble);
+
+        // Calculate time until expiry
+        const now = new Date();
+        const expiryTime = topic.expires_at ? new Date(topic.expires_at) : new Date(now.getTime() + 24*60*60*1000);
+        const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
+        const expiryRatio = timeUntilExpiry / (24*60*60*1000); // 0-1 value, 1 is fresh, 0 is expired
+        
+        // Make newer bubbles more vibrant
+        if (material instanceof THREE.MeshPhysicalMaterial) {
+          // Enhanced bubble appearance based on expiry time
+          material.opacity = 0.5 + (expiryRatio * 0.5); // More transparent as it ages
+          material.transmission = 0.2 + (expiryRatio * 0.3);
+          material.emissive = new THREE.Color(0xebbd34);
+          material.emissiveIntensity = 0.05 + (expiryRatio * 0.25); // Stronger glow for fresh bubbles
+          material.clearcoat = 1.0;
+          material.clearcoatRoughness = 0.1;
+          material.metalness = 0.1;
+          material.roughness = 0.2;
+        }
+
+        bubbleGroup.userData = {
+          id: topic.id,
+          orbitIndex: index,
+          originalScale: finalSize,
+          textScales: {
+            nameScale: finalSize * 1.6, // Larger text scales for better readability
+            topicScale: finalSize * 1.4,
+            reflectScale: finalSize * 1.2,
+            timeScale: finalSize
+          },
+          // More interesting movement patterns
+          movement: {
+            speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
+            radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
+            angle: Math.random() * Math.PI * 2,
+            verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
+            verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
+            verticalOffset: Math.random() * Math.PI * 2,
+            rotationSpeed: Math.random() * 0.012 - 0.006,
+            wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
+          },
+          expiryRatio, // Store for animation use
+          expiryTime // Store actual time
+        };
+
+        // Create text labels with enhanced visibility
+        const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
+          const canvas = createTextCanvas(text, fontSize);
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.needsUpdate = true;
+          
+          const spriteMaterial = new THREE.SpriteMaterial({ 
+            map: texture,
+            transparent: true,
+            depthTest: false
+          });
+          
+          const sprite = new THREE.Sprite(spriteMaterial);
+          sprite.scale.set(
+            finalSize * 1.8, // Wider text for better readability
+            finalSize * 0.9, 
+            1
+          );
+          
+          sprite.position.copy(position);
+          return sprite;
+        };
+
+        // Position text labels within bubble with better spacing
+        bubbleGroup.add(createLabelSprite(
+          topic.name, 
+          new THREE.Vector3(0, finalSize * 0.4, 0), 
+          isMobile ? 38 : 44 // Larger font sizes
+        ));
+        
+        bubbleGroup.add(createLabelSprite(
+          topic.topic, 
+          new THREE.Vector3(0, -finalSize * 0.1, 0), 
+          isMobile ? 32 : 36
+        ));
+        
+        bubbleGroup.add(createLabelSprite(
+          `⭐ ${topic.reflect_count}`, 
+          new THREE.Vector3(0, -finalSize * 0.5, 0), 
+          isMobile ? 28 : 32
+        ));
+        
+        // Add time remaining label
+        bubbleGroup.add(createLabelSprite(
+          `⏱ ${formatTimeRemaining(expiryTime)}`, 
+          new THREE.Vector3(0, -finalSize * 0.85, 0), 
+          isMobile ? 26 : 30
+        ));
+
+        // Set initial random position with wider distribution
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * 4.0 + 2.5;
+        const y = (Math.random() - 0.5) * 5.0;
+        bubbleGroup.position.set(
+          Math.cos(angle) * radius,
+          y,
+          Math.sin(angle) * radius
         );
         
-        sprite.position.copy(position);
-        return sprite;
-      };
-
-      // Position text labels within bubble with better spacing
-      bubbleGroup.add(createLabelSprite(
-        topic.name, 
-        new THREE.Vector3(0, finalSize * 0.3, 0), 
-        isMobile ? 36 : 42 // Larger font sizes
-      ));
-      
-      bubbleGroup.add(createLabelSprite(
-        topic.topic, 
-        new THREE.Vector3(0, -finalSize * 0.2, 0), 
-        isMobile ? 30 : 34
-      ));
-      
-      bubbleGroup.add(createLabelSprite(
-        `⭐ ${topic.reflect_count}`, 
-        new THREE.Vector3(0, -finalSize * 0.6, 0), 
-        isMobile ? 26 : 30
-      ));
-      
-      // Add time remaining label
-      bubbleGroup.add(createLabelSprite(
-        `⏱ ${formatTimeRemaining(expiryTime)}`, 
-        new THREE.Vector3(0, -finalSize * 0.95, 0), 
-        isMobile ? 24 : 28
-      ));
-
-      // Set initial random position with wider distribution
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * 3.5 + 2;
-      const y = (Math.random() - 0.5) * 4.5;
-      bubbleGroup.position.set(
-        Math.cos(angle) * radius,
-        y,
-        Math.sin(angle) * radius
-      );
-      
-      bubblesRef.current[topic.id] = bubbleGroup;
-      scene.add(bubbleGroup);
-    });
+        bubblesRef.current[topic.id] = bubbleGroup;
+        scene.add(bubbleGroup);
+      });
+    } else {
+      console.log("No topics to render in BubbleWorld");
+    }
 
     // Improved touch handling
     let initialPinchDistance = 0;
@@ -722,7 +731,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             // If it's been more than a minute, update the label
             if (now.getTime() % 60000 < 1000) {
               const formattedTime = formatTimeRemaining(expiryTime);
-              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 24 : 28);
+              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 26 : 30);
               const texture = new THREE.CanvasTexture(canvas);
               texture.needsUpdate = true;
               
@@ -738,27 +747,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         for (let i = 1; i < bubble.children.length; i++) {
           const sprite = bubble.children[i] as THREE.Sprite;
           const textScales = bubble.userData.textScales;
-          const textScaleFactor = zoomFactor * 0.8;
+          const textScaleFactor = zoomFactor * 0.9;
           
           let baseScale;
           let yOffset;
           if (i === 1) {
             baseScale = textScales.nameScale;
-            yOffset = scaleFactor * 0.3;
+            yOffset = scaleFactor * 0.4;
           } else if (i === 2) {
             baseScale = textScales.topicScale;
-            yOffset = -scaleFactor * 0.2;
+            yOffset = -scaleFactor * 0.1;
           } else if (i === 3) {
             baseScale = textScales.reflectScale;
-            yOffset = -scaleFactor * 0.6;
+            yOffset = -scaleFactor * 0.5;
           } else {
             baseScale = textScales.timeScale;
-            yOffset = -scaleFactor * 0.95;
+            yOffset = -scaleFactor * 0.85;
           }
           
           sprite.scale.set(
             baseScale * textScaleFactor,
-            baseScale * textScaleFactor * 0.5,
+            baseScale * textScaleFactor * 0.6,
             1
           );
           sprite.position.set(0, yOffset, 0);
@@ -777,30 +786,35 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     animate();
 
     // Handle window resize
-    let resizeTimeout: number;
     const handleResize = () => {
-      if (resizeTimeout) {
-        window.clearTimeout(resizeTimeout);
-      }
-
-      resizeTimeout = window.setTimeout(() => {
-        if (!container || !camera || !renderer) return;
-        
-        const width = container.clientWidth;
-        const height = container.clientHeight;
-        
-        const isMobile = width < 768;
-        
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height);
-      }, 100);
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+      
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      
+      rendererRef.current.setSize(width, height);
     };
 
     window.addEventListener('resize', handleResize);
 
+    // Clean up resources when component unmounts
     return () => {
-      window.removeEventListener('resize', handleResize);
+      console.log("Cleaning up BubbleWorld resources");
+      
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        if (containerRef.current?.contains(rendererRef.current.domElement)) {
+          containerRef.current.removeChild(rendererRef.current.domElement);
+        }
+      }
+      
       container.removeEventListener('touchstart', onTouchStart);
       container.removeEventListener('touchmove', onTouchMove);
       container.removeEventListener('touchend', onTouchEnd);
@@ -809,14 +823,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       container.removeEventListener('mouseup', onMouseUp);
       container.removeEventListener('mouseleave', onMouseLeave);
       container.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', handleResize);
       
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (renderer.domElement && container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
+      // Clear all references
+      Object.values(bubblesRef.current).forEach(group => {
+        group.children.forEach(child => {
+          if (child instanceof THREE.Mesh && child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child instanceof THREE.Mesh && child.material) {
+            const material = Array.isArray(child.material) ? child.material : [child.material];
+            material.forEach(m => m.dispose());
+          }
+        });
+      });
+      
+      bubblesRef.current = {};
+      sceneRef.current = null;
+      rendererRef.current = null;
+      cameraRef.current = null;
+      centralWorldRef.current = null;
     };
   }, [topics, onBubbleClick, navigate]);
 
