@@ -1,10 +1,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
-import { Search, User, TrendingUp, Sparkles, ArrowRight, Clock, Calendar, ExternalLink, MessageSquare, Users } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, ArrowRight, Clock, Calendar, ExternalLink, MessageSquare, Users, Info, X } from "lucide-react";
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import {
@@ -47,6 +47,7 @@ const MyBubbles = () => {
   const [selectedTab, setSelectedTab] = useState<"recent" | "participated" | "reflected">("recent");
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
   
   // Query for recent bubbles (last 24 hours)
   const { data: recentBubbles = [], isLoading: isLoadingRecent } = useQuery({
@@ -223,6 +224,76 @@ const MyBubbles = () => {
     enabled: recentBubbles.length > 0 || participatedBubbles.length > 0 || reflectedBubbles.length > 0
   });
 
+  // Check if a user has reflected a bubble
+  const { data: userReflects = [], isLoading: isLoadingUserReflects } = useQuery({
+    queryKey: ['user-reflects', profile?.username],
+    queryFn: async () => {
+      if (!profile?.username) return [];
+      
+      const { data, error } = await supabase
+        .from('reflects')
+        .select('bubble_id')
+        .eq('username', profile.username);
+      
+      if (error) throw error;
+      
+      return data.map(reflect => reflect.bubble_id);
+    },
+    enabled: !!profile?.username
+  });
+
+  const hasUserReflected = (bubbleId: string) => {
+    return userReflects.some(id => id === bubbleId);
+  };
+
+  // Reflect on a bubble
+  const handleReflect = async (bubbleId: string) => {
+    if (!user || !profile?.username) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (hasUserReflected(bubbleId)) {
+      toast({
+        title: "Already reflected",
+        description: "You have already reflected this bubble",
+      });
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('reflects')
+        .insert({
+          bubble_id: bubbleId,
+          username: profile.username
+        });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Bubble reflected!",
+        description: "This bubble will appear in your reflections"
+      });
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+      queryClient.invalidateQueries({ queryKey: ['user-reflects'] });
+      queryClient.invalidateQueries({ queryKey: ['bubble', bubbleId] });
+    } catch (error: any) {
+      console.error("Error reflecting bubble:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reflect bubble. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Create 3D bubble visualization
   useEffect(() => {
     if (!containerRef.current || activeBubbles.length === 0) return;
@@ -287,15 +358,18 @@ const MyBubbles = () => {
                    bubble.size === 'md' ? 0.4 : 0.3;
       const scaledSize = size * (1 + bubble.reflect_count * 0.1);
       
+      // Check if bubble is expired
+      const isExpired = new Date(bubble.expires_at) < new Date();
+      
       // Create bubble sphere
       const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
-        color: 0xebbd34,
+        color: isExpired ? 0x888888 : 0xebbd34,
         transparent: true,
-        opacity: 0.7,
+        opacity: isExpired ? 0.5 : 0.7,
         metalness: 0.1,
         roughness: 0.2,
-        transmission: 0.3,
+        transmission: isExpired ? 0.1 : 0.3,
         clearcoat: 1.0,
       });
       
@@ -303,7 +377,7 @@ const MyBubbles = () => {
       group.add(bubble3D);
 
       // Add text sprites
-      const createSprite = (text: string, yOffset: number) => {
+      const createSprite = (text: string, yOffset: number, color = '#FFFFFF') => {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
         canvas.height = 128;
@@ -320,7 +394,7 @@ const MyBubbles = () => {
         context.lineWidth = 4;
         context.strokeText(text, canvas.width/2, canvas.height/2);
         
-        context.fillStyle = '#FFFFFF';
+        context.fillStyle = color;
         context.fillText(text, canvas.width/2, canvas.height/2);
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -331,8 +405,16 @@ const MyBubbles = () => {
         return sprite;
       };
 
-      group.add(createSprite(bubble.name, 1.5));
-      group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5));
+      // Add bubble name
+      group.add(createSprite(bubble.name, 1.5, isExpired ? '#AAAAAA' : '#FFFFFF'));
+      
+      // Add reflect count
+      group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5, isExpired ? '#AAAAAA' : '#FFFFFF'));
+      
+      // For expired bubbles, add "EXPLODED" text
+      if (isExpired) {
+        group.add(createSprite(`EXPLODED`, 0, '#FF5555'));
+      }
 
       // Place bubbles randomly within 60% of the circle radius
       const angle = Math.random() * Math.PI * 2;
@@ -346,7 +428,8 @@ const MyBubbles = () => {
       group.userData = {
         vx: Math.cos(randomAngle) * speed,
         vy: Math.sin(randomAngle) * speed,
-        id: bubble.id
+        id: bubble.id,
+        isExpired: isExpired
       };
 
       bubblesRef.current[bubble.id] = group;
@@ -422,6 +505,12 @@ const MyBubbles = () => {
         // Velocity damping
         group.userData.vx *= 0.995;
         group.userData.vy *= 0.995;
+        
+        // Add jittery effect to expired bubbles
+        if (group.userData.isExpired) {
+          group.position.x += (Math.random() - 0.5) * 0.01;
+          group.position.y += (Math.random() - 0.5) * 0.01;
+        }
       });
 
       renderer.render(scene, camera);
@@ -538,7 +627,33 @@ const MyBubbles = () => {
 
   // Handle going to bubble chat
   const goToBubbleChat = (bubbleId: string) => {
-    navigate(`/bubbles/${bubbleId}`);
+    navigate(`/bubble-chat/${bubbleId}`, { state: { from: 'myBubbles' } });
+  };
+
+  const getTabDescription = () => {
+    switch (selectedTab) {
+      case "recent":
+        return "Bubbles created in the last 24 hours";
+      case "participated":
+        return "Bubbles you've chatted in";
+      case "reflected":
+        return "Bubbles you've reflected on";
+    }
+  };
+
+  const getEmptyStateMessage = () => {
+    if (searchQuery) {
+      return `No bubbles match "${searchQuery}". Try a different search.`;
+    }
+    
+    switch (selectedTab) {
+      case "recent":
+        return "There are no recent bubbles created in the last 24 hours.";
+      case "participated":
+        return "You haven't participated in any bubble chats yet.";
+      case "reflected":
+        return "You haven't reflected on any bubbles yet.";
+    }
   };
 
   return (
@@ -653,6 +768,7 @@ const MyBubbles = () => {
           <Tabs 
             defaultValue="recent" 
             className="w-full" 
+            value={selectedTab}
             onValueChange={(value) => setSelectedTab(value as "recent" | "participated" | "reflected")}
           >
             <TabsList className="grid w-full grid-cols-3 mb-6">
@@ -679,23 +795,9 @@ const MyBubbles = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="recent">
-              <div className="mb-4 text-center">
-                <p className="text-[#ebbd34]/80">Bubbles created in the last 24 hours</p>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="participated">
-              <div className="mb-4 text-center">
-                <p className="text-[#ebbd34]/80">Bubbles you've chatted in</p>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="reflected">
-              <div className="mb-4 text-center">
-                <p className="text-[#ebbd34]/80">Bubbles you've reflected on</p>
-              </div>
-            </TabsContent>
+            <div className="mb-4 text-center">
+              <p className="text-[#ebbd34]/80">{getTabDescription()}</p>
+            </div>
           </Tabs>
         </div>
 
@@ -713,13 +815,7 @@ const MyBubbles = () => {
             />
             <h3 className="text-xl font-semibold text-[#ebbd34] mb-2">No bubbles found</h3>
             <p className="text-[#ebbd34]/70 max-w-md mb-6">
-              {searchQuery 
-                ? `No bubbles match "${searchQuery}". Try a different search.` 
-                : selectedTab === "recent" 
-                  ? "There are no recent bubbles created in the last 24 hours." 
-                  : selectedTab === "participated" 
-                    ? "You haven't participated in any bubble chats yet." 
-                    : "You haven't reflected on any bubbles yet."}
+              {getEmptyStateMessage()}
             </p>
             <Button 
               onClick={() => navigate('/')} 
@@ -746,22 +842,33 @@ const MyBubbles = () => {
         {/* Bubble details dialog */}
         <Dialog open={!!selectedBubble} onOpenChange={(open) => !open && setSelectedBubble(null)}>
           <DialogContent className="sm:max-w-[550px] bg-white/95 backdrop-blur-md">
-            <DialogHeader>
-              <DialogTitle className="text-[#ebbd34] text-2xl flex items-center">
-                {selectedBubble?.name}
-                {isBubbleExpired(selectedBubble?.expires_at || '') && (
-                  <Badge className="ml-2 bg-red-500 text-white">Expired</Badge>
-                )}
-              </DialogTitle>
-              <DialogDescription className="flex items-center text-[#ebbd34]/80">
-                <span>{selectedBubble?.topic}</span>
-                <span className="mx-2">•</span>
-                <span>by @{selectedBubble?.username.split('@')[0]}</span>
-              </DialogDescription>
-            </DialogHeader>
-            
             {selectedBubble && (
               <>
+                <DialogHeader className="relative">
+                  <div className="absolute right-0 top-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedBubble(null)}
+                      className="h-8 w-8 text-gray-500"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <DialogTitle className="text-[#ebbd34] text-2xl flex items-center mr-6">
+                    {selectedBubble.name}
+                    {isBubbleExpired(selectedBubble.expires_at) && (
+                      <Badge className="ml-2 bg-red-500 text-white">Exploded</Badge>
+                    )}
+                  </DialogTitle>
+                  <DialogDescription className="flex items-center text-[#ebbd34]/80">
+                    <span>{selectedBubble.topic}</span>
+                    <span className="mx-2">•</span>
+                    <span>by @{selectedBubble.username.split('@')[0]}</span>
+                  </DialogDescription>
+                </DialogHeader>
+                
                 <div className="space-y-4">
                   {/* Bubble stats */}
                   <div className="flex items-center justify-between bg-[#ebbd34]/5 rounded-lg p-3">
@@ -786,7 +893,11 @@ const MyBubbles = () => {
                       : "bg-yellow-100 text-amber-600"
                   }`}>
                     <Clock className="w-4 h-4 mr-2" />
-                    <span>{formatExpirationTime(selectedBubble.expires_at)}</span>
+                    <span>
+                      {isBubbleExpired(selectedBubble.expires_at) 
+                        ? "This bubble has exploded" 
+                        : formatExpirationTime(selectedBubble.expires_at)}
+                    </span>
                   </div>
                   
                   {/* Bubble description */}
@@ -838,23 +949,46 @@ const MyBubbles = () => {
                   )}
                 </div>
                 
-                <DialogFooter className="flex sm:justify-between gap-2">
+                <DialogFooter className="flex sm:justify-between gap-2 mt-4">
+                  {!isBubbleExpired(selectedBubble.expires_at) && !hasUserReflected(selectedBubble.id) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleReflect(selectedBubble.id)}
+                      className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5 gap-2"
+                      disabled={isLoadingUserReflects}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Reflect
+                    </Button>
+                  )}
+                  
+                  {hasUserReflected(selectedBubble.id) && (
+                    <div className="flex items-center text-sm text-[#ebbd34]">
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      <span>You've reflected this bubble</span>
+                    </div>
+                  )}
+                  
                   <Button
-                    variant="outline"
-                    onClick={() => setSelectedBubble(null)}
-                    className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    onClick={() => selectedBubble && goToBubbleChat(selectedBubble.id)}
-                    className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                    onClick={() => goToBubbleChat(selectedBubble.id)}
+                    className={`${
+                      isBubbleExpired(selectedBubble.expires_at)
+                        ? "bg-gray-400 hover:bg-gray-500"
+                        : "bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+                    } text-white gap-2`}
                     disabled={isBubbleExpired(selectedBubble.expires_at)}
                   >
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Join Chat
+                    <MessageSquare className="h-4 w-4" />
+                    {isBubbleExpired(selectedBubble.expires_at) ? "Bubble Exploded" : "Join Chat"}
                   </Button>
                 </DialogFooter>
+                
+                {isBubbleExpired(selectedBubble.expires_at) && (
+                  <div className="text-center text-sm text-red-500 mt-2 bg-red-50 py-1 px-3 rounded-md flex items-center justify-center">
+                    <Info className="h-4 w-4 mr-2" />
+                    This bubble has exploded and can no longer be accessed
+                  </div>
+                )}
               </>
             )}
           </DialogContent>
