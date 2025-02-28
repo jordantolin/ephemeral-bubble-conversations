@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -373,6 +374,51 @@ const Feed = () => {
     return `hsla(${h}, 70%, 80%, 0.8)`;
   };
 
+  // Add global style to ensure page has the correct background
+  useEffect(() => {
+    // Create a style element
+    const styleElement = document.createElement('style');
+    
+    // Set its content to include our global styles
+    styleElement.textContent = `
+      body {
+        background-color: #FEF7E4;
+        margin: 0;
+        padding: 0;
+      }
+      
+      #root {
+        background-color: #FEF7E4;
+        min-height: 100vh;
+        width: 100%;
+      }
+      
+      * {
+        -webkit-transform-style: preserve-3d;
+        transform-style: preserve-3d;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+      
+      @keyframes pulse-glow {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+      
+      .bg-glow {
+        animation: pulse-glow 3s infinite ease-in-out;
+      }
+    `;
+    
+    // Add it to the document head
+    document.head.appendChild(styleElement);
+    
+    // Clean up function
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#FEF7E4] w-full">
       {/* Header */}
@@ -723,37 +769,6 @@ const Feed = () => {
           )}
         </div>
       </main>
-
-      {/* Force full page background color */}
-      <style jsx global>{`
-        body {
-          background-color: #FEF7E4;
-          margin: 0;
-          padding: 0;
-        }
-        
-        #root {
-          background-color: #FEF7E4;
-          min-height: 100vh;
-          width: 100%;
-        }
-        
-        * {
-          -webkit-transform-style: preserve-3d;
-          transform-style: preserve-3d;
-          -webkit-backface-visibility: hidden;
-          backface-visibility: hidden;
-        }
-        
-        @keyframes pulse-glow {
-          0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; }
-        }
-        
-        .bg-glow {
-          animation: pulse-glow 3s infinite ease-in-out;
-        }
-      `}</style>
     </div>
   );
 };
