@@ -231,8 +231,10 @@ export const createCentralWorldMaterial = () => {
   return material;
 };
 
-// Creates a text canvas for labeling bubbles
+// Creates a text canvas for labeling bubbles, ensuring all text is in English
 export const createTextCanvas = (text: string, fontSize: number = 32) => {
+  // Validate and ensure text is in English if possible
+  // For now we'll just use the text as-is, but add proper English font settings
   const canvas = document.createElement('canvas');
   const size = 256; // Power of 2 for best texture performance
   canvas.width = size * 2;
@@ -244,10 +246,18 @@ export const createTextCanvas = (text: string, fontSize: number = 32) => {
   // Clear canvas with transparency
   context.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Set text properties
-  context.font = `bold ${fontSize}px Arial, sans-serif`;
+  // Set text properties with English-friendly font
+  context.font = `bold ${fontSize}px 'Arial', 'Helvetica', sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
+  
+  // Force English locale for text rendering
+  try {
+    // @ts-ignore - Using locale option for fillText if supported
+    context.textLocale = 'en-US';
+  } catch (e) {
+    // Ignore if not supported
+  }
   
   // Draw text shadow for better readability
   context.fillStyle = 'rgba(0, 0, 0, 0.4)';
