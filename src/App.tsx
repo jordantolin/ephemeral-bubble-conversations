@@ -1,61 +1,45 @@
 
-import React, { lazy, Suspense, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/context/AuthContext';
-import RequireAuth from '@/components/RequireAuth';
-import Loading from './components/Loading';
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import Index from "@/pages/Index";
+import Feed from "@/pages/Feed";
+import MyBubbles from "@/pages/MyBubbles";
+import BubbleChat from "@/pages/BubbleChat";
+import Profile from "@/pages/Profile";
+import Auth from "@/pages/Auth";
+import NotFound from "@/pages/NotFound";
+import RequireAuth from "@/components/RequireAuth";
+import { AuthProvider } from "@/context/AuthContext";
+import { Toaster } from "@/components/ui/toaster";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Lazy loaded components
-const Index = lazy(() => import('./pages/Index'));
-const Auth = lazy(() => import('./pages/Auth'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Feed = lazy(() => import('./pages/Feed'));
-const MyBubbles = lazy(() => import('./pages/MyBubbles'));
-const BubbleChat = lazy(() => import('./pages/BubbleChat'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+function App() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  });
 
-const App = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Suspense fallback={<Loading />}>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/auth/*" element={<Auth />} />
-            <Route
-              path="/profile"
-              element={
-                <RequireAuth>
-                  <Profile />
-                </RequireAuth>
-              }
-            />
             <Route path="/feed" element={<Feed />} />
-            <Route
-              path="/my-bubbles"
-              element={
-                <RequireAuth>
-                  <MyBubbles />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/bubbles/:id"
-              element={
-                <RequireAuth>
-                  <BubbleChat />
-                </RequireAuth>
-              }
-            />
-            <Route path="/404" element={<NotFound />} />
-            <Route path="*" element={<Navigate to="/404" />} />
+            <Route path="/bubble-chat/:id" element={<BubbleChat />} />
+            <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
+            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+            <Route path="/auth/*" element={<Auth />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
-        </Suspense>
-      </Router>
-      <Toaster />
-    </AuthProvider>
+        </Router>
+        <Toaster />
+      </AuthProvider>
+    </QueryClientProvider>
   );
-};
+}
 
 export default App;
