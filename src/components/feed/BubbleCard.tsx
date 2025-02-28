@@ -39,7 +39,7 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
       className="relative w-[320px] h-[320px] rounded-full overflow-visible cursor-pointer"
       style={{ transformStyle: 'preserve-3d' }}
       onClick={() => {
-        navigate(`/bubbles/${bubble.id}`);
+        navigate(`/bubble/${bubble.id}`);
       }}
     >
       {/* Background gradient circle with glow */}
@@ -160,7 +160,7 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
         <Button 
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/bubble-chat/${bubble.id}`);
+            navigate(`/bubble/${bubble.id}`);
           }}
           className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
           size="sm"
