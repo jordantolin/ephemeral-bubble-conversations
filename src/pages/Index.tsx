@@ -5,11 +5,59 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import BubbleWorld from '@/components/BubbleWorld';
 import InstallButton from '@/components/InstallButton';
+import { BubbleData } from '@/types/bubble';
+import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const { toast } = useToast();
+  
+  // Sample bubble data for demonstration
+  const [demoTopics, setDemoTopics] = useState<BubbleData[]>([
+    {
+      id: "demo-1",
+      topic: "Viaggi in Italia",
+      username: "travel_lover",
+      name: "Destinazioni Estate",
+      size: "lg",
+      reflect_count: 15,
+      expires_at: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: "demo-2",
+      topic: "Ricette Regionali",
+      username: "chef_mario",
+      name: "Cucina Tradizionale",
+      size: "md",
+      reflect_count: 8,
+      expires_at: new Date(Date.now() + 15 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: "demo-3",
+      topic: "Cinema Italiano",
+      username: "film_buff",
+      name: "Classici del Cinema",
+      size: "sm",
+      reflect_count: 5,
+      expires_at: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString()
+    }
+  ]);
+
+  // Handler for bubble clicks
+  const handleBubbleClick = (id: string) => {
+    if (user) {
+      navigate(`/bubbles/${id}`);
+    } else {
+      toast({
+        title: "Accesso richiesto",
+        description: "Effettua l'accesso per interagire con le bolle",
+        variant: "default"
+      });
+      navigate('/auth/login');
+    }
+  };
 
   useEffect(() => {
     // Check if this is a standalone PWA
@@ -83,7 +131,7 @@ const Index = () => {
         </div>
         
         <div className="w-full h-[50vh] relative">
-          <BubbleWorld />
+          <BubbleWorld topics={demoTopics} onBubbleClick={handleBubbleClick} />
         </div>
       </main>
 
