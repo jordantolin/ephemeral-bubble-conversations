@@ -308,8 +308,9 @@ const MyBubbles = () => {
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 15;  // Moved closer to make scene more visible
+    // Adjust camera position to be closer for better visibility
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+    camera.position.z = 12; // Moved closer for better visibility
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ 
@@ -322,10 +323,10 @@ const MyBubbles = () => {
     rendererRef.current = renderer;
 
     // Enhanced lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.8); // Increased intensity
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased intensity
     mainLight.position.set(10, 10, 10);
     scene.add(mainLight);
 
@@ -351,97 +352,165 @@ const MyBubbles = () => {
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
 
+    // Determine number of bubbles to adjust spacing
+    const bubbleCount = activeBubbles.length;
+    
+    // Calculate optimal spacing between bubbles based on count
+    // Cap the placement radius to ensure visibility
+    const placementRadius = Math.min(radius * 0.65, Math.max(radius * 0.4, radius * (bubbleCount <= 5 ? 0.4 : 0.55)));
+    
+    // Calculate optimal bubble sizes based on count
+    const getSizeMultiplier = () => {
+      if (bubbleCount <= 5) return 1.8; // Very large bubbles for few items
+      if (bubbleCount <= 10) return 1.5; // Large bubbles for small count
+      if (bubbleCount <= 15) return 1.3; // Medium-large bubbles
+      if (bubbleCount <= 20) return 1.2; // Medium bubbles
+      return 1.1; // Slightly larger than default for many bubbles
+    };
+    
+    const sizeMultiplier = getSizeMultiplier();
+
     // Create and position bubbles
-    activeBubbles.forEach((bubble) => {
+    activeBubbles.forEach((bubble, index) => {
       const group = new THREE.Group();
-      const size = bubble.size === 'lg' ? 0.6 : 
-                   bubble.size === 'md' ? 0.4 : 0.3;
-      const scaledSize = size * (1 + bubble.reflect_count * 0.1);
+      
+      // Larger base sizes for better visibility
+      const baseSize = (bubble.size === 'lg' ? 0.9 : 
+                       bubble.size === 'md' ? 0.75 : 0.6) * sizeMultiplier;
+                       
+      const reflectScale = 1 + (bubble.reflect_count * 0.05);
+      const finalSize = baseSize * reflectScale;
       
       // Check if bubble is expired
       const isExpired = new Date(bubble.expires_at) < new Date();
       
       // Create bubble sphere
-      const geometry = new THREE.SphereGeometry(scaledSize, 32, 32);
+      const geometry = new THREE.SphereGeometry(finalSize, 32, 32);
       const material = new THREE.MeshPhysicalMaterial({
         color: isExpired ? 0x888888 : 0xebbd34,
         transparent: true,
-        opacity: isExpired ? 0.5 : 0.7,
-        metalness: 0.1,
-        roughness: 0.2,
+        opacity: isExpired ? 0.5 : 0.8, // Increased opacity for better visibility
+        metalness: 0.2,
+        roughness: 0.1,
         transmission: isExpired ? 0.1 : 0.3,
         clearcoat: 1.0,
+        clearcoatRoughness: 0.1
       });
+      
+      // Add light shimmer effect to bubbles
+      if (!isExpired) {
+        material.emissive = new THREE.Color(0xebbd34);
+        material.emissiveIntensity = 0.2;
+      }
       
       const bubble3D = new THREE.Mesh(geometry, material);
       group.add(bubble3D);
 
-      // Add text sprites
-      const createSprite = (text: string, yOffset: number, color = '#FFFFFF') => {
+      // Add text sprites with larger font sizes for better readability
+      const createSprite = (text: string, yOffset: number, color = '#FFFFFF', fontSize = 32) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 128;
+        canvas.width = 512; // Double canvas size for clearer text
+        canvas.height = 256;
         const context = canvas.getContext('2d')!;
         
         context.fillStyle = 'transparent';
         context.fillRect(0, 0, canvas.width, canvas.height);
         
-        context.font = 'bold 24px Arial';
+        // Use larger, bolder text for better visibility
+        context.font = `bold ${fontSize}px Arial`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         
-        context.strokeStyle = '#000000';
-        context.lineWidth = 4;
+        // Add stronger text shadow for better contrast
+        context.shadowColor = 'rgba(0,0,0,0.8)';
+        context.shadowBlur = 8;
+        context.shadowOffsetX = 2;
+        context.shadowOffsetY = 2;
+        
+        // Stroke border around text for better readability
+        context.strokeStyle = 'rgba(0,0,0,0.8)';
+        context.lineWidth = 6;
         context.strokeText(text, canvas.width/2, canvas.height/2);
         
+        // Fill text
         context.fillStyle = color;
         context.fillText(text, canvas.width/2, canvas.height/2);
 
         const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        texture.minFilter = THREE.LinearFilter; // Improve text quality
+        texture.needsUpdate = true;
+        
+        const spriteMaterial = new THREE.SpriteMaterial({ 
+          map: texture,
+          transparent: true,
+          depthTest: false // Make text always visible
+        });
+        
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(2 * scaledSize, 1 * scaledSize, 1);
-        sprite.position.y = yOffset * scaledSize;
+        
+        // Scale sprite for better visibility
+        sprite.scale.set(
+          finalSize * 2.5, // Wider for text
+          finalSize * 1.2, 
+          1
+        );
+        
+        sprite.position.y = yOffset * finalSize;
         return sprite;
       };
 
-      // Add bubble name
-      group.add(createSprite(bubble.name, 1.5, isExpired ? '#AAAAAA' : '#FFFFFF'));
+      // Add bubble name (larger font size)
+      group.add(createSprite(bubble.name, 1.6, isExpired ? '#CCCCCC' : '#FFFFFF', 38));
+      
+      // Add topic text
+      group.add(createSprite(bubble.topic, 0.5, isExpired ? '#BBBBBB' : '#F5F5F5', 28));
       
       // Add reflect count
-      group.add(createSprite(`✨ ${bubble.reflect_count}`, -1.5, isExpired ? '#AAAAAA' : '#FFFFFF'));
+      group.add(createSprite(`✨ ${bubble.reflect_count}`, -0.6, isExpired ? '#AAAAAA' : '#FFFFE0', 32));
       
-      // For expired bubbles, add "EXPLODED" text
+      // For expired bubbles, add "EXPLODED" text more prominently
       if (isExpired) {
-        group.add(createSprite(`EXPLODED`, 0, '#FF5555'));
+        group.add(createSprite(`EXPLODED`, -1.6, '#FF5555', 36));
       }
 
-      // Place bubbles randomly within 60% of the circle radius
-      const angle = Math.random() * Math.PI * 2;
-      const distance = Math.random() * radius * 0.6;
-      group.position.x = Math.cos(angle) * distance;
-      group.position.y = Math.sin(angle) * distance;
+      // More evenly distribute bubbles in a spiral pattern
+      const bubbleAngle = (index / bubbleCount) * Math.PI * 2;
+      const spiralOffset = (index / bubbleCount) * (placementRadius * 0.5);
+      const distanceFromCenter = Math.max(placementRadius * 0.3, 
+                                         Math.min(placementRadius, placementRadius - spiralOffset));
       
-      // Initial velocity
-      const speed = 0.015;
+      // Place bubbles in more readable pattern
+      group.position.x = Math.cos(bubbleAngle) * distanceFromCenter;
+      group.position.y = Math.sin(bubbleAngle) * distanceFromCenter;
+      group.position.z = 0; // Keep all bubbles on same z plane for better visibility
+      
+      // Initial velocity - slower for better readability
+      const speed = 0.005 + (Math.random() * 0.005); // Reduced speed for better focus
       const randomAngle = Math.random() * Math.PI * 2;
       group.userData = {
         vx: Math.cos(randomAngle) * speed,
         vy: Math.sin(randomAngle) * speed,
         id: bubble.id,
-        isExpired: isExpired
+        isExpired: isExpired,
+        // Add hover animation data
+        hoverAnimation: {
+          active: false,
+          scale: 1.0,
+          originalScale: finalSize,
+          glowIntensity: isExpired ? 0 : 0.2
+        }
       };
 
       bubblesRef.current[bubble.id] = group;
       scene.add(group);
     });
 
-    // Animation loop with strict boundary checking
+    // Make bubbles gently hover in place instead of moving too much
     const animate = () => {
       Object.values(bubblesRef.current).forEach(group => {
-        // Update position
-        group.position.x += group.userData.vx;
-        group.position.y += group.userData.vy;
+        // Update position with much gentler movement
+        group.position.x += group.userData.vx * 0.6;
+        group.position.y += group.userData.vy * 0.6;
 
         // Circle boundary collision with strict containment
         const distance = Math.sqrt(
@@ -456,7 +525,7 @@ const MyBubbles = () => {
           group.position.x = maxRadius * Math.cos(angle);
           group.position.y = maxRadius * Math.sin(angle);
           
-          // Bounce with increased damping
+          // Bounce with increased damping for smoother movement
           const normal = new THREE.Vector2(
             group.position.x / distance,
             group.position.y / distance
@@ -466,7 +535,7 @@ const MyBubbles = () => {
           group.userData.vy = (group.userData.vy - 2 * dot * normal.y) * 0.7;
         }
 
-        // Bubble collisions
+        // Bubble collisions with gentle pushing behavior
         Object.values(bubblesRef.current).forEach(otherGroup => {
           if (group === otherGroup) return;
 
@@ -474,48 +543,124 @@ const MyBubbles = () => {
           const dy = otherGroup.position.y - group.position.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           
-          const minDistance = 1.5;
+          // Larger minimum distance to prevent overlap
+          const minDistance = 2.2;
           if (distance < minDistance) {
             const angle = Math.atan2(dy, dx);
-            const pushX = Math.cos(angle) * (minDistance - distance) * 0.5;
-            const pushY = Math.sin(angle) * (minDistance - distance) * 0.5;
+            const pushX = Math.cos(angle) * (minDistance - distance) * 0.4;
+            const pushY = Math.sin(angle) * (minDistance - distance) * 0.4;
             
             group.position.x -= pushX;
             group.position.y -= pushY;
             otherGroup.position.x += pushX;
             otherGroup.position.y += pushY;
             
-            // Exchange velocities with damping
+            // Gently exchange velocities for natural movement
             const tempVx = group.userData.vx;
             const tempVy = group.userData.vy;
-            group.userData.vx = otherGroup.userData.vx * 0.95;
-            group.userData.vy = otherGroup.userData.vy * 0.95;
-            otherGroup.userData.vx = tempVx * 0.95;
-            otherGroup.userData.vy = tempVy * 0.95;
+            group.userData.vx = otherGroup.userData.vx * 0.9;
+            group.userData.vy = otherGroup.userData.vy * 0.9;
+            otherGroup.userData.vx = tempVx * 0.9;
+            otherGroup.userData.vy = tempVy * 0.9;
           }
         });
 
         // Keep text facing camera
         group.quaternion.copy(camera.quaternion);
 
-        // Gentle floating effect
-        group.userData.vy += Math.sin(Date.now() / 2000) * 0.00005;
-        group.userData.vx += Math.cos(Date.now() / 2000) * 0.00005;
+        // Very gentle floating effect
+        group.userData.vy += Math.sin(Date.now() / 3000) * 0.00002;
+        group.userData.vx += Math.cos(Date.now() / 3000) * 0.00002;
 
-        // Velocity damping
-        group.userData.vx *= 0.995;
-        group.userData.vy *= 0.995;
+        // Strong velocity damping for more stable positions
+        group.userData.vx *= 0.98;
+        group.userData.vy *= 0.98;
         
         // Add jittery effect to expired bubbles
         if (group.userData.isExpired) {
-          group.position.x += (Math.random() - 0.5) * 0.01;
-          group.position.y += (Math.random() - 0.5) * 0.01;
+          group.position.x += (Math.random() - 0.5) * 0.005;
+          group.position.y += (Math.random() - 0.5) * 0.005;
+        }
+        
+        // Apply hover animation if active
+        if (group.userData.hoverAnimation?.active) {
+          const bubbleMesh = group.children[0] as THREE.Mesh;
+          if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial && !group.userData.isExpired) {
+            bubbleMesh.material.emissiveIntensity = 
+              0.2 + Math.sin(Date.now() / 300) * 0.1; // Pulsing glow effect
+          }
         }
       });
 
       renderer.render(scene, camera);
       TWEEN.update();
       animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    // Track mouse position for hover effects
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hoveredBubble: THREE.Group | null = null;
+    
+    const onMouseMove = (event: MouseEvent) => {
+      // Calculate mouse position in normalized device coordinates
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Calculate objects intersecting the picking ray
+      const bubbleMeshes = Object.values(bubblesRef.current).map(group => group.children[0]);
+      const intersects = raycaster.intersectObjects(bubbleMeshes, true);
+      
+      // Reset previous hover effects
+      if (hoveredBubble && (!intersects.length || 
+          intersects[0].object.parent !== hoveredBubble)) {
+        
+        // Remove hover effect from previously hovered bubble
+        const bubbleMesh = hoveredBubble.children[0] as THREE.Mesh;
+        if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
+          // Reset glow
+          bubbleMesh.material.emissiveIntensity = 
+            hoveredBubble.userData.isExpired ? 0 : 0.2;
+        }
+        hoveredBubble.userData.hoverAnimation.active = false;
+        
+        // Reset cursor
+        document.body.style.cursor = 'default';
+        hoveredBubble = null;
+      }
+      
+      // Apply hover effect to newly hovered bubble
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        const parent = object.parent as THREE.Group;
+        
+        if (parent && parent.userData?.id) {
+          hoveredBubble = parent;
+          
+          // Scale effect and glow
+          const bubbleMesh = object as THREE.Mesh;
+          if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial && !parent.userData.isExpired) {
+            bubbleMesh.material.emissiveIntensity = 0.5; // Enhanced glow
+          }
+          
+          // Set hover animation flag
+          parent.userData.hoverAnimation.active = true;
+          
+          // Change cursor to pointer
+          document.body.style.cursor = 'pointer';
+          
+          // Scale the sprites (text) slightly
+          for (let i = 1; i < parent.children.length; i++) {
+            const sprite = parent.children[i] as THREE.Sprite;
+            const pulseFactor = 1 + Math.sin(Date.now() / 300) * 0.03;
+            sprite.scale.multiplyScalar(pulseFactor);
+          }
+        }
+      }
     };
 
     // Click handling
@@ -526,30 +671,55 @@ const MyBubbles = () => {
         -((event.clientY - rect.top) / height) * 2 + 1
       );
 
-      const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children, true);
+      const bubbleMeshes = Object.values(bubblesRef.current).map(group => group.children[0]);
+      const intersects = raycaster.intersectObjects(bubbleMeshes, true);
 
       if (intersects.length > 0) {
-        let obj = intersects[0].object;
-        while (obj.parent && !(obj.userData?.id)) {
-          obj = obj.parent;
-        }
+        const obj = intersects[0].object;
+        const parent = obj.parent as THREE.Group;
         
-        if (obj.userData?.id) {
-          const bubble = activeBubbles.find(b => b.id === obj.userData.id);
+        if (parent && parent.userData?.id) {
+          const bubble = activeBubbles.find(b => b.id === parent.userData.id);
           if (bubble) {
+            // Create click feedback animation
+            const bubbleMesh = obj as THREE.Mesh;
+            
+            // Animate bubble scale
+            const scaleTween = new TWEEN.Tween({ scale: 1 })
+              .to({ scale: 1.2 }, 150)
+              .easing(TWEEN.Easing.Quadratic.Out)
+              .onUpdate(({ scale }) => {
+                bubbleMesh.scale.set(scale, scale, scale);
+              })
+              .onComplete(() => {
+                // Return to original scale
+                new TWEEN.Tween({ scale: 1.2 })
+                  .to({ scale: 1 }, 150)
+                  .easing(TWEEN.Easing.Quadratic.In)
+                  .onUpdate(({ scale }) => {
+                    bubbleMesh.scale.set(scale, scale, scale);
+                  })
+                  .start();
+              })
+              .start();
+            
             setSelectedBubble(bubble);
           }
         }
       }
     };
 
+    // Add event listeners
     container.addEventListener('click', onClick);
+    container.addEventListener('mousemove', onMouseMove);
+    
     animate();
 
     return () => {
       container.removeEventListener('click', onClick);
+      container.removeEventListener('mousemove', onMouseMove);
+      
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -830,10 +1000,10 @@ const MyBubbles = () => {
             style={{ 
               position: 'relative',
               width: '100%',
-              height: '500px',
+              height: '550px', // Taller container for better visibility
               margin: '0 auto',
               zIndex: 10,
-              maxWidth: '700px'
+              maxWidth: '800px' // Wider container for better spacing
             }}
             className="bg-white/50 rounded-xl shadow-sm overflow-hidden border border-[#ebbd34]/10"
           />
