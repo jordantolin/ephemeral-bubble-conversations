@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Sparkles, Clock, X, Image, Video, Mic, SmilePlus } from "lucide-react";
+import { Send, Sparkles, Clock, X, Image, Video, Mic, SmilePlus, MessageCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Format time remaining for display
