@@ -1,4 +1,4 @@
-<lov-code>
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -779,6 +779,73 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     animate();
 
     // Handle window resize
-    let resizeTimeout: number;
     const handleResize = () => {
-      if
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+      
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      
+      rendererRef.current.setSize(width, height);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Clean up resources when component unmounts
+    return () => {
+      console.log("Cleaning up BubbleWorld resources");
+      
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        if (containerRef.current?.contains(rendererRef.current.domElement)) {
+          containerRef.current.removeChild(rendererRef.current.domElement);
+        }
+      }
+      
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('mousemove', onMouseMove);
+      container.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('mouseleave', onMouseLeave);
+      container.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', handleResize);
+      
+      // Clear all references
+      Object.values(bubblesRef.current).forEach(group => {
+        group.children.forEach(child => {
+          if (child instanceof THREE.Mesh && child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child instanceof THREE.Mesh && child.material) {
+            const material = Array.isArray(child.material) ? child.material : [child.material];
+            material.forEach(m => m.dispose());
+          }
+        });
+      });
+      
+      bubblesRef.current = {};
+      sceneRef.current = null;
+      rendererRef.current = null;
+      cameraRef.current = null;
+      centralWorldRef.current = null;
+    };
+  }, [topics, onBubbleClick, navigate]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="w-full h-full touch-none select-none"
+      style={{ touchAction: 'none' }}
+    />
+  );
+};
+
+export default BubbleWorld;
