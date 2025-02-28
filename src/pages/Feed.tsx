@@ -1,731 +1,558 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { BubbleData } from "@/types/bubble";
-import { Search, User, TrendingUp, Sparkles, Star, Heart, MessageCircle, ChevronUp, ChevronDown, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { MessageCircle, MessageSquare, ThumbsUp, Send, Sparkles, ChevronRight, ChevronLeft, ClockIcon, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
 
 const Feed = () => {
-  const location = useLocation();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [direction, setDirection] = useState(0); // -1 for up, 1 for down
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
   const { user, profile } = useAuth();
-  const dragStartY = useRef(0);
-  const dragThreshold = 100; // Pixels required to trigger a bubble change
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
   
-  const { data: bubbles = [], isLoading } = useQuery({
-    queryKey: ['bubbles', 'top-reflected'],
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [comment, setComment] = useState("");
+  const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const pageSize = 5;
+  
+  const [isSendingComment, setIsSendingComment] = useState(false);
+  const commentLimiter = useState(createRateLimiter(5, 10000))[0];
+  const sendRetry = useState(createRetryHandler(3, 1000))[0];
+
+  const { data: activityFeed = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['feed', currentPage],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bubbles')
-        .select('*')
-        .order('reflect_count', { ascending: false })
-        .limit(20);
-      
-      if (error) throw error;
-      
-      return data.map(bubble => ({
-        ...bubble,
-        size: bubble.size as "sm" | "md" | "lg"
-      })) as BubbleData[];
+      try {
+        // Calculate pagination offset
+        const offset = (currentPage - 1) * pageSize;
+        
+        // Get recent activities
+        const { data: activities, error, count } = await supabase
+          .from('bubble_activities')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+          
+        if (error) {
+          throw error;
+        }
+        
+        // Update total pages
+        if (count !== null) {
+          setTotalPages(Math.max(1, Math.ceil(count / pageSize)));
+        }
+        
+        // Fetch related bubbles for activities
+        const bubbleIds = activities
+          ?.map(activity => activity.bubble_id)
+          .filter((id, index, array) => array.indexOf(id) === index) || [];
+          
+        if (bubbleIds.length === 0) {
+          return activities || [];
+        }
+        
+        const { data: bubbles, error: bubblesError } = await supabase
+          .from('bubbles')
+          .select('*')
+          .in('id', bubbleIds);
+          
+        if (bubblesError) {
+          console.error("Error fetching related bubbles:", bubblesError);
+          return activities || [];
+        }
+        
+        // Combine activities with related bubble data
+        return (activities || []).map(activity => {
+          const relatedBubble = bubbles?.find(b => b.id === activity.bubble_id);
+          return {
+            ...activity,
+            bubble: relatedBubble || null
+          };
+        });
+      } catch (error) {
+        console.error("Error fetching feed:", error);
+        toast({
+          title: "Error loading feed",
+          description: "Could not load the activity feed",
+          variant: "destructive"
+        });
+        return [];
+      }
     },
-    refetchInterval: 5000 // Refetch every 5 seconds for real-time updates
+    staleTime: 60000,
+    refetchInterval: 300000
   });
 
-  // Fetch recent messages for each bubble to show previews
-  const { data: bubbleMessages = {}, isLoading: messagesLoading } = useQuery({
-    queryKey: ['bubble-preview-messages'],
+  const { data: comments = [], refetch: refetchComments } = useQuery({
+    queryKey: ['comments', selectedBubbleId],
     queryFn: async () => {
-      if (bubbles.length === 0) return {};
+      if (!selectedBubbleId) return [];
       
-      const bubbleIds = bubbles.map(bubble => bubble.id);
-      
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('*')
-        .in('bubble_id', bubbleIds)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      // Group messages by bubble_id
-      const messagesByBubble: Record<string, any[]> = {};
-      data.forEach(message => {
-        if (!messagesByBubble[message.bubble_id]) {
-          messagesByBubble[message.bubble_id] = [];
+      try {
+        const { data, error } = await supabase
+          .from('bubble_comments')
+          .select('*')
+          .eq('bubble_id', selectedBubbleId)
+          .order('created_at', { ascending: true });
+          
+        if (error) {
+          throw error;
         }
-        // Keep up to 5 most recent messages per bubble
-        if (messagesByBubble[message.bubble_id].length < 5) {
-          messagesByBubble[message.bubble_id].push(message);
-        }
-      });
-      
-      return messagesByBubble;
+        
+        return data || [];
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+        toast({
+          title: "Error loading comments",
+          description: "Could not load comments for this bubble",
+          variant: "destructive"
+        });
+        return [];
+      }
     },
-    enabled: bubbles.length > 0,
-    refetchInterval: 3000 // Refetch chat messages more frequently
+    enabled: !!selectedBubbleId,
+    staleTime: 30000
   });
 
-  // Fetch participant count for each bubble
-  const { data: bubbleParticipants = {} } = useQuery({
-    queryKey: ['bubble-participants'],
-    queryFn: async () => {
-      if (bubbles.length === 0) return {};
-      
-      const bubbleIds = bubbles.map(bubble => bubble.id);
-      
-      // Get unique usernames for each bubble
-      const { data, error } = await supabase
-        .from('bubble_messages')
-        .select('bubble_id, username')
-        .in('bubble_id', bubbleIds);
-      
-      if (error) throw error;
-      
-      // Count unique usernames per bubble
-      const participantsByBubble: Record<string, Set<string>> = {};
-      data.forEach(message => {
-        if (!participantsByBubble[message.bubble_id]) {
-          participantsByBubble[message.bubble_id] = new Set();
-        }
-        participantsByBubble[message.bubble_id].add(message.username);
-      });
-      
-      // Convert Sets to counts
-      const countsByBubble: Record<string, number> = {};
-      Object.entries(participantsByBubble).forEach(([bubbleId, participants]) => {
-        countsByBubble[bubbleId] = participants.size;
-      });
-      
-      return countsByBubble;
-    },
-    enabled: bubbles.length > 0,
-    refetchInterval: 5000 // Refetch participant counts for real-time updates
-  });
-
-  // Filter bubbles based on search
-  const filteredBubbles = searchQuery.trim() 
-    ? bubbles.filter(bubble => 
-        bubble.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bubble.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (bubble.description && bubble.description.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : bubbles;
-
-  // Check if a bubble has expired
-  const isBubbleExpired = (bubble: BubbleData) => {
-    if (!bubble.expires_at) return false;
-    return new Date(bubble.expires_at) < new Date();
+  const refreshFeed = () => {
+    refetch();
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
+    toast({
+      title: "Feed refreshed",
+      description: "Latest activities loaded"
+    });
   };
 
-  // Handle reflecting a bubble
-  const handleReflect = async (bubbleId: string, event: React.MouseEvent) => {
-    event.preventDefault(); // Prevent navigation
-    event.stopPropagation(); // Prevent event bubbling
-    
+  const goToPage = (page: number) => {
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    setCurrentPage(page);
+  };
+
+  const sendComment = async () => {
     if (!user) {
       toast({
-        title: "Please sign in",
-        description: "You need to be signed in to reflect bubbles",
+        title: "Login required",
+        description: "Please sign in to comment",
         variant: "destructive"
       });
       return;
     }
-
-    const username = profile?.username || user?.email || "";
     
-    // Add a quick visual feedback before the API call
-    const button = event.currentTarget as HTMLButtonElement;
-    const originalText = button.innerHTML;
-    button.innerHTML = `<div class="animate-pulse">Reflecting...</div>`;
+    if (!selectedBubbleId || !comment.trim()) {
+      return;
+    }
     
-    try {
-      const { error } = await supabase
-        .from('reflects')
-        .insert({ 
-          bubble_id: bubbleId,
-          username
-        });
-
-      if (error) {
-        if (error.code === '23505') { // Unique violation
-          toast({
-            title: "Already reflected",
-            description: "You have already reflected this bubble",
-          });
-        } else {
-          toast({
-            title: "Error reflecting bubble",
-            description: error.message,
-            variant: "destructive"
-          });
-        }
-        return;
-      }
-
+    // Check rate limiting
+    if (!commentLimiter.canMakeRequest()) {
+      const waitTime = commentLimiter.getWaitTime();
       toast({
-        title: "Bubble reflected!",
-        description: "This bubble will appear in your profile",
-      });
-    } catch (error) {
-      toast({
-        title: "Error reflecting bubble",
-        description: "Please try again later",
+        title: "Please wait",
+        description: `You can send another comment in ${Math.ceil(waitTime / 1000)} seconds`,
         variant: "destructive"
       });
+      return;
+    }
+    
+    setIsSendingComment(true);
+    
+    try {
+      // Save the comment text before clearing the input
+      const commentText = comment.trim();
+      setComment("");
+      
+      await sendRetry(async () => {
+        const { error } = await supabase
+          .from('bubble_comments')
+          .insert({
+            bubble_id: selectedBubbleId,
+            username: profile?.username || user.email || 'anonymous',
+            content: commentText
+          });
+          
+        if (error) throw error;
+      });
+      
+      // Refresh comments
+      refetchComments();
+      
+      toast({
+        title: "Comment added",
+        description: "Your comment was posted successfully"
+      });
+    } catch (error) {
+      console.error("Error sending comment:", error);
+      toast({
+        title: "Error sending comment",
+        description: "Failed to post your comment",
+        variant: "destructive"
+      });
+      // Put back the comment
+      setComment(comment);
     } finally {
-      button.innerHTML = originalText;
+      setIsSendingComment(false);
     }
   };
 
-  // Navigate to the next bubble (scroll down)
-  const navigateNext = () => {
-    if (isTransitioning || filteredBubbles.length === 0) return;
+  const joinChat = (bubbleId: string) => {
+    if (!bubbleId) return;
     
-    setIsTransitioning(true);
-    setDirection(1);
-    
-    setTimeout(() => {
-      setCurrentIndex(prev => (prev < filteredBubbles.length - 1 ? prev + 1 : 0));
-      setIsTransitioning(false);
-    }, 300);
+    // Navigate to chat page
+    navigate(`/bubble-chat/${bubbleId}`);
   };
 
-  // Navigate to the previous bubble (scroll up)
-  const navigatePrev = () => {
-    if (isTransitioning || filteredBubbles.length === 0) return;
-    
-    setIsTransitioning(true);
-    setDirection(-1);
-    
-    setTimeout(() => {
-      setCurrentIndex(prev => (prev > 0 ? prev - 1 : filteredBubbles.length - 1));
-      setIsTransitioning(false);
-    }, 300);
-  };
-
-  // Format message timestamp
-  const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  // Format the date for the "created at" timestamp
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return 'Today';
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      return `${diffDays} days ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
-
-  // Get a truncated preview of message content
-  const getMessagePreview = (content: string) => {
-    // If it's media content, return an appropriate placeholder
-    if (content.startsWith('data:image/')) {
-      return "[Image]";
-    } else if (content.startsWith('data:video/')) {
-      return "[Video]";
-    } else if (content.startsWith('data:audio/')) {
-      return "[Voice message]";
-    }
-    
-    // Otherwise truncate text
-    return content.length > 25 ? content.substring(0, 22) + '...' : content;
-  };
-
-  // Handle touch interactions for swiping
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const container = containerRef.current;
-    
-    const handleTouchStart = (e: TouchEvent) => {
-      dragStartY.current = e.touches[0].clientY;
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault(); // Prevent page scrolling
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      const dragEndY = e.changedTouches[0].clientY;
-      const dragDiff = dragEndY - dragStartY.current;
+  // Format function for timestamps
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
       
-      if (Math.abs(dragDiff) > dragThreshold) {
-        if (dragDiff > 0) {
-          // Swiped down
-          navigatePrev();
-        } else {
-          // Swiped up
-          navigateNext();
-        }
-      }
-    };
-    
-    // Handle wheel events for desktop scrolling
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
+      if (diffInSeconds < 60) return "just now";
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+      if (diffInSeconds < 172800) return "yesterday";
       
-      // Debounce wheel events to prevent rapid firing
-      if (isTransitioning) return;
-      
-      if (e.deltaY > 0) {
-        navigateNext();
-      } else {
-        navigatePrev();
-      }
-    };
-    
-    // Handle keyboard navigation
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        navigatePrev();
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        navigateNext();
-      }
-    };
-    
-    // Add event listeners
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: false });
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('keydown', handleKeyDown);
-    
-    // Cleanup
-    return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [filteredBubbles.length, isTransitioning]);
-  
-  // Transition variants for Framer Motion
-  const bubbleVariants = {
-    enter: (direction: number) => ({
-      y: direction > 0 ? '100%' : '-100%',
-      opacity: 0,
-      scale: 0.8,
-      rotateY: direction > 0 ? -20 : 20,
-    }),
-    center: {
-      y: 0,
-      opacity: 1,
-      scale: 1,
-      rotateY: 0,
-      transition: {
-        duration: 0.5,
-        ease: [0.34, 1.56, 0.64, 1], // Custom cubic bezier for springy feel
-      }
-    },
-    exit: (direction: number) => ({
-      y: direction > 0 ? '-100%' : '100%',
-      opacity: 0,
-      scale: 0.8,
-      rotateY: direction > 0 ? 20 : -20,
-      transition: {
-        duration: 0.4,
-        ease: [0.43, 0.13, 0.23, 0.96], // Custom cubic bezier for smooth exit
-      }
-    })
+      // Format the date for older posts
+      return new Intl.DateTimeFormat('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric'
+      }).format(date);
+    } catch (error) {
+      return "unknown time";
+    }
   };
 
-  // Get a random pastel color for user avatars
-  const getUserColor = (username: string) => {
-    // Generate a hash code from the username
-    let hash = 0;
-    for (let i = 0; i < username.length; i++) {
-      hash = username.charCodeAt(i) + ((hash << 5) - hash);
-    }
+  const renderActivityContent = (activity: any) => {
+    const activityType = activity.activity_type;
+    const username = activity.username;
+    const content = activity.content;
+    const bubbleName = activity.bubble?.name || "Unknown bubble";
     
-    // Generate pastel colors (high lightness)
-    const h = hash % 360;
-    return `hsla(${h}, 70%, 80%, 0.8)`;
+    switch (activityType) {
+      case 'new_bubble':
+        return (
+          <>
+            <p className="mb-2 text-sm text-gray-600"><strong>{username}</strong> created a new bubble:</p>
+            <div className="bg-[#ebbd34]/5 p-3 rounded-lg">
+              <h4 className="font-medium text-lg text-[#ebbd34]">{bubbleName}</h4>
+              {activity.bubble?.description && (
+                <p className="text-gray-600 mt-1">{activity.bubble.description}</p>
+              )}
+              <div className="mt-3 flex items-center justify-between">
+                <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20">
+                  {activity.bubble?.topic || "general"}
+                </Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-[#ebbd34] border-[#ebbd34]/20"
+                  onClick={() => joinChat(activity.bubble_id)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Join Chat
+                </Button>
+              </div>
+            </div>
+          </>
+        );
+        
+      case 'new_message':
+        return (
+          <>
+            <p className="mb-2 text-sm text-gray-600"><strong>{username}</strong> sent a message in:</p>
+            <div className="bg-[#ebbd34]/5 p-3 rounded-lg">
+              <h4 className="font-medium text-[#ebbd34]">{bubbleName}</h4>
+              <div className="bg-white/80 p-2 rounded mt-2 text-gray-800">
+                <p className="italic">"{content}"</p>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-[#ebbd34] border-[#ebbd34]/20"
+                  onClick={() => joinChat(activity.bubble_id)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Join Chat
+                </Button>
+              </div>
+            </div>
+          </>
+        );
+        
+      case 'reflect':
+        return (
+          <>
+            <p className="mb-2 text-sm text-gray-600"><strong>{username}</strong> reflected on:</p>
+            <div className="bg-[#ebbd34]/5 p-3 rounded-lg">
+              <h4 className="font-medium text-[#ebbd34]">{bubbleName}</h4>
+              <div className="mt-3 flex justify-between items-center">
+                <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  {activity.bubble?.reflect_count || 0} reflects
+                </Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-[#ebbd34] border-[#ebbd34]/20"
+                  onClick={() => joinChat(activity.bubble_id)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  Join Chat
+                </Button>
+              </div>
+            </div>
+          </>
+        );
+        
+      default:
+        return (
+          <div className="bg-[#ebbd34]/5 p-3 rounded-lg">
+            <h4 className="font-medium text-[#ebbd34]">{bubbleName}</h4>
+            <p className="text-gray-600 mt-1">Activity by {username}</p>
+            <div className="mt-3 flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-[#ebbd34] border-[#ebbd34]/20"
+                onClick={() => joinChat(activity.bubble_id)}
+              >
+                <MessageCircle className="h-4 w-4 mr-1" />
+                Join Chat
+              </Button>
+            </div>
+          </div>
+        );
+    }
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
-      {/* Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between h-16 px-4">
-            {/* Logo and Search Section */}
-            <div className="flex items-center gap-6 flex-1">
-              <Link to="/" className="flex items-center gap-2 shrink-0">
-                <img 
-                  src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                  alt="Bubble Trouble"
-                  className="w-8 h-8"
-                />
-                <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
-                  Bubble Trouble
-                </span>
-              </Link>
-              
-              <div className="relative flex-1 max-w-md hidden sm:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
-                <input
-                  type="search"
-                  placeholder="Search bubbles..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Navigation Links */}
-            <div className="flex items-center gap-1">
-              <Link 
-                to="/my-bubbles" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
-                }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">My Bubbles</span>
-              </Link>
-              <Link 
-                to="/feed" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
-                }`}
-              >
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Feed</span>
-              </Link>
-              <Link 
-                to="/profile" 
-                className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
-              >
-                <User className="w-5 h-5" />
-              </Link>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20">
+      <div className="container mx-auto px-4 py-24 max-w-4xl">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-[#ebbd34]">Recent Activity</h1>
+            <p className="text-gray-600 mt-2">See what's happening across all bubbles</p>
           </div>
+          <Button 
+            variant="outline" 
+            className="text-[#ebbd34] border-[#ebbd34]/20 hover:bg-[#ebbd34]/5"
+            onClick={refreshFeed}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
-
-        {/* Mobile Search Bar */}
-        <div className="sm:hidden px-4 pb-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
-            <input
-              type="search"
-              placeholder="Search bubbles..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
-            />
+        
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#ebbd34] border-t-transparent mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading activity feed...</p>
           </div>
-        </div>
-      </nav>
-      
-      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-light text-[#ebbd34] mb-2">
-            Top Bubbles
-          </h1>
-          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
-        </div>
-
-        {/* TikTok-Style Vertical Scrolling Bubbles Container */}
-        <div 
-          ref={containerRef}
-          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none"
-          style={{ perspective: '1200px' }}
-        >
-          {isLoading ? (
-            <div className="h-full w-full flex flex-col items-center justify-center">
-              <div className="w-12 h-12 border-4 border-[#ebbd34]/10 border-t-[#ebbd34] rounded-full animate-spin"></div>
-              <p className="text-[#ebbd34] mt-4">Loading bubbles...</p>
-            </div>
-          ) : filteredBubbles.length === 0 ? (
-            <div className="h-full w-full flex flex-col items-center justify-center text-center p-6">
-              <img 
-                src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                alt="No results" 
-                className="w-16 h-16 opacity-40 mb-4"
-              />
-              <h3 className="text-xl font-semibold text-[#ebbd34] mb-2">No bubbles found</h3>
-              <p className="text-[#ebbd34]/70 max-w-sm">
-                {searchQuery 
-                  ? `No bubbles match your search "${searchQuery}". Try a different search!` 
-                  : "There are no bubbles to display right now. Check back later!"}
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Swipe indicators */}
-              <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center opacity-70">
-                <ChevronUp className="w-6 h-6 text-[#ebbd34] animate-bounce" />
-                <span className="text-xs text-[#ebbd34]/80">Swipe</span>
-              </div>
-              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center opacity-70">
-                <span className="text-xs text-[#ebbd34]/80">Swipe</span>
-                <ChevronDown className="w-6 h-6 text-[#ebbd34] animate-bounce" />
-              </div>
-
-              {/* Bubble pagination indicator */}
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 flex flex-col items-center space-y-1">
-                {filteredBubbles.map((_, index) => (
-                  <div 
-                    key={index}
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      index === currentIndex ? 'bg-[#ebbd34] w-2 h-2' : 'bg-[#ebbd34]/30'
-                    } transition-all duration-300`}
-                  />
-                ))}
-              </div>
-
-              {/* Bubble content with smooth transitions */}
-              <AnimatePresence initial={false} custom={direction}>
-                {filteredBubbles.length > 0 && (
-                  <motion.div
-                    key={currentIndex}
-                    custom={direction}
-                    variants={bubbleVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{ 
-                      transformStyle: 'preserve-3d',
-                    }}
-                  >
-                    {/* Main bubble */}
-                    <div 
-                      className="relative w-[320px] h-[320px] rounded-full overflow-visible cursor-pointer"
-                      style={{ transformStyle: 'preserve-3d' }}
-                      onClick={() => {
-                        window.location.href = `/bubbles/${filteredBubbles[currentIndex].id}`;
-                      }}
-                    >
-                      {/* Background gradient circle with glow */}
-                      <div 
-                        className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ffda7b]/90 to-[#ebbd34]/90 shadow-xl"
-                        style={{
-                          boxShadow: '0 10px 30px rgba(235, 189, 52, 0.4), 0 0 80px rgba(235, 189, 52, 0.2)',
-                          transform: 'translateZ(-30px)',
-                        }}
-                      />
-                      
-                      {/* Highlight effects */}
-                      <div 
-                        className="absolute top-2 right-4 w-40 h-40 rounded-full bg-white/20 blur-xl"
-                        style={{ transform: 'translateZ(-20px)' }}
-                      />
-                      <div 
-                        className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-white/10 blur-xl"
-                        style={{ transform: 'translateZ(-20px)' }}
-                      />
-                      
-                      {/* Inner bubble with content */}
-                      <div 
-                        className="absolute inset-[15px] rounded-full bg-white/80 backdrop-blur-md"
-                        style={{
-                          transformStyle: 'preserve-3d',
-                          boxShadow: 'inset 0 0 20px rgba(255, 255, 255, 0.6)',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {/* Content container */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-between p-6 text-center">
-                          {/* Top section - bubble title */}
-                          <div className="w-full">
-                            <h2 
-                              className="text-2xl font-bold text-[#ebbd34] mb-1"
-                              style={{ textShadow: '0 1px 2px rgba(235, 189, 52, 0.2)' }}
-                            >
-                              {filteredBubbles[currentIndex].name}
-                            </h2>
-                            <p className="text-sm text-[#ebbd34]/80 font-medium">
-                              {filteredBubbles[currentIndex].topic}
-                            </p>
-                          </div>
-                          
-                          {/* Middle section - stats and description */}
-                          <div className="flex-1 flex flex-col items-center justify-center w-full">
-                            <div className="flex items-center justify-center gap-3 mb-3">
-                              <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
-                                <Star className="w-3 h-3 text-[#ebbd34] mr-1" />
-                                <span className="text-xs text-[#ebbd34] font-medium">
-                                  {filteredBubbles[currentIndex].reflect_count}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
-                                <Users className="w-3 h-3 text-[#ebbd34] mr-1" />
-                                <span className="text-xs text-[#ebbd34] font-medium">
-                                  {bubbleParticipants[filteredBubbles[currentIndex].id] || 0}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center bg-[#ebbd34]/10 rounded-full px-3 py-1">
-                                <span className="text-xs text-[#ebbd34] font-medium">
-                                  {formatDate(filteredBubbles[currentIndex].created_at)}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            {/* Expired bubble warning */}
-                            {isBubbleExpired(filteredBubbles[currentIndex]) && (
-                              <div className="mb-2 py-1 px-3 bg-red-100 rounded-full">
-                                <p className="text-xs text-red-600 font-medium">
-                                  This bubble has already exploded
-                                </p>
-                              </div>
-                            )}
-                            
-                            {filteredBubbles[currentIndex].description && (
-                              <p className="text-[#ebbd34]/70 text-xs mb-2 max-w-[90%] line-clamp-2">
-                                {filteredBubbles[currentIndex].description}
-                              </p>
-                            )}
-                            
-                            <p className="text-[#ebbd34]/60 text-xs">
-                              by @{filteredBubbles[currentIndex].username.split('@')[0]}
-                            </p>
-                          </div>
-                          
-                          {/* Bottom section - chat preview */}
-                          {!messagesLoading && bubbleMessages[filteredBubbles[currentIndex].id] && 
-                           bubbleMessages[filteredBubbles[currentIndex].id].length > 0 ? (
-                            <div className="w-full bg-[#ebbd34]/5 rounded-xl p-2 border border-[#ebbd34]/10 mt-1">
-                              <h4 className="text-xs text-[#ebbd34] font-semibold mb-1 flex items-center">
-                                <MessageCircle className="w-3 h-3 mr-1" /> 
-                                Recent Chat
-                              </h4>
-                              <div className="overflow-hidden max-h-[80px]">
-                                {bubbleMessages[filteredBubbles[currentIndex].id].slice(0, 3).map((message: any, idx: number) => (
-                                  <div key={idx} className="flex items-start gap-1 mb-1">
-                                    <div 
-                                      className="w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center text-[0.5rem] text-white"
-                                      style={{ backgroundColor: getUserColor(message.username) }}
-                                    >
-                                      {message.username.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 text-left">
-                                      <div className="flex items-center">
-                                        <p className="text-[0.65rem] font-medium text-[#ebbd34]/80 mr-1">
-                                          @{message.username.split('@')[0]}
-                                        </p>
-                                        <span className="text-[0.6rem] text-[#ebbd34]/50">
-                                          {formatMessageTime(message.created_at)}
-                                        </span>
-                                      </div>
-                                      <p className="text-[0.7rem] text-[#ebbd34]/70 line-clamp-1">
-                                        {getMessagePreview(message.content)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="text-center">
-                                <Link to={`/bubbles/${filteredBubbles[currentIndex].id}`} className="text-[0.7rem] text-[#ebbd34] hover:underline">
-                                  View full conversation →
-                                </Link>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-full bg-[#ebbd34]/5 rounded-xl p-3 border border-[#ebbd34]/10 text-center mt-1">
-                              <p className="text-xs text-[#ebbd34]/60">
-                                {messagesLoading ? "Loading messages..." : "No messages yet. Be the first to chat!"}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+        ) : error ? (
+          <Card className="mb-6 border-red-200">
+            <CardContent className="pt-6 text-center">
+              <p className="text-red-600 mb-3">Error loading feed</p>
+              <Button 
+                variant="outline"
+                onClick={() => refetch()}
+                className="border-[#ebbd34]/20 text-[#ebbd34]"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        ) : activityFeed.length === 0 ? (
+          <Card className="mb-6">
+            <CardContent className="pt-6 text-center">
+              <p className="text-gray-600 mb-2">No recent activity found</p>
+              <p className="text-gray-500 text-sm mb-4">Create or join bubbles to see activity here</p>
+              <Button 
+                onClick={() => navigate('/')}
+                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+              >
+                Explore Bubbles
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {activityFeed.map((activity: any, index: number) => (
+              <Card key={activity.id || index} className="mb-6 overflow-hidden">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
+                        {activity.username.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <div className="w-full">
+                        {renderActivityContent(activity)}
                       </div>
                       
-                      {/* Action buttons - positioned around the circle */}
-                      <div 
-                        className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex items-center space-x-4"
-                        style={{ zIndex: 20 }}
-                        onClick={(e) => e.stopPropagation()} // Prevent triggering the bubble click
-                      >
-                        <Button 
-                          onClick={(e) => handleReflect(filteredBubbles[currentIndex].id, e)}
-                          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white rounded-full px-5 py-2 shadow-lg"
-                          size="sm"
-                          disabled={isBubbleExpired(filteredBubbles[currentIndex])}
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Reflect
-                        </Button>
+                      <div className="mt-4 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                          {formatTimestamp(activity.created_at)}
+                        </span>
                         
-                        <Link 
-                          to={`/bubbles/${filteredBubbles[currentIndex].id}`}
-                          onClick={(e) => e.stopPropagation()} // Prevent double navigation
-                        >
-                          <Button 
-                            className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
                             size="sm"
-                            disabled={isBubbleExpired(filteredBubbles[currentIndex])}
+                            className="text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/5 h-8"
+                            onClick={() => {
+                              setSelectedBubbleId(activity.bubble_id);
+                              setCommentDialogOpen(true);
+                            }}
                           >
-                            <MessageCircle className="w-4 h-4 mr-2" />
-                            Join the Chat
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Comment
                           </Button>
-                        </Link>
-                      </div>
-
-                      {/* "Exploded" indicator for expired bubbles */}
-                      {isBubbleExpired(filteredBubbles[currentIndex]) && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="absolute inset-[15px] rounded-full bg-black/10 backdrop-blur-sm z-10" />
-                          <div className="bg-red-600/80 text-white px-4 py-2 rounded-xl shadow-lg z-20 rotate-[-15deg] transform scale-125">
-                            <p className="font-bold text-xl">EXPLODED</p>
-                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </>
-          )}
-        </div>
-      </main>
-
-      {/* Add CSS to fix 3D perspective issues in different browsers */}
-      <style>
-        {`
-          * {
-            -webkit-transform-style: preserve-3d;
-            transform-style: preserve-3d;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-          }
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center mt-8 gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="border-[#ebbd34]/20 text-[#ebbd34]"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <span className="text-sm px-3 py-2 rounded-md bg-[#ebbd34]/5 text-[#ebbd34]">
+                  Page {currentPage} of {totalPages}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="border-[#ebbd34]/20 text-[#ebbd34]"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      
+      {/* Comments Dialog */}
+      <Dialog open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Comments</DialogTitle>
+            <DialogDescription>
+              Join the conversation about this bubble
+            </DialogDescription>
+          </DialogHeader>
           
-          @keyframes pulse-glow {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-          }
-          
-          .bg-glow {
-            animation: pulse-glow 3s infinite ease-in-out;
-          }
-        `}
-      </style>
+          <div className="mt-4">
+            <ScrollArea className="h-[300px] rounded-md border p-4">
+              {comments.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p>No comments yet. Be the first to comment!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {comments.map((comment: any) => (
+                    <div key={comment.id} className="flex gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] text-xs">
+                          {comment.username.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="bg-gray-100 rounded-lg p-3">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-medium text-xs text-gray-700">{comment.username}</span>
+                            <span className="text-xs text-gray-500">{formatTimestamp(comment.created_at)}</span>
+                          </div>
+                          <p className="text-sm text-gray-800">{comment.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            
+            <Separator className="my-4" />
+            
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="comment">Your comment</Label>
+              <div className="flex gap-2">
+                <Textarea
+                  id="comment"
+                  placeholder="Write a comment..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="flex-1"
+                  disabled={isSendingComment}
+                />
+                <Button 
+                  size="icon"
+                  disabled={!comment.trim() || isSendingComment}
+                  onClick={sendComment}
+                  className="bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+                >
+                  {isSendingComment ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="mt-4 flex justify-end">
+              <Button 
+                variant="outline"
+                onClick={() => joinChat(selectedBubbleId || "")}
+                className="text-[#ebbd34] border-[#ebbd34]/20"
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Join Chat
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
