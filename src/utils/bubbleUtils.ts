@@ -214,7 +214,7 @@ export const createCentralWorldMaterial = () => {
   });
 };
 
-// Create text canvas with improved readability - ensuring English text only
+// Create text canvas with improved readability
 export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -240,16 +240,9 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   ctx.shadowOffsetX = 2 * scaleFactor;
   ctx.shadowOffsetY = 2 * scaleFactor;
   
-  // Text styling - ensure using English-friendly fonts
-  ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+  // Text styling
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
   ctx.fillStyle = '#ebbd34';
-  
-  // English-specific text formatting
-  // Format time labels in English
-  if (text.includes('⏱')) {
-    // Ensure time remaining format is in English
-    text = text.replace(/(\d+)h (\d+)m/, "$1h $2m"); // Ensure format is in English
-  }
   
   // Center text and ensure all text is visible
   const maxWidth = canvas.width * 0.9; // Limit width to avoid cutoff
