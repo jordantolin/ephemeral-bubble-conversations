@@ -11,8 +11,7 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Instead of trying to create buckets automatically which requires admin rights,
-// we'll check if the buckets exist and use them if available
+// Create a bucket for avatars if it doesn't exist
 (async () => {
   try {
     // Check if the buckets exist
@@ -26,6 +25,12 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     // Log available buckets for debugging
     if (buckets && buckets.length > 0) {
       console.log('Available buckets:', buckets.map(b => b.name).join(', '));
+      
+      // Check if avatars bucket exists
+      const avatarsBucketExists = buckets.some(b => b.name === 'avatars');
+      if (!avatarsBucketExists) {
+        console.log('Avatars bucket not found. This needs to be created by an admin.');
+      }
     } else {
       console.log('No storage buckets found. Avatar uploads may not work until buckets are created by an admin.');
     }

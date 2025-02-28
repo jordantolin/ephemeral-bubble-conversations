@@ -10,6 +10,13 @@ interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   created_at: string;
+  updated_at: string;
+}
+
+interface ProfileUpdateData {
+  username?: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
 }
 
 interface AuthContextType {
@@ -18,6 +25,8 @@ interface AuthContextType {
   profile: Profile | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  updateProfile: (data: ProfileUpdateData) => Promise<{ success: boolean; error: any | null }>;
+  uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,6 +89,173 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateProfile = async (data: ProfileUpdateData) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update your profile",
+        variant: "destructive",
+      });
+      return { success: false, error: "Not authenticated" };
+    }
+
+    try {
+      const updates = {
+        ...data,
+        id: user.id,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("Error updating profile:", error);
+        toast({
+          title: "Error updating profile",
+          description: error.message,
+          variant: "destructive",
+        });
+        return { success: false, error };
+      }
+
+      // Refresh profile data
+      fetchProfile(user.id);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+      });
+      
+      return { success: true, error: null };
+    } catch (error) {
+      console.error("Unexpected error updating profile:", error);
+      toast({
+        title: "Error updating profile",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return { success: false, error };
+    }
+  };
+
+  const uploadAvatar = async (file: File) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to upload an avatar",
+        variant: "destructive",
+      });
+      return { success: false, error: "Not authenticated" };
+    }
+
+    try {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image file",
+          variant: "destructive",
+        });
+        return { success: false, error: "Invalid file type" };
+      }
+
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      // Check if avatars bucket exists and try to upload
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarsBucketExists = buckets?.some(b => b.name === 'avatars');
+      
+      if (!avatarsBucketExists) {
+        // Try with bubble_assets as fallback
+        const { data, error } = await supabase.storage
+          .from('bubble_assets')
+          .upload(`avatars/${fileName}`, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (error) {
+          console.error("Error uploading avatar:", error);
+          toast({
+            title: "Error uploading avatar",
+            description: error.message,
+            variant: "destructive",
+          });
+          return { success: false, error };
+        }
+
+        // Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('bubble_assets')
+          .getPublicUrl(`avatars/${fileName}`);
+
+        // Update profile with new avatar URL
+        const { success, error: updateError } = await updateProfile({ avatar_url: publicUrl });
+        
+        if (!success) {
+          return { success: false, error: updateError };
+        }
+        
+        toast({
+          title: "Avatar updated",
+          description: "Your avatar has been updated successfully",
+        });
+        
+        return { success: true, url: publicUrl };
+      } else {
+        // Use avatars bucket if it exists
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (error) {
+          console.error("Error uploading avatar:", error);
+          toast({
+            title: "Error uploading avatar",
+            description: error.message,
+            variant: "destructive",
+          });
+          return { success: false, error };
+        }
+
+        // Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        // Update profile with new avatar URL
+        const { success, error: updateError } = await updateProfile({ avatar_url: publicUrl });
+        
+        if (!success) {
+          return { success: false, error: updateError };
+        }
+        
+        toast({
+          title: "Avatar updated",
+          description: "Your avatar has been updated successfully",
+        });
+        
+        return { success: true, url: publicUrl };
+      }
+    } catch (error) {
+      console.error("Unexpected error uploading avatar:", error);
+      toast({
+        title: "Error uploading avatar",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return { success: false, error };
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -103,6 +279,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     isLoading,
     signOut,
+    updateProfile,
+    uploadAvatar
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
