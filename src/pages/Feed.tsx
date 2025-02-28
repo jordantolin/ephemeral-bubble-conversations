@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -23,17 +22,25 @@ const Feed = () => {
   const dragStartY = useRef(0);
   const dragThreshold = 100; // Pixels required to trigger a bubble change
   
+  // Log to help with debugging
+  console.log("Feed component rendering");
+  
   const { data: bubbles = [], isLoading } = useQuery({
     queryKey: ['bubbles', 'top-reflected'],
     queryFn: async () => {
+      console.log("Fetching bubbles data");
       const { data, error } = await supabase
         .from('bubbles')
         .select('*')
         .order('reflect_count', { ascending: false })
         .limit(20);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching bubbles:", error);
+        throw error;
+      }
       
+      console.log("Bubbles data received:", data?.length || 0);
       return data.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
@@ -367,7 +374,7 @@ const Feed = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC]">
+    <div className="min-h-screen bg-[#FEF7E4] w-full">
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
@@ -453,7 +460,7 @@ const Feed = () => {
         </div>
       </nav>
       
-      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8">
+      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8 bg-[#FEF7E4]">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-light text-[#ebbd34] mb-2">
             Top Bubbles
@@ -464,7 +471,7 @@ const Feed = () => {
         {/* TikTok-Style Vertical Scrolling Bubbles Container */}
         <div 
           ref={containerRef}
-          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none"
+          className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4]"
           style={{ perspective: '1200px' }}
         >
           {isLoading ? (
@@ -688,7 +695,7 @@ const Feed = () => {
                         <Button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/bubbles/${filteredBubbles[currentIndex].id}`);
+                            navigate(`/bubble-chat/${filteredBubbles[currentIndex].id}`);
                           }}
                           className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
                           size="sm"
@@ -717,26 +724,36 @@ const Feed = () => {
         </div>
       </main>
 
-      {/* Add CSS to fix 3D perspective issues in different browsers */}
-      <style>
-        {`
-          * {
-            -webkit-transform-style: preserve-3d;
-            transform-style: preserve-3d;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-          }
-          
-          @keyframes pulse-glow {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-          }
-          
-          .bg-glow {
-            animation: pulse-glow 3s infinite ease-in-out;
-          }
-        `}
-      </style>
+      {/* Force full page background color */}
+      <style jsx global>{`
+        body {
+          background-color: #FEF7E4;
+          margin: 0;
+          padding: 0;
+        }
+        
+        #root {
+          background-color: #FEF7E4;
+          min-height: 100vh;
+          width: 100%;
+        }
+        
+        * {
+          -webkit-transform-style: preserve-3d;
+          transform-style: preserve-3d;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+        }
+        
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+        
+        .bg-glow {
+          animation: pulse-glow 3s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };
