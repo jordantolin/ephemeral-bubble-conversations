@@ -1,5 +1,6 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import * as THREE from 'three';
 
 // Enhanced real-time connection management
 export const connectionManager = {
@@ -176,4 +177,85 @@ export const optimizeConcurrentOperations = () => {
       operationQueue = Promise.resolve();
     }
   };
+};
+
+// --------- 3D Visualization Utilities for BubbleWorld ---------
+
+// Creates a bubble geometry with optimized parameters
+export const createBubbleGeometry = (size: number = 1) => {
+  // Use icosahedron for smoother spheres with good performance
+  return new THREE.IcosahedronGeometry(size, 5);
+};
+
+// Creates a bubble material with visually appealing effects
+export const createBubbleMaterial = () => {
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0xebbd34, // Gold color to match the app theme
+    metalness: 0.1,
+    roughness: 0.2,
+    transmission: 0.5, // Some transparency
+    thickness: 0.5, // Glass-like refraction
+    clearcoat: 1.0, // Extra shine layer
+    clearcoatRoughness: 0.1,
+    transparent: true,
+    opacity: 0.8,
+    emissive: 0xebbd34,
+    emissiveIntensity: 0.2,
+  });
+  
+  return material;
+};
+
+// Creates the central world geometry that anchors the bubble visualization
+export const createCentralWorldGeometry = () => {
+  // Use icosahedron for the central world as well, more subdivided for smoothness
+  return new THREE.IcosahedronGeometry(2, 6);
+};
+
+// Creates the material for the central world object
+export const createCentralWorldMaterial = () => {
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0xebbd34, // Gold color to match the app theme
+    metalness: 0.3,
+    roughness: 0.4,
+    transmission: 0.2,
+    thickness: 1.0,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.2,
+    transparent: true,
+    opacity: 0.6,
+    emissive: 0xebbd34,
+    emissiveIntensity: 0.3,
+  });
+  
+  return material;
+};
+
+// Creates a text canvas for labeling bubbles
+export const createTextCanvas = (text: string, fontSize: number = 32) => {
+  const canvas = document.createElement('canvas');
+  const size = 256; // Power of 2 for best texture performance
+  canvas.width = size * 2;
+  canvas.height = size;
+  
+  const context = canvas.getContext('2d');
+  if (!context) return canvas;
+  
+  // Clear canvas with transparency
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Set text properties
+  context.font = `bold ${fontSize}px Arial, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  
+  // Draw text shadow for better readability
+  context.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  context.fillText(text, canvas.width / 2 + 2, canvas.height / 2 + 2);
+  
+  // Draw main text
+  context.fillStyle = 'white';
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
+  
+  return canvas;
 };
