@@ -19,9 +19,16 @@ function App() {
     defaultOptions: {
       queries: {
         refetchOnWindowFocus: false,
-        retry: 3,
-        retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+        retry: 1, // Reduced retries for better user experience
+        retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000),
         staleTime: 5000,
+      },
+      mutations: {
+        // Add error handling for mutations
+        retry: 1,
+        onError: (error) => {
+          console.error('Mutation error:', error);
+        }
       },
     },
   });
