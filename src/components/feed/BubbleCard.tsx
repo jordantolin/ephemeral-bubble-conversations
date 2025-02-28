@@ -34,13 +34,19 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
   const navigate = useNavigate();
   const isExpired = isBubbleExpired(bubble);
 
+  // Function to handle bubble navigation with proper route
+  const navigateToBubble = (bubbleId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    navigate(`/bubble/${bubbleId}`);
+  };
+
   return (
     <div 
       className="relative w-[320px] h-[320px] rounded-full overflow-visible cursor-pointer"
       style={{ transformStyle: 'preserve-3d' }}
-      onClick={() => {
-        navigate(`/bubble/${bubble.id}`);
-      }}
+      onClick={() => navigateToBubble(bubble.id)}
     >
       {/* Background gradient circle with glow */}
       <div 
@@ -158,10 +164,7 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
         </Button>
         
         <Button 
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/bubble/${bubble.id}`);
-          }}
+          onClick={(e) => navigateToBubble(bubble.id, e)}
           className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
           size="sm"
           disabled={isExpired}
