@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
@@ -11,20 +11,6 @@ import {
   createCentralWorldMaterial,
 } from '@/utils/bubbleUtils';
 import { useNavigate } from 'react-router-dom';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { MessageCircle, Sparkles, Clock, X } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Format time remaining for display
 const formatTimeRemaining = (expiryTime: Date) => {
@@ -74,120 +60,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     moveThreshold: 5
   });
   
-  // Navigation and auth
+  // Add navigation
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  // Bubble info dialog state
-  const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
-  const [bubbleInfoOpen, setBubbleInfoOpen] = useState(false);
-  const [isReflecting, setIsReflecting] = useState(false);
-
-  // Fetch selected bubble details
-  const { data: selectedBubble } = useQuery({
-    queryKey: ['bubble', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return null;
-      
-      try {
-        const { data, error } = await supabase
-          .from('bubbles')
-          .select('*')
-          .eq('id', selectedBubbleId)
-          .single();
-        
-        if (error) {
-          throw error;
-        }
-        
-        return data;
-      } catch (error) {
-        console.error("Error fetching bubble details:", error);
-        return null;
-      }
-    },
-    enabled: !!selectedBubbleId && bubbleInfoOpen
-  });
-
-  const formatExpiry = (expiryDate: string) => {
-    try {
-      const expiry = new Date(expiryDate);
-      const now = new Date();
-      
-      const timeDiff = expiry.getTime() - now.getTime();
-      
-      if (timeDiff <= 0) {
-        return "Expired";
-      }
-      
-      const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes}m remaining`;
-      } else {
-        return `${minutes}m remaining`;
-      }
-    } catch (error) {
-      console.error("Error formatting expiry time:", error);
-      return "Time unknown";
-    }
-  };
-
-  const handleReflect = async () => {
-    if (!user || !selectedBubbleId) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to reflect on bubbles",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsReflecting(true);
-    
-    try {
-      const username = profile?.username || user?.email || "";
-      
-      const { error } = await supabase
-        .from('reflects')
-        .insert({ 
-          bubble_id: selectedBubbleId,
-          username
-        });
-
-      if (error) {
-        if (error.code === '23505') { // Unique violation
-          toast({
-            title: "Already reflected",
-            description: "You have already reflected this bubble",
-          });
-          return;
-        }
-        throw error;
-      }
-
-      toast({
-        title: "Bubble reflected!",
-        description: "This bubble will appear in your profile",
-      });
-      
-      // Refresh the bubble data
-      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-      queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
-    } catch (error: any) {
-      console.error("Error reflecting bubble:", error);
-      toast({
-        title: "Error reflecting bubble",
-        description: "Please try again later",
-        variant: "destructive"
-      });
-    } finally {
-      setIsReflecting(false);
-    }
-  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -669,9 +543,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               )
               .start();
             
-            // Show the bubble info dialog
-            setSelectedBubbleId(parent.userData.id);
-            setBubbleInfoOpen(true);
+            // Navigate directly to the BubbleChat page
+            navigate(`/bubble-chat/${parent.userData.id}`);
             
             // Also call the provided onBubbleClick callback for external handling
             onBubbleClick(parent.userData.id);
@@ -945,94 +818,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
       renderer.dispose();
     };
-  }, [topics, onBubbleClick, navigate, user, profile, toast, queryClient]);
+  }, [topics, onBubbleClick, navigate]);
 
   return (
-    <>
-      <div 
-        ref={containerRef} 
-        className="w-full h-full touch-none select-none"
-        style={{ touchAction: 'none' }}
-      />
-      
-      {/* Bubble info dialog with Reflect button */}
-      <Dialog open={bubbleInfoOpen && !!selectedBubbleId} onOpenChange={(open) => {
-        if (!open) setBubbleInfoOpen(false);
-      }}>
-        <DialogContent className="sm:max-w-[450px] md:max-w-[550px] rounded-lg">
-          <DialogHeader className="bg-[#ebbd34] text-white px-6 py-4 -mx-6 -mt-6 rounded-t-lg gap-1">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-bold">
-                {selectedBubble?.name || 'Loading...'}
-              </DialogTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-white hover:bg-white/10 h-8 w-8"
-                onClick={() => setBubbleInfoOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            <DialogDescription className="text-white/90 mt-1 text-base">
-              {selectedBubble?.topic}
-            </DialogDescription>
-            
-            <div className="flex items-center justify-between mt-2 text-sm">
-              <div className="flex items-center gap-4">
-                <Badge variant="outline" className="bg-white/10 text-white border-0 gap-1 font-normal">
-                  <Clock className="h-3 w-3" />
-                  {selectedBubble ? formatExpiry(selectedBubble.expires_at) : 'Loading...'}
-                </Badge>
-                
-                <div className="flex items-center gap-1 text-white/90">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>{selectedBubble?.reflect_count || 0} reflects</span>
-                </div>
-              </div>
-            </div>
-          </DialogHeader>
-          
-          {selectedBubble?.description && (
-            <div className="bg-[#ebbd34]/5 -mx-6 px-6 py-3 text-sm text-gray-700 mt-4">
-              {selectedBubble.description}
-            </div>
-          )}
-          
-          <div className="mt-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                className="w-full gap-2 border-[#ebbd34] text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={() => navigate(`/bubble-chat/${selectedBubbleId}`)}
-              >
-                <MessageCircle className="h-4 w-4" />
-                Join the Chat
-              </Button>
-            </div>
-            
-            <Button
-              variant="default"
-              className="w-full gap-2 bg-[#ebbd34] hover:bg-[#ebbd34]/90"
-              onClick={handleReflect}
-              disabled={isReflecting}
-            >
-              {isReflecting ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Reflecting...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Reflect This Bubble
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <div 
+      ref={containerRef} 
+      className="w-full h-full touch-none select-none"
+      style={{ touchAction: 'none' }}
+    />
   );
 };
 
