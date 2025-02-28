@@ -10,18 +10,19 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/favicon.ico",
+      "src": "/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png",
       "sizes": "64x64",
-      "type": "image/x-icon"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo192.png",
+      "src": "/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo512.png",
+      "src": "/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
