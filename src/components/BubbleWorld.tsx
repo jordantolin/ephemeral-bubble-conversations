@@ -14,7 +14,8 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1071,51 +1072,58 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
         if (!open) setChatOpen(false);
       }}>
-        <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col overflow-hidden rounded-lg p-0 bg-white/95 backdrop-blur-md">
-          <DialogHeader className="border-b pb-3 px-4 pt-4">
-            <div className="flex justify-between items-center">
-              <DialogTitle className="text-xl text-[#ebbd34] font-bold">
+        <DialogContent className="sm:max-w-[550px] md:max-w-[650px] max-h-[90vh] flex flex-col overflow-hidden rounded-lg p-0">
+          <DialogHeader className="bg-[#ebbd34] text-white px-6 py-4 gap-1">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-bold">
                 {selectedBubble?.name || 'Loading...'}
               </DialogTitle>
-              <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-white hover:bg-white/10 h-8 w-8"
+                onClick={() => setChatOpen(false)}
+              >
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            {selectedBubble && (
-              <div className="flex flex-col text-sm mt-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-[#ebbd34]/80 font-medium">Topic: {selectedBubble.topic}</span>
-                  <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20 font-medium">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {formatExpiry(selectedBubble.expires_at)}
-                  </Badge>
+            <DialogDescription className="text-white/90 mt-1 text-base">
+              {selectedBubble?.topic}
+            </DialogDescription>
+            
+            <div className="flex items-center justify-between mt-2 text-sm">
+              <div className="flex items-center gap-4">
+                <Badge variant="outline" className="bg-white/10 text-white border-0 gap-1 font-normal">
+                  <Clock className="h-3 w-3" />
+                  {selectedBubble ? formatExpiry(selectedBubble.expires_at) : 'Loading...'}
+                </Badge>
+                
+                <div className="flex items-center gap-1 text-white/90">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{selectedBubble?.reflect_count || 0} reflects</span>
                 </div>
-                <div className="flex justify-between items-center mt-3">
-                  <span className="text-[#ebbd34]/70 flex items-center">
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    {selectedBubble.reflect_count} reflects
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleReflect}
-                    className="text-[#ebbd34] hover:bg-[#ebbd34]/10 h-8 text-xs px-3"
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Reflect
-                  </Button>
-                </div>
-                {selectedBubble.description && (
-                  <div className="mt-3 p-3 bg-[#ebbd34]/5 rounded-md text-sm text-gray-700">
-                    {selectedBubble.description}
-                  </div>
-                )}
               </div>
-            )}
+                
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReflect}
+                className="text-white border-white/20 bg-white/10 hover:bg-white/20 hover:text-white gap-1 h-8 px-3"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Reflect
+              </Button>
+            </div>
           </DialogHeader>
           
+          {selectedBubble?.description && (
+            <div className="bg-[#ebbd34]/10 px-6 py-3 text-sm text-gray-700">
+              {selectedBubble.description}
+            </div>
+          )}
+          
           {/* Messages Area */}
-          <ScrollArea className="flex-1 p-4 max-h-[50vh]">
+          <ScrollArea className="flex-1 px-6 py-4 max-h-[50vh]">
             {isLoadingMessages ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-2 border-[#ebbd34]"></div>
@@ -1156,7 +1164,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           </ScrollArea>
           
           {/* Message Input */}
-          <div className="p-4 border-t mt-auto bg-white/80">
+          <div className="p-4 border-t mt-auto">
             <div className="flex gap-2">
               <Input
                 value={newMessage}
