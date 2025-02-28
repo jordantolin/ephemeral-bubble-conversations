@@ -11,42 +11,25 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Create storage buckets if they don't exist
+// Instead of trying to create buckets automatically which requires admin rights,
+// we'll check if the buckets exist and use them if available
 (async () => {
   try {
-    // Check if the buckets exist first to avoid unnecessary operations
-    const { data: buckets } = await supabase.storage.listBuckets();
+    // Check if the buckets exist
+    const { data: buckets, error } = await supabase.storage.listBuckets();
     
-    // Create avatars bucket if it doesn't exist
-    const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
-    if (!avatarBucketExists) {
-      const { data, error } = await supabase.storage.createBucket('avatars', {
-        public: true,
-        fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
-      });
-      
-      if (error) {
-        console.error('Failed to create avatars bucket:', error);
-      } else {
-        console.log('Avatars bucket created successfully');
-      }
+    if (error) {
+      console.log('Note: Storage buckets check failed. This is normal in most deployment environments where bucket creation requires admin rights.');
+      return; // Exit early, we'll assume the buckets exist or handle errors during upload
     }
     
-    // Create bubble-media bucket if it doesn't exist
-    const mediaBucketExists = buckets?.some(bucket => bucket.name === 'bubble-media');
-    if (!mediaBucketExists) {
-      const { data, error } = await supabase.storage.createBucket('bubble-media', {
-        public: true,
-        fileSizeLimit: 1024 * 1024 * 10, // 10MB limit for media files
-      });
-      
-      if (error) {
-        console.error('Failed to create bubble-media bucket:', error);
-      } else {
-        console.log('Bubble media bucket created successfully');
-      }
+    // Log available buckets for debugging
+    if (buckets && buckets.length > 0) {
+      console.log('Available buckets:', buckets.map(b => b.name).join(', '));
+    } else {
+      console.log('No storage buckets found. Avatar uploads may not work until buckets are created by an admin.');
     }
   } catch (err) {
-    console.error('Error creating storage buckets:', err);
+    console.log('Storage initialization check completed with warnings.');
   }
 })();

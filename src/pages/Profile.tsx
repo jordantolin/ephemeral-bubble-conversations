@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Search, User, TrendingUp, Sparkles, Trophy, Star, Edit, LogOut, Save, Sparkle, Upload, Loader2 } from "lucide-react";
@@ -45,6 +45,7 @@ interface Bubble {
 const Profile = () => {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -71,42 +72,19 @@ const Profile = () => {
     }
   }, [profile]);
 
-  // Function to ensure storage buckets exist
-  const ensureStorageBucketsExist = async () => {
+  // Check if storage bucket exists before uploading
+  const checkStorageBucket = async (bucketName: string): Promise<boolean> => {
     try {
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      const { data: buckets, error } = await supabase.storage.listBuckets();
       
-      if (bucketsError) {
-        console.error("Error checking buckets:", bucketsError);
-        return false;
+      if (error) {
+        console.log("Storage bucket check failed:", error.message);
+        return true; // Assume bucket exists to attempt the upload anyway
       }
       
-      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
-      
-      if (!avatarBucketExists) {
-        console.log("Creating avatars bucket");
-        const { error: createError } = await supabase.storage.createBucket('avatars', {
-          public: true,
-          fileSizeLimit: 1024 * 1024 * 2 // 2MB limit
-        });
-        
-        if (createError) {
-          console.error("Error creating avatars bucket:", createError);
-          return false;
-        }
-        
-        // Set public access policy for the bucket
-        const { error: policyError } = await supabase.storage.from('avatars').createSignedUrl('test.txt', 60);
-        if (policyError && policyError.message !== 'The resource was not found') {
-          console.error("Error setting bucket policy:", policyError);
-        }
-        
-        console.log("Avatars bucket created successfully");
-      }
-      
-      return true;
+      return buckets?.some(bucket => bucket.name === bucketName) || false;
     } catch (error) {
-      console.error("Storage bucket check failed:", error);
+      console.log("Error checking storage bucket:", error);
       return false;
     }
   };
@@ -137,12 +115,12 @@ const Profile = () => {
       const objectUrl = URL.createObjectURL(file);
       setPreviewImage(objectUrl);
 
-      // Make sure storage buckets exist
-      const bucketsExist = await ensureStorageBucketsExist();
-      if (!bucketsExist) {
+      // Check if avatars bucket exists
+      const bucketExists = await checkStorageBucket('avatars');
+      if (!bucketExists) {
         toast({
-          title: "Storage error",
-          description: "Could not access storage. Please try again later.",
+          title: "Storage not ready",
+          description: "The avatars storage is being set up. Please try again later.",
           variant: "destructive"
         });
         setIsUploading(false);
@@ -151,7 +129,8 @@ const Profile = () => {
 
       // Create a unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `avatar_${user.id}_${Date.now()}.${fileExt}`;
+      const safeFileExt = fileExt || 'jpg'; // Fallback extension
+      const fileName = `avatar_${user.id}_${Date.now()}.${safeFileExt}`;
       const filePath = fileName;
 
       console.log("Uploading file to avatars bucket, path:", filePath);
@@ -161,7 +140,7 @@ const Profile = () => {
         try {
           const oldFileName = formData.avatar_url.split('/').pop();
           if (oldFileName && oldFileName.startsWith('avatar_')) {
-            console.log("Removing old avatar:", oldFileName);
+            console.log("Attempting to remove old avatar:", oldFileName);
             await supabase.storage
               .from('avatars')
               .remove([oldFileName]);
@@ -182,7 +161,29 @@ const Profile = () => {
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
-        throw uploadError;
+        
+        // Special handling for common errors
+        if (uploadError.message.includes('bucket') && uploadError.message.includes('not found')) {
+          toast({
+            title: "Storage setup needed",
+            description: "Please contact the administrator to set up avatar storage.",
+            variant: "destructive"
+          });
+        } else if (uploadError.message.includes('row-level security policy')) {
+          toast({
+            title: "Permission error",
+            description: "You don't have permission to upload files. Please contact the administrator.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Upload failed",
+            description: uploadError.message || "There was a problem uploading your image",
+            variant: "destructive"
+          });
+        }
+        setIsUploading(false);
+        return;
       }
 
       // Get public URL
@@ -212,16 +213,21 @@ const Profile = () => {
           
         if (updateError) {
           console.error("Error updating profile with new avatar:", updateError);
+          toast({
+            title: "Profile update error",
+            description: "Avatar was uploaded but profile couldn't be updated. Try saving your profile.",
+            variant: "destructive"
+          });
         } else {
           // Refresh profile data
           queryClient.invalidateQueries({ queryKey: ['profile'] });
+          
+          toast({
+            title: "Avatar uploaded",
+            description: "Your profile picture has been updated",
+          });
         }
       }
-
-      toast({
-        title: "Avatar uploaded",
-        description: "Your profile picture has been updated",
-      });
     } catch (error: any) {
       console.error("Upload process error:", error);
       // Revert preview image on error
@@ -581,10 +587,7 @@ const Profile = () => {
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {reflectedBubbles.map((bubble: Bubble) => (
-                            <Link key={bubble.id} to="/" onClick={() => {
-                              // Store the bubble ID to be opened when the user navigates to the index page
-                              localStorage.setItem('openBubbleId', bubble.id);
-                            }}>
+                            <Link key={bubble.id} to={`/bubble/${bubble.id}`}>
                               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                                 <CardHeader className="pb-2">
                                   <CardTitle className="text-lg text-[#ebbd34]">{bubble.name}</CardTitle>
