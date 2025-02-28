@@ -37,6 +37,7 @@ import { BubbleData } from "@/types/bubble";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { connectionManager, createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
+import Logo from "@/components/Logo";
 
 interface Message {
   id: string;
@@ -818,11 +819,7 @@ const Index = () => {
             {/* Logo and Search Section */}
             <div className="flex items-center gap-6 flex-1">
               <Link to="/" className="flex items-center gap-2 shrink-0">
-                <img 
-                  src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                  alt="Bubble Trouble"
-                  className="w-9 h-9"
-                />
+                <Logo size="sm" />
                 <span className="text-xl font-bold text-[#ebbd34] hidden sm:inline">
                   Bubble Trouble
                 </span>
