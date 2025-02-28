@@ -66,7 +66,8 @@ const MyBubbles = () => {
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
-    }
+    },
+    refetchInterval: 30000 // Refetch every 30 seconds to ensure data is fresh
   });
 
   // Query for bubbles the user has participated in (sent messages to)
@@ -102,7 +103,8 @@ const MyBubbles = () => {
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
     },
-    enabled: !!profile?.username
+    enabled: !!profile?.username,
+    refetchInterval: 30000 // Refetch every 30 seconds
   });
 
   // Query for bubbles the user has reflected
@@ -137,8 +139,18 @@ const MyBubbles = () => {
         size: bubble.size as "sm" | "md" | "lg"
       })) as BubbleData[];
     },
-    enabled: !!profile?.username
+    enabled: !!profile?.username,
+    refetchInterval: 30000 // Refetch every 30 seconds
   });
+
+  // Log bubble data for debugging
+  useEffect(() => {
+    console.log("Current tab:", selectedTab);
+    console.log("Recent bubbles:", recentBubbles);
+    console.log("Participated bubbles:", participatedBubbles);
+    console.log("Reflected bubbles:", reflectedBubbles);
+    console.log("Active bubbles:", activeBubbles);
+  }, [selectedTab, recentBubbles, participatedBubbles, reflectedBubbles]);
 
   // Determine which bubbles to display in the 3D world based on active tab
   const getActiveBubbles = () => {
@@ -296,8 +308,11 @@ const MyBubbles = () => {
 
   // Create 3D bubble visualization
   useEffect(() => {
-    if (!containerRef.current || activeBubbles.length === 0) return;
-
+    if (!containerRef.current) return;
+    
+    console.log("Initializing 3D scene with bubbles:", activeBubbles);
+    
+    // Even if there are no active bubbles, create the scene so we can at least see the container
     const container = containerRef.current;
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -351,6 +366,60 @@ const MyBubbles = () => {
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     scene.add(ring);
+
+    // Create info text if no bubbles
+    if (activeBubbles.length === 0 && !isLoading) {
+      const createInfoText = (message: string) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 256;
+        const context = canvas.getContext('2d')!;
+        
+        context.fillStyle = 'transparent';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = 'bold 36px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        context.shadowColor = 'rgba(0,0,0,0.8)';
+        context.shadowBlur = 8;
+        context.shadowOffsetX = 2;
+        context.shadowOffsetY = 2;
+        
+        context.strokeStyle = 'rgba(0,0,0,0.8)';
+        context.lineWidth = 6;
+        context.strokeText(message, canvas.width/2, canvas.height/2);
+        
+        context.fillStyle = '#ebbd34';
+        context.fillText(message, canvas.width/2, canvas.height/2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.needsUpdate = true;
+        
+        const spriteMaterial = new THREE.SpriteMaterial({ 
+          map: texture,
+          transparent: true,
+          depthTest: false
+        });
+        
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(5, 2.5, 1);
+        
+        return sprite;
+      };
+
+      // Add hint text
+      const noDataMessage = selectedTab === "recent" 
+        ? "No recent bubbles found" 
+        : selectedTab === "participated" 
+          ? "You haven't chatted in any bubbles yet" 
+          : "No reflected bubbles found";
+      
+      const infoText = createInfoText(noDataMessage);
+      scene.add(infoText);
+    }
 
     // Determine number of bubbles to adjust spacing
     const bubbleCount = activeBubbles.length;
@@ -735,7 +804,7 @@ const MyBubbles = () => {
       });
       bubblesRef.current = {};
     };
-  }, [activeBubbles]);
+  }, [activeBubbles, isLoading, selectedTab]);
 
   // Format relative time (like "2 hours ago")
   const formatRelativeTime = (timestamp: string) => {
@@ -797,7 +866,7 @@ const MyBubbles = () => {
 
   // Handle going to bubble chat
   const goToBubbleChat = (bubbleId: string) => {
-    navigate(`/bubble-chat/${bubbleId}`, { state: { from: 'myBubbles' } });
+    navigate(`/bubbles/${bubbleId}`, { state: { from: 'myBubbles' } });
   };
 
   const getTabDescription = () => {
@@ -924,13 +993,13 @@ const MyBubbles = () => {
       
       <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8">
         <div className="text-center mb-6">
-          <h1 className="text-4xl font-light text-primary mb-2">
+          <h1 className="text-4xl font-light text-[#ebbd34] mb-2">
             My Bubble Space
           </h1>
-          <p className="text-primary/60">
+          <p className="text-[#ebbd34]/80">
             Your personal collection of bubbles
           </p>
-          <div className="h-px w-24 bg-primary/20 mx-auto mt-4" />
+          <div className="h-px w-24 bg-[#ebbd34]/30 mx-auto mt-4" />
         </div>
 
         {/* Tabs for different bubble categories */}
