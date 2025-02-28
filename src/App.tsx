@@ -10,43 +10,58 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./App.css";
 
 function App() {
+  // Create a query client with better configuration for reliability
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        retry: 3,
+        retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+        staleTime: 5000,
+      },
+    },
+  });
+
   return (
-    <AuthProvider>
-      <Router>
-        <div className="bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] min-h-[100dvh]">
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/feed" element={
-              <RequireAuth>
-                <Feed />
-              </RequireAuth>
-            } />
-            <Route path="/bubble/:id" element={
-              <RequireAuth>
-                <BubbleChat />
-              </RequireAuth>
-            } />
-            <Route path="/my-bubbles" element={
-              <RequireAuth>
-                <MyBubbles />
-              </RequireAuth>
-            } />
-            <Route path="/profile" element={
-              <RequireAuth>
-                <Profile />
-              </RequireAuth>
-            } />
-            <Route path="/404" element={<NotFound />} />
-            <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
-        </div>
-        <Toaster />
-      </Router>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <div className="bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] min-h-[100dvh]">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/feed" element={
+                <RequireAuth>
+                  <Feed />
+                </RequireAuth>
+              } />
+              <Route path="/bubble/:id" element={
+                <RequireAuth>
+                  <BubbleChat />
+                </RequireAuth>
+              } />
+              <Route path="/my-bubbles" element={
+                <RequireAuth>
+                  <MyBubbles />
+                </RequireAuth>
+              } />
+              <Route path="/profile" element={
+                <RequireAuth>
+                  <Profile />
+                </RequireAuth>
+              } />
+              <Route path="/404" element={<NotFound />} />
+              <Route path="*" element={<Navigate to="/404" replace />} />
+            </Routes>
+          </div>
+          <Toaster />
+        </Router>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
