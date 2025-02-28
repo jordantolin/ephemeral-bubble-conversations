@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -15,6 +15,7 @@ const BubbleChat = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -25,6 +26,19 @@ const BubbleChat = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Determine if the user came from Bubble World
+  const [cameFromBubbleWorld, setCameFromBubbleWorld] = useState(false);
+
+  useEffect(() => {
+    // Check if the user navigated from the root path (which has the BubbleWorld component)
+    if (location.state && location.state.from === 'bubbleWorld') {
+      setCameFromBubbleWorld(true);
+    } else {
+      // Default to assuming they came from feed
+      setCameFromBubbleWorld(false);
+    }
+  }, [location]);
 
   // Fetch bubble details
   const { data: bubble, isLoading: bubbleLoading, error: bubbleError } = useQuery({
@@ -547,10 +561,10 @@ const BubbleChat = () => {
           <div className="flex items-center justify-between h-16 px-4">
             {/* Back button and title */}
             <div className="flex items-center gap-6 flex-1">
-              <Link to="/feed" className="flex items-center gap-2 shrink-0">
+              <Link to={cameFromBubbleWorld ? "/" : "/feed"} className="flex items-center gap-2 shrink-0">
                 <ArrowLeft className="text-[#ebbd34] w-5 h-5" />
                 <span className="text-xl font-semibold text-[#ebbd34] hidden sm:inline">
-                  Back to Feed
+                  {cameFromBubbleWorld ? "Back to Bubble World" : "Back to Feed"}
                 </span>
               </Link>
             </div>

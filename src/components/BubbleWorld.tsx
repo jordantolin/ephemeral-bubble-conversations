@@ -543,8 +543,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               )
               .start();
             
-            // Navigate directly to the BubbleChat page
-            navigate(`/bubble-chat/${parent.userData.id}`);
+            // Navigate directly to the BubbleChat page with state to indicate we came from bubbleWorld
+            navigate(`/bubble-chat/${parent.userData.id}`, { state: { from: 'bubbleWorld' } });
             
             // Also call the provided onBubbleClick callback for external handling
             onBubbleClick(parent.userData.id);
