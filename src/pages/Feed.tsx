@@ -1,10 +1,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
-import { Search, User, TrendingUp, Sparkles, Star, Heart, MessageCircle, ChevronUp, ChevronDown, Users } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, Star, Heart, MessageCircle, ChevronUp, ChevronDown, Users, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const Feed = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -399,6 +400,15 @@ const Feed = () => {
             {/* Navigation Links */}
             <div className="flex items-center gap-1">
               <Link 
+                to="/"
+                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
+                  location.pathname === '/' ? 'bg-[#ebbd34]/10' : ''
+                }`}
+              >
+                <Home className="w-4 h-4" />
+                <span className="hidden sm:inline">Home</span>
+              </Link>
+              <Link 
                 to="/my-bubbles" 
                 className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
                   location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
@@ -410,7 +420,7 @@ const Feed = () => {
               <Link 
                 to="/feed" 
                 className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
+                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10 font-bold' : ''
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
@@ -418,7 +428,9 @@ const Feed = () => {
               </Link>
               <Link 
                 to="/profile" 
-                className="p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors"
+                className={`p-2 hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34] transition-colors ${
+                  location.pathname === '/profile' ? 'bg-[#ebbd34]/10' : ''
+                }`}
               >
                 <User className="w-5 h-5" />
               </Link>
@@ -518,7 +530,7 @@ const Feed = () => {
                       className="relative w-[320px] h-[320px] rounded-full overflow-visible cursor-pointer"
                       style={{ transformStyle: 'preserve-3d' }}
                       onClick={() => {
-                        window.location.href = `/bubbles/${filteredBubbles[currentIndex].id}`;
+                        navigate(`/bubbles/${filteredBubbles[currentIndex].id}`);
                       }}
                     >
                       {/* Background gradient circle with glow */}
@@ -673,19 +685,18 @@ const Feed = () => {
                           Reflect
                         </Button>
                         
-                        <Link 
-                          to={`/bubbles/${filteredBubbles[currentIndex].id}`}
-                          onClick={(e) => e.stopPropagation()} // Prevent double navigation
+                        <Button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/bubbles/${filteredBubbles[currentIndex].id}`);
+                          }}
+                          className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
+                          size="sm"
+                          disabled={isBubbleExpired(filteredBubbles[currentIndex])}
                         >
-                          <Button 
-                            className="bg-white hover:bg-white/90 text-[#ebbd34] border border-[#ebbd34]/30 rounded-full px-5 py-2 shadow-md"
-                            size="sm"
-                            disabled={isBubbleExpired(filteredBubbles[currentIndex])}
-                          >
-                            <MessageCircle className="w-4 h-4 mr-2" />
-                            Join the Chat
-                          </Button>
-                        </Link>
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          Join Chat
+                        </Button>
                       </div>
 
                       {/* "Exploded" indicator for expired bubbles */}

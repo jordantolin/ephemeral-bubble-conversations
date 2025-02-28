@@ -29,6 +29,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/feed" element={<Feed />} />
+            <Route path="/bubbles/:id" element={<BubbleChat />} />
             <Route path="/bubble-chat/:id" element={<BubbleChat />} />
             <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
