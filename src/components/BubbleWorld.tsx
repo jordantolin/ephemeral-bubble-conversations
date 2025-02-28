@@ -135,6 +135,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
     centralWorld.castShadow = true;
     centralWorld.receiveShadow = true;
+    // Adjust central world size - make it slightly larger
+    centralWorld.scale.set(1.2, 1.2, 1.2);
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
@@ -238,8 +240,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const lastKnownBubble = bubblesRef.current[topic.id];
           if (lastKnownBubble) {
             const position = lastKnownBubble.position.clone();
-            const size = topic.size === 'lg' ? 0.9 : 
-                        topic.size === 'md' ? 0.7 : 0.5;
+            const size = topic.size === 'lg' ? 1.3 : 
+                        topic.size === 'md' ? 1.0 : 0.7;
             const finalSize = size * (1 + topic.reflect_count * 0.1);
             
             particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
@@ -254,9 +256,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       const bubbleGroup = new THREE.Group();
       
-      // Larger base sizes for better visibility
-      const baseSize = topic.size === 'lg' ? 0.9 : 
-                      topic.size === 'md' ? 0.7 : 0.5;
+      // Larger base sizes for better visibility - INCREASED BUBBLE SIZES
+      const baseSize = topic.size === 'lg' ? 1.3 : 
+                      topic.size === 'md' ? 1.0 : 0.7;
       const reflectScale = 1 + (topic.reflect_count * 0.1);
       const finalSize = baseSize * reflectScale;
       
@@ -299,7 +301,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         // More interesting movement patterns
         movement: {
           speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
-          radius: Math.random() * 3.5 + 2 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
+          radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Increased orbit radius for better spacing
           angle: Math.random() * Math.PI * 2,
           verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
           verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
@@ -325,8 +327,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         const sprite = new THREE.Sprite(spriteMaterial);
         sprite.scale.set(
-          finalSize * 1.6, // Wider text for better readability
-          finalSize * 0.8, 
+          finalSize * 1.8, // Wider text for better readability - INCREASED TEXT WIDTH
+          finalSize * 0.9, // INCREASED TEXT HEIGHT
           1
         );
         
@@ -337,33 +339,33 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Position text labels within bubble with better spacing
       bubbleGroup.add(createLabelSprite(
         topic.name, 
-        new THREE.Vector3(0, finalSize * 0.3, 0), 
-        isMobile ? 36 : 42 // Larger font sizes
+        new THREE.Vector3(0, finalSize * 0.4, 0), // Adjusted position for better spacing
+        isMobile ? 38 : 44 // Larger font sizes
       ));
       
       bubbleGroup.add(createLabelSprite(
         topic.topic, 
-        new THREE.Vector3(0, -finalSize * 0.2, 0), 
-        isMobile ? 30 : 34
+        new THREE.Vector3(0, -finalSize * 0.1, 0), // Adjusted position for better spacing
+        isMobile ? 32 : 36
       ));
       
       bubbleGroup.add(createLabelSprite(
         `⭐ ${topic.reflect_count}`, 
-        new THREE.Vector3(0, -finalSize * 0.6, 0), 
-        isMobile ? 26 : 30
+        new THREE.Vector3(0, -finalSize * 0.5, 0), // Adjusted position for better spacing
+        isMobile ? 28 : 32
       ));
       
       // Add time remaining label
       bubbleGroup.add(createLabelSprite(
         `⏱ ${formatTimeRemaining(expiryTime)}`, 
-        new THREE.Vector3(0, -finalSize * 0.95, 0), 
-        isMobile ? 24 : 28
+        new THREE.Vector3(0, -finalSize * 0.85, 0), // Adjusted position for better spacing
+        isMobile ? 26 : 30
       ));
 
       // Set initial random position with wider distribution
       const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * 3.5 + 2;
-      const y = (Math.random() - 0.5) * 4.5;
+      const radius = Math.random() * 4.0 + 2.5; // Increased initial radius for better spacing
+      const y = (Math.random() - 0.5) * 5.0; // Increased vertical distribution
       bubbleGroup.position.set(
         Math.cos(angle) * radius,
         y,
@@ -724,7 +726,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             // If it's been more than a minute, update the label
             if (now.getTime() % 60000 < 1000) {
               const formattedTime = formatTimeRemaining(expiryTime);
-              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 24 : 28);
+              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 26 : 30);
               const texture = new THREE.CanvasTexture(canvas);
               texture.needsUpdate = true;
               
@@ -740,27 +742,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         for (let i = 1; i < bubble.children.length; i++) {
           const sprite = bubble.children[i] as THREE.Sprite;
           const textScales = bubble.userData.textScales;
-          const textScaleFactor = zoomFactor * 0.8;
+          const textScaleFactor = zoomFactor * 0.9; // Increased text scaling factor
           
           let baseScale;
           let yOffset;
           if (i === 1) {
             baseScale = textScales.nameScale;
-            yOffset = scaleFactor * 0.3;
+            yOffset = scaleFactor * 0.4; // Adjusted text positioning
           } else if (i === 2) {
             baseScale = textScales.topicScale;
-            yOffset = -scaleFactor * 0.2;
+            yOffset = -scaleFactor * 0.1; // Adjusted text positioning
           } else if (i === 3) {
             baseScale = textScales.reflectScale;
-            yOffset = -scaleFactor * 0.6;
+            yOffset = -scaleFactor * 0.5; // Adjusted text positioning
           } else {
             baseScale = textScales.timeScale;
-            yOffset = -scaleFactor * 0.95;
+            yOffset = -scaleFactor * 0.85; // Adjusted text positioning
           }
           
           sprite.scale.set(
             baseScale * textScaleFactor,
-            baseScale * textScaleFactor * 0.5,
+            baseScale * textScaleFactor * 0.6, // Increased text height ratio
             1
           );
           sprite.position.set(0, yOffset, 0);
