@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
@@ -10,22 +10,7 @@ import {
   createCentralWorldGeometry,
   createCentralWorldMaterial,
 } from '@/utils/bubbleUtils';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { Send, Sparkles, Clock, X, Image, Video, Mic, SmilePlus, MessageCircle } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from 'react-router-dom';
 
 // Format time remaining for display
 const formatTimeRemaining = (expiryTime: Date) => {
@@ -43,14 +28,6 @@ const formatTimeRemaining = (expiryTime: Date) => {
     return "Time error";
   }
 };
-
-interface Message {
-  id: string;
-  bubble_id: string;
-  content: string;
-  username: string;
-  created_at: string;
-}
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,224 +60,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     moveThreshold: 5
   });
   
-  // New state for chat functionality
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [newMessage, setNewMessage] = useState("");
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Fetch selected bubble details
-  const { data: selectedBubble } = useQuery({
-    queryKey: ['bubble', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return null;
-      
-      try {
-        const { data, error } = await supabase
-          .from('bubbles')
-          .select('*')
-          .eq('id', selectedBubbleId)
-          .single();
-        
-        if (error) {
-          throw error;
-        }
-        
-        return data;
-      } catch (error) {
-        console.error("Error fetching bubble details:", error);
-        return null;
-      }
-    },
-    enabled: !!selectedBubbleId && chatOpen
-  });
-
-  // Fetch messages for selected bubble
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
-    queryKey: ['messages', selectedBubbleId],
-    queryFn: async () => {
-      if (!selectedBubbleId) return [];
-      
-      try {
-        const { data, error } = await supabase
-          .from('bubble_messages')
-          .select('*')
-          .eq('bubble_id', selectedBubbleId)
-          .order('created_at', { ascending: true });
-        
-        if (error) {
-          throw error;
-        }
-        
-        return data || [];
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        return [];
-      }
-    },
-    enabled: !!selectedBubbleId && chatOpen
-  });
-
-  // Set up real-time updates for messages
-  useEffect(() => {
-    if (!selectedBubbleId || !chatOpen) return;
-
-    const messagesChannel = supabase
-      .channel(`messages-${selectedBubbleId}`)
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'bubble_messages', filter: `bubble_id=eq.${selectedBubbleId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messagesChannel);
-    };
-  }, [selectedBubbleId, chatOpen, queryClient]);
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (chatOpen && messages.length > 0 && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, chatOpen]);
-
-  const formatMessageTime = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      return new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: 'numeric',
-        hour12: true
-      }).format(date);
-    } catch (error) {
-      console.error("Error formatting message time:", error);
-      return "Unknown time";
-    }
-  };
-
-  const formatExpiry = (expiryDate: string) => {
-    try {
-      const expiry = new Date(expiryDate);
-      const now = new Date();
-      
-      const timeDiff = expiry.getTime() - now.getTime();
-      
-      if (timeDiff <= 0) {
-        return "Expired";
-      }
-      
-      const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes}m remaining`;
-      } else {
-        return `${minutes}m remaining`;
-      }
-    } catch (error) {
-      console.error("Error formatting expiry time:", error);
-      return "Time unknown";
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to send messages",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!selectedBubbleId || !newMessage.trim()) {
-      return;
-    }
-    
-    setIsSendingMessage(true);
-    
-    try {
-      const username = profile?.username || user?.email || "";
-      
-      const { error } = await supabase
-        .from('bubble_messages')
-        .insert({
-          bubble_id: selectedBubbleId,
-          content: newMessage,
-          username
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      setNewMessage("");
-    } catch (error: any) {
-      console.error("Failed to send message:", error);
-      toast({
-        title: "Error sending message",
-        description: error.message || "Failed to send your message",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSendingMessage(false);
-    }
-  };
-
-  const handleReflect = async () => {
-    if (!user || !selectedBubbleId) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to reflect on bubbles",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      const username = profile?.username || user?.email || "";
-      
-      const { error } = await supabase
-        .from('reflects')
-        .insert({ 
-          bubble_id: selectedBubbleId,
-          username
-        });
-
-      if (error) {
-        if (error.code === '23505') { // Unique violation
-          toast({
-            title: "Already reflected",
-            description: "You have already reflected this bubble",
-          });
-          return;
-        }
-        throw error;
-      }
-
-      toast({
-        title: "Bubble reflected!",
-        description: "This bubble will appear in your profile",
-      });
-      
-      // Refresh the bubble data
-      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-    } catch (error: any) {
-      console.error("Error reflecting bubble:", error);
-      toast({
-        title: "Error reflecting bubble",
-        description: "Please try again later",
-        variant: "destructive"
-      });
-    }
-  };
+  // Add navigation
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -782,9 +543,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               )
               .start();
             
-            // Opening chat dialog directly within this component
-            setSelectedBubbleId(parent.userData.id);
-            setChatOpen(true);
+            // Navigate directly to the BubbleChat page
+            navigate(`/bubble-chat/${parent.userData.id}`);
             
             // Also call the provided onBubbleClick callback for external handling
             onBubbleClick(parent.userData.id);
@@ -1058,158 +818,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
       renderer.dispose();
     };
-  }, [topics, onBubbleClick]);
+  }, [topics, onBubbleClick, navigate]);
 
   return (
-    <>
-      <div 
-        ref={containerRef} 
-        className="w-full h-full touch-none select-none"
-        style={{ touchAction: 'none' }}
-      />
-      
-      {/* Chat Dialog */}
-      <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
-        if (!open) setChatOpen(false);
-      }}>
-        <DialogContent className="sm:max-w-[550px] md:max-w-[650px] max-h-[90vh] flex flex-col overflow-hidden rounded-lg p-0">
-          <DialogHeader className="bg-[#ebbd34] text-white px-6 py-4 gap-1">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-bold">
-                {selectedBubble?.name || 'Loading...'}
-              </DialogTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-white hover:bg-white/10 h-8 w-8"
-                onClick={() => setChatOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            <DialogDescription className="text-white/90 mt-1 text-base">
-              {selectedBubble?.topic}
-            </DialogDescription>
-            
-            <div className="flex items-center justify-between mt-2 text-sm">
-              <div className="flex items-center gap-4">
-                <Badge variant="outline" className="bg-white/10 text-white border-0 gap-1 font-normal">
-                  <Clock className="h-3 w-3" />
-                  {selectedBubble ? formatExpiry(selectedBubble.expires_at) : 'Loading...'}
-                </Badge>
-                
-                <div className="flex items-center gap-1 text-white/90">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>{selectedBubble?.reflect_count || 0} reflects</span>
-                </div>
-              </div>
-                
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleReflect}
-                className="text-white border-white/20 bg-white/10 hover:bg-white/20 hover:text-white gap-1 h-8 px-3"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Reflect
-              </Button>
-            </div>
-          </DialogHeader>
-          
-          {selectedBubble?.description && (
-            <div className="bg-[#ebbd34]/10 px-6 py-3 text-sm text-gray-700">
-              {selectedBubble.description}
-            </div>
-          )}
-          
-          {/* Messages Area */}
-          <ScrollArea className="flex-1 px-6 py-4 max-h-[50vh]">
-            {isLoadingMessages ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-2 border-[#ebbd34]"></div>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-[#ebbd34]/30" />
-                <p className="text-lg font-medium text-[#ebbd34]/60 mb-2">No messages yet</p>
-                <p className="text-gray-500">Start the conversation! This bubble will disappear in 24 hours.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {messages.map((message: Message) => (
-                  <div 
-                    key={message.id}
-                    className={`flex ${message.username === (profile?.username || user?.email) ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div 
-                      className={`rounded-lg px-4 py-3 max-w-[85%] break-words shadow-sm ${
-                        message.username === (profile?.username || user?.email)
-                          ? 'bg-[#ebbd34] text-white'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      <div className="flex justify-between items-baseline gap-4 mb-1">
-                        <span className="font-medium text-xs">
-                          {message.username === (profile?.username || user?.email) ? 'You' : message.username}
-                        </span>
-                        <span className="text-xs opacity-70">{formatMessageTime(message.created_at)}</span>
-                      </div>
-                      <p className="break-words">{message.content}</p>
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </ScrollArea>
-          
-          {/* Message Input */}
-          <div className="p-4 border-t mt-auto">
-            <div className="flex gap-2">
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                disabled={isSendingMessage}
-                maxLength={500}
-                className="bg-white h-11"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-              />
-              <Button 
-                onClick={handleSendMessage} 
-                className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90 h-11 px-5"
-                disabled={isSendingMessage || !newMessage.trim()}
-              >
-                {isSendingMessage ? (
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-            <div className="flex mt-3 justify-center gap-3">
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
-                <Image className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
-                <Video className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
-                <Mic className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-[#ebbd34] hover:bg-[#ebbd34]/10">
-                <SmilePlus className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <div 
+      ref={containerRef} 
+      className="w-full h-full touch-none select-none"
+      style={{ touchAction: 'none' }}
+    />
   );
 };
 
