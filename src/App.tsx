@@ -42,7 +42,7 @@ function App() {
         <Router>
           <AuthProvider>
             <NetworkProvider>
-              <div className="bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] min-h-[100dvh]">
+              <div className="bg-[#FEF7E4] min-h-[100dvh] w-full">
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />

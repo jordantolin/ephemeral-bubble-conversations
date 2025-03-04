@@ -68,7 +68,7 @@ const ChatMessagePreview: React.FC<ChatMessagePreviewProps> = ({
         ))}
       </div>
       <div className="text-center">
-        <Link to={`/bubbles/${bubbleId}`} className="text-[0.7rem] text-[#ebbd34] hover:underline">
+        <Link to={`/bubble/${bubbleId}`} className="text-[0.7rem] text-[#ebbd34] hover:underline">
           View full conversation →
         </Link>
       </div>
