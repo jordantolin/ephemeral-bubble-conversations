@@ -1,12 +1,13 @@
+
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Save, Loader2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { useAuth } from "@/context/AuthContext";
 
 interface ProfileFormProps {
   userId: string;
@@ -34,7 +35,6 @@ const ProfileForm = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { updateProfile } = useAuth();
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -70,15 +70,46 @@ const ProfileForm = ({
     setIsSaving(true);
 
     try {
-      // Use updateProfile from AuthContext
-      const { success, error } = await updateProfile({
-        username,
-        display_name: displayName
-      });
-      
-      if (!success) {
-        throw error || new Error("Failed to update profile");
+      // Check if username already exists (only if changed)
+      if (username !== initialUsername) {
+        const { data: existingUsers, error: checkError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", username)
+          .neq("id", userId);
+        
+        if (checkError) {
+          throw new Error("Error checking username availability");
+        }
+        
+        if (existingUsers && existingUsers.length > 0) {
+          setErrors({ ...errors, username: "Username is already taken" });
+          setIsSaving(false);
+          return;
+        }
       }
+
+      // Update profile in database
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          username,
+          display_name: displayName,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update auth metadata
+      await supabase.auth.updateUser({
+        data: {
+          username,
+          display_name: displayName
+        }
+      });
 
       // Refresh profile data
       queryClient.invalidateQueries({ queryKey: ['profile'] });

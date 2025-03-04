@@ -1,31 +1,130 @@
 
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/context/AuthContext";
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useAvatarUpload = (userId: string) => {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
-  const { uploadAvatar } = useAuth();
+  const queryClient = useQueryClient();
 
-  const uploadAvatarFile = async (file: File) => {
+  const uploadAvatar = async (file: File) => {
     if (!file) return null;
-
-    setIsUploading(true);
     
+    // Check file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image under 2MB",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     try {
-      const result = await uploadAvatar(file);
+      setIsUploading(true);
       
-      if (!result?.success) {
-        throw new Error(result?.error || "Failed to upload avatar");
+      // Create a unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${fileName}`;
+      
+      console.log("Starting avatar upload process...");
+      
+      // Check if avatars bucket exists
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.log("Error checking buckets:", bucketsError);
+        // Continue anyway as we'll try to upload and handle any errors
       }
       
-      return result.url;
+      const hasAvatarsBucket = buckets?.some(bucket => bucket.name === 'avatars');
+      
+      console.log("Avatars bucket exists:", hasAvatarsBucket);
+      
+      // Try to create the bucket if it doesn't exist (may fail if user doesn't have permissions)
+      if (!hasAvatarsBucket) {
+        try {
+          console.log("Attempting to create avatars bucket");
+          const { data, error } = await supabase.storage.createBucket('avatars', {
+            public: true,
+            fileSizeLimit: 2 * 1024 * 1024, // 2MB
+          });
+          console.log("Bucket creation result:", data, error);
+        } catch (err) {
+          console.error("Failed to create avatars bucket:", err);
+          // Continue anyway, as this is expected in production environments
+        }
+      }
+      
+      // Upload the file
+      console.log("Uploading file to path:", filePath);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("Upload successful, getting public URL");
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      if (!publicUrlData) {
+        console.error("Failed to get public URL");
+        throw new Error("Failed to get public URL");
+      }
+      
+      const publicUrl = publicUrlData.publicUrl;
+      console.log("Public URL obtained:", publicUrl);
+
+      // Update the profile with the new avatar URL
+      console.log("Updating profile with new avatar URL");
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        throw updateError;
+      }
+
+      // Invalidate profile query to refresh data
+      console.log("Invalidating profile cache");
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been updated successfully",
+      });
+      
+      return publicUrl;
     } catch (error: any) {
       console.error("Avatar upload error:", error);
       toast({
-        title: "Error uploading avatar",
-        description: error.message || "There was a problem uploading your avatar",
+        title: "Upload failed",
+        description: error.message || "Failed to upload avatar",
         variant: "destructive",
       });
       return null;
@@ -35,7 +134,7 @@ export const useAvatarUpload = (userId: string) => {
   };
 
   return {
-    uploadAvatar: uploadAvatarFile,
-    isUploading
+    uploadAvatar,
+    isUploading,
   };
 };

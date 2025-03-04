@@ -113,7 +113,7 @@ const Profile = () => {
             
             <div>
               {isEditing ? (
-                <div className="w-5"></div>
+                <div className="w-5" /> /* Empty space for alignment */
               ) : (
                 <motion.button
                   onClick={() => setIsEditing(true)}
