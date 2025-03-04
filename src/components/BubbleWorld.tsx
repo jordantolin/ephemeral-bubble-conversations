@@ -1,4 +1,4 @@
-
+<lov-code>
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -83,7 +83,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
     
     // Position camera to view the world from a better angle
-    camera.position.z = isMobile ? 8 : 10;
+    camera.position.z = isMobile ? 10 : 12;
     camera.position.y = 1; // Slightly above the center for a better looking-down perspective
     
     interactionRef.current.zoom.current = camera.position.z;
@@ -236,22 +236,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
         if (topic.isExploding) {
-          // Create explosion effect if not already created
-          if (!particlesRef.current[topic.id]) {
-            // Use the last known position or a default
-            const lastKnownBubble = bubblesRef.current[topic.id];
-            if (lastKnownBubble) {
-              const position = lastKnownBubble.position.clone();
-              const size = topic.size === 'lg' ? 1.3 : 
-                          topic.size === 'md' ? 1.0 : 0.7;
-              const finalSize = size * (1 + topic.reflect_count * 0.1);
-              
-              particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
-              
-              // Remove the original bubble
-              scene.remove(lastKnownBubble);
-              delete bubblesRef.current[topic.id];
-            }
+          // Use the last known position or a default
+          const lastKnownBubble = bubblesRef.current[topic.id];
+          if (lastKnownBubble) {
+            const position = lastKnownBubble.position.clone();
+            const size = topic.size === 'lg' ? 1.3 : 
+                        topic.size === 'md' ? 1.0 : 0.7;
+            const finalSize = size * (1 + topic.reflect_count * 0.1);
+            
+            particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
+            
+            // Remove the original bubble
+            scene.remove(lastKnownBubble);
+            delete bubblesRef.current[topic.id];
           }
           return;
         }
@@ -364,15 +361,53 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           isMobile ? 26 : 30
         ));
 
-        // Set initial random position with wider distribution
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * 4.0 + 2.5;
-        const y = (Math.random() - 0.5) * 5.0;
+        // Set initial random position with IMPROVED SPACING to prevent overlapping
+        // Calculate a more distributed position based on index to prevent overlaps
+        const topicsCount = topics.length;
+        const angle = (index / topicsCount) * Math.PI * 2;
+        const radiusBase = 4.0; // Base radius
+        const radiusVariance = 2.0; // Add some randomness to radius
+        const radius = radiusBase + Math.random() * radiusVariance;
+        
+        // More evenly distribute vertically as well
+        const verticalRange = 4.0;
+        const y = ((index % 3) - 1) * (verticalRange / 3) + (Math.random() - 0.5) * 0.8;
+        
         bubbleGroup.position.set(
           Math.cos(angle) * radius,
           y,
           Math.sin(angle) * radius
         );
+        
+        // Add random initial rotation to make it more interesting
+        bubbleGroup.rotation.x = Math.random() * 0.2 - 0.1;
+        bubbleGroup.rotation.y = Math.random() * 0.2 - 0.1;
+        
+        // Store additional movement data to ensure bubbles don't crowd each other
+        bubbleGroup.userData = {
+          id: topic.id,
+          orbitIndex: index,
+          originalScale: finalSize,
+          textScales: {
+            nameScale: finalSize * 1.6, // Larger text scales for better readability
+            topicScale: finalSize * 1.4,
+            reflectScale: finalSize * 1.2,
+            timeScale: finalSize
+          },
+          // More interesting movement patterns with improved spacing considerations
+          movement: {
+            speed: (Math.random() * 0.002 + 0.001) * (0.5 + (topic.expires_at ? new Date(topic.expires_at).getTime() - new Date().getTime() : 24*60*60*1000) / (24*60*60*1000) * 0.5),
+            radius: radius, // Keep consistent with initial position
+            angle: angle, // Start at the distributed angle
+            verticalSpeed: (Math.random() * 0.004 - 0.002),
+            verticalRange: Math.random() * 1.5, // Reduced vertical movement to prevent overlaps
+            verticalOffset: Math.random() * Math.PI * 2,
+            rotationSpeed: Math.random() * 0.008 - 0.004,
+            wobble: Math.random() * 0.002 // Reduced wobble
+          },
+          expiryRatio: topic.expires_at ? Math.max(0, (new Date(topic.expires_at).getTime() - new Date().getTime()) / (24*60*60*1000)) : 1,
+          expiryTime: topic.expires_at ? new Date(topic.expires_at) : new Date(new Date().getTime() + 24*60*60*1000)
+        };
         
         bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
@@ -715,144 +750,4 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           
           // Pulse effect as bubble gets closer to expiry
           if (updatedExpiryRatio < 0.1) {
-            const pulseIntensity = 0.2 + Math.sin(time * 20) * 0.2;
-            bubbleMesh.material.emissiveIntensity = pulseIntensity;
-            bubbleMesh.material.opacity = 0.5 + pulseIntensity * 0.5;
-          }
-        }
-        
-        // Update time remaining label
-        if (bubble.children.length >= 4) {
-          const timeRemainingSprite = bubble.children[3] as THREE.Sprite;
-          if (bubble.userData.expiryTime) {
-            const now = new Date();
-            const expiryTime = bubble.userData.expiryTime;
-            
-            // If it's been more than a minute, update the label
-            if (now.getTime() % 60000 < 1000) {
-              const formattedTime = formatTimeRemaining(expiryTime);
-              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 26 : 30);
-              const texture = new THREE.CanvasTexture(canvas);
-              texture.needsUpdate = true;
-              
-              if (timeRemainingSprite.material instanceof THREE.SpriteMaterial) {
-                timeRemainingSprite.material.map = texture;
-                timeRemainingSprite.material.needsUpdate = true;
-              }
-            }
-          }
-        }
-        
-        // Scale text sprites with improved proportions
-        for (let i = 1; i < bubble.children.length; i++) {
-          const sprite = bubble.children[i] as THREE.Sprite;
-          const textScales = bubble.userData.textScales;
-          const textScaleFactor = zoomFactor * 0.9;
-          
-          let baseScale;
-          let yOffset;
-          if (i === 1) {
-            baseScale = textScales.nameScale;
-            yOffset = scaleFactor * 0.4;
-          } else if (i === 2) {
-            baseScale = textScales.topicScale;
-            yOffset = -scaleFactor * 0.1;
-          } else if (i === 3) {
-            baseScale = textScales.reflectScale;
-            yOffset = -scaleFactor * 0.5;
-          } else {
-            baseScale = textScales.timeScale;
-            yOffset = -scaleFactor * 0.85;
-          }
-          
-          sprite.scale.set(
-            baseScale * textScaleFactor,
-            baseScale * textScaleFactor * 0.6,
-            1
-          );
-          sprite.position.set(0, yOffset, 0);
-        }
-      });
-
-      // Apply gentle auto-rotation to central world when not interacting
-      if (!interactionRef.current.isInteracting && centralWorld) {
-        centralWorld.rotation.y += 0.0003;
-      }
-
-      TWEEN.update();
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    // Handle window resize
-    const handleResize = () => {
-      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
-      
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      
-      cameraRef.current.aspect = width / height;
-      cameraRef.current.updateProjectionMatrix();
-      
-      rendererRef.current.setSize(width, height);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Clean up resources when component unmounts
-    return () => {
-      console.log("Cleaning up BubbleWorld resources");
-      
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      if (rendererRef.current) {
-        rendererRef.current.dispose();
-        if (containerRef.current?.contains(rendererRef.current.domElement)) {
-          containerRef.current.removeChild(rendererRef.current.domElement);
-        }
-      }
-      
-      container.removeEventListener('touchstart', onTouchStart);
-      container.removeEventListener('touchmove', onTouchMove);
-      container.removeEventListener('touchend', onTouchEnd);
-      container.removeEventListener('mousedown', onMouseDown);
-      container.removeEventListener('mousemove', onMouseMove);
-      container.removeEventListener('mouseup', onMouseUp);
-      container.removeEventListener('mouseleave', onMouseLeave);
-      container.removeEventListener('wheel', onWheel);
-      window.removeEventListener('resize', handleResize);
-      
-      // Clear all references
-      Object.values(bubblesRef.current).forEach(group => {
-        group.children.forEach(child => {
-          if (child instanceof THREE.Mesh && child.geometry) {
-            child.geometry.dispose();
-          }
-          if (child instanceof THREE.Mesh && child.material) {
-            const material = Array.isArray(child.material) ? child.material : [child.material];
-            material.forEach(m => m.dispose());
-          }
-        });
-      });
-      
-      bubblesRef.current = {};
-      sceneRef.current = null;
-      rendererRef.current = null;
-      cameraRef.current = null;
-      centralWorldRef.current = null;
-    };
-  }, [topics, onBubbleClick, navigate]);
-
-  return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full touch-none select-none"
-      style={{ touchAction: 'none' }}
-    />
-  );
-};
-
-export default BubbleWorld;
+            const pulseIntensity = 0.2 + Math.sin(time * 20) * 

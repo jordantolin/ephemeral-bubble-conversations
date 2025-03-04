@@ -53,15 +53,43 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-md fixed top-0 left-0 w-full z-20 shadow-md">
+    <div className="bg-white/95 backdrop-blur-md fixed top-0 left-0 w-full z-50 shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         {/* Logo and Brand */}
         <Link to="/" className="flex items-center gap-2">
           <Logo size="md" withText={true} />
         </Link>
 
+        {/* Navigation Links (Hidden on Small Screens) */}
+        <div className="hidden md:flex items-center space-x-1">
+          <Button
+            variant="ghost"
+            className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
+            onClick={() => navigate("/")}
+          >
+            <Home className="h-4 w-4 mr-2" />
+            Home
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
+            onClick={() => navigate("/feed")}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Feed
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
+            onClick={() => navigate("/my-bubbles")}
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            My Bubbles
+          </Button>
+        </div>
+
         {/* Search Bar (Hidden on Small Screens) */}
-        <div className="hidden sm:flex items-center flex-grow ml-4 mr-6">
+        <div className="hidden sm:flex items-center flex-grow mx-4 max-w-md">
           <Input
             type="search"
             placeholder="Search bubbles..."
@@ -105,14 +133,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
                 className="bg-gray-50 border-gray-300 rounded-md focus:ring-primary focus:border-primary text-sm"
               />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSearchQuery("")}
-              className="absolute top-2 right-2 text-gray-500 hover:bg-gray-100"
-            >
-              <X className="h-4 w-4" />
-            </Button>
             <div className="py-2">
               <Button
                 variant="ghost"
@@ -121,6 +141,22 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
               >
                 <Home className="mr-2 h-4 w-4" />
                 Home
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => handleNavigation("/feed")}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Feed
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => handleNavigation("/my-bubbles")}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                My Bubbles
               </Button>
               <Button
                 variant="ghost"
