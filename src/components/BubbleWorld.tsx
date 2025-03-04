@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -27,6 +26,27 @@ const formatTimeRemaining = (expiryTime: Date) => {
     console.error("Error formatting time remaining:", error);
     return "Time error";
   }
+};
+
+// Calculate repulsion force between two bubbles
+const calculateRepulsionForce = (pos1: THREE.Vector3, pos2: THREE.Vector3, minDistance: number): THREE.Vector3 => {
+  const direction = new THREE.Vector3().subVectors(pos1, pos2);
+  const distance = direction.length();
+  
+  // If bubbles are too close, apply repulsion force
+  if (distance < minDistance && distance > 0) {
+    // Normalize direction and apply force inversely proportional to distance
+    direction.normalize();
+    
+    // Stronger force as bubbles get closer
+    const forceMagnitude = 0.05 * (1 - distance / minDistance);
+    
+    // Return the force vector
+    return direction.multiplyScalar(forceMagnitude);
+  }
+  
+  // Return zero force if bubbles are far enough apart
+  return new THREE.Vector3(0, 0, 0);
 };
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
@@ -230,6 +250,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return particles;
     };
 
+    // Store bubble sizes for collision detection
+    const bubbleSizes: {[id: string]: number} = {};
+
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
       // Create bubbles with enhanced random positioning and improved visuals
@@ -263,6 +286,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
                         topic.size === 'md' ? 1.0 : 0.7;
         const reflectScale = 1 + (topic.reflect_count * 0.1);
         const finalSize = baseSize * reflectScale;
+        
+        // Store the bubble size for collision detection
+        bubbleSizes[topic.id] = finalSize * 2.5; // Increase collision radius to account for text
         
         const geometry = createBubbleGeometry(finalSize);
         const material = createBubbleMaterial();
@@ -300,7 +326,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             reflectScale: finalSize * 1.2,
             timeScale: finalSize
           },
-          // More interesting movement patterns
+          // More interesting movement patterns with added collision avoidance parameters
           movement: {
             speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
             radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
@@ -309,7 +335,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
             verticalOffset: Math.random() * Math.PI * 2,
             rotationSpeed: Math.random() * 0.012 - 0.006,
-            wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
+            wobble: Math.random() * 0.003 * expiryRatio, // Extra random movement
+            // Additional physics properties for collision avoidance
+            velocity: new THREE.Vector3(0, 0, 0),
+            damping: 0.95, // Damping factor to prevent excessive movement
+            mass: finalSize * 2 // Mass proportional to size for physics calculations
           },
           expiryRatio, // Store for animation use
           expiryTime // Store actual time
@@ -364,21 +394,83 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           isMobile ? 26 : 30
         ));
 
-        // Set initial random position with wider distribution
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * 4.0 + 2.5;
-        const y = (Math.random() - 0.5) * 5.0;
-        bubbleGroup.position.set(
-          Math.cos(angle) * radius,
-          y,
-          Math.sin(angle) * radius
-        );
+        // Set initial random position with wider distribution and ensure no overlaps
+        const setNonOverlappingPosition = () => {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * 4.0 + 2.5;
+          const y = (Math.random() - 0.5) * 5.0;
+          
+          return new THREE.Vector3(
+            Math.cos(angle) * radius,
+            y,
+            Math.sin(angle) * radius
+          );
+        };
+        
+        // Initialize position
+        const initialPosition = setNonOverlappingPosition();
+        bubbleGroup.position.copy(initialPosition);
         
         bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
       });
+      
+      // Apply initial collision resolution to ensure no bubbles overlap
+      resolveInitialCollisions();
     } else {
       console.log("No topics to render in BubbleWorld");
+    }
+    
+    // Function to resolve initial collisions by adjusting positions
+    function resolveInitialCollisions() {
+      const bubbleGroups = Object.values(bubblesRef.current);
+      const iterations = 20; // Number of iterations to resolve collisions
+      
+      for (let iter = 0; iter < iterations; iter++) {
+        let hasCollisions = false;
+        
+        for (let i = 0; i < bubbleGroups.length; i++) {
+          const bubble1 = bubbleGroups[i];
+          const id1 = bubble1.userData.id;
+          const size1 = bubbleSizes[id1];
+          
+          for (let j = i + 1; j < bubbleGroups.length; j++) {
+            const bubble2 = bubbleGroups[j];
+            const id2 = bubble2.userData.id;
+            const size2 = bubbleSizes[id2];
+            
+            const minDistance = (size1 + size2) * 0.6; // Allow some overlap of collision spheres
+            const actualDistance = bubble1.position.distanceTo(bubble2.position);
+            
+            if (actualDistance < minDistance) {
+              hasCollisions = true;
+              
+              // Calculate displacement direction
+              const direction = new THREE.Vector3().subVectors(
+                bubble1.position, 
+                bubble2.position
+              ).normalize();
+              
+              // Calculate displacement amount
+              const displacement = (minDistance - actualDistance) * 0.5;
+              
+              // Move bubbles apart
+              bubble1.position.add(direction.clone().multiplyScalar(displacement));
+              bubble2.position.add(direction.clone().multiplyScalar(-displacement));
+            }
+          }
+          
+          // Keep bubbles within reasonable bounds
+          const distanceFromCenter = bubble1.position.length();
+          if (distanceFromCenter > 10) {
+            const newPos = bubble1.position.clone().normalize().multiplyScalar(10);
+            bubble1.position.copy(newPos);
+          }
+        }
+        
+        // If no collisions were detected, we can exit early
+        if (!hasCollisions) break;
+      }
     }
 
     // Improved touch handling
@@ -649,7 +741,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Enhanced animation loop with more dynamic effects
+    // Enhanced animation loop with more dynamic effects and collision detection
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -668,8 +760,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
 
-      // Update bubble positions with enhanced random movement
-      Object.values(bubblesRef.current).forEach(bubble => {
+      // Collect all bubble groups to process collisions
+      const bubbleGroups = Object.values(bubblesRef.current);
+      
+      // First, update positions based on intended movements
+      bubbleGroups.forEach(bubble => {
         const movement = bubble.userData.movement;
         const expiryRatio = bubble.userData.expiryRatio || 1;
         
@@ -689,14 +784,82 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const y = verticalMovement;
         const z = Math.sin(angle) * movement.radius + wobble;
         
-        const position = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
-        bubble.position.copy(position);
+        // Desired position from orbital movement
+        const targetPosition = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
         
+        // Apply velocity with damping
+        movement.velocity.multiplyScalar(movement.damping);
+        
+        // Move towards target position with physics
+        const currentPos = bubble.position.clone();
+        const moveSpeed = 0.02; // Adjust speed of movement toward target
+        
+        // Calculate direction to target
+        const directionToTarget = targetPosition.clone().sub(currentPos);
+        
+        // Add this direction to velocity (with damping to prevent overshooting)
+        movement.velocity.add(directionToTarget.multiplyScalar(moveSpeed));
+        
+        // Apply the velocity to move the bubble
+        bubble.position.add(movement.velocity);
+      });
+      
+      // Apply collision avoidance forces
+      for (let i = 0; i < bubbleGroups.length; i++) {
+        const bubble1 = bubbleGroups[i];
+        const id1 = bubble1.userData.id;
+        const size1 = bubbleSizes[id1];
+        const movement1 = bubble1.userData.movement;
+        
+        for (let j = i + 1; j < bubbleGroups.length; j++) {
+          const bubble2 = bubbleGroups[j];
+          const id2 = bubble2.userData.id;
+          const size2 = bubbleSizes[id2];
+          const movement2 = bubble2.userData.movement;
+          
+          // Calculate minimum distance to avoid collision (based on bubble sizes)
+          const minDistance = (size1 + size2) * 0.6; // Allow some overlap of collision spheres
+          
+          // Calculate repulsion forces
+          const force1 = calculateRepulsionForce(
+            bubble1.position,
+            bubble2.position,
+            minDistance
+          );
+          
+          const force2 = force1.clone().negate();
+          
+          // Apply forces to velocities (scaled by inverse mass)
+          const massRatio1 = 1 / movement1.mass;
+          const massRatio2 = 1 / movement2.mass;
+          
+          movement1.velocity.add(force1.multiplyScalar(massRatio1));
+          movement2.velocity.add(force2.multiplyScalar(massRatio2));
+        }
+        
+        // Add repulsion from central world to avoid bubbles clustering at center
+        const distanceFromCenter = bubble1.position.length();
+        if (distanceFromCenter < 2) {
+          const repulsionFromCenter = bubble1.position.clone().normalize().multiplyScalar(0.02);
+          movement1.velocity.add(repulsionFromCenter);
+        }
+        
+        // Keep bubbles within reasonable bounds
+        if (distanceFromCenter > 10) {
+          const attractionToCenter = bubble1.position.clone().normalize().multiplyScalar(-0.02);
+          movement1.velocity.add(attractionToCenter);
+        }
+      }
+      
+      // Update bubble appearance and text positioning
+      bubbleGroups.forEach(bubble => {
         // Add subtle rotation to each bubble
-        bubble.rotation.y += movement.rotationSpeed;
+        bubble.rotation.y += bubble.userData.movement.rotationSpeed;
         
         // Make bubbles face camera for better text readability
-        bubble.quaternion.copy(camera.quaternion);
+        if (camera) {
+          bubble.quaternion.copy(camera.quaternion);
+        }
         
         // Scale the bubble and text based on zoom level
         const origScale = bubble.userData.originalScale;
