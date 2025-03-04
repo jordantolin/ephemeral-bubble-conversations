@@ -82,8 +82,7 @@ const MyBubbles = () => {
         const { data: bubbles, error: bubblesError } = await supabase
           .from('bubbles')
           .select('*')
-          .in('id', bubbleIds)
-          .order('created_at', { ascending: false });
+          .in('id', bubbleIds);
         
         if (bubblesError) {
           console.error("Error fetching bubbles:", bubblesError);
@@ -160,6 +159,39 @@ const MyBubbles = () => {
       console.log("No bubbles found or empty bubbles array");
     }
   }, [myBubbles, isLoadingBubbles]);
+
+  // Force a refresh of the bubbles data on mount
+  useEffect(() => {
+    if (user && profile?.username && isClientSide) {
+      // This will trigger a refetch when the component mounts
+      console.log("Forcing refetch of bubbles data");
+      const fetchBubbles = async () => {
+        try {
+          const { data: reflects, error: reflectsError } = await supabase
+            .from('reflects')
+            .select('bubble_id')
+            .eq('username', profile.username);
+          
+          console.log("Direct fetch reflects:", reflects, "Error:", reflectsError);
+          
+          if (reflects && reflects.length > 0) {
+            const bubbleIds = reflects.map(r => r.bubble_id);
+            
+            const { data: bubbles, error: bubblesError } = await supabase
+              .from('bubbles')
+              .select('*')
+              .in('id', bubbleIds);
+            
+            console.log("Direct fetch bubbles:", bubbles, "Error:", bubblesError);
+          }
+        } catch (e) {
+          console.error("Error in direct fetch:", e);
+        }
+      };
+      
+      fetchBubbles();
+    }
+  }, [user, profile?.username, isClientSide]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
