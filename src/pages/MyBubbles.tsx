@@ -44,31 +44,41 @@ const MyBubbles = () => {
   const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
     queryKey: ['myBubbles', profile?.username],
     queryFn: async () => {
-      if (!user || !profile?.username) return [];
+      if (!user || !profile?.username) {
+        console.log("No user or username found, skipping fetch");
+        return [];
+      }
 
       try {
         console.log("Fetching reflects for username:", profile.username);
-        const { data: reflects, error } = await supabase
+        
+        // First, get all bubble IDs that the user has reflected on
+        const { data: reflects, error: reflectsError } = await supabase
           .from('reflects')
           .select('bubble_id')
           .eq('username', profile.username);
         
-        if (error) {
-          console.error("Error fetching reflects:", error);
+        if (reflectsError) {
+          console.error("Error fetching reflects:", reflectsError);
           toast({
             title: "Error fetching reflects",
-            description: error.message,
+            description: reflectsError.message,
             variant: "destructive"
           });
           return [];
         }
 
         console.log("Reflects data:", reflects);
-        if (!reflects || reflects.length === 0) return [];
+        if (!reflects || reflects.length === 0) {
+          console.log("No reflects found for user");
+          return [];
+        }
 
+        // Extract bubble IDs from the reflects
         const bubbleIds = reflects.map(r => r.bubble_id);
         console.log("Fetching bubbles with IDs:", bubbleIds);
         
+        // Then fetch the actual bubble data for those IDs
         const { data: bubbles, error: bubblesError } = await supabase
           .from('bubbles')
           .select('*')
@@ -85,7 +95,7 @@ const MyBubbles = () => {
           return [];
         }
 
-        console.log("Bubbles data received:", bubbles?.length || 0);
+        console.log("Bubbles data received:", bubbles?.length || 0, bubbles);
         return bubbles || [];
       } catch (e) {
         console.error("Unexpected error in myBubbles query:", e);
