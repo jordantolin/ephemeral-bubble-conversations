@@ -33,53 +33,65 @@ const MyBubbles = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
-  // Fetch user's reflected bubbles
+  // Fetch user's reflected bubbles with proper error handling
   const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
     queryKey: ['myBubbles', profile?.username],
     queryFn: async () => {
       if (!user || !profile?.username) return [];
 
-      const { data: reflects, error } = await supabase
-        .from('reflects')
-        .select('bubble_id')
-        .eq('username', profile.username);
-      
-      if (error) {
-        console.error("Error fetching reflects:", error);
+      try {
+        const { data: reflects, error } = await supabase
+          .from('reflects')
+          .select('bubble_id')
+          .eq('username', profile.username);
+        
+        if (error) {
+          console.error("Error fetching reflects:", error);
+          toast({
+            title: "Error fetching reflects",
+            description: error.message,
+            variant: "destructive"
+          });
+          return [];
+        }
+
+        if (!reflects || reflects.length === 0) return [];
+
+        const bubbleIds = reflects.map(r => r.bubble_id);
+        const { data: bubbles, error: bubblesError } = await supabase
+          .from('bubbles')
+          .select('*')
+          .in('id', bubbleIds)
+          .order('created_at', { ascending: false });
+        
+        if (bubblesError) {
+          console.error("Error fetching bubbles:", bubblesError);
+          toast({
+            title: "Error fetching bubbles",
+            description: bubblesError.message,
+            variant: "destructive"
+          });
+          return [];
+        }
+
+        return bubbles || [];
+      } catch (e) {
+        console.error("Unexpected error in myBubbles query:", e);
         toast({
-          title: "Error fetching reflects",
-          description: error.message,
+          title: "Error loading bubbles",
+          description: "An unexpected error occurred. Please try again.",
           variant: "destructive"
         });
         return [];
       }
-
-      if (reflects.length === 0) return [];
-
-      const bubbleIds = reflects.map(r => r.bubble_id);
-      const { data: bubbles, error: bubblesError } = await supabase
-        .from('bubbles')
-        .select('*')
-        .in('id', bubbleIds)
-        .order('created_at', { ascending: false });
-      
-      if (bubblesError) {
-        console.error("Error fetching bubbles:", bubblesError);
-        toast({
-          title: "Error fetching bubbles",
-          description: bubblesError.message,
-          variant: "destructive"
-        });
-        return [];
-      }
-
-      return bubbles;
     },
-    enabled: !!user && !!profile?.username
+    enabled: !!user && !!profile?.username,
+    retry: 2,
+    retryDelay: 1000
   });
 
   // Filter bubbles based on search query
-  const filteredBubbles = myBubbles.filter((bubble: Bubble) => {
+  const filteredBubbles = (myBubbles || []).filter((bubble: Bubble) => {
     const searchLower = searchQuery.toLowerCase();
     return (
       bubble.name.toLowerCase().includes(searchLower) ||
@@ -90,12 +102,17 @@ const MyBubbles = () => {
 
   // Format date for display
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return "Unknown date";
+    }
   };
 
   return (
@@ -236,7 +253,7 @@ const MyBubbles = () => {
               <Loader2 className="w-10 h-10 text-[#ebbd34] animate-spin mb-4" />
               <p className="text-[#ebbd34]">Loading your bubbles...</p>
             </div>
-          ) : filteredBubbles.length === 0 ? (
+          ) : !myBubbles || filteredBubbles.length === 0 ? (
             <div className="text-center py-16 bg-white/60 rounded-3xl shadow-sm backdrop-blur-sm">
               {searchQuery ? (
                 <>
