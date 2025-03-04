@@ -110,7 +110,9 @@ const MyBubbles = () => {
     enabled: !!user && !!profile?.username && isClientSide,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refresh every 30 seconds to catch new reflects
+    staleTime: 10000 // Consider data fresh for 10 seconds
   });
 
   // Filter bubbles based on search query
@@ -149,6 +151,15 @@ const MyBubbles = () => {
       return "Unknown date";
     }
   };
+
+  // Add a debug console log to see if we're getting data
+  useEffect(() => {
+    if (myBubbles && myBubbles.length > 0) {
+      console.log("MyBubbles data is available:", myBubbles);
+    } else if (!isLoadingBubbles) {
+      console.log("No bubbles found or empty bubbles array");
+    }
+  }, [myBubbles, isLoadingBubbles]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
