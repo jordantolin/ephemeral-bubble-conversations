@@ -79,9 +79,6 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   }
 
-  // Debug the bubble data being passed to BubbleWorld
-  console.log("Rendering BubbleWorld with data:", bubbleDataForComponent);
-
   return (
     <div className="h-[75vh] min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10">
       <BubbleWorld 

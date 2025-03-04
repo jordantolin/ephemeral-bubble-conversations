@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import useBubbleData from "@/hooks/bubbles"; // Import from the new location
+import useBubbleData from "@/hooks/useBubbleData";
 import NavigationBar from "@/components/bubbleWorld/NavigationBar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
@@ -35,8 +35,6 @@ const Index = () => {
     handleReflect,
     handleBubbleClick
   } = useBubbleData();
-  
-  console.log("Index component received bubbles:", bubbleDataForComponent?.length);
   
   const searchParams = new URLSearchParams(location.search);
   const bubbleToOpen = searchParams.get('bubble');

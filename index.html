@@ -1,19 +1,36 @@
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" />
+    <link rel="icon" type="image/svg+xml" href="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bubble Trouble</title>
-    <meta name="description" content="A social platform for ephemeral conversations in topic bubbles">
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#FEF7E4" />
+    <meta name="theme-color" content="#ebbd34" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Bubble Trouble" />
     <link rel="apple-touch-icon" href="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>Bubble Trouble</title>
+    <meta property="og:title" content="Bubble Trouble" />
+    <meta property="og:description" content="Ephemeral chats that last just 24 hours" />
+    <meta property="og:image" content="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png" />
   </head>
   <body>
     <div id="root"></div>
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(function(registration) {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch(function(error) {
+              console.log('ServiceWorker registration failed: ', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
