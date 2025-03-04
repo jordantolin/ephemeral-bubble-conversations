@@ -30,37 +30,29 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   const { profile, isLoading: isLoadingGamification } = useGamification();
   const { user } = useAuth();
 
-  // Gamification indicators
+  // Gamification indicators - more subtle now
   const renderGamificationStatus = () => {
     if (isLoadingGamification || !user) return null;
     
     return (
       <motion.div 
-        className="absolute top-4 right-4 bg-white/70 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-[#ebbd34]/20"
+        className="absolute top-4 right-4 bg-white/70 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="flex items-center">
-            <Trophy className="h-4 w-4 text-[#ebbd34] mr-1" />
-            <span className="text-xs font-medium text-gray-700">Level {profile.level}</span>
+            <Trophy className="h-3.5 w-3.5 text-[#ebbd34] mr-1" />
+            <span className="text-xs font-medium text-gray-700">Lv.{profile.level}</span>
           </div>
           
-          <div className="flex items-center">
-            <Star className="h-4 w-4 text-[#ebbd34] mr-1" />
-            <span className="text-xs font-medium text-gray-700">{profile.points} pts</span>
-          </div>
+          <div className="h-3 w-px bg-gray-200 mx-1"></div>
           
-          <Button
-            onClick={() => window.location.href = '/achievements'}
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs px-2 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-          >
-            <Award className="h-3 w-3 mr-1" />
-            Achievements
-          </Button>
+          <div className="flex items-center">
+            <Star className="h-3.5 w-3.5 text-[#ebbd34] mr-1" />
+            <span className="text-xs font-medium text-gray-700">{profile.points}</span>
+          </div>
         </div>
       </motion.div>
     );

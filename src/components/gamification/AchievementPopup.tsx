@@ -46,7 +46,7 @@ const AchievementPopup: React.FC = () => {
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
-          <div className="bg-gradient-to-br from-[#ebbd34]/20 to-[#ebbd34]/40 backdrop-blur-md rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
+          <div className="bg-white/80 backdrop-blur-md rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
             <div className="flex items-start">
               <div className="bg-[#ebbd34] rounded-full p-3 mr-4">
                 {getAchievementIcon(recentAchievement) || <Award className="h-6 w-6 text-white" />}

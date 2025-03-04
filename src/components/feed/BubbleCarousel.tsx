@@ -136,32 +136,29 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     };
   }, [bubbles.length, isTransitioning]);
 
-  // Transition variants for Framer Motion
+  // More subtle transition variants
   const bubbleVariants = {
     enter: (direction: number) => ({
-      y: direction > 0 ? '100%' : '-100%',
+      y: direction > 0 ? '50%' : '-50%',
       opacity: 0,
-      scale: 0.8,
-      rotateY: direction > 0 ? -20 : 20,
+      scale: 0.9,
     }),
     center: {
       y: 0,
       opacity: 1,
       scale: 1,
-      rotateY: 0,
       transition: {
-        duration: 0.5,
-        ease: [0.34, 1.56, 0.64, 1], // Custom cubic bezier for springy feel
+        duration: 0.4,
+        ease: 'easeOut',
       }
     },
     exit: (direction: number) => ({
-      y: direction > 0 ? '-100%' : '100%',
+      y: direction > 0 ? '-50%' : '50%',
       opacity: 0,
-      scale: 0.8,
-      rotateY: direction > 0 ? 20 : -20,
+      scale: 0.9,
       transition: {
-        duration: 0.4,
-        ease: [0.43, 0.13, 0.23, 0.96], // Custom cubic bezier for smooth exit
+        duration: 0.3,
+        ease: 'easeIn',
       }
     })
   };
@@ -195,16 +192,13 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     <div 
       ref={containerRef}
       className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4]"
-      style={{ perspective: '1200px' }}
     >
-      {/* Swipe indicators */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center opacity-70">
-        <ChevronUp className="w-6 h-6 text-[#ebbd34] animate-bounce" />
-        <span className="text-xs text-[#ebbd34]/80">Swipe</span>
+      {/* Subtle swipe indicators */}
+      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 opacity-50 hover:opacity-80 transition-opacity">
+        <ChevronUp className="w-5 h-5 text-[#ebbd34]" />
       </div>
-      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center opacity-70">
-        <span className="text-xs text-[#ebbd34]/80">Swipe</span>
-        <ChevronDown className="w-6 h-6 text-[#ebbd34] animate-bounce" />
+      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 opacity-50 hover:opacity-80 transition-opacity">
+        <ChevronDown className="w-5 h-5 text-[#ebbd34]" />
       </div>
 
       {/* Bubble pagination indicator */}
@@ -230,9 +224,6 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
             animate="center"
             exit="exit"
             className="absolute inset-0 flex items-center justify-center"
-            style={{ 
-              transformStyle: 'preserve-3d',
-            }}
           >
             <BubbleCard
               bubble={bubbles[currentIndex]}

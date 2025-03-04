@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Star, Settings, Search, LogOut, X, Trophy } from "lucide-react";
+import { Star, Search, X, Trophy } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import LevelProgress from "@/components/gamification/LevelProgress";
 
 interface NavigationBarProps {
@@ -66,28 +67,42 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
           )}
           
           {user ? (
-            <div className="dropdown dropdown-end">
-              <label tabIndex={0} className="btn btn-ghost btn-circle avatar">
-                <div className="w-10 rounded-full">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar>
                     <AvatarImage src={user?.user_metadata?.avatar_url as string} />
                     <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                </div>
-              </label>
-              <ul tabIndex={0} className="dropdown-content z-[1] menu shadow bg-base-100 rounded-box w-52">
-                <li className="flex items-center justify-between px-4 py-2">
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
                   <LevelProgress minimal />
-                </li>
-                <li><Link to="/profile">Profile</Link></li>
-                <li><Link to="/achievements">Achievements</Link></li>
-                <li><a onClick={signOut}>Logout</a></li>
-              </ul>
-            </div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/achievements')}>
+                  <Trophy className="mr-2 h-4 w-4 text-[#ebbd34]" />
+                  <span>Achievements</span>
+                  <div className="ml-auto flex items-center">
+                    <Star className="h-3 w-3 text-[#ebbd34]" />
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()}>
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <div className="space-x-2">
-              <Button variant="outline" onClick={() => navigate('/login')}>Log In</Button>
-              <Button onClick={() => navigate('/register')}>Sign Up</Button>
+              <Button variant="outline" onClick={() => navigate('/auth')}>Log In</Button>
+              <Button onClick={() => navigate('/auth')}>Sign Up</Button>
             </div>
           )}
         </div>

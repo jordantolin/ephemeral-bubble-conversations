@@ -16,7 +16,7 @@ const DailyStreakIndicator: React.FC = () => {
       className="fixed bottom-4 left-4 z-40 bg-white/80 backdrop-blur-md rounded-lg shadow-md border border-[#ebbd34]/30 p-3"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 1 }}
+      transition={{ delay: 1, duration: 0.3 }}
     >
       <div className="flex items-center mb-2">
         <Flame className="h-5 w-5 text-[#ebbd34] mr-2" />
@@ -27,7 +27,7 @@ const DailyStreakIndicator: React.FC = () => {
         {Array.from({ length: 7 }).map((_, i) => (
           <div
             key={i}
-            className={`h-2 w-6 rounded-full ${
+            className={`h-2 w-4 rounded-full ${
               i < streakDays 
                 ? 'bg-[#ebbd34]' 
                 : 'bg-gray-200'
