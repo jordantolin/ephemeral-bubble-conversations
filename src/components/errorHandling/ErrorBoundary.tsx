@@ -1,7 +1,8 @@
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 interface Props {
   children: ReactNode;
@@ -51,23 +52,37 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex flex-col items-center justify-center min-h-[300px] p-6 bg-red-50 border border-red-200 rounded-lg">
-          <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-bold text-red-800 mb-2">Something went wrong</h2>
-          <p className="text-red-700 mb-4 text-center">
-            We encountered an unexpected error. Please try again or contact support if the problem persists.
-          </p>
-          {this.state.error && (
-            <div className="bg-white p-4 rounded-md border border-red-300 mb-4 max-w-full overflow-auto">
-              <p className="font-mono text-sm text-red-600">{this.state.error.toString()}</p>
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-[#FEF7E4]">
+          <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+            <AlertTriangle className="h-16 w-16 text-[#ebbd34] mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-[#ebbd34] mb-4 text-center">Oops! Something went wrong</h2>
+            <p className="text-gray-600 mb-6 text-center">
+              We encountered an unexpected error. Please try refreshing the page or returning home.
+            </p>
+            {this.state.error && (
+              <div className="bg-red-50 p-4 rounded-md border border-red-200 mb-6 overflow-auto max-h-32">
+                <p className="font-mono text-sm text-red-600 break-words">{this.state.error.toString()}</p>
+              </div>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button 
+                onClick={this.resetErrorBoundary}
+                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              >
+                Try Again
+              </Button>
+              <Button 
+                asChild
+                variant="outline"
+                className="border-[#ebbd34]/30 text-[#ebbd34]"
+              >
+                <Link to="/">
+                  <Home className="h-4 w-4 mr-2" />
+                  Go Home
+                </Link>
+              </Button>
             </div>
-          )}
-          <Button 
-            onClick={this.resetErrorBoundary}
-            className="bg-red-600 hover:bg-red-700 text-white"
-          >
-            Try Again
-          </Button>
+          </div>
         </div>
       );
     }

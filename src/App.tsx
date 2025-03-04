@@ -40,9 +40,9 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <AuthProvider>
-            <NetworkProvider>
-              <div className="bg-[#FEF7E4] min-h-[100dvh] w-full">
+          <NetworkProvider>
+            <AuthProvider>
+              <div className="bg-[#FEF7E4] min-h-screen w-full">
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
@@ -73,8 +73,8 @@ function App() {
                 <OfflineIndicator />
                 <Toaster />
               </div>
-            </NetworkProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </NetworkProvider>
         </Router>
       </QueryClientProvider>
     </ErrorBoundary>
