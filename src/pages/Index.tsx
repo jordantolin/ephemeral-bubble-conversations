@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import useBubbleData from "@/hooks/useBubbleData";
+import useBubbleData from "@/hooks/bubbles"; // Updated import path to the new location
 import NavigationBar from "@/components/bubbleWorld/NavigationBar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
