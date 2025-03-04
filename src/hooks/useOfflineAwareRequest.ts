@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { useNetwork } from "@/context/NetworkContext";
 
-interface RequestOptions {
-  onSuccess?: (data: any) => void;
+interface RequestOptions<T> {
+  onSuccess?: (data: T) => void;
   onError?: (error: any) => void;
   actionType: string;
   actionDescription?: string;
@@ -16,7 +16,7 @@ export function useOfflineAwareRequest() {
 
   const executeRequest = async <T>(
     requestFn: () => Promise<T>,
-    options: RequestOptions
+    options: RequestOptions<T>
   ): Promise<T | undefined> => {
     setIsLoading(true);
     setError(null);
@@ -32,13 +32,13 @@ export function useOfflineAwareRequest() {
             try {
               const result = await requestFn();
               options.onSuccess?.(result);
-              // Return void to match the expected Promise<void> type
+              // This function must return void to match the QueuedAction type
               return;
             } catch (err) {
               options.onError?.(err);
               throw err;
             }
-          }
+          },
         });
         setIsLoading(false);
         return undefined;
