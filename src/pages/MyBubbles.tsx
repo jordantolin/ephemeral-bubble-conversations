@@ -41,7 +41,7 @@ const MyBubbles = () => {
   }, []);
 
   // Fetch user's reflected bubbles with proper error handling
-  const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
+  const { data: myBubbles = [], isLoading: isLoadingBubbles, refetch: refetchBubbles } = useQuery({
     queryKey: ['myBubbles', profile?.username],
     queryFn: async () => {
       if (!user || !profile?.username) {
@@ -165,8 +165,13 @@ const MyBubbles = () => {
     if (user && profile?.username && isClientSide) {
       // This will trigger a refetch when the component mounts
       console.log("Forcing refetch of bubbles data");
+      refetchBubbles();
+      
+      // Direct database query for debugging
       const fetchBubbles = async () => {
         try {
+          console.log("Starting direct fetch with username:", profile.username);
+          
           const { data: reflects, error: reflectsError } = await supabase
             .from('reflects')
             .select('bubble_id')
@@ -176,6 +181,7 @@ const MyBubbles = () => {
           
           if (reflects && reflects.length > 0) {
             const bubbleIds = reflects.map(r => r.bubble_id);
+            console.log("Direct fetch bubble IDs:", bubbleIds);
             
             const { data: bubbles, error: bubblesError } = await supabase
               .from('bubbles')
@@ -183,6 +189,8 @@ const MyBubbles = () => {
               .in('id', bubbleIds);
             
             console.log("Direct fetch bubbles:", bubbles, "Error:", bubblesError);
+          } else {
+            console.log("No reflects found in direct fetch");
           }
         } catch (e) {
           console.error("Error in direct fetch:", e);
@@ -191,7 +199,7 @@ const MyBubbles = () => {
       
       fetchBubbles();
     }
-  }, [user, profile?.username, isClientSide]);
+  }, [user, profile?.username, isClientSide, refetchBubbles]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
