@@ -51,9 +51,9 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
         const isExpiring = diffHrs < 2; // Less than 2 hours remaining
         
         if (diffHrs === 0) {
-          return { text: `Expires in ${diffMins} min`, isExpiring };
+          return { text: `${diffMins} min left`, isExpiring };
         } else {
-          return { text: `Expires in ${diffHrs}h ${diffMins}m`, isExpiring };
+          return { text: `${diffHrs}h ${diffMins}m left`, isExpiring };
         }
       } else {
         // Already expired - calculate time since expiration
@@ -104,7 +104,7 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
         
       {/* Time status indicator (expiry countdown or expired status) */}
       <div 
-        className={`absolute top-2 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full text-xs z-10 ${
+        className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full text-xs z-10 ${
           timeStatus.isExpiring 
             ? 'bg-red-100 text-red-600' 
             : isExpired 
@@ -119,7 +119,7 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
       {/* Content container */}
       <div className="absolute inset-0 flex flex-col items-center justify-between p-6 text-center">
         {/* Top section - bubble title */}
-        <div className="w-full mt-4">
+        <div className="w-full mt-8">
           <h2 
             className={`text-xl font-bold ${isExpired ? 'text-[#ebbd34]/70' : 'text-[#ebbd34]'} mb-1`}
           >

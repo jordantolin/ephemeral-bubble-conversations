@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, X, Trophy, Menu, Home, MessageCircle, User, Star, Sparkles, Plus } from "lucide-react";
+import { Search, X, Trophy, Menu, MessageCircle, User, Star, Sparkles, Plus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,14 +62,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
 
         {/* Navigation Links (Hidden on Small Screens) */}
         <div className="hidden md:flex items-center space-x-1">
-          <Button
-            variant="ghost"
-            className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
-            onClick={() => navigate("/")}
-          >
-            <Home className="h-4 w-4 mr-2" />
-            Home
-          </Button>
           <Button
             variant="ghost"
             className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
@@ -134,14 +126,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
               />
             </div>
             <div className="py-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => handleNavigation("/")}
-              >
-                <Home className="mr-2 h-4 w-4" />
-                Home
-              </Button>
               <Button
                 variant="ghost"
                 className="w-full justify-start rounded-none hover:bg-gray-100"

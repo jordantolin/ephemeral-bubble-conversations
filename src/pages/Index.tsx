@@ -84,6 +84,32 @@ const Index = () => {
     }
   }, []);
 
+  // Add custom styles for better spacing
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      body {
+        background-color: #FEF7E4;
+        overflow-x: hidden;
+      }
+      
+      ::selection {
+        background-color: rgba(235, 189, 52, 0.3);
+        color: #000;
+      }
+      
+      .bubble-world-container {
+        transform-style: preserve-3d;
+        perspective: 1000px;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Gentle entrance animation for main content
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -98,7 +124,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/10 overflow-x-hidden relative">
       {/* Reconnection indicator */}
       <ReconnectionIndicator isReconnecting={isReconnecting} />
       
@@ -109,7 +135,7 @@ const Index = () => {
       />
       
       <motion.div 
-        className="pt-24 sm:pt-28 pb-16 px-4 sm:px-6 relative z-10"
+        className="pt-20 sm:pt-24 pb-16 px-4 sm:px-6 relative z-10"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

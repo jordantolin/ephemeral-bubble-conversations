@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect } from "react";
-import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
+import { Clock, Plus, X, Trophy, Star, Award, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
@@ -57,21 +57,21 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     
     return (
       <motion.div 
-        className="absolute top-4 right-4 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm z-10"
+        className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md z-10"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
         <div className="flex items-center gap-2">
           <div className="flex items-center">
-            <Trophy className="h-3.5 w-3.5 text-[#ebbd34] mr-1" />
+            <Trophy className="h-4 w-4 text-[#ebbd34] mr-1" />
             <span className="text-xs font-medium text-gray-700">Lv.{profile.level}</span>
           </div>
           
           <div className="h-3 w-px bg-gray-200 mx-1"></div>
           
           <div className="flex items-center">
-            <Star className="h-3.5 w-3.5 text-[#ebbd34] mr-1" />
+            <Star className="h-4 w-4 text-[#ebbd34] mr-1" />
             <span className="text-xs font-medium text-gray-700">{profile.points}</span>
           </div>
         </div>
@@ -83,15 +83,14 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   const renderInstructions = () => {
     return (
       <motion.div 
-        className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm z-10 text-xs text-gray-600"
+        className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-md z-10 text-xs text-gray-600"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8 }}
       >
-        <div className="flex items-center gap-1 whitespace-nowrap">
-          <span>Drag</span>
-          <span className="hidden sm:inline">or swipe</span>
-          <span>to rotate • Scroll to zoom</span>
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-[#ebbd34]" />
+          <span className="whitespace-nowrap">Drag to rotate • Scroll to zoom</span>
         </div>
       </motion.div>
     );
@@ -100,7 +99,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   if (isLoadingBubbles) {
     return (
       <motion.div 
-        className="text-center py-16 sm:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm"
+        className="text-center py-16 sm:py-24 bg-white/60 rounded-2xl backdrop-blur-sm shadow-md"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -115,7 +114,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   if (bubblesError) {
     return (
       <motion.div 
-        className="text-center py-16 sm:py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm"
+        className="text-center py-16 sm:py-24 px-4 bg-white/80 rounded-2xl backdrop-blur-sm shadow-md"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -142,7 +141,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   if (filteredBubbles.length === 0) {
     return (
       <motion.div 
-        className="text-center py-16 sm:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm"
+        className="text-center py-16 sm:py-24 bg-white/60 rounded-2xl backdrop-blur-sm shadow-md"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -174,7 +173,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="h-[65vh] sm:h-[75vh] min-h-[400px] sm:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-2 sm:p-3 shadow-lg border border-[#ebbd34]/10 relative"
+      className="h-[65vh] sm:h-[75vh] min-h-[400px] sm:min-h-[500px] w-full bg-white/50 rounded-2xl backdrop-blur-sm p-2 sm:p-3 shadow-lg border border-[#ebbd34]/10 relative overflow-hidden"
     >
       {renderGamificationStatus()}
       {renderInstructions()}
