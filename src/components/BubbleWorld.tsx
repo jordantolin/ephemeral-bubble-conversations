@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -9,6 +8,7 @@ import {
   createTextCanvas,
   createCentralWorldGeometry,
   createCentralWorldMaterial,
+  mesh as globalMesh
 } from '@/utils/bubbleUtils';
 import { useNavigate } from 'react-router-dom';
 
@@ -129,7 +129,7 @@ class PhysicsBubble {
     this.acceleration.set(0, 0, 0);
     
     // Make text labels face the camera
-    this.mesh.quaternion.copy(mesh.camera.quaternion);
+    this.mesh.quaternion.copy(globalMesh.camera.quaternion);
     
     // Bubble slight rotation
     this.mesh.children[0].rotation.y += 0.001 * timeDelta;
@@ -867,8 +867,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         physBubble.update(timeStep);
         
         // Update bubble appearance based on time remaining
-        const bubbleMesh = physBubble.mesh.children[0] as THREE.Mesh;
-        if (bubbleMesh && bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
+        const bubbleElement = physBubble.mesh.children[0] as THREE.Mesh;
+        if (bubbleElement && bubbleElement.material instanceof THREE.MeshPhysicalMaterial) {
           // Update expiry ratio
           const now = new Date();
           const expiryTime = physBubble.expiryTime;
@@ -878,8 +878,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           // Pulse effect as bubble gets closer to expiry
           if (updatedExpiryRatio < 0.1) {
             const pulseIntensity = 0.2 + Math.sin(currentTime * 0.005) * 0.2;
-            bubbleMesh.material.emissiveIntensity = pulseIntensity;
-            bubbleMesh.material.opacity = 0.5 + pulseIntensity * 0.5;
+            bubbleElement.material.emissiveIntensity = pulseIntensity;
+            bubbleElement.material.opacity = 0.5 + pulseIntensity * 0.5;
           }
         }
         
@@ -906,9 +906,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         // Scale based on zoom level
         const origScale = physBubble.mesh.userData.originalScale;
-        const bubbleMesh = physBubble.mesh.children[0] as THREE.Mesh;
+        const meshElement = physBubble.mesh.children[0] as THREE.Mesh;
         const scaleFactor = origScale * zoomFactor;
-        bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        meshElement.scale.set(scaleFactor, scaleFactor, scaleFactor);
         
         // Scale text sprites with improved proportions
         const textScales = physBubble.mesh.userData.textScales;
