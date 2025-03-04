@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +15,9 @@ const Profile = () => {
   const { user, signOut, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  // Add state for search functionality
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Fetch the user's reflected bubbles
   const { data: reflectedBubbles, isLoading: reflectsLoading } = useQuery({
@@ -65,7 +67,10 @@ const Profile = () => {
   
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
-      <Navbar />
+      <Navbar 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
       
       <main className="container max-w-3xl mx-auto px-4 pt-24 pb-12">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
