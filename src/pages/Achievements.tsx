@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import LevelProgress from "@/components/gamification/LevelProgress";
 
 const Achievements: React.FC = () => {
-  const { profile, achievements, isLoading } = useGamification();
+  const { profile, achievements, isLoading, getAchievementIcon } = useGamification();
   const { profile: userProfile } = useAuth();
   const navigate = useNavigate();
   
@@ -140,9 +140,7 @@ const Achievements: React.FC = () => {
                   <div className={`rounded-full p-3 mr-3 ${
                     achievement.unlocked ? 'bg-[#ebbd34]' : 'bg-gray-200'
                   }`}>
-                    {achievement.icon || <Trophy className={`h-5 w-5 ${
-                      achievement.unlocked ? 'text-white' : 'text-gray-400'
-                    }`} />}
+                    {getAchievementIcon(achievement)}
                   </div>
                   
                   <div className="flex-1">

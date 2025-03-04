@@ -6,16 +6,21 @@ import { useToast } from "@/hooks/use-toast";
 import { Award, Star, Trophy, Target, Gift } from "lucide-react";
 
 // Define achievement types
+export type AchievementIconType = 'award' | 'star' | 'trophy' | 'target' | 'gift';
+
 export type AchievementType = {
   id: string;
   name: string;
   description: string;
-  icon: React.ReactNode;
+  iconType: AchievementIconType;
   points: number;
   unlocked: boolean;
   progress?: number;
   maxProgress?: number;
 };
+
+// Serializable version for database storage
+export type SerializableAchievement = Omit<AchievementType, 'icon'>;
 
 // Define user gamification profile
 export type GamificationProfile = {
@@ -29,13 +34,31 @@ export type GamificationProfile = {
   lastActive: string;
 };
 
+// Helper function to get icon component from icon type
+const getIconComponent = (iconType: AchievementIconType) => {
+  switch (iconType) {
+    case 'award':
+      return <Award className="h-6 w-6 text-[#ebbd34]" />;
+    case 'star':
+      return <Star className="h-6 w-6 text-[#ebbd34]" />;
+    case 'trophy':
+      return <Trophy className="h-6 w-6 text-[#ebbd34]" />;
+    case 'target':
+      return <Target className="h-6 w-6 text-[#ebbd34]" />;
+    case 'gift':
+      return <Gift className="h-6 w-6 text-[#ebbd34]" />;
+    default:
+      return <Trophy className="h-6 w-6 text-[#ebbd34]" />;
+  }
+};
+
 // Default achievements
 const defaultAchievements: AchievementType[] = [
   {
     id: "first-bubble",
     name: "Bubble Creator",
     description: "Create your first bubble",
-    icon: <Award className="h-6 w-6 text-[#ebbd34]" />,
+    iconType: 'award',
     points: 100,
     unlocked: false
   },
@@ -43,7 +66,7 @@ const defaultAchievements: AchievementType[] = [
     id: "social-butterfly",
     name: "Social Butterfly",
     description: "Send 10 messages in bubbles",
-    icon: <Star className="h-6 w-6 text-[#ebbd34]" />,
+    iconType: 'star',
     points: 50,
     unlocked: false,
     progress: 0,
@@ -53,7 +76,7 @@ const defaultAchievements: AchievementType[] = [
     id: "reflection-master",
     name: "Reflection Master",
     description: "Reflect on 5 different bubbles",
-    icon: <Trophy className="h-6 w-6 text-[#ebbd34]" />,
+    iconType: 'trophy',
     points: 75,
     unlocked: false,
     progress: 0,
@@ -63,7 +86,7 @@ const defaultAchievements: AchievementType[] = [
     id: "daily-streak-3",
     name: "Regular Bubbler",
     description: "Log in for 3 consecutive days",
-    icon: <Target className="h-6 w-6 text-[#ebbd34]" />,
+    iconType: 'target',
     points: 150,
     unlocked: false,
     progress: 0,
@@ -73,7 +96,7 @@ const defaultAchievements: AchievementType[] = [
     id: "popular-bubble",
     name: "Popular Bubble",
     description: "Create a bubble that gets 5+ reflections",
-    icon: <Gift className="h-6 w-6 text-[#ebbd34]" />,
+    iconType: 'gift',
     points: 200,
     unlocked: false,
     progress: 0,
@@ -103,6 +126,7 @@ type GamificationContextType = {
   incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
   resetRecentAchievement: () => void;
   refreshGamificationProfile: () => Promise<void>;
+  getAchievementIcon: (achievement: AchievementType) => React.ReactNode;
 };
 
 const GamificationContext = createContext<GamificationContextType | undefined>(undefined);
@@ -117,6 +141,11 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Calculate level based on points
   const calculateLevel = (points: number): number => {
     return Math.floor(Math.sqrt(points / 100)) + 1;
+  };
+
+  // Get icon component for an achievement
+  const getAchievementIcon = (achievement: AchievementType): React.ReactNode => {
+    return getIconComponent(achievement.iconType);
   };
 
   // Update daily streak
@@ -183,8 +212,14 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       if (data) {
-        // Parse stored achievements
-        const storedAchievements = data.achievements || defaultAchievements;
+        // Parse stored achievements and add icons
+        let storedAchievements: AchievementType[] = 
+          Array.isArray(data.achievements) 
+            ? data.achievements.map((a: any) => ({
+                ...a,
+                iconType: a.iconType || 'trophy' // Ensure iconType exists
+              }))
+            : defaultAchievements;
         
         // Create profile with updated daily streak
         const updatedProfile = updateDailyStreak({
@@ -467,7 +502,8 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         checkAchievement,
         incrementAchievementProgress,
         resetRecentAchievement,
-        refreshGamificationProfile
+        refreshGamificationProfile,
+        getAchievementIcon
       }}
     >
       {children}
