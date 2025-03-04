@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, X, Trophy, Menu, Home, MessageCircle, User, Star, Plus } from "lucide-react";
+import { Search, X, Trophy, Menu, Home, MessageCircle, User, Star, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,13 +23,13 @@ import LevelProgress from "@/components/gamification/LevelProgress";
 import Logo from "@/components/Logo";
 
 interface NavigationBarProps {
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({ 
-  searchQuery, 
-  setSearchQuery 
+  searchQuery = "", 
+  setSearchQuery = () => {} 
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,12 +78,12 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
     {
       name: "Feed",
       path: "/feed",
-      icon: <MessageCircle className="h-5 w-5" />
+      icon: <Sparkles className="h-5 w-5" />
     },
     {
       name: "My Bubbles",
       path: "/my-bubbles",
-      icon: <Star className="h-5 w-5" />
+      icon: <MessageCircle className="h-5 w-5" />
     },
     {
       name: "Profile",
