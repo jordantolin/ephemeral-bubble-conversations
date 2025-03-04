@@ -29,9 +29,181 @@ const formatTimeRemaining = (expiryTime: Date) => {
   }
 };
 
+// Class to handle the physics simulation of each bubble
+class PhysicsBubble {
+  mesh: THREE.Group;
+  velocity: THREE.Vector3;
+  acceleration: THREE.Vector3;
+  mass: number;
+  radius: number;
+  isColliding: boolean;
+  centralWorldPos: THREE.Vector3;
+  centralWorldRef: THREE.Mesh | null;
+  id: string;
+  lastUpdateTime: number;
+  expiryTime: Date;
+  
+  constructor(mesh: THREE.Group, id: string, mass: number, radius: number, expiryTime: Date, centralWorldRef: THREE.Mesh | null) {
+    this.mesh = mesh;
+    this.id = id;
+    this.velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.02,
+      (Math.random() - 0.5) * 0.02,
+      (Math.random() - 0.5) * 0.02
+    );
+    this.acceleration = new THREE.Vector3(0, 0, 0);
+    this.mass = mass;
+    this.radius = radius;
+    this.isColliding = false;
+    this.centralWorldPos = new THREE.Vector3(0, 0, 0);
+    this.centralWorldRef = centralWorldRef;
+    this.lastUpdateTime = Date.now();
+    this.expiryTime = expiryTime;
+  }
+  
+  applyForce(force: THREE.Vector3) {
+    // F = ma => a = F/m
+    const f = force.clone().divideScalar(this.mass);
+    this.acceleration.add(f);
+  }
+  
+  updateVelocity(timeDelta: number) {
+    // Limit maximum speed
+    const maxSpeed = 0.05;
+    if (this.velocity.length() > maxSpeed) {
+      this.velocity.normalize().multiplyScalar(maxSpeed);
+    }
+    
+    // Add a small drag force to dampen velocity over time
+    this.velocity.multiplyScalar(0.99);
+  }
+  
+  update(timeDelta: number) {
+    // Apply gravity towards the central world
+    const directionToCenter = new THREE.Vector3();
+    
+    if (this.centralWorldRef) {
+      directionToCenter.copy(this.centralWorldRef.position).sub(this.mesh.position);
+    } else {
+      directionToCenter.copy(this.centralWorldPos).sub(this.mesh.position);
+    }
+    
+    const distanceToCenter = directionToCenter.length();
+    
+    // Calculate gravity force based on distance
+    const gravityStrength = 0.00001 * this.mass;
+    const minDistance = 2.0; // Minimum distance where gravity has full effect
+    const maxDistance = 10.0; // Maximum distance where gravity starts decreasing
+    
+    // Scale gravity based on distance to create orbits
+    let gravityScale = 1.0;
+    
+    if (distanceToCenter > maxDistance) {
+      // Increase gravity for bubbles that go too far
+      gravityScale = 1.0 + (distanceToCenter - maxDistance) * 0.1;
+    } else if (distanceToCenter < minDistance) {
+      // Decrease gravity for bubbles too close to create a "repulsion" effect
+      gravityScale = distanceToCenter / minDistance;
+    }
+    
+    // Apply gravity force
+    const gravityForce = directionToCenter.normalize().multiplyScalar(gravityStrength * gravityScale);
+    this.applyForce(gravityForce);
+    
+    // Apply a small tangential force to encourage orbital motion
+    const tangent = new THREE.Vector3(
+      -directionToCenter.z,
+      0,
+      directionToCenter.x
+    ).normalize().multiplyScalar(gravityStrength * 0.5);
+    this.applyForce(tangent);
+    
+    // Update velocity based on acceleration
+    this.velocity.add(this.acceleration.clone().multiplyScalar(timeDelta));
+    this.updateVelocity(timeDelta);
+    
+    // Update position
+    this.mesh.position.add(this.velocity.clone().multiplyScalar(timeDelta));
+    
+    // Reset acceleration for next frame
+    this.acceleration.set(0, 0, 0);
+    
+    // Make text labels face the camera
+    this.mesh.quaternion.copy(mesh.camera.quaternion);
+    
+    // Bubble slight rotation
+    this.mesh.children[0].rotation.y += 0.001 * timeDelta;
+    
+    // Update last time
+    this.lastUpdateTime = Date.now();
+  }
+  
+  checkCollision(other: PhysicsBubble): boolean {
+    const distanceVector = this.mesh.position.clone().sub(other.mesh.position);
+    const distance = distanceVector.length();
+    const minDistance = this.radius + other.radius;
+    
+    return distance < minDistance;
+  }
+  
+  resolveCollision(other: PhysicsBubble) {
+    const positionDiff = this.mesh.position.clone().sub(other.mesh.position);
+    const distance = positionDiff.length();
+    const minDistance = this.radius + other.radius;
+    
+    if (distance < minDistance) {
+      // Mark as colliding
+      this.isColliding = true;
+      other.isColliding = true;
+      
+      // Calculate penetration depth
+      const penetrationDepth = minDistance - distance;
+      
+      // Calculate collision normal
+      const collisionNormal = positionDiff.clone().normalize();
+      
+      // Move bubbles apart based on penetration
+      const pushRatio1 = other.mass / (this.mass + other.mass);
+      const pushRatio2 = this.mass / (this.mass + other.mass);
+      
+      this.mesh.position.add(collisionNormal.clone().multiplyScalar(penetrationDepth * pushRatio1 * 0.5));
+      other.mesh.position.sub(collisionNormal.clone().multiplyScalar(penetrationDepth * pushRatio2 * 0.5));
+      
+      // Calculate relative velocity
+      const relativeVelocity = this.velocity.clone().sub(other.velocity);
+      
+      // Calculate impulse scalar
+      const velocityAlongNormal = relativeVelocity.dot(collisionNormal);
+      
+      // Only resolve if objects are moving toward each other
+      if (velocityAlongNormal > 0) return;
+      
+      // Calculate restitution (bounciness)
+      const restitution = 0.6;
+      
+      // Calculate impulse scalar
+      let impulseScalar = -(1 + restitution) * velocityAlongNormal;
+      impulseScalar /= 1/this.mass + 1/other.mass;
+      
+      // Apply impulse
+      const impulse = collisionNormal.clone().multiplyScalar(impulseScalar);
+      
+      this.velocity.add(impulse.clone().multiplyScalar(1/this.mass));
+      other.velocity.sub(impulse.clone().multiplyScalar(1/other.mass));
+      
+      // Add slight repulsion to help bubbles separate
+      this.applyForce(collisionNormal.clone().multiplyScalar(0.0001));
+      other.applyForce(collisionNormal.clone().multiplyScalar(-0.0001));
+    } else {
+      this.isColliding = false;
+      other.isColliding = false;
+    }
+  }
+}
+
+// BubbleWorld component
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
   const sceneRef = useRef<THREE.Scene | null>(null);
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -39,7 +211,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const centralWorldRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
-  const particlesRef = useRef<{[key: string]: THREE.Points}>({});
+  const physicsBubblesRef = useRef<{ [key: string]: PhysicsBubble }>({});
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -232,26 +404,23 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
-      // Create bubbles with enhanced random positioning and improved visuals
+      // Create bubbles with physics
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
         if (topic.isExploding) {
-          // Create explosion effect if not already created
-          if (!particlesRef.current[topic.id]) {
-            // Use the last known position or a default
-            const lastKnownBubble = bubblesRef.current[topic.id];
-            if (lastKnownBubble) {
-              const position = lastKnownBubble.position.clone();
-              const size = topic.size === 'lg' ? 1.3 : 
-                          topic.size === 'md' ? 1.0 : 0.7;
-              const finalSize = size * (1 + topic.reflect_count * 0.1);
-              
-              particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
-              
-              // Remove the original bubble
-              scene.remove(lastKnownBubble);
-              delete bubblesRef.current[topic.id];
-            }
+          // Handle exploding bubbles
+          const lastKnownBubble = physicsBubblesRef.current[topic.id]?.mesh;
+          if (lastKnownBubble) {
+            const position = lastKnownBubble.position.clone();
+            const size = topic.size === 'lg' ? 1.3 : 
+                        topic.size === 'md' ? 1.0 : 0.7;
+            const finalSize = size * (1 + topic.reflect_count * 0.1);
+            
+            createExplosionParticles(position, finalSize * 2);
+            
+            // Remove the original bubble
+            scene.remove(lastKnownBubble);
+            delete physicsBubblesRef.current[topic.id];
           }
           return;
         }
@@ -299,17 +468,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             topicScale: finalSize * 1.4,
             reflectScale: finalSize * 1.2,
             timeScale: finalSize
-          },
-          // More interesting movement patterns
-          movement: {
-            speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
-            radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
-            angle: Math.random() * Math.PI * 2,
-            verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
-            verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
-            verticalOffset: Math.random() * Math.PI * 2,
-            rotationSpeed: Math.random() * 0.012 - 0.006,
-            wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
           },
           expiryRatio, // Store for animation use
           expiryTime // Store actual time
@@ -374,8 +532,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           Math.sin(angle) * radius
         );
         
-        bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
+        
+        // Create physics bubble
+        const mass = finalSize * 2;
+        physicsBubblesRef.current[topic.id] = new PhysicsBubble(
+          bubbleGroup, 
+          topic.id, 
+          mass, 
+          finalSize,
+          expiryTime,
+          centralWorldRef.current
+        );
       });
     } else {
       console.log("No topics to render in BubbleWorld");
@@ -511,7 +679,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         mouseRef.current.set(x, y);
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
 
-        const bubbleMeshes = Object.values(bubblesRef.current).map(group => group.children[0]);
+        const bubbleMeshes = Object.values(physicsBubblesRef.current).map(pb => pb.mesh.children[0]);
         const intersects = raycasterRef.current.intersectObjects(bubbleMeshes, true);
 
         if (intersects.length > 0) {
@@ -552,7 +720,22 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               )
               .start();
             
-            // Navigate directly to the BubbleChat page with state to indicate we came from bubbleWorld
+            // Apply an impulse to the clicked bubble
+            const physBubble = Object.values(physicsBubblesRef.current).find(
+              pb => pb.id === parent?.userData.id
+            );
+            
+            if (physBubble) {
+              // Apply random impulse for a more dynamic interaction
+              const impulse = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.05,
+                (Math.random() - 0.5) * 0.05,
+                (Math.random() - 0.5) * 0.05
+              );
+              physBubble.velocity.add(impulse);
+            }
+            
+            // Navigate to the BubbleChat page with state to indicate we came from bubbleWorld
             navigate(`/bubble-chat/${parent.userData.id}`, { state: { from: 'bubbleWorld' } });
             
             // Also call the provided onBubbleClick callback for external handling
@@ -649,11 +832,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Enhanced animation loop with more dynamic effects
-    let time = 0;
+    // Prepare physics simulation variables
+    let lastTime = performance.now();
+    
+    // Enhanced animation loop with more dynamic effects and physics simulation
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
-      time += 0.002;
+      const currentTime = performance.now();
+      const deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+      
+      // Calculate physics simulation with fixed time step
+      const timeStep = Math.min(deltaTime, 30); // Cap at 30ms to avoid large jumps
       
       // Smoother camera movement with enhanced zooming
       const zoom = interactionRef.current.zoom;
@@ -668,69 +858,40 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
 
-      // Update bubble positions with enhanced random movement
-      Object.values(bubblesRef.current).forEach(bubble => {
-        const movement = bubble.userData.movement;
-        const expiryRatio = bubble.userData.expiryRatio || 1;
-        
-        // Calculate new position with more dynamic random movement
-        const angle = time * movement.speed + movement.angle;
-        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.2;
-        const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
-        
-        // Apply rotation from central world for coordinated movement
-        const rotationOffset = new THREE.Euler(
-          centralWorld.rotation.x,
-          centralWorld.rotation.y,
-          centralWorld.rotation.z
-        );
-        
-        const x = Math.cos(angle) * movement.radius + wobble;
-        const y = verticalMovement;
-        const z = Math.sin(angle) * movement.radius + wobble;
-        
-        const position = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
-        bubble.position.copy(position);
-        
-        // Add subtle rotation to each bubble
-        bubble.rotation.y += movement.rotationSpeed;
-        
-        // Make bubbles face camera for better text readability
-        bubble.quaternion.copy(camera.quaternion);
-        
-        // Scale the bubble and text based on zoom level
-        const origScale = bubble.userData.originalScale;
-        const bubbleMesh = bubble.children[0] as THREE.Mesh;
-        const scaleFactor = origScale * zoomFactor;
-        bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      // Apply physics to all bubbles
+      const physBubbles = Object.values(physicsBubblesRef.current);
+      
+      // Update physics for each bubble
+      physBubbles.forEach(physBubble => {
+        // Update physics
+        physBubble.update(timeStep);
         
         // Update bubble appearance based on time remaining
-        if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
+        const bubbleMesh = physBubble.mesh.children[0] as THREE.Mesh;
+        if (bubbleMesh && bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
           // Update expiry ratio
           const now = new Date();
-          const expiryTime = bubble.userData.expiryTime || new Date();
+          const expiryTime = physBubble.expiryTime;
           const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
           const updatedExpiryRatio = timeUntilExpiry / (24*60*60*1000);
-          bubble.userData.expiryRatio = updatedExpiryRatio;
           
           // Pulse effect as bubble gets closer to expiry
           if (updatedExpiryRatio < 0.1) {
-            const pulseIntensity = 0.2 + Math.sin(time * 20) * 0.2;
+            const pulseIntensity = 0.2 + Math.sin(currentTime * 0.005) * 0.2;
             bubbleMesh.material.emissiveIntensity = pulseIntensity;
             bubbleMesh.material.opacity = 0.5 + pulseIntensity * 0.5;
           }
         }
         
         // Update time remaining label
-        if (bubble.children.length >= 4) {
-          const timeRemainingSprite = bubble.children[3] as THREE.Sprite;
-          if (bubble.userData.expiryTime) {
+        if (physBubble.mesh.children.length >= 4) {
+          const timeRemainingSprite = physBubble.mesh.children[3] as THREE.Sprite;
+          if (physBubble.expiryTime) {
             const now = new Date();
-            const expiryTime = bubble.userData.expiryTime;
             
             // If it's been more than a minute, update the label
             if (now.getTime() % 60000 < 1000) {
-              const formattedTime = formatTimeRemaining(expiryTime);
+              const formattedTime = formatTimeRemaining(physBubble.expiryTime);
               const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 26 : 30);
               const texture = new THREE.CanvasTexture(canvas);
               texture.needsUpdate = true;
@@ -743,10 +904,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           }
         }
         
+        // Scale based on zoom level
+        const origScale = physBubble.mesh.userData.originalScale;
+        const bubbleMesh = physBubble.mesh.children[0] as THREE.Mesh;
+        const scaleFactor = origScale * zoomFactor;
+        bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        
         // Scale text sprites with improved proportions
-        for (let i = 1; i < bubble.children.length; i++) {
-          const sprite = bubble.children[i] as THREE.Sprite;
-          const textScales = bubble.userData.textScales;
+        const textScales = physBubble.mesh.userData.textScales;
+        for (let i = 1; i < physBubble.mesh.children.length; i++) {
+          const sprite = physBubble.mesh.children[i] as THREE.Sprite;
           const textScaleFactor = zoomFactor * 0.9;
           
           let baseScale;
@@ -773,10 +940,19 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           sprite.position.set(0, yOffset, 0);
         }
       });
+      
+      // Handle collisions between bubbles
+      for (let i = 0; i < physBubbles.length; i++) {
+        for (let j = i + 1; j < physBubbles.length; j++) {
+          if (physBubbles[i].checkCollision(physBubbles[j])) {
+            physBubbles[i].resolveCollision(physBubbles[j]);
+          }
+        }
+      }
 
       // Apply gentle auto-rotation to central world when not interacting
-      if (!interactionRef.current.isInteracting && centralWorld) {
-        centralWorld.rotation.y += 0.0003;
+      if (!interactionRef.current.isInteracting && centralWorldRef.current) {
+        centralWorldRef.current.rotation.y += 0.0003;
       }
 
       TWEEN.update();
@@ -826,8 +1002,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       window.removeEventListener('resize', handleResize);
       
       // Clear all references
-      Object.values(bubblesRef.current).forEach(group => {
-        group.children.forEach(child => {
+      Object.values(physicsBubblesRef.current).forEach(pb => {
+        pb.mesh.children.forEach(child => {
           if (child instanceof THREE.Mesh && child.geometry) {
             child.geometry.dispose();
           }
@@ -836,9 +1012,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             material.forEach(m => m.dispose());
           }
         });
+        scene.remove(pb.mesh);
       });
       
-      bubblesRef.current = {};
+      physicsBubblesRef.current = {};
       sceneRef.current = null;
       rendererRef.current = null;
       cameraRef.current = null;

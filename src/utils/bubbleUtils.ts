@@ -1,5 +1,11 @@
+
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+
+// Global mesh object for accessing camera
+export const mesh = {
+  camera: new THREE.PerspectiveCamera()
+};
 
 // Collection of active channels for better management
 const activeChannels: { [key: string]: RealtimeChannel } = {};
