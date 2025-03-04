@@ -6,7 +6,7 @@ import { Award, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const AchievementPopup: React.FC = () => {
-  const { recentAchievement, resetRecentAchievement } = useGamification();
+  const { recentAchievement, resetRecentAchievement, getAchievementIcon } = useGamification();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ const AchievementPopup: React.FC = () => {
           <div className="bg-gradient-to-br from-[#ebbd34]/20 to-[#ebbd34]/40 backdrop-blur-md rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
             <div className="flex items-start">
               <div className="bg-[#ebbd34] rounded-full p-3 mr-4">
-                {recentAchievement.icon || <Award className="h-6 w-6 text-white" />}
+                {getAchievementIcon(recentAchievement) || <Award className="h-6 w-6 text-white" />}
               </div>
               
               <div className="flex-1">
