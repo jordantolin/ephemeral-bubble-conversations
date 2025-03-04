@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -107,8 +106,25 @@ const CentralWorld = () => {
   try {
     // Only attempt to load the model if we haven't encountered an error yet
     if (!modelError) {
-      const { scene } = useGLTF('/models/central_world.glb', undefined, onError);
-      return <primitive object={scene} scale={0.8} />;
+      // Fixed: The third parameter needs to be a boolean, not a function
+      // We'll use onError as an error event handler separately
+      const { scene } = useGLTF('/models/central_world.glb');
+      
+      // Add error event listener to the scene
+      useEffect(() => {
+        const model = scene;
+        if (model) {
+          // Check if model loaded correctly
+          if (!model.children || model.children.length === 0) {
+            onError();
+          }
+        }
+        return () => {
+          // Cleanup if needed
+        };
+      }, [scene]);
+      
+      return <primitive object={scene} scale={0.8} onError={onError} />;
     }
   } catch (error) {
     console.error("Error loading central world model:", error);
@@ -266,10 +282,11 @@ const BubbleScene = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
   const [error, setError] = useState<string | null>(null);
   
-  // Global error handler for Canvas
-  const handleCanvasErrors = (err: Error) => {
-    console.error("BubbleWorld canvas error:", err);
-    setError(err.message);
+  // Fixed: Create a proper React error handler for Canvas
+  // This needs to handle React's synthetic events rather than Error objects
+  const handleCanvasErrors = () => {
+    console.error("BubbleWorld canvas error occurred");
+    setError("Failed to render 3D visualization");
   };
   
   if (error) {
