@@ -1,4 +1,4 @@
-<lov-code>
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -230,8 +230,89 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return particles;
     };
 
+    // Calculate bubble positions with improved spacing to prevent overlaps
+    const calculateBubblePositions = (topics: any[]) => {
+      // Create a grid-based system to place bubbles with better spacing
+      const gridCells: { [key: string]: boolean } = {};
+      const minDistance = 2.0; // Minimum distance between bubble centers
+      
+      // Helper to check if a position is far enough from existing bubbles
+      const isPositionFarEnough = (x: number, y: number, z: number) => {
+        // Check surrounding grid cells for occupancy
+        const cellX = Math.floor(x / minDistance);
+        const cellY = Math.floor(y / minDistance);
+        const cellZ = Math.floor(z / minDistance);
+        
+        // Check a 3x3x3 grid around the current cell
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dz = -1; dz <= 1; dz++) {
+              const key = `${cellX + dx},${cellY + dy},${cellZ + dz}`;
+              if (gridCells[key]) return false;
+            }
+          }
+        }
+        
+        return true;
+      };
+      
+      // Reserve a position in the grid
+      const reservePosition = (x: number, y: number, z: number) => {
+        const cellX = Math.floor(x / minDistance);
+        const cellY = Math.floor(y / minDistance);
+        const cellZ = Math.floor(z / minDistance);
+        gridCells[`${cellX},${cellY},${cellZ}`] = true;
+      };
+      
+      // Generate positions for all bubbles
+      const positions: { x: number, y: number, z: number, radius: number, angle: number }[] = [];
+      
+      // Distribute bubbles evenly in a spherical pattern
+      topics.forEach((_, index) => {
+        const topicsCount = topics.length;
+        // Distribute angles more evenly using the golden ratio
+        const goldenRatio = (1 + Math.sqrt(5)) / 2;
+        const theta = 2 * Math.PI * index / goldenRatio;
+        const phi = Math.acos(1 - 2 * (index + 0.5) / topicsCount);
+        
+        // Base radius with slight randomization for natural appearance
+        const radiusBase = 3.0 + (Math.random() * 1.5);
+        
+        // Calculate 3D position using spherical coordinates
+        let x = radiusBase * Math.sin(phi) * Math.cos(theta);
+        let y = (Math.random() * 3.0 - 1.5); // Vertical scatter
+        let z = radiusBase * Math.sin(phi) * Math.sin(theta);
+        
+        // Find a free spot if this position is too close to others
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        while (!isPositionFarEnough(x, y, z) && attempts < maxAttempts) {
+          // Slightly adjust position
+          x += (Math.random() - 0.5) * minDistance;
+          y += (Math.random() - 0.5) * minDistance;
+          z += (Math.random() - 0.5) * minDistance;
+          attempts++;
+        }
+        
+        // Reserve this position
+        reservePosition(x, y, z);
+        
+        positions.push({
+          x, y, z,
+          radius: Math.sqrt(x*x + z*z), // Keep track of radius for orbit
+          angle: Math.atan2(z, x) // Keep track of angle for orbit
+        });
+      });
+      
+      return positions;
+    };
+
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
+      // Get optimized bubble positions
+      const bubblePositions = calculateBubblePositions(topics);
+      
       // Create bubbles with enhanced random positioning and improved visuals
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
@@ -287,6 +368,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           material.roughness = 0.2;
         }
 
+        // Get position from our calculated positions
+        const position = bubblePositions[index];
+
         bubbleGroup.userData = {
           id: topic.id,
           orbitIndex: index,
@@ -300,10 +384,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           // More interesting movement patterns
           movement: {
             speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
-            radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
-            angle: Math.random() * Math.PI * 2,
+            radius: position.radius, // Use calculated radius
+            angle: position.angle, // Use calculated angle
             verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
-            verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
+            verticalRange: Math.random() * 2.0 * expiryRatio, // Higher amplitude when fresh
             verticalOffset: Math.random() * Math.PI * 2,
             rotationSpeed: Math.random() * 0.012 - 0.006,
             wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
@@ -361,53 +445,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           isMobile ? 26 : 30
         ));
 
-        // Set initial random position with IMPROVED SPACING to prevent overlapping
-        // Calculate a more distributed position based on index to prevent overlaps
-        const topicsCount = topics.length;
-        const angle = (index / topicsCount) * Math.PI * 2;
-        const radiusBase = 4.0; // Base radius
-        const radiusVariance = 2.0; // Add some randomness to radius
-        const radius = radiusBase + Math.random() * radiusVariance;
-        
-        // More evenly distribute vertically as well
-        const verticalRange = 4.0;
-        const y = ((index % 3) - 1) * (verticalRange / 3) + (Math.random() - 0.5) * 0.8;
-        
-        bubbleGroup.position.set(
-          Math.cos(angle) * radius,
-          y,
-          Math.sin(angle) * radius
-        );
+        // Set initial position from our calculated positions
+        bubbleGroup.position.set(position.x, position.y, position.z);
         
         // Add random initial rotation to make it more interesting
         bubbleGroup.rotation.x = Math.random() * 0.2 - 0.1;
         bubbleGroup.rotation.y = Math.random() * 0.2 - 0.1;
-        
-        // Store additional movement data to ensure bubbles don't crowd each other
-        bubbleGroup.userData = {
-          id: topic.id,
-          orbitIndex: index,
-          originalScale: finalSize,
-          textScales: {
-            nameScale: finalSize * 1.6, // Larger text scales for better readability
-            topicScale: finalSize * 1.4,
-            reflectScale: finalSize * 1.2,
-            timeScale: finalSize
-          },
-          // More interesting movement patterns with improved spacing considerations
-          movement: {
-            speed: (Math.random() * 0.002 + 0.001) * (0.5 + (topic.expires_at ? new Date(topic.expires_at).getTime() - new Date().getTime() : 24*60*60*1000) / (24*60*60*1000) * 0.5),
-            radius: radius, // Keep consistent with initial position
-            angle: angle, // Start at the distributed angle
-            verticalSpeed: (Math.random() * 0.004 - 0.002),
-            verticalRange: Math.random() * 1.5, // Reduced vertical movement to prevent overlaps
-            verticalOffset: Math.random() * Math.PI * 2,
-            rotationSpeed: Math.random() * 0.008 - 0.004,
-            wobble: Math.random() * 0.002 // Reduced wobble
-          },
-          expiryRatio: topic.expires_at ? Math.max(0, (new Date(topic.expires_at).getTime() - new Date().getTime()) / (24*60*60*1000)) : 1,
-          expiryTime: topic.expires_at ? new Date(topic.expires_at) : new Date(new Date().getTime() + 24*60*60*1000)
-        };
         
         bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
@@ -690,6 +733,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       animationFrameRef.current = requestAnimationFrame(animate);
       time += 0.002;
       
+      // Process TWEEN animations
+      TWEEN.update();
+      
       // Smoother camera movement with enhanced zooming
       const zoom = interactionRef.current.zoom;
       const zoomLerpFactor = isMobile ? 0.15 : 0.1;
@@ -750,4 +796,116 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           
           // Pulse effect as bubble gets closer to expiry
           if (updatedExpiryRatio < 0.1) {
-            const pulseIntensity = 0.2 + Math.sin(time * 20) * 
+            const pulseIntensity = 0.2 + Math.sin(time * 20) * 0.2;
+            bubbleMesh.material.emissiveIntensity = pulseIntensity;
+          }
+        }
+        
+        // Update time remaining text
+        if (bubble.children.length >= 4) {
+          const timeSprite = bubble.children[3] as THREE.Sprite;
+          if (timeSprite && bubble.userData.expiryTime) {
+            const timeCanvas = createTextCanvas(
+              `⏱ ${formatTimeRemaining(bubble.userData.expiryTime)}`, 
+              isMobile ? 26 : 30
+            );
+            const timeTexture = new THREE.CanvasTexture(timeCanvas);
+            timeTexture.needsUpdate = true;
+            (timeSprite.material as THREE.SpriteMaterial).map = timeTexture;
+          }
+        }
+      });
+
+      renderer.render(scene, camera);
+    };
+
+    // Start animation
+    animate();
+
+    // Handle window resize
+    const handleResize = () => {
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(width, height);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Clean up
+    return () => {
+      console.log("Cleaning up BubbleWorld component");
+
+      window.removeEventListener('resize', handleResize);
+      
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('mousemove', onMouseMove);
+      container.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('mouseleave', onMouseLeave);
+      container.removeEventListener('wheel', onWheel);
+      
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        
+        // Remove canvas from DOM
+        if (containerRef.current && rendererRef.current.domElement.parentNode === containerRef.current) {
+          containerRef.current.removeChild(rendererRef.current.domElement);
+        }
+      }
+      
+      // Clean up THREE.js resources
+      Object.values(bubblesRef.current).forEach(bubble => {
+        if (bubble.children) {
+          bubble.children.forEach(child => {
+            if (child instanceof THREE.Mesh) {
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) {
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(mat => mat.dispose());
+                } else {
+                  child.material.dispose();
+                }
+              }
+            } else if (child instanceof THREE.Sprite) {
+              if (child.material && (child.material as THREE.SpriteMaterial).map) {
+                (child.material as THREE.SpriteMaterial).map.dispose();
+              }
+              child.material.dispose();
+            }
+          });
+        }
+      });
+      
+      // Clear references
+      bubblesRef.current = {};
+      particlesRef.current = {};
+      sceneRef.current = null;
+      rendererRef.current = null;
+      cameraRef.current = null;
+      centralWorldRef.current = null;
+    };
+  }, [topics, onBubbleClick, navigate]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="w-full h-[750px] relative rounded-lg overflow-hidden"
+      style={{ touchAction: 'none' }}
+    >
+      {/* Container for Three.js canvas */}
+    </div>
+  );
+};
+
+export default BubbleWorld;
