@@ -9,7 +9,7 @@ export const useAvatarUpload = (userId: string) => {
   const { uploadAvatar } = useAuth();
 
   const uploadAvatarFile = async (file: File) => {
-    if (!file) return;
+    if (!file) return null;
 
     setIsUploading(true);
     
