@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/context/AuthContext';
 
 export const useAvatarUpload = (userId: string) => {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { updateProfile } = useAuth();
 
   const uploadAvatar = async (file: File) => {
     if (!file) return null;
@@ -98,16 +100,13 @@ export const useAvatarUpload = (userId: string) => {
       const publicUrl = publicUrlData.publicUrl;
       console.log("Public URL obtained:", publicUrl);
 
-      // Update the profile with the new avatar URL
+      // Update the profile with the new avatar URL using updateProfile from AuthContext
       console.log("Updating profile with new avatar URL");
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', userId);
+      const { success, error } = await updateProfile({ avatar_url: publicUrl });
 
-      if (updateError) {
-        console.error("Profile update error:", updateError);
-        throw updateError;
+      if (!success) {
+        console.error("Profile update error:", error);
+        throw error;
       }
 
       // Invalidate profile query to refresh data
