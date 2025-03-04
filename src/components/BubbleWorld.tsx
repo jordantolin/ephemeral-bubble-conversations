@@ -9,7 +9,6 @@ import {
   createTextCanvas,
   createCentralWorldGeometry,
   createCentralWorldMaterial,
-  mesh as globalMesh
 } from '@/utils/bubbleUtils';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,182 +29,9 @@ const formatTimeRemaining = (expiryTime: Date) => {
   }
 };
 
-// Class to handle the physics simulation of each bubble
-class PhysicsBubble {
-  mesh: THREE.Group;
-  velocity: THREE.Vector3;
-  acceleration: THREE.Vector3;
-  mass: number;
-  radius: number;
-  isColliding: boolean;
-  centralWorldPos: THREE.Vector3;
-  centralWorldRef: THREE.Mesh | null;
-  id: string;
-  lastUpdateTime: number;
-  expiryTime: Date;
-  
-  constructor(mesh: THREE.Group, id: string, mass: number, radius: number, expiryTime: Date, centralWorldRef: THREE.Mesh | null) {
-    this.mesh = mesh;
-    this.id = id;
-    this.velocity = new THREE.Vector3(
-      (Math.random() - 0.5) * 0.005, // Reduced initial velocity for calmer movement
-      (Math.random() - 0.5) * 0.005,
-      (Math.random() - 0.5) * 0.005
-    );
-    this.acceleration = new THREE.Vector3(0, 0, 0);
-    this.mass = mass;
-    this.radius = radius;
-    this.isColliding = false;
-    this.centralWorldPos = new THREE.Vector3(0, 0, 0);
-    this.centralWorldRef = centralWorldRef;
-    this.lastUpdateTime = Date.now();
-    this.expiryTime = expiryTime;
-  }
-  
-  applyForce(force: THREE.Vector3) {
-    // F = ma => a = F/m
-    const f = force.clone().divideScalar(this.mass);
-    this.acceleration.add(f);
-  }
-  
-  updateVelocity(timeDelta: number) {
-    // Limit maximum speed - reduced for calmer movement
-    const maxSpeed = 0.02; // Reduced from 0.05
-    if (this.velocity.length() > maxSpeed) {
-      this.velocity.normalize().multiplyScalar(maxSpeed);
-    }
-    
-    // Add a stronger drag force to dampen velocity more aggressively
-    this.velocity.multiplyScalar(0.97); // Increased drag from 0.99
-  }
-  
-  update(timeDelta: number) {
-    // Apply gravity towards the central world
-    const directionToCenter = new THREE.Vector3();
-    
-    if (this.centralWorldRef) {
-      directionToCenter.copy(this.centralWorldRef.position).sub(this.mesh.position);
-    } else {
-      directionToCenter.copy(this.centralWorldPos).sub(this.mesh.position);
-    }
-    
-    const distanceToCenter = directionToCenter.length();
-    
-    // Calculate gravity force based on distance - reduced strength for slower orbits
-    const gravityStrength = 0.000005 * this.mass; // Reduced from 0.00001
-    const minDistance = 2.5; // Increased minimum distance where gravity has full effect
-    const maxDistance = 12.0; // Increased maximum distance
-    
-    // Scale gravity based on distance to create gentler orbits
-    let gravityScale = 1.0;
-    
-    if (distanceToCenter > maxDistance) {
-      // Increase gravity for bubbles that go too far
-      gravityScale = 1.0 + (distanceToCenter - maxDistance) * 0.05; // Reduced from 0.1
-    } else if (distanceToCenter < minDistance) {
-      // Decrease gravity for bubbles too close to create a "repulsion" effect
-      gravityScale = distanceToCenter / minDistance;
-    }
-    
-    // Apply gravity force with reduced strength
-    const gravityForce = directionToCenter.normalize().multiplyScalar(gravityStrength * gravityScale);
-    this.applyForce(gravityForce);
-    
-    // Apply a smaller tangential force to encourage gentler orbital motion
-    const tangent = new THREE.Vector3(
-      -directionToCenter.z,
-      0,
-      directionToCenter.x
-    ).normalize().multiplyScalar(gravityStrength * 0.3); // Reduced from 0.5
-    this.applyForce(tangent);
-    
-    // Update velocity based on acceleration
-    this.velocity.add(this.acceleration.clone().multiplyScalar(timeDelta));
-    this.updateVelocity(timeDelta);
-    
-    // Update position with a dampening factor for even slower movement
-    const positionDelta = this.velocity.clone().multiplyScalar(timeDelta * 0.8); // Added dampening factor
-    this.mesh.position.add(positionDelta);
-    
-    // Reset acceleration for next frame
-    this.acceleration.set(0, 0, 0);
-    
-    // Make text labels face the camera
-    this.mesh.quaternion.copy(globalMesh.camera.quaternion);
-    
-    // Bubble slight rotation - reduced for calmer appearance
-    this.mesh.children[0].rotation.y += 0.0005 * timeDelta; // Reduced from 0.001
-    
-    // Update last time
-    this.lastUpdateTime = Date.now();
-  }
-  
-  checkCollision(other: PhysicsBubble): boolean {
-    const distanceVector = this.mesh.position.clone().sub(other.mesh.position);
-    const distance = distanceVector.length();
-    const minDistance = this.radius + other.radius;
-    
-    return distance < minDistance;
-  }
-  
-  resolveCollision(other: PhysicsBubble) {
-    const positionDiff = this.mesh.position.clone().sub(other.mesh.position);
-    const distance = positionDiff.length();
-    const minDistance = this.radius + other.radius;
-    
-    if (distance < minDistance) {
-      // Mark as colliding
-      this.isColliding = true;
-      other.isColliding = true;
-      
-      // Calculate penetration depth
-      const penetrationDepth = minDistance - distance;
-      
-      // Calculate collision normal
-      const collisionNormal = positionDiff.clone().normalize();
-      
-      // Move bubbles apart based on penetration
-      const pushRatio1 = other.mass / (this.mass + other.mass);
-      const pushRatio2 = this.mass / (this.mass + other.mass);
-      
-      this.mesh.position.add(collisionNormal.clone().multiplyScalar(penetrationDepth * pushRatio1 * 0.7)); // Increased separation factor
-      other.mesh.position.sub(collisionNormal.clone().multiplyScalar(penetrationDepth * pushRatio2 * 0.7));
-      
-      // Calculate relative velocity
-      const relativeVelocity = this.velocity.clone().sub(other.velocity);
-      
-      // Calculate impulse scalar
-      const velocityAlongNormal = relativeVelocity.dot(collisionNormal);
-      
-      // Only resolve if objects are moving toward each other
-      if (velocityAlongNormal > 0) return;
-      
-      // Calculate restitution (bounciness) - reduced for softer collisions
-      const restitution = 0.4; // Reduced from 0.6
-      
-      // Calculate impulse scalar
-      let impulseScalar = -(1 + restitution) * velocityAlongNormal;
-      impulseScalar /= 1/this.mass + 1/other.mass;
-      
-      // Apply impulse with reduced strength
-      const impulse = collisionNormal.clone().multiplyScalar(impulseScalar * 0.7); // Added dampening factor
-      
-      this.velocity.add(impulse.clone().multiplyScalar(1/this.mass));
-      other.velocity.sub(impulse.clone().multiplyScalar(1/other.mass));
-      
-      // Add very slight repulsion to help bubbles separate gently
-      this.applyForce(collisionNormal.clone().multiplyScalar(0.00005)); // Reduced from 0.0001
-      other.applyForce(collisionNormal.clone().multiplyScalar(-0.00005));
-    } else {
-      this.isColliding = false;
-      other.isColliding = false;
-    }
-  }
-}
-
-// BubbleWorld component
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
   const sceneRef = useRef<THREE.Scene | null>(null);
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -213,7 +39,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const centralWorldRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
-  const physicsBubblesRef = useRef<{ [key: string]: PhysicsBubble }>({});
+  const particlesRef = useRef<{[key: string]: THREE.Points}>({});
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -254,18 +80,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const isMobile = width < 768;
 
     // Create perspective camera with improved field of view for better immersion
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000); // Reduced FOV for less distortion
+    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
     
     // Position camera to view the world from a better angle
-    camera.position.z = isMobile ? 15 : 18; // Increased distance for a wider view
-    camera.position.y = 2; // Slightly above the center for a better looking-down perspective
+    camera.position.z = isMobile ? 8 : 10;
+    camera.position.y = 1; // Slightly above the center for a better looking-down perspective
     
     interactionRef.current.zoom.current = camera.position.z;
     interactionRef.current.zoom.target = camera.position.z;
     cameraRef.current = camera;
-    
-    // Store camera in global mesh object for text label orientation
-    globalMesh.camera = camera;
 
     // Enhanced renderer with better anti-aliasing for smoother edges
     const renderer = new THREE.WebGLRenderer({
@@ -313,7 +136,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centralWorld.castShadow = true;
     centralWorld.receiveShadow = true;
     // Adjust central world size
-    centralWorld.scale.set(1.8, 1.8, 1.8); // Increased size for better visibility
+    centralWorld.scale.set(1.2, 1.2, 1.2);
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
@@ -409,23 +232,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
-      // Create bubbles with physics
+      // Create bubbles with enhanced random positioning and improved visuals
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
         if (topic.isExploding) {
-          // Handle exploding bubbles
-          const lastKnownBubble = physicsBubblesRef.current[topic.id]?.mesh;
-          if (lastKnownBubble) {
-            const position = lastKnownBubble.position.clone();
-            const size = topic.size === 'lg' ? 1.3 : 
-                        topic.size === 'md' ? 1.0 : 0.7;
-            const finalSize = size * (1 + topic.reflect_count * 0.1);
-            
-            createExplosionParticles(position, finalSize * 2);
-            
-            // Remove the original bubble
-            scene.remove(lastKnownBubble);
-            delete physicsBubblesRef.current[topic.id];
+          // Create explosion effect if not already created
+          if (!particlesRef.current[topic.id]) {
+            // Use the last known position or a default
+            const lastKnownBubble = bubblesRef.current[topic.id];
+            if (lastKnownBubble) {
+              const position = lastKnownBubble.position.clone();
+              const size = topic.size === 'lg' ? 1.3 : 
+                          topic.size === 'md' ? 1.0 : 0.7;
+              const finalSize = size * (1 + topic.reflect_count * 0.1);
+              
+              particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
+              
+              // Remove the original bubble
+              scene.remove(lastKnownBubble);
+              delete bubblesRef.current[topic.id];
+            }
           }
           return;
         }
@@ -473,6 +299,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             topicScale: finalSize * 1.4,
             reflectScale: finalSize * 1.2,
             timeScale: finalSize
+          },
+          // More interesting movement patterns
+          movement: {
+            speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
+            radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
+            angle: Math.random() * Math.PI * 2,
+            verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
+            verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
+            verticalOffset: Math.random() * Math.PI * 2,
+            rotationSpeed: Math.random() * 0.012 - 0.006,
+            wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
           },
           expiryRatio, // Store for animation use
           expiryTime // Store actual time
@@ -527,34 +364,24 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           isMobile ? 26 : 30
         ));
 
-        // Set initial random position with wider and more even distribution
+        // Set initial random position with wider distribution
         const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * 6.0 + 4.0; // Wider initial distribution
-        const y = (Math.random() - 0.5) * 8.0; // More vertical space
+        const radius = Math.random() * 4.0 + 2.5;
+        const y = (Math.random() - 0.5) * 5.0;
         bubbleGroup.position.set(
           Math.cos(angle) * radius,
           y,
           Math.sin(angle) * radius
         );
         
+        bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
-        
-        // Create physics bubble
-        const mass = finalSize * 2;
-        physicsBubblesRef.current[topic.id] = new PhysicsBubble(
-          bubbleGroup, 
-          topic.id, 
-          mass, 
-          finalSize,
-          expiryTime,
-          centralWorldRef.current
-        );
       });
     } else {
       console.log("No topics to render in BubbleWorld");
     }
 
-    // Improved touch handling with adjustments for view movement
+    // Improved touch handling
     let initialPinchDistance = 0;
     
     const getPinchDistance = (e: TouchEvent) => {
@@ -608,19 +435,16 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           interactionRef.current.isDragging = true;
         }
         
-        if (interactionRef.current.isDragging && cameraRef.current) {
+        if (interactionRef.current.isDragging && centralWorldRef.current) {
           const dx = touch.clientX - interactionRef.current.lastX;
           const dy = touch.clientY - interactionRef.current.lastY;
           
-          // Rotate the entire scene for a more immersive navigation
-          if (centralWorldRef.current) {
-            centralWorldRef.current.rotation.y += dx * 0.008; // Adjusted sensitivity
-            centralWorldRef.current.rotation.x += dy * 0.008;
-          }
+          centralWorldRef.current.rotation.y += dx * 0.01;
+          centralWorldRef.current.rotation.x += dy * 0.01;
           
           interactionRef.current.momentum = {
-            x: dx * 0.008 * 0.8, // Adjusted momentum
-            y: dy * 0.008 * 0.8
+            x: dx * 0.01 * 0.8,
+            y: dy * 0.01 * 0.8
           };
         }
         
@@ -687,12 +511,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         mouseRef.current.set(x, y);
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
 
-        const bubbleMeshes = Object.values(physicsBubblesRef.current).map(pb => pb.mesh.children[0]);
+        const bubbleMeshes = Object.values(bubblesRef.current).map(group => group.children[0]);
         const intersects = raycasterRef.current.intersectObjects(bubbleMeshes, true);
 
         if (intersects.length > 0) {
-          const bubbleElement = intersects[0].object;
-          let parent = bubbleElement.parent;
+          const bubbleObject = intersects[0].object;
+          let parent = bubbleObject.parent;
           while (parent && (!parent.userData || !parent.userData.id)) {
             parent = parent.parent;
           }
@@ -706,8 +530,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               .to(targetScale, 200)
               .easing(TWEEN.Easing.Bounce.Out) // Bounce effect
               .onUpdate(() => {
-                if (!bubbleElement) return;
-                bubbleElement.scale.set(
+                if (!bubbleObject) return;
+                bubbleObject.scale.set(
                   originalScale.value,
                   originalScale.value,
                   originalScale.value
@@ -718,8 +542,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
                   .to({ value: 1 }, 200)
                   .easing(TWEEN.Easing.Elastic.Out) // Elastic return
                   .onUpdate(() => {
-                    if (!bubbleElement) return;
-                    bubbleElement.scale.set(
+                    if (!bubbleObject) return;
+                    bubbleObject.scale.set(
                       targetScale.value,
                       targetScale.value,
                       targetScale.value
@@ -728,22 +552,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               )
               .start();
             
-            // Apply an impulse to the clicked bubble
-            const physBubble = Object.values(physicsBubblesRef.current).find(
-              pb => pb.id === parent?.userData.id
-            );
-            
-            if (physBubble) {
-              // Apply random impulse for a more dynamic interaction
-              const impulse = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.05,
-                (Math.random() - 0.5) * 0.05,
-                (Math.random() - 0.5) * 0.05
-              );
-              physBubble.velocity.add(impulse);
-            }
-            
-            // Navigate to the BubbleChat page with state to indicate we came from bubbleWorld
+            // Navigate directly to the BubbleChat page with state to indicate we came from bubbleWorld
             navigate(`/bubble-chat/${parent.userData.id}`, { state: { from: 'bubbleWorld' } });
             
             // Also call the provided onBubbleClick callback for external handling
@@ -763,7 +572,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!interactionRef.current.isInteracting) return;
+      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
       const deltaX = Math.abs(e.clientX - interactionRef.current.startX);
       const deltaY = Math.abs(e.clientY - interactionRef.current.startY);
@@ -773,200 +582,274 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         interactionRef.current.isDragging = true;
       }
       
-      if (interactionRef.current.isDragging && centralWorldRef.current) {
+      if (interactionRef.current.isDragging) {
         const dx = e.clientX - interactionRef.current.lastX;
         const dy = e.clientY - interactionRef.current.lastY;
 
-        // Improve view movement with smoother rotation
-        centralWorldRef.current.rotation.y += dx * 0.004; // Adjusted sensitivity for smoother rotation
-        centralWorldRef.current.rotation.x += dy * 0.004;
+        centralWorldRef.current.rotation.y += dx * 0.005;
+        centralWorldRef.current.rotation.x += dy * 0.005;
 
         interactionRef.current.momentum = {
-          x: dx * 0.004 * 0.85, // Slightly more momentum retention
-          y: dy * 0.004 * 0.85
+          x: dx * 0.005 * 0.8,
+          y: dy * 0.005 * 0.8
         };
       }
-      
+
       interactionRef.current.lastX = e.clientX;
       interactionRef.current.lastY = e.clientY;
     };
 
     const onMouseUp = (e: MouseEvent) => {
-      if (interactionRef.current.isInteracting) {
-        const wasDragging = interactionRef.current.isDragging;
-        interactionRef.current.isInteracting = false;
-        
-        if (!wasDragging) {
-          handleBubbleClick(e);
-        }
-        
-        if (wasDragging && centralWorldRef.current) {
-          const decay = 0.95;
-          const applyMomentum = () => {
-            if (!centralWorldRef.current) return;
-            
-            const momentum = interactionRef.current.momentum;
-            if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-              centralWorldRef.current.rotation.y += momentum.x;
-              centralWorldRef.current.rotation.x += momentum.y;
-              momentum.x *= decay;
-              momentum.y *= decay;
-              requestAnimationFrame(applyMomentum);
-            }
-          };
-          
-          applyMomentum();
-        }
+      const wasDragging = interactionRef.current.isDragging;
+      interactionRef.current.isInteracting = false;
+
+      if (!wasDragging) {
+        handleBubbleClick(e);
       }
+
+      if (wasDragging && centralWorldRef.current) {
+        const decay = 0.95;
+        const applyMomentum = () => {
+          if (!centralWorldRef.current) return;
+          
+          const momentum = interactionRef.current.momentum;
+          if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
+            centralWorldRef.current.rotation.y += momentum.x;
+            centralWorldRef.current.rotation.x += momentum.y;
+            momentum.x *= decay;
+            momentum.y *= decay;
+            requestAnimationFrame(applyMomentum);
+          }
+        };
+        
+        applyMomentum();
+      }
+    };
+
+    const onMouseLeave = () => {
+      interactionRef.current.isInteracting = false;
     };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY * 0.01;
-      interactionRef.current.zoom.target = Math.max(
-        interactionRef.current.zoom.min,
-        Math.min(interactionRef.current.zoom.max, 
-          interactionRef.current.zoom.target + delta
-        )
-      );
+      const zoom = interactionRef.current.zoom;
+      const zoomSensitivity = 0.005 * (zoom.current / zoom.min);
+      const delta = e.deltaY * zoomSensitivity;
+      
+      zoom.target = Math.max(zoom.min, Math.min(zoom.max, zoom.target + delta));
     };
 
-    const onResize = () => {
-      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
+    // Add event listeners with proper cleanup
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd, { passive: false });
+    container.addEventListener('mousedown', onMouseDown);
+    container.addEventListener('mousemove', onMouseMove);
+    container.addEventListener('mouseup', onMouseUp);
+    container.addEventListener('mouseleave', onMouseLeave);
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    // Enhanced animation loop with more dynamic effects
+    let time = 0;
+    const animate = () => {
+      animationFrameRef.current = requestAnimationFrame(animate);
+      time += 0.002;
+      
+      // Smoother camera movement with enhanced zooming
+      const zoom = interactionRef.current.zoom;
+      const zoomLerpFactor = isMobile ? 0.15 : 0.1;
+      zoom.current += (zoom.target - zoom.current) * zoomLerpFactor;
+      if (camera) {
+        camera.position.z = zoom.current;
+      }
+
+      // Calculate zoom scaling factor with improved curve for more natural scaling
+      const zoomRange = interactionRef.current.zoom.max - interactionRef.current.zoom.min;
+      const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
+      const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
+
+      // Update bubble positions with enhanced random movement
+      Object.values(bubblesRef.current).forEach(bubble => {
+        const movement = bubble.userData.movement;
+        const expiryRatio = bubble.userData.expiryRatio || 1;
+        
+        // Calculate new position with more dynamic random movement
+        const angle = time * movement.speed + movement.angle;
+        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.2;
+        const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
+        
+        // Apply rotation from central world for coordinated movement
+        const rotationOffset = new THREE.Euler(
+          centralWorld.rotation.x,
+          centralWorld.rotation.y,
+          centralWorld.rotation.z
+        );
+        
+        const x = Math.cos(angle) * movement.radius + wobble;
+        const y = verticalMovement;
+        const z = Math.sin(angle) * movement.radius + wobble;
+        
+        const position = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
+        bubble.position.copy(position);
+        
+        // Add subtle rotation to each bubble
+        bubble.rotation.y += movement.rotationSpeed;
+        
+        // Make bubbles face camera for better text readability
+        bubble.quaternion.copy(camera.quaternion);
+        
+        // Scale the bubble and text based on zoom level
+        const origScale = bubble.userData.originalScale;
+        const bubbleMesh = bubble.children[0] as THREE.Mesh;
+        const scaleFactor = origScale * zoomFactor;
+        bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        
+        // Update bubble appearance based on time remaining
+        if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
+          // Update expiry ratio
+          const now = new Date();
+          const expiryTime = bubble.userData.expiryTime || new Date();
+          const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
+          const updatedExpiryRatio = timeUntilExpiry / (24*60*60*1000);
+          bubble.userData.expiryRatio = updatedExpiryRatio;
+          
+          // Pulse effect as bubble gets closer to expiry
+          if (updatedExpiryRatio < 0.1) {
+            const pulseIntensity = 0.2 + Math.sin(time * 20) * 0.2;
+            bubbleMesh.material.emissiveIntensity = pulseIntensity;
+            bubbleMesh.material.opacity = 0.5 + pulseIntensity * 0.5;
+          }
+        }
+        
+        // Update time remaining label
+        if (bubble.children.length >= 4) {
+          const timeRemainingSprite = bubble.children[3] as THREE.Sprite;
+          if (bubble.userData.expiryTime) {
+            const now = new Date();
+            const expiryTime = bubble.userData.expiryTime;
+            
+            // If it's been more than a minute, update the label
+            if (now.getTime() % 60000 < 1000) {
+              const formattedTime = formatTimeRemaining(expiryTime);
+              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 26 : 30);
+              const texture = new THREE.CanvasTexture(canvas);
+              texture.needsUpdate = true;
+              
+              if (timeRemainingSprite.material instanceof THREE.SpriteMaterial) {
+                timeRemainingSprite.material.map = texture;
+                timeRemainingSprite.material.needsUpdate = true;
+              }
+            }
+          }
+        }
+        
+        // Scale text sprites with improved proportions
+        for (let i = 1; i < bubble.children.length; i++) {
+          const sprite = bubble.children[i] as THREE.Sprite;
+          const textScales = bubble.userData.textScales;
+          const textScaleFactor = zoomFactor * 0.9;
+          
+          let baseScale;
+          let yOffset;
+          if (i === 1) {
+            baseScale = textScales.nameScale;
+            yOffset = scaleFactor * 0.4;
+          } else if (i === 2) {
+            baseScale = textScales.topicScale;
+            yOffset = -scaleFactor * 0.1;
+          } else if (i === 3) {
+            baseScale = textScales.reflectScale;
+            yOffset = -scaleFactor * 0.5;
+          } else {
+            baseScale = textScales.timeScale;
+            yOffset = -scaleFactor * 0.85;
+          }
+          
+          sprite.scale.set(
+            baseScale * textScaleFactor,
+            baseScale * textScaleFactor * 0.6,
+            1
+          );
+          sprite.position.set(0, yOffset, 0);
+        }
+      });
+
+      // Apply gentle auto-rotation to central world when not interacting
+      if (!interactionRef.current.isInteracting && centralWorld) {
+        centralWorld.rotation.y += 0.0003;
+      }
+
+      TWEEN.update();
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    // Handle window resize
+    const handleResize = () => {
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
       
       const width = containerRef.current.clientWidth;
       const height = containerRef.current.clientHeight;
       
-      rendererRef.current.setSize(width, height);
       cameraRef.current.aspect = width / height;
       cameraRef.current.updateProjectionMatrix();
+      
+      rendererRef.current.setSize(width, height);
     };
 
-    // Improved animation loop with optimized collision detection
-    const animate = () => {
-      const now = Date.now();
-      
-      // Update all bubbles with physics
-      const physicsBubbles = Object.values(physicsBubblesRef.current);
-      
-      // Calculate time delta for frame-rate independent physics
-      for (const bubble of physicsBubbles) {
-        const timeDelta = now - bubble.lastUpdateTime;
-        bubble.update(timeDelta);
-        
-        // Update time remaining display every second
-        if (timeDelta > 1000) { // Only update once per second
-          const timeSprite = bubble.mesh.children[4] as THREE.Sprite;
-          if (timeSprite && timeSprite.material instanceof THREE.SpriteMaterial) {
-            const timeText = `⏱ ${formatTimeRemaining(bubble.expiryTime)}`;
-            const userData = bubble.mesh.userData;
-            const scale = userData.textScales?.timeScale || 1;
-            
-            // Update time text
-            const canvas = createTextCanvas(timeText, 30);
-            const texture = new THREE.CanvasTexture(canvas);
-            timeSprite.material.map = texture;
-            timeSprite.material.needsUpdate = true;
-          }
-        }
-      }
-      
-      // Optimized collision detection with spatial grid
-      // Simple O(n^2) approach for demo purposes, but could be optimized further with spatial partitioning
-      const numBubbles = physicsBubbles.length;
-      for (let i = 0; i < numBubbles; i++) {
-        for (let j = i + 1; j < numBubbles; j++) {
-          const bubbleA = physicsBubbles[i];
-          const bubbleB = physicsBubbles[j];
-          
-          // Check collision
-          if (bubbleA.checkCollision(bubbleB)) {
-            // Resolve collision
-            bubbleA.resolveCollision(bubbleB);
-          }
-        }
-      }
-      
-      // Update camera zoom
-      if (cameraRef.current && Math.abs(interactionRef.current.zoom.current - interactionRef.current.zoom.target) > 0.01) {
-        interactionRef.current.zoom.current += (interactionRef.current.zoom.target - interactionRef.current.zoom.current) * 0.1;
-        cameraRef.current.position.z = interactionRef.current.zoom.current;
-      }
-      
-      // Update TWEEN animations
-      TWEEN.update();
-      
-      // Render the scene
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }
-      
-      // Request next frame
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
+    window.addEventListener('resize', handleResize);
 
-    // Attach event listeners
-    window.addEventListener('resize', onResize);
-    container.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    container.addEventListener('wheel', onWheel);
-    container.addEventListener('touchstart', onTouchStart, { passive: false });
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    
-    // Start animation loop
-    animate();
-    
-    // Cleanup function
+    // Clean up resources when component unmounts
     return () => {
-      console.log("Cleaning up BubbleWorld");
+      console.log("Cleaning up BubbleWorld resources");
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       
-      // Remove event listeners
-      window.removeEventListener('resize', onResize);
-      container.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      container.removeEventListener('wheel', onWheel);
-      container.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      
-      // Dispose of all meshes
-      if (sceneRef.current) {
-        sceneRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            if (node.geometry) node.geometry.dispose();
-            
-            if (node.material) {
-              if (Array.isArray(node.material)) {
-                node.material.forEach(material => material.dispose());
-              } else {
-                node.material.dispose();
-              }
-            }
-          }
-        });
-      }
-      
-      // Dispose of renderer
       if (rendererRef.current) {
         rendererRef.current.dispose();
-        if (containerRef.current && rendererRef.current.domElement) {
+        if (containerRef.current?.contains(rendererRef.current.domElement)) {
           containerRef.current.removeChild(rendererRef.current.domElement);
         }
       }
+      
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('mousemove', onMouseMove);
+      container.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('mouseleave', onMouseLeave);
+      container.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', handleResize);
+      
+      // Clear all references
+      Object.values(bubblesRef.current).forEach(group => {
+        group.children.forEach(child => {
+          if (child instanceof THREE.Mesh && child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child instanceof THREE.Mesh && child.material) {
+            const material = Array.isArray(child.material) ? child.material : [child.material];
+            material.forEach(m => m.dispose());
+          }
+        });
+      });
+      
+      bubblesRef.current = {};
+      sceneRef.current = null;
+      rendererRef.current = null;
+      cameraRef.current = null;
+      centralWorldRef.current = null;
     };
   }, [topics, onBubbleClick, navigate]);
 
   return (
     <div 
       ref={containerRef} 
-      className="w-full h-full min-h-[400px] md:min-h-[600px] rounded-lg overflow-hidden"
+      className="w-full h-full touch-none select-none"
       style={{ touchAction: 'none' }}
     />
   );

@@ -1,9 +1,8 @@
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import Logo from "@/components/Logo";
 
 interface BubbleWorldHeaderProps {
   onCreateBubble: () => void;
@@ -16,17 +15,13 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center gap-3"
       >
-        <Logo size="lg" withText={false} />
-        <div>
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2 leading-tight">
-            Bubble Trouble
-          </h1>
-          <p className="text-[#ebbd34]/80 text-sm sm:text-base md:text-lg max-w-xl">
-            Explore ephemeral bubbles that last for 24 hours. Join conversations and reflect on ideas before they disappear!
-          </p>
-        </div>
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2 leading-tight">
+          Bubble World
+        </h1>
+        <p className="text-[#ebbd34]/80 text-sm sm:text-base md:text-lg max-w-xl">
+          Explore ephemeral bubbles that last for 24 hours. Join conversations and reflect on ideas before they disappear!
+        </p>
       </motion.div>
       
       <motion.div
