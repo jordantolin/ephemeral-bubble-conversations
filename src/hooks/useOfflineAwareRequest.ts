@@ -1,62 +1,100 @@
 
-import { useState } from "react";
-import { useNetwork } from "@/context/NetworkContext";
+import { useState, useCallback } from 'react';
+import { useNetwork } from '@/context/NetworkContext';
+import { useToast } from '@/components/ui/use-toast';
 
-interface RequestOptions<T> {
-  onSuccess?: (data: T) => void;
-  onError?: (error: any) => void;
-  actionType: string;
-  actionDescription?: string;
-}
-
-export function useOfflineAwareRequest() {
+/**
+ * A hook that handles requests with offline awareness,
+ * queuing them when offline and executing them when back online.
+ */
+export function useOfflineAwareRequest<T>() {
   const { isOnline, addQueuedAction } = useNetwork();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<any>(null);
 
-  const executeRequest = async <T>(
-    requestFn: () => Promise<T>,
-    options: RequestOptions<T>
-  ): Promise<T | undefined> => {
-    setIsLoading(true);
-    setError(null);
+  const executeRequest = useCallback(
+    async (
+      requestFn: () => Promise<T>,
+      options: {
+        actionType: string;
+        payload?: any;
+        onSuccess?: (data: T) => void;
+        onError?: (error: any) => void;
+        successMessage?: string;
+        errorMessage?: string;
+        skipOfflineCheck?: boolean;
+      }
+    ) => {
+      const {
+        actionType,
+        payload,
+        onSuccess,
+        onError,
+        successMessage,
+        errorMessage,
+        skipOfflineCheck = false,
+      } = options;
 
-    try {
-      if (!isOnline) {
-        // Queue the request if offline
+      // If we're offline and not skipping the check, queue the action
+      if (!isOnline && !skipOfflineCheck) {
         addQueuedAction({
-          type: options.actionType,
-          payload: options.actionDescription || "Queued request",
+          type: actionType,
+          payload,
           timestamp: Date.now(),
+          // Ensure this returns Promise<void> to match QueuedAction type
           execute: async () => {
             try {
               const result = await requestFn();
-              options.onSuccess?.(result);
-              // This function must return void to match the QueuedAction type
-              return;
-            } catch (err) {
-              options.onError?.(err);
-              throw err;
+              onSuccess?.(result);
+              if (successMessage) {
+                toast({
+                  title: 'Success',
+                  description: successMessage,
+                });
+              }
+            } catch (error) {
+              onError?.(error);
+              if (errorMessage) {
+                toast({
+                  title: 'Error',
+                  description: errorMessage,
+                  variant: 'destructive',
+                });
+              }
             }
           },
         });
-        setIsLoading(false);
-        return undefined;
+        return null as unknown as T; // Type assertion needed for consistent return
       }
 
-      // Execute immediately if online
-      const result = await requestFn();
-      options.onSuccess?.(result);
-      setIsLoading(false);
-      return result;
-    } catch (err) {
-      console.error("Request failed:", err);
-      setError(err);
-      options.onError?.(err);
-      setIsLoading(false);
-      return undefined;
-    }
-  };
+      // If we're online or skipping the check, execute immediately
+      setIsLoading(true);
+      try {
+        const result = await requestFn();
+        if (successMessage) {
+          toast({
+            title: 'Success',
+            description: successMessage,
+          });
+        }
+        onSuccess?.(result);
+        return result;
+      } catch (error) {
+        if (errorMessage) {
+          toast({
+            title: 'Error',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        }
+        onError?.(error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isOnline, addQueuedAction, toast]
+  );
 
-  return { executeRequest, isLoading, error };
+  return { executeRequest, isLoading };
 }

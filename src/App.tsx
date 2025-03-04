@@ -39,9 +39,9 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <NetworkProvider>
+        <Router>
           <AuthProvider>
-            <Router>
+            <NetworkProvider>
               <div className="bg-gradient-to-br from-[#FEF7E4] to-[#FFF9EC] min-h-[100dvh]">
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -70,12 +70,12 @@ function App() {
                   <Route path="/404" element={<NotFound />} />
                   <Route path="*" element={<Navigate to="/404" replace />} />
                 </Routes>
+                <OfflineIndicator />
+                <Toaster />
               </div>
-              <OfflineIndicator />
-              <Toaster />
-            </Router>
+            </NetworkProvider>
           </AuthProvider>
-        </NetworkProvider>
+        </Router>
       </QueryClientProvider>
     </ErrorBoundary>
   );

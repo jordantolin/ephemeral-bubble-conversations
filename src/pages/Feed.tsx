@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
 // Custom components
-import Navbar from "@/components/navigation/Navbar";
+import Navbar from "@/components/bubbleWorld/NavigationBar";
 import BubbleCarousel from "@/components/feed/BubbleCarousel";
 
 // Utility functions
