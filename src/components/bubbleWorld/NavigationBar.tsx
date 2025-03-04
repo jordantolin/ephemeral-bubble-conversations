@@ -1,227 +1,191 @@
 
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, X, Trophy, Menu, MessageCircle, User, Star, Sparkles, Plus } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, User, Menu, Trophy, LogOut, X, Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
+import NotificationCenter from "@/components/gamification/NotificationCenter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Logo from "@/components/Logo";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface NavigationBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
 
-const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
-  const { user, profile, signOut } = useAuth();
+const NavigationBar = ({ searchQuery, setSearchQuery }: NavigationBarProps) => {
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
-  const handleNavigation = (path: string) => {
-    navigate(path);
-    setIsMenuOpen(false);
-  };
-
-  const closeMenu = () => {
-    setIsMenuOpen(false);
-  };
-
-  useEffect(() => {
-    setIsMenuOpen(false);
-    setIsProfileMenuOpen(false);
-  }, [location.pathname]);
-
-  // Get user display name from profile or fallback to email
-  const getUserDisplayName = () => {
-    if (profile?.display_name) return profile.display_name;
-    if (profile?.username) return profile.username;
-    return user?.email?.split('@')[0] || 'User';
-  };
-
-  // Get first letter of display name for avatar fallback
-  const getAvatarFallback = () => {
-    const displayName = getUserDisplayName();
-    return displayName[0].toUpperCase() || 'U';
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate("/auth");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-md fixed top-0 left-0 w-full z-50 shadow-md">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo and Brand */}
-        <Link to="/" className="flex items-center gap-2">
-          <Logo size="md" withText={true} />
-        </Link>
+    <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10 shadow-sm">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16 md:h-20">
+          {/* Logo */}
+          <Logo size="md" />
 
-        {/* Navigation Links (Hidden on Small Screens) */}
-        <div className="hidden md:flex items-center space-x-1">
-          <Button
-            variant="ghost"
-            className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
-            onClick={() => navigate("/feed")}
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Feed
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-gray-700 hover:text-[#ebbd34] hover:bg-transparent"
-            onClick={() => navigate("/my-bubbles")}
-          >
-            <MessageCircle className="h-4 w-4 mr-2" />
-            My Bubbles
-          </Button>
-        </div>
+          {/* Search Input (Desktop) */}
+          <div className="hidden md:flex md:w-1/3 lg:w-2/5">
+            <div className="w-full relative">
+              <Input
+                type="text"
+                placeholder="Search bubbles..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 pl-10 rounded-full border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]/30"
+              />
+              <Search className="absolute top-1/2 left-3 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 h-6 w-6 text-gray-400"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
 
-        {/* Search Bar (Hidden on Small Screens) */}
-        <div className="hidden sm:flex items-center flex-grow mx-4 max-w-md">
-          <Input
-            type="search"
-            placeholder="Search bubbles..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="bg-gray-50 border-gray-300 rounded-md focus:ring-primary focus:border-primary text-sm"
-          />
-          {searchQuery && (
+          {/* Navigation Links (Desktop) */}
+          <nav className="hidden md:flex items-center gap-2">
+            <NotificationCenter />
+            
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSearchQuery("")}
-              className="ml-2 hover:bg-gray-100"
+              className="rounded-full"
+              onClick={() => navigate("/achievements")}
             >
-              <X className="h-4 w-4" />
+              <Trophy className="h-5 w-5 text-[#ebbd34]" />
             </Button>
-          )}
-        </div>
-
-        {/* Mobile Menu Button */}
-        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-          <SheetTrigger asChild>
+            
             <Button
-              variant="outline"
-              className="sm:hidden rounded-full p-2 hover:bg-gray-100"
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => navigate("/profile")}
             >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Open menu</span>
+              <User className="h-5 w-5 text-[#ebbd34]" />
             </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <div className="py-4 px-6">
-              <Logo size="md" withText={true} />
-            </div>
-            <div className="px-4 pb-4">
-              <Input
-                type="search"
-                placeholder="Search bubbles..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="bg-gray-50 border-gray-300 rounded-md focus:ring-primary focus:border-primary text-sm"
-              />
-            </div>
-            <div className="py-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => handleNavigation("/feed")}
-              >
-                <Sparkles className="mr-2 h-4 w-4" />
-                Feed
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => handleNavigation("/my-bubbles")}
-              >
-                <MessageCircle className="mr-2 h-4 w-4" />
-                My Bubbles
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => handleNavigation("/leaderboard")}
-              >
-                <Trophy className="mr-2 h-4 w-4" />
-                Leaderboard
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => handleNavigation("/achievements")}
-              >
-                <Star className="mr-2 h-4 w-4" />
-                Achievements
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => handleNavigation("/profile")}
-              >
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </Button>
-            </div>
+            
             {user && (
               <Button
                 variant="ghost"
-                className="w-full justify-start rounded-none hover:bg-gray-100"
-                onClick={() => signOut()}
+                size="icon"
+                className="rounded-full"
+                onClick={handleSignOut}
               >
-                <Sparkles className="mr-2 h-4 w-4" />
-                Sign Out
+                <LogOut className="h-5 w-5 text-[#ebbd34]" />
               </Button>
             )}
-          </SheetContent>
-        </Sheet>
+          </nav>
 
-        {/* Profile Section */}
-        {user ? (
-          <div className="relative">
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center gap-2">
             <Button
               variant="ghost"
-              className="rounded-full p-0 h-9 w-9 overflow-hidden"
-              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              size="icon"
+              className="rounded-full"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <Avatar>
-                <AvatarImage src={profile?.avatar_url || ''} alt={getUserDisplayName()} />
-                <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
-              </Avatar>
+              <Menu className="h-5 w-5 text-[#ebbd34]" />
             </Button>
-            {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                <Link to="/profile">
-                  <Button variant="ghost" className="w-full justify-start rounded-none hover:bg-gray-100">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start rounded-none hover:bg-gray-100"
-                  onClick={() => signOut()}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Sign Out
-                </Button>
-              </div>
+          </div>
+        </div>
+
+        {/* Search Input (Mobile) */}
+        <div className="md:hidden pb-3">
+          <div className="w-full relative">
+            <Input
+              type="text"
+              placeholder="Search bubbles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 pl-10 rounded-full border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]/30"
+            />
+            <Search className="absolute top-1/2 left-3 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 right-2 -translate-y-1/2 h-6 w-6 text-gray-400"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             )}
           </div>
-        ) : (
-          <div className="space-x-2 hidden sm:block">
-            <Button variant="outline" onClick={() => navigate("/login")}>
-              Log In
-            </Button>
-            <Button onClick={() => navigate("/register")}>Sign Up</Button>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="md:hidden bg-white border-b border-[#ebbd34]/10"
+          >
+            <div className="container mx-auto px-4 py-4 flex flex-col space-y-2">
+              <div className="flex items-center justify-between pb-2 border-b border-[#ebbd34]/10">
+                <div className="flex items-center">
+                  <NotificationCenter />
+                </div>
+                <X
+                  className="h-5 w-5 text-[#ebbd34]"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                />
+              </div>
+              
+              <Link
+                to="/achievements"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ebbd34]/10"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Trophy className="h-5 w-5 text-[#ebbd34]" />
+                <span>Achievements</span>
+              </Link>
+              
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ebbd34]/10"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <User className="h-5 w-5 text-[#ebbd34]" />
+                <span>Profile</span>
+              </Link>
+              
+              {user && (
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ebbd34]/10 w-full text-left"
+                  onClick={() => {
+                    handleSignOut();
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="h-5 w-5 text-[#ebbd34]" />
+                  <span>Sign Out</span>
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
   );
 };
 

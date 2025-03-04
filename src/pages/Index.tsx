@@ -1,7 +1,8 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
+import { useBubbleReflection } from "@/hooks/useBubbleReflection";
 import NavigationBar from "@/components/bubbleWorld/NavigationBar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
@@ -9,6 +10,7 @@ import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
 import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicator";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
+import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
@@ -19,6 +21,7 @@ const Index = () => {
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
   const { checkAchievement, addPoints } = useGamification();
+  const { reflectOnBubble } = useBubbleReflection();
   
   const {
     searchQuery,
@@ -38,7 +41,6 @@ const Index = () => {
     bubblesError,
     bubbleDataForComponent,
     isBubbleExpired,
-    handleReflect,
     handleBubbleClick
   } = useBubbleData();
   
@@ -48,21 +50,16 @@ const Index = () => {
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
-    
-    // We'll check the achievement when the bubble is actually created
-    // in the CreateBubbleDialog component
   };
   
-  // Enhanced reflection with gamification
+  // Enhanced reflection with improved reliability
   const handleReflectWithGamification = async (bubbleId: string) => {
-    await handleReflect(bubbleId);
+    if (!selectedBubble) return;
     
-    if (user) {
-      // Add points for the reflection
-      await addPoints(10, 'reflection');
-      
-      // Increment progress for the reflection master achievement
-      await checkAchievement('reflection-master');
+    const success = await reflectOnBubble(bubbleId, selectedBubble.name);
+    
+    if (success && user) {
+      // Already handled inside the reflectOnBubble hook
     }
   };
   
@@ -127,6 +124,9 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/10 overflow-x-hidden relative">
       {/* Reconnection indicator */}
       <ReconnectionIndicator isReconnecting={isReconnecting} />
+      
+      {/* Achievement popup for gamification */}
+      <AchievementPopup />
       
       {/* Navigation */}
       <NavigationBar 

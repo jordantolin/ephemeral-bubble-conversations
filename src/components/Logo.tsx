@@ -23,11 +23,7 @@ const Logo = ({ size = "md", withText = true, className = "" }: LogoProps) => {
           className="w-full h-full object-contain"
         />
       </div>
-      {withText && (
-        <span className="font-semibold text-lg sm:text-xl text-[#ebbd34] hidden sm:block">
-          Bubble Trouble
-        </span>
-      )}
+      {/* Removed the hidden span as requested */}
     </Link>
   );
 };

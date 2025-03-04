@@ -31,7 +31,7 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          Explore ephemeral bubbles that last for 24 hours. Join conversations and reflect on ideas before they disappear!
+          Explore ephemeral bubbles that last for 24 hours. Join conversations, earn achievements, and connect with others before bubbles disappear!
         </motion.p>
       </div>
       
