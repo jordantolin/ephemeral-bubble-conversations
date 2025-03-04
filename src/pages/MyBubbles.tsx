@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ interface Bubble {
   description: string | null;
   reflect_count: number;
   expires_at: string;
+  created_at: string;
 }
 
 const MyBubbles = () => {
@@ -32,6 +33,12 @@ const MyBubbles = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const [isClientSide, setIsClientSide] = useState(false);
+
+  // Set isClientSide to true after mount to avoid hydration issues
+  useEffect(() => {
+    setIsClientSide(true);
+  }, []);
 
   // Fetch user's reflected bubbles with proper error handling
   const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
@@ -40,6 +47,7 @@ const MyBubbles = () => {
       if (!user || !profile?.username) return [];
 
       try {
+        console.log("Fetching reflects for username:", profile.username);
         const { data: reflects, error } = await supabase
           .from('reflects')
           .select('bubble_id')
@@ -55,9 +63,12 @@ const MyBubbles = () => {
           return [];
         }
 
+        console.log("Reflects data:", reflects);
         if (!reflects || reflects.length === 0) return [];
 
         const bubbleIds = reflects.map(r => r.bubble_id);
+        console.log("Fetching bubbles with IDs:", bubbleIds);
+        
         const { data: bubbles, error: bubblesError } = await supabase
           .from('bubbles')
           .select('*')
@@ -74,6 +85,7 @@ const MyBubbles = () => {
           return [];
         }
 
+        console.log("Bubbles data received:", bubbles?.length || 0);
         return bubbles || [];
       } catch (e) {
         console.error("Unexpected error in myBubbles query:", e);
@@ -85,9 +97,10 @@ const MyBubbles = () => {
         return [];
       }
     },
-    enabled: !!user && !!profile?.username,
+    enabled: !!user && !!profile?.username && isClientSide,
     retry: 2,
-    retryDelay: 1000
+    retryDelay: 1000,
+    refetchOnWindowFocus: true
   });
 
   // Filter bubbles based on search query
@@ -99,6 +112,18 @@ const MyBubbles = () => {
       (bubble.description && bubble.description.toLowerCase().includes(searchLower))
     );
   });
+
+  // Check if a bubble is expired
+  const isBubbleExpired = (bubble: Bubble) => {
+    try {
+      const expiryTime = new Date(bubble.expires_at);
+      const now = new Date();
+      return expiryTime < now;
+    } catch (e) {
+      console.error("Error checking bubble expiry:", e);
+      return true; // Consider expired on error to prevent issues
+    }
+  };
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -282,7 +307,9 @@ const MyBubbles = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredBubbles.map((bubble: Bubble) => (
                 <Link key={bubble.id} to={`/bubble/${bubble.id}`}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer h-full bg-white/80 backdrop-blur-sm border-[#ebbd34]/10">
+                  <Card className={`hover:shadow-md transition-shadow cursor-pointer h-full bg-white/80 backdrop-blur-sm border-[#ebbd34]/10 ${
+                    isBubbleExpired(bubble) ? 'opacity-70' : ''
+                  }`}>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg text-[#ebbd34]">{bubble.name}</CardTitle>
                       <CardDescription>{bubble.topic}</CardDescription>
@@ -297,9 +324,17 @@ const MyBubbles = () => {
                         <Badge className="text-xs bg-[#ebbd34]/10 text-[#ebbd34]">
                           {bubble.reflect_count} reflects
                         </Badge>
-                        <span className="text-xs text-gray-400">
-                          Expires {formatDate(bubble.expires_at)}
-                        </span>
+                        <div className="flex items-center">
+                          {isBubbleExpired(bubble) && (
+                            <Badge className="mr-2 text-xs bg-red-100 text-red-600">
+                              Expired
+                            </Badge>
+                          )}
+                          <span className="text-xs text-gray-400">
+                            {isBubbleExpired(bubble) ? "Expired on " : "Expires "} 
+                            {formatDate(bubble.expires_at)}
+                          </span>
+                        </div>
                       </div>
                     </CardFooter>
                   </Card>

@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Custom components
 import Navbar from "@/components/bubbleWorld/NavigationBar";
@@ -31,10 +33,17 @@ const Feed = () => {
   const { data: bubbles = [], isLoading } = useQuery({
     queryKey: ['bubbles', 'top-reflected'],
     queryFn: async () => {
-      console.log("Fetching bubbles data");
+      console.log("Fetching bubbles data for feed");
+      
+      // Calculate the cutoff date (24 hours after expiration)
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - 48); // Current time minus 48 hours (24h bubble lifetime + 24h showing expired)
+      
+      // Query for bubbles that aren't more than 24 hours past expiration
       const { data, error } = await supabase
         .from('bubbles')
         .select('*')
+        .gte('expires_at', cutoffDate.toISOString()) // Only show bubbles that expired less than 24h ago or not expired yet
         .order('reflect_count', { ascending: false })
         .limit(20);
       
@@ -43,7 +52,7 @@ const Feed = () => {
         throw error;
       }
       
-      console.log("Bubbles data received:", data?.length || 0);
+      console.log("Bubbles data received for feed:", data?.length || 0);
       return data.map(bubble => ({
         ...bubble,
         size: bubble.size as "sm" | "md" | "lg"
@@ -123,7 +132,7 @@ const Feed = () => {
     refetchInterval: 5000 // Refetch participant counts for real-time updates
   });
 
-  // Filter bubbles based on search
+  // Filter bubbles based on search and ensure proper handling of expired bubbles
   const filteredBubbles = searchQuery.trim() 
     ? bubbles.filter(bubble => 
         bubble.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -131,6 +140,31 @@ const Feed = () => {
         (bubble.description && bubble.description.toLowerCase().includes(searchQuery.toLowerCase()))
       )
     : bubbles;
+    
+  // Function to check if a bubble is expired but should still be shown (within 24h after expiration)
+  const shouldShowExpiredBubble = (bubble: BubbleData) => {
+    try {
+      if (!bubble.expires_at) return false;
+      
+      const expiryTime = new Date(bubble.expires_at);
+      const now = new Date();
+      
+      // If bubble is not expired, show it
+      if (expiryTime > now) return true;
+      
+      // If bubble is expired, check if it's within 24h after expiration
+      const cutoffTime = new Date(expiryTime);
+      cutoffTime.setHours(cutoffTime.getHours() + 24);
+      
+      return now < cutoffTime;
+    } catch (e) {
+      console.error("Error checking bubble visibility:", e);
+      return false;
+    }
+  };
+
+  // Filter out bubbles that shouldn't be shown anymore
+  const visibleBubbles = filteredBubbles.filter(bubble => shouldShowExpiredBubble(bubble));
 
   // Handle reflecting a bubble
   const handleReflect = async (bubbleId: string, event: React.MouseEvent) => {
@@ -179,7 +213,7 @@ const Feed = () => {
 
       toast({
         title: "Bubble reflected!",
-        description: "This bubble will appear in your profile",
+        description: "This bubble will appear in your My Bubbles page",
       });
     } catch (error) {
       toast({
@@ -253,20 +287,40 @@ const Feed = () => {
           <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
         </div>
 
+        {/* Display message if no bubbles are available */}
+        {!isLoading && visibleBubbles.length === 0 && (
+          <div className="text-center py-16 bg-white/60 rounded-3xl shadow-sm backdrop-blur-sm">
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
+              <Sparkles className="w-8 h-8 text-[#ebbd34]" />
+            </div>
+            <h3 className="text-lg font-medium text-[#ebbd34]">No bubbles found</h3>
+            <p className="text-gray-500 mt-2">
+              {searchQuery ? "Try a different search term" : "Create a new bubble to get started!"}
+            </p>
+            <Link to="/">
+              <Button className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white">
+                Create a Bubble
+              </Button>
+            </Link>
+          </div>
+        )}
+
         {/* TikTok-Style Vertical Scrolling Bubbles Container */}
-        <BubbleCarousel 
-          bubbles={filteredBubbles}
-          isLoading={isLoading}
-          bubbleMessages={bubbleMessages}
-          bubbleParticipants={bubbleParticipants}
-          messagesLoading={messagesLoading}
-          handleReflect={handleReflect}
-          formatDate={formatDate}
-          getUserColor={getUserColor}
-          formatMessageTime={formatMessageTime}
-          getMessagePreview={getMessagePreview}
-          isBubbleExpired={isBubbleExpired}
-        />
+        {visibleBubbles.length > 0 && (
+          <BubbleCarousel 
+            bubbles={visibleBubbles}
+            isLoading={isLoading}
+            bubbleMessages={bubbleMessages}
+            bubbleParticipants={bubbleParticipants}
+            messagesLoading={messagesLoading}
+            handleReflect={handleReflect}
+            formatDate={formatDate}
+            getUserColor={getUserColor}
+            formatMessageTime={formatMessageTime}
+            getMessagePreview={getMessagePreview}
+            isBubbleExpired={isBubbleExpired}
+          />
+        )}
       </main>
     </div>
   );

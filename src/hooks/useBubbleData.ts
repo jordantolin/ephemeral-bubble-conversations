@@ -58,19 +58,42 @@ const useBubbleData = () => {
     }
   }, []);
 
+  // Function to check if a bubble should be displayed in the feed
+  // Shows non-expired bubbles and bubbles that expired less than 24 hours ago
+  const shouldShowInFeed = useCallback((bubble: Bubble) => {
+    if (!bubble || !bubble.expires_at) return false;
+    
+    try {
+      const expiryTime = new Date(bubble.expires_at);
+      const now = new Date();
+      
+      // If not expired, show it
+      if (expiryTime > now) return true;
+      
+      // If expired, check if it's within 24h after expiration
+      const cutoffTime = new Date(expiryTime);
+      cutoffTime.setHours(cutoffTime.getHours() + 24);
+      
+      return now < cutoffTime;
+    } catch (error) {
+      console.error("Error checking bubble visibility:", error);
+      return false;
+    }
+  }, []);
+
   // Fetch all bubbles with optimized caching
   const { data: allBubbles = [], isLoading: isLoadingBubbles, error: bubblesError } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       try {
-        // Get the current time minus 24 hours
-        const twentyFourHoursAgo = new Date();
-        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+        // Calculate the cutoff date (24 hours after expiration)
+        const cutoffDate = new Date();
+        cutoffDate.setHours(cutoffDate.getHours() - 48); // Current time minus 48 hours (24h bubble lifetime + 24h after)
         
         const { data, error } = await supabase
           .from('bubbles')
           .select('*')
-          .gte('expires_at', twentyFourHoursAgo.toISOString()) // Only fetch non-expired bubbles
+          .gte('expires_at', cutoffDate.toISOString()) // Only fetch bubbles that aren't more than 24h past expiration
           .order('created_at', { ascending: false });
         
         if (error) {
@@ -103,11 +126,11 @@ const useBubbleData = () => {
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
-  // Filter out expired bubbles
+  // Filter bubbles based on visibility criteria
   const bubbles = useMemo(() => {
     if (!allBubbles || !Array.isArray(allBubbles)) return [];
-    return allBubbles.filter(bubble => !isBubbleExpired(bubble));
-  }, [allBubbles, isBubbleExpired]);
+    return allBubbles.filter(bubble => shouldShowInFeed(bubble));
+  }, [allBubbles, shouldShowInFeed]);
 
   // Handle bubble explosion animation and removal
   useEffect(() => {
@@ -124,7 +147,7 @@ const useBubbleData = () => {
           if (timeLeft > 0 && timeLeft < 60000 && explodingBubbleId !== bubble.id) {
             setExplodingBubbleId(bubble.id);
             
-            // After 5 seconds, refresh the bubble list to remove the exploded bubble
+            // After 5 seconds, refresh the bubble list to update the UI
             setTimeout(() => {
               setExplodingBubbleId(null);
               queryClient.invalidateQueries({ queryKey: ['bubbles'] });
@@ -413,6 +436,19 @@ const useBubbleData = () => {
     );
   }, [bubbles, searchQuery]);
 
+  // Get top bubbles by reflection count for the Feed page
+  const topBubblesByReflections = useMemo(() => {
+    if (!bubbles || !Array.isArray(bubbles)) return [];
+    
+    // Filter to show only non-expired bubbles or those that expired less than 24h ago
+    const visibleBubbles = bubbles.filter(bubble => shouldShowInFeed(bubble));
+    
+    // Sort by reflection count (descending)
+    return [...visibleBubbles].sort((a, b) => {
+      return (b.reflect_count || 0) - (a.reflect_count || 0);
+    });
+  }, [bubbles, shouldShowInFeed]);
+
   // Map to BubbleData needed for BubbleWorld component
   const bubbleDataForComponent = useMemo(() => {
     if (!filteredBubbles || !Array.isArray(filteredBubbles)) return [];
@@ -498,6 +534,9 @@ const useBubbleData = () => {
           title: "Bubble reflected!",
           description: "This bubble will appear in your profile",
         });
+        
+        // Invalidate My Bubbles query to show the newly reflected bubble
+        queryClient.invalidateQueries({ queryKey: ['myBubbles', profile?.username] });
       });
     } catch (error: any) {
       console.error("Error reflecting bubble:", error);
@@ -507,29 +546,30 @@ const useBubbleData = () => {
         variant: "destructive"
       });
     }
-  }, [user, profile, bubbles, toast, isBubbleExpired]);
+  }, [user, profile, bubbles, toast, isBubbleExpired, queryClient]);
 
   // Handle bubble click to navigate to bubble chat page
   const handleBubbleClick = useCallback((bubbleId: string) => {
     // Find bubble to check if it's expired
     const bubble = bubbles.find(b => b.id === bubbleId);
     
-    if (!bubble || (bubble && isBubbleExpired(bubble))) {
+    if (!bubble) {
       toast({
-        title: "Bubble Expired",
-        description: "This bubble has expired and is no longer available",
+        title: "Bubble Not Found",
+        description: "This bubble may have been deleted",
         variant: "destructive"
       });
       return;
     }
     
-    // Navigate to the bubble's chat page
+    // Navigate to the bubble's chat page (even if expired, as we still want to show it)
     navigate(`/bubble/${bubbleId}`);
-  }, [bubbles, isBubbleExpired, navigate, toast]);
+  }, [bubbles, navigate, toast]);
 
   return {
     bubbles,
     filteredBubbles,
+    topBubblesByReflections,
     isLoadingBubbles,
     bubblesError,
     searchQuery,
@@ -548,6 +588,7 @@ const useBubbleData = () => {
     explodingBubbleId,
     bubbleDataForComponent,
     isBubbleExpired,
+    shouldShowInFeed,
     handleReflect,
     handleBubbleClick
   };
