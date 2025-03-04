@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Search, X, Trophy, Menu, Home, MessageCircle, User, Star, Sparkles, Plus } from "lucide-react";
@@ -14,7 +15,7 @@ interface NavigationBarProps {
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,6 +38,19 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
     setIsMenuOpen(false);
     setIsProfileMenuOpen(false);
   }, [location.pathname]);
+
+  // Get user display name from profile or fallback to email
+  const getUserDisplayName = () => {
+    if (profile?.display_name) return profile.display_name;
+    if (profile?.username) return profile.username;
+    return user?.email?.split('@')[0] || 'User';
+  };
+
+  // Get first letter of display name for avatar fallback
+  const getAvatarFallback = () => {
+    const displayName = getUserDisplayName();
+    return displayName[0].toUpperCase() || 'U';
+  };
 
   return (
     <div className="bg-white/95 backdrop-blur-md fixed top-0 left-0 w-full z-20 shadow-md">
@@ -155,8 +169,8 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
             >
               <Avatar>
-                <AvatarImage src={user.photoURL} alt={user.displayName || "User Avatar"} />
-                <AvatarFallback>{user.displayName?.[0] || "U"}</AvatarFallback>
+                <AvatarImage src={profile?.avatar_url || ''} alt={getUserDisplayName()} />
+                <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
               </Avatar>
             </Button>
             {isProfileMenuOpen && (
