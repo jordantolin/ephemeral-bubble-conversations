@@ -1,17 +1,15 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useGLTF, OrbitControls } from '@react-three/drei';
-import { createTextCanvas, applyRepulsionForce, applyOrbitalMotion, calculateMinDistance } from '@/utils/bubbleUtils';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import { BubbleData } from '@/types/bubble';
 
 interface BubbleProps {
   name: string;
   topic: string;
   size: number;
-  x: number;
-  y: number;
-  z: number;
+  position: [number, number, number];
   onClick: () => void;
 }
 
@@ -20,24 +18,50 @@ interface BubbleWorldProps {
   onBubbleClick: (bubbleId: string) => void;
 }
 
-// This component must be used inside Canvas
-const Bubble = ({ name, topic, size, x, y, z, onClick }: BubbleProps) => {
+// This component creates the text label for a bubble
+const createTextCanvas = (text: string): HTMLCanvasElement => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) return canvas;
+  
+  canvas.width = 256;
+  canvas.height = 128;
+  
+  // Clear background
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add text with shadow for better visibility
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.7)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  
+  return canvas;
+};
+
+// Individual bubble component
+const Bubble = ({ name, topic, size, position, onClick }: BubbleProps) => {
   const mesh = useRef<THREE.Mesh>(null);
-  const textCanvas = createTextCanvas(topic, 24);
-  const textTexture = new THREE.CanvasTexture(textCanvas);
-
-  useEffect(() => {
+  const textTexture = new THREE.CanvasTexture(createTextCanvas(topic));
+  
+  // Simple animation
+  useFrame(({ clock }) => {
     if (mesh.current) {
-      mesh.current.geometry.dispose();
-      mesh.current.geometry = new THREE.SphereGeometry(size, 32, 32);
+      mesh.current.position.y += Math.sin(clock.getElapsedTime() + position[0]) * 0.002;
     }
-    textTexture.needsUpdate = true;
-  }, [size, topic, textTexture]);
-
+  });
+  
   return (
     <mesh
       ref={mesh}
-      position={[x, y, z]}
+      position={position}
       onClick={onClick}
     >
       <sphereGeometry args={[size, 32, 32]} />
@@ -51,239 +75,96 @@ const Bubble = ({ name, topic, size, x, y, z, onClick }: BubbleProps) => {
         clearcoatRoughness={0.1}
         transparent={true}
         opacity={0.7}
-        side={THREE.DoubleSide}
       />
-      <mesh position={[0, size + 0.5, 0]}>
-        <planeGeometry args={[size * 2, size * 1]} />
-        <meshBasicMaterial map={textTexture} side={THREE.DoubleSide} transparent={true} opacity={1} />
-      </mesh>
-    </mesh>
-  );
-};
-
-// Fallback central world when model can't be loaded
-const FallbackCentralWorld = () => {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame(({ clock }) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = clock.getElapsedTime() * 0.1;
-    }
-  });
-
-  return (
-    <group>
-      <mesh ref={meshRef}>
-        <icosahedronGeometry args={[1, 1]} />
-        <meshPhysicalMaterial 
-          color={0xebbd34}
-          wireframe={true}
-          metalness={0.5}
-          roughness={0.2}
-          transmission={0.3}
-          clearcoat={1.0}
-          clearcoatRoughness={0.1}
-          emissive={0x332200}
-          emissiveIntensity={0.3}
-          transparent={true}
-          opacity={0.7}
+      <mesh position={[0, size + 0.3, 0]}>
+        <planeGeometry args={[size * 2, size * 0.8]} />
+        <meshBasicMaterial 
+          map={textTexture} 
+          transparent={true} 
+          side={THREE.DoubleSide} 
         />
       </mesh>
-    </group>
-  );
-};
-
-// This component must be used inside Canvas
-const CentralWorld = () => {
-  const [modelError, setModelError] = useState(false);
-  
-  // Handle model loading errors
-  const onError = () => {
-    console.error("Failed to load central_world.glb model, using fallback");
-    setModelError(true);
-  };
-  
-  try {
-    // Only attempt to load the model if we haven't encountered an error yet
-    if (!modelError) {
-      // Fixed: The third parameter needs to be a boolean, not a function
-      // We'll use onError as an error event handler separately
-      const { scene } = useGLTF('/models/central_world.glb');
-      
-      // Add error event listener to the scene
-      useEffect(() => {
-        const model = scene;
-        if (model) {
-          // Check if model loaded correctly
-          if (!model.children || model.children.length === 0) {
-            onError();
-          }
-        }
-        return () => {
-          // Cleanup if needed
-        };
-      }, [scene]);
-      
-      return <primitive object={scene} scale={0.8} onError={onError} />;
-    }
-  } catch (error) {
-    console.error("Error loading central world model:", error);
-    setModelError(true);
-  }
-  
-  // Return fallback if there was an error
-  return <FallbackCentralWorld />;
-};
-
-// Error boundary for the 3D scene
-const ErrorBoundaryFallback = () => {
-  return (
-    <mesh>
-      <boxGeometry args={[2, 2, 2]} />
-      <meshStandardMaterial color="hotpink" />
-      <Text position={[0, 0, 1.1]} fontSize={0.2} color="white">
-        Error loading 3D scene
-      </Text>
     </mesh>
   );
 };
 
-// Component to display loading text
-const Text = ({ children, ...props }: any) => {
-  const texture = useRef(new THREE.CanvasTexture(document.createElement('canvas')));
+// Central world/hub
+const CentralWorld = () => {
+  const mesh = useRef<THREE.Mesh>(null);
   
-  useEffect(() => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      canvas.width = 512;
-      canvas.height = 128;
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'black';
-      ctx.font = '60px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(children, canvas.width / 2, canvas.height / 2);
-      
-      texture.current.image = canvas;
-      texture.current.needsUpdate = true;
+  useFrame(({ clock }) => {
+    if (mesh.current) {
+      mesh.current.rotation.y = clock.getElapsedTime() * 0.1;
     }
-  }, [children]);
+  });
   
   return (
-    <sprite {...props}>
-      <spriteMaterial map={texture.current} />
-    </sprite>
+    <mesh ref={mesh}>
+      <icosahedronGeometry args={[1, 1]} />
+      <meshPhysicalMaterial 
+        color={0xebbd34}
+        wireframe={true}
+        metalness={0.5}
+        roughness={0.2}
+        transmission={0.3}
+        clearcoat={1.0}
+        clearcoatRoughness={0.1}
+        emissive={0x332200}
+        emissiveIntensity={0.3}
+        transparent={true}
+        opacity={0.7}
+      />
+    </mesh>
   );
 };
 
-// This component must be used inside Canvas
+// Main scene component
 const BubbleScene = ({ topics, onBubbleClick }: BubbleWorldProps) => {
-  const bubbles = useRef<THREE.Vector3[]>([]);
-  const repulsionStrengths = useRef<number[]>([]);
-  const time = useRef(0);
-
-  useFrame((state, delta) => {
-    time.current += delta;
-
-    // Apply orbital motion and repulsion forces
-    for (let i = 0; i < topics.length; i++) {
-      const topic = topics[i];
-      const bubbleSize = topic.reflect_count > 5 ? topic.reflect_count / 5 + 0.8 : 0.8;
-      
-      // Initialize bubble position if it doesn't exist
-      if (!bubbles.current[i]) {
-        bubbles.current[i] = new THREE.Vector3(
-          Math.random() * 5 - 2.5,
-          Math.random() * 3 - 1.5,
-          Math.random() * 5 - 2.5
-        );
-        repulsionStrengths.current[i] = 0.05 + Math.random() * 0.1;
-      }
-      
-      const bubblePosition = bubbles.current[i];
-
-      // Apply orbital motion
-      const orbitalMotion = applyOrbitalMotion(
-        bubblePosition,
-        new THREE.Vector3(0, 0, 0),
-        time.current,
-        i,
-        topics.length
-      );
-      bubblePosition.copy(orbitalMotion);
-
-      // Apply repulsion forces
-      for (let j = i + 1; j < topics.length; j++) {
-        const otherTopic = topics[j];
-        const otherBubbleSize = otherTopic.reflect_count > 5 ? otherTopic.reflect_count / 5 + 0.8 : 0.8;
-        
-        // Initialize other bubble position if it doesn't exist
-        if (!bubbles.current[j]) {
-          bubbles.current[j] = new THREE.Vector3(
-            Math.random() * 5 - 2.5,
-            Math.random() * 3 - 1.5,
-            Math.random() * 5 - 2.5
-          );
-          repulsionStrengths.current[j] = 0.05 + Math.random() * 0.1;
-        }
-        
-        const otherBubblePosition = bubbles.current[j];
-
-        const { moveA, moveB } = applyRepulsionForce(
-          bubblePosition,
-          otherBubblePosition,
-          bubbleSize,
-          otherBubbleSize,
-          repulsionStrengths.current[i]
-        );
-
-        bubblePosition.add(moveA);
-        otherBubblePosition.add(moveB);
-      }
-    }
-  });
-
   return (
     <>
       <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} />
+      <pointLight position={[10, 10, 10]} intensity={1} />
+      
       <CentralWorld />
+      
       {topics.map((topic, index) => {
-        const bubbleSize = topic.reflect_count > 5 ? topic.reflect_count / 5 + 0.8 : 0.8;
-        if (!bubbles.current[index]) {
-          bubbles.current[index] = new THREE.Vector3(
-            Math.random() * 5 - 2.5,
-            Math.random() * 3 - 1.5,
-            Math.random() * 5 - 2.5
-          );
-          repulsionStrengths.current[index] = 0.05 + Math.random() * 0.1;
-        }
+        // Calculate position using simple distribution algorithm
+        const angle = (index / topics.length) * Math.PI * 2;
+        const radius = 3 + Math.random() * 0.5;
+        const x = Math.cos(angle) * radius;
+        const y = (Math.random() - 0.5) * 2;
+        const z = Math.sin(angle) * radius;
+        
+        // Calculate size based on reflection count
+        const bubbleSize = topic.reflect_count > 5 ? 
+          0.8 + (topic.reflect_count / 20) : 0.8;
+        
         return (
           <Bubble
             key={topic.id}
             name={topic.name}
             topic={topic.topic}
             size={bubbleSize}
-            x={bubbles.current[index].x}
-            y={bubbles.current[index].y}
-            z={bubbles.current[index].z}
+            position={[x, y, z]}
             onClick={() => onBubbleClick(topic.id)}
           />
         );
       })}
-      <OrbitControls enablePan={false} minDistance={3} maxDistance={7} />
+      
+      <OrbitControls 
+        enablePan={false}
+        minDistance={3}
+        maxDistance={7}
+      />
     </>
   );
 };
 
-// Main wrapper component with Canvas
+// Main component with error handling
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
   const [error, setError] = useState<string | null>(null);
   
-  // Fixed: Create a proper React error handler for Canvas
-  // This needs to handle React's synthetic events rather than Error objects
+  // Simple error handler
   const handleCanvasErrors = () => {
     console.error("BubbleWorld canvas error occurred");
     setError("Failed to render 3D visualization");
