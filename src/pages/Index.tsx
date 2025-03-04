@@ -8,11 +8,16 @@ import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
 import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
 import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicator";
+import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
+import { useGamification } from "@/context/GamificationContext";
+import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
+  const { user } = useAuth();
+  const { checkAchievement, addPoints } = useGamification();
   
   const {
     searchQuery,
@@ -38,6 +43,27 @@ const Index = () => {
   
   const searchParams = new URLSearchParams(location.search);
   const bubbleToOpen = searchParams.get('bubble');
+  
+  // Enhanced bubble creation with achievement tracking
+  const handleCreateBubble = () => {
+    setNewBubbleDialog(true);
+    
+    // We'll check the achievement when the bubble is actually created
+    // in the CreateBubbleDialog component
+  };
+  
+  // Enhanced reflection with gamification
+  const handleReflectWithGamification = async (bubbleId: string) => {
+    await handleReflect(bubbleId);
+    
+    if (user) {
+      // Add points for the reflection
+      await addPoints(10, 'reflection');
+      
+      // Increment progress for the reflection master achievement
+      await checkAchievement('reflection-master');
+    }
+  };
   
   // Check URL params for bubble to open
   useEffect(() => {
@@ -71,7 +97,7 @@ const Index = () => {
       <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
-          <BubbleWorldHeader onCreateBubble={() => setNewBubbleDialog(true)} />
+          <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
           
           <BubbleWorldContent
             isLoadingBubbles={isLoadingBubbles}
@@ -79,7 +105,7 @@ const Index = () => {
             filteredBubbles={filteredBubbles}
             bubbleDataForComponent={bubbleDataForComponent}
             onBubbleClick={handleBubbleClick}
-            onCreateBubble={() => setNewBubbleDialog(true)}
+            onCreateBubble={handleCreateBubble}
           />
         </div>
       </div>
@@ -101,8 +127,11 @@ const Index = () => {
         isLoadingMessages={isLoadingMessages}
         messagesError={messagesError}
         isBubbleExpired={isBubbleExpired}
-        handleReflect={handleReflect}
+        handleReflect={handleReflectWithGamification}
       />
+      
+      {/* Gamification Components */}
+      <DailyStreakIndicator />
     </div>
   );
 };
