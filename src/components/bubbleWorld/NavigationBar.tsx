@@ -1,19 +1,10 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Trophy, User, UserCircle, Sparkles, Home, LogOut, LogIn, PlusCircle } from "lucide-react";
+import { Star, Settings, Search, LogOut, X, Trophy } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import InstallButton from "../InstallButton";
-import { useAuth } from "@/context/AuthContext";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import LevelProgress from "@/components/gamification/LevelProgress";
 
 interface NavigationBarProps {
@@ -21,144 +12,86 @@ interface NavigationBarProps {
   setSearchQuery: (query: string) => void;
 }
 
-const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
-  const { user, logout } = useAuth();
+const NavigationBar: React.FC<NavigationBarProps> = ({ 
+  searchQuery, 
+  setSearchQuery 
+}) => {
   const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
+  const [showSearch, setShowSearch] = useState(false);
+  
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const searchInput = document.getElementById('search-input');
+      if (showSearch && searchInput && !searchInput.contains(target)) {
+        setShowSearch(false);
+      }
+    };
 
-  const handleLogout = async () => {
-    await logout?.();
-    navigate("/auth");
-  };
+    document.addEventListener('mousedown', handleOutsideClick);
 
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showSearch]);
+  
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-[#FEF7E4]/80 backdrop-blur-lg shadow-sm border-b border-[#ebbd34]/10">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-[72px]">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-9 h-9 rounded-full bg-[#ebbd34] flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div className="font-bold text-xl text-[#ebbd34] hidden sm:block">Bubble Trouble</div>
-            </Link>
-          </div>
-
-          {/* Search Bar */}
-          <div className="flex-1 max-w-md mx-4 relative hidden md:block">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+    <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 shadow-sm border-b border-secondary/10">
+      <div className="container mx-auto py-3 px-4 sm:px-6 flex items-center justify-between">
+        <Link to="/" className="flex items-center font-semibold text-xl text-primary">
+          Bubble World
+        </Link>
+        
+        <div className="flex items-center space-x-4">
+          {showSearch ? (
+            <div className="flex items-center">
               <Input
                 type="text"
                 placeholder="Search bubbles..."
-                className="pl-10 pr-4 h-9 bg-white/60"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                className="mr-2 rounded-full focus-visible:ring-secondary/40"
+                id="search-input"
               />
-            </div>
-          </div>
-
-          {/* Navigation Links and User Profile */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <InstallButton />
-            
-            {user ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                  onClick={() => navigate('/')}
-                >
-                  <Home className="h-5 w-5" />
-                  <span className="ml-1 hidden sm:inline">Home</span>
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                  onClick={() => navigate('/achievements')}
-                >
-                  <Trophy className="h-5 w-5" />
-                  <span className="ml-1 hidden sm:inline">Achievements</span>
-                </Button>
-                
-                <div className="mx-1 hidden md:block">
-                  <LevelProgress minimal />
-                </div>
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-1 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                    >
-                      <UserCircle className="h-6 w-6" />
-                      <span className="sr-only">Profile</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>
-                      <div className="flex flex-col">
-                        <span>My Account</span>
-                        <span className="text-xs text-gray-500">{user.email}</span>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate("/profile")}>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/my-bubbles")}>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      <span>My Bubbles</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/achievements")}>
-                      <Trophy className="mr-2 h-4 w-4" />
-                      <span>Achievements</span>
-                      <div className="ml-auto">
-                        <LevelProgress minimal />
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
-                onClick={() => navigate("/auth")}
-              >
-                <LogIn className="h-5 w-5 mr-1" />
-                <span>Login</span>
+              <Button variant="ghost" size="icon" onClick={() => setShowSearch(false)}>
+                <X className="h-5 w-5" />
               </Button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)}>
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
+          
+          {user ? (
+            <div className="dropdown dropdown-end">
+              <label tabIndex={0} className="btn btn-ghost btn-circle avatar">
+                <div className="w-10 rounded-full">
+                  <Avatar>
+                    <AvatarImage src={user?.user_metadata?.avatar_url as string} />
+                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </div>
+              </label>
+              <ul tabIndex={0} className="dropdown-content z-[1] menu shadow bg-base-100 rounded-box w-52">
+                <li className="flex items-center justify-between px-4 py-2">
+                  <LevelProgress minimal />
+                </li>
+                <li><Link to="/profile">Profile</Link></li>
+                <li><Link to="/achievements">Achievements</Link></li>
+                <li><a onClick={signOut}>Logout</a></li>
+              </ul>
+            </div>
+          ) : (
+            <div className="space-x-2">
+              <Button variant="outline" onClick={() => navigate('/login')}>Log In</Button>
+              <Button onClick={() => navigate('/register')}>Sign Up</Button>
+            </div>
+          )}
         </div>
       </div>
-      
-      {/* Mobile Search Bar */}
-      <div className="md:hidden px-4 pb-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            type="text"
-            placeholder="Search bubbles..."
-            className="pl-10 pr-4 h-9 bg-white/60"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-    </div>
+    </header>
   );
 };
 

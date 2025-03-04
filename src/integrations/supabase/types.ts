@@ -77,6 +77,51 @@ export type Database = {
         }
         Relationships: []
       }
+      gamification_profiles: {
+        Row: {
+          achievements: Json
+          bubble_points: number
+          created_at: string | null
+          daily_streak: number
+          id: string
+          last_active: string | null
+          level: number
+          message_points: number
+          points: number
+          reflection_points: number
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          achievements?: Json
+          bubble_points?: number
+          created_at?: string | null
+          daily_streak?: number
+          id?: string
+          last_active?: string | null
+          level?: number
+          message_points?: number
+          points?: number
+          reflection_points?: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          achievements?: Json
+          bubble_points?: number
+          created_at?: string | null
+          daily_streak?: number
+          id?: string
+          last_active?: string | null
+          level?: number
+          message_points?: number
+          points?: number
+          reflection_points?: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           created_at: string
