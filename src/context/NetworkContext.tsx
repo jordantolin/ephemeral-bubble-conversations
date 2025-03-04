@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 
 interface NetworkContextType {
   isOnline: boolean;
@@ -22,7 +22,6 @@ const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [queuedActions, setQueuedActions] = useState<QueuedAction[]>([]);
-  const { toast } = useToast();
 
   useEffect(() => {
     // Function to handle the online status
@@ -56,7 +55,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [queuedActions.length, toast]);
+  }, [queuedActions.length]);
 
   // Add an action to the queue
   const addQueuedAction = (action: Omit<QueuedAction, 'id'>) => {

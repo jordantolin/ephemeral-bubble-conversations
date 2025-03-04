@@ -10,9 +10,9 @@ interface RequestOptions<T> {
 }
 
 export function useOfflineAwareRequest() {
+  const { isOnline, addQueuedAction } = useNetwork();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<any>(null);
-  const { isOnline, addQueuedAction } = useNetwork();
 
   const executeRequest = async <T>(
     requestFn: () => Promise<T>,
@@ -23,10 +23,10 @@ export function useOfflineAwareRequest() {
 
     try {
       if (!isOnline) {
-        // Queue the action for later execution
+        // Queue the request if offline
         addQueuedAction({
           type: options.actionType,
-          payload: null,
+          payload: options.actionDescription || "Queued request",
           timestamp: Date.now(),
           execute: async () => {
             try {
@@ -47,19 +47,16 @@ export function useOfflineAwareRequest() {
       // Execute immediately if online
       const result = await requestFn();
       options.onSuccess?.(result);
+      setIsLoading(false);
       return result;
     } catch (err) {
+      console.error("Request failed:", err);
       setError(err);
       options.onError?.(err);
-      return undefined;
-    } finally {
       setIsLoading(false);
+      return undefined;
     }
   };
 
-  return {
-    executeRequest,
-    isLoading,
-    error
-  };
+  return { executeRequest, isLoading, error };
 }
