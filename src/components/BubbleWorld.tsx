@@ -164,7 +164,7 @@ const BubbleScene = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
   const [error, setError] = useState<string | null>(null);
   
-  // Simple error handler
+  // Error handler for Canvas errors
   const handleCanvasErrors = () => {
     console.error("BubbleWorld canvas error occurred");
     setError("Failed to render 3D visualization");
