@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
 import NavigationBar from "@/components/bubbleWorld/NavigationBar";
@@ -12,8 +12,16 @@ import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
+import { ErrorBoundary } from "react-error-boundary";
 
-const Index = () => {
+const FallbackComponent = ({ error }) => (
+  <div className="p-4 m-4 bg-red-100 border border-red-400 text-red-700 rounded">
+    <h2 className="text-xl font-bold mb-2">Something went wrong:</h2>
+    <p>{error.message || "Unknown error occurred"}</p>
+  </div>
+);
+
+const IndexContent = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
@@ -48,9 +56,6 @@ const Index = () => {
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
-    
-    // We'll check the achievement when the bubble is actually created
-    // in the CreateBubbleDialog component
   };
   
   // Enhanced reflection with gamification
@@ -121,8 +126,8 @@ const Index = () => {
           <BubbleWorldContent
             isLoadingBubbles={isLoadingBubbles}
             bubblesError={bubblesError}
-            filteredBubbles={filteredBubbles}
-            bubbleDataForComponent={bubbleDataForComponent}
+            filteredBubbles={filteredBubbles || []}
+            bubbleDataForComponent={bubbleDataForComponent || []}
             onBubbleClick={handleBubbleClick}
             onCreateBubble={handleCreateBubble}
           />
@@ -142,7 +147,7 @@ const Index = () => {
         selectedBubbleId={selectedBubbleId}
         selectedBubble={selectedBubble}
         isLoadingBubbleDetails={isLoadingBubbleDetails}
-        messages={messages}
+        messages={messages || []}
         isLoadingMessages={isLoadingMessages}
         messagesError={messagesError}
         isBubbleExpired={isBubbleExpired}
@@ -152,6 +157,14 @@ const Index = () => {
       {/* Gamification Components */}
       <DailyStreakIndicator />
     </div>
+  );
+};
+
+const Index = () => {
+  return (
+    <ErrorBoundary FallbackComponent={FallbackComponent}>
+      <IndexContent />
+    </ErrorBoundary>
   );
 };
 

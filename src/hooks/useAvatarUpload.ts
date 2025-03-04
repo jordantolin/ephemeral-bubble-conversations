@@ -16,18 +16,18 @@ export const useAvatarUpload = (userId: string) => {
     try {
       const result = await uploadAvatar(file);
       
-      if (!result.success) {
-        throw new Error(result.error || "Failed to upload avatar");
+      if (!result?.success) {
+        throw new Error(result?.error || "Failed to upload avatar");
       }
       
       return result.url;
     } catch (error: any) {
+      console.error("Avatar upload error:", error);
       toast({
         title: "Error uploading avatar",
         description: error.message || "There was a problem uploading your avatar",
         variant: "destructive",
       });
-      console.error("Avatar upload error:", error);
       return null;
     } finally {
       setIsUploading(false);
