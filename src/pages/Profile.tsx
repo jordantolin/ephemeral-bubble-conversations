@@ -1,21 +1,14 @@
 
-import { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, TrendingUp, Sparkles, Trophy, Star, Edit, LogOut, Save, Sparkle, Upload, Loader2 } from "lucide-react";
+import { Search, User, TrendingUp, Sparkles, Trophy, Star, Edit, Sparkle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,12 +19,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface FormData {
-  display_name: string;
-  username: string;
-  avatar_url: string | null;
-}
+import AvatarUpload from "@/components/profile/AvatarUpload";
+import ProfileForm from "@/components/profile/ProfileForm";
 
 interface Bubble {
   id: string;
@@ -45,207 +34,10 @@ interface Bubble {
 const Profile = () => {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
-    display_name: "",
-    username: "",
-    avatar_url: null
-  });
-  const [isUploading, setIsUploading] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Set initial form data when profile loads
-  useEffect(() => {
-    if (profile) {
-      setFormData({
-        display_name: profile.display_name || "",
-        username: profile.username || "",
-        avatar_url: profile.avatar_url || null
-      });
-      // Set preview image from profile
-      setPreviewImage(profile.avatar_url);
-    }
-  }, [profile]);
-
-  // Check if storage bucket exists before uploading
-  const checkStorageBucket = async (bucketName: string): Promise<boolean> => {
-    try {
-      const { data: buckets, error } = await supabase.storage.listBuckets();
-      
-      if (error) {
-        console.log("Storage bucket check failed:", error.message);
-        return true; // Assume bucket exists to attempt the upload anyway
-      }
-      
-      return buckets?.some(bucket => bucket.name === bucketName) || false;
-    } catch (error) {
-      console.log("Error checking storage bucket:", error);
-      return false;
-    }
-  };
-
-  // Handle avatar upload with improved error handling and feedback
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = event.target.files?.[0];
-      if (!file || !user) {
-        console.error("No file selected or user not logged in");
-        return;
-      }
-
-      setIsUploading(true);
-
-      // Check file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select an image under 2MB",
-          variant: "destructive"
-        });
-        setIsUploading(false);
-        return;
-      }
-
-      // Set preview image immediately for better UX
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewImage(objectUrl);
-
-      // Check if avatars bucket exists
-      const bucketExists = await checkStorageBucket('avatars');
-      if (!bucketExists) {
-        toast({
-          title: "Storage not ready",
-          description: "The avatars storage is being set up. Please try again later.",
-          variant: "destructive"
-        });
-        setIsUploading(false);
-        return;
-      }
-
-      // Create a unique filename
-      const fileExt = file.name.split('.').pop();
-      const safeFileExt = fileExt || 'jpg'; // Fallback extension
-      const fileName = `avatar_${user.id}_${Date.now()}.${safeFileExt}`;
-      const filePath = fileName;
-
-      console.log("Uploading file to avatars bucket, path:", filePath);
-
-      // First check if an old avatar exists and remove it
-      if (formData.avatar_url) {
-        try {
-          const oldFileName = formData.avatar_url.split('/').pop();
-          if (oldFileName && oldFileName.startsWith('avatar_')) {
-            console.log("Attempting to remove old avatar:", oldFileName);
-            await supabase.storage
-              .from('avatars')
-              .remove([oldFileName]);
-          }
-        } catch (error) {
-          console.warn("Error removing old avatar:", error);
-          // Continue with upload even if removing old avatar fails
-        }
-      }
-
-      // Upload image to storage
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { 
-          upsert: true,
-          contentType: file.type 
-        });
-
-      if (uploadError) {
-        console.error("Upload error:", uploadError);
-        
-        // Special handling for common errors
-        if (uploadError.message.includes('bucket') && uploadError.message.includes('not found')) {
-          toast({
-            title: "Storage setup needed",
-            description: "Please contact the administrator to set up avatar storage.",
-            variant: "destructive"
-          });
-        } else if (uploadError.message.includes('row-level security policy')) {
-          toast({
-            title: "Permission error",
-            description: "You don't have permission to upload files. Please contact the administrator.",
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Upload failed",
-            description: uploadError.message || "There was a problem uploading your image",
-            variant: "destructive"
-          });
-        }
-        setIsUploading(false);
-        return;
-      }
-
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const avatarUrl = publicUrlData?.publicUrl;
-      
-      console.log("File uploaded, public URL:", avatarUrl);
-
-      // Update form data with new avatar URL
-      setFormData(prev => ({
-        ...prev,
-        avatar_url: avatarUrl
-      }));
-
-      // Update profile immediately for better UX
-      if (user.id) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            avatar_url: avatarUrl,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user.id);
-          
-        if (updateError) {
-          console.error("Error updating profile with new avatar:", updateError);
-          toast({
-            title: "Profile update error",
-            description: "Avatar was uploaded but profile couldn't be updated. Try saving your profile.",
-            variant: "destructive"
-          });
-        } else {
-          // Refresh profile data
-          queryClient.invalidateQueries({ queryKey: ['profile'] });
-          
-          toast({
-            title: "Avatar uploaded",
-            description: "Your profile picture has been updated",
-          });
-        }
-      }
-    } catch (error: any) {
-      console.error("Upload process error:", error);
-      // Revert preview image on error
-      setPreviewImage(formData.avatar_url);
-      toast({
-        title: "Upload failed",
-        description: error.message || "There was a problem uploading your image",
-        variant: "destructive"
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Trigger file input click when avatar is clicked
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
 
   // Fetch user's reflected bubbles
   const { data: reflectedBubbles = [], isLoading: isLoadingBubbles } = useQuery({
@@ -310,73 +102,33 @@ const Profile = () => {
       .map(([topic]) => topic);
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSaveProfile = async () => {
+  const handleAvatarUpdate = async (avatarUrl: string) => {
     if (!user) return;
 
     try {
-      // Basic form validation
-      if (!formData.username || !formData.display_name) {
+      // Update profile with new avatar URL
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        console.error("Error updating profile with new avatar:", error);
         toast({
-          title: "Missing information",
-          description: "Please fill in all required fields",
+          title: "Profile update error",
+          description: "Avatar was uploaded but profile couldn't be updated.",
           variant: "destructive"
         });
         return;
       }
-
-      // Update the profile record
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          display_name: formData.display_name,
-          username: formData.username,
-          avatar_url: formData.avatar_url,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        if (error.code === '23505') {
-          toast({
-            title: "Username already taken",
-            description: "Please choose a different username",
-            variant: "destructive"
-          });
-        } else {
-          console.error("Error updating profile:", error);
-          throw error;
-        }
-        return;
-      }
-
-      // Update profile metadata in auth
-      await supabase.auth.updateUser({
-        data: {
-          username: formData.username,
-          display_name: formData.display_name,
-          avatar_url: formData.avatar_url
-        }
-      });
-
+      
       // Refresh profile data
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully"
-      });
-      
-      setIsEditing(false);
     } catch (error: any) {
-      console.error("Profile update error:", error);
+      console.error("Avatar update error:", error);
       toast({
         title: "Error updating profile",
         description: error.message || "An unexpected error occurred",
@@ -394,6 +146,10 @@ const Profile = () => {
       return profile.display_name.substring(0, 2).toUpperCase();
     }
     
+    if (profile?.username) {
+      return profile.username.substring(0, 2).toUpperCase();
+    }
+    
     if (user?.email) {
       return user.email.substring(0, 2).toUpperCase();
     }
@@ -402,7 +158,7 @@ const Profile = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-secondary/20">
+    <div className="min-h-screen bg-[#FEF7E4]">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
         <div className="container mx-auto">
           <div className="flex items-center justify-between h-16 px-4">
@@ -472,12 +228,25 @@ const Profile = () => {
                   </DropdownMenuItem>
                   <Link to="/">
                     <DropdownMenuItem>
-                      <Sparkle className="mr-2 h-4 w-4" />
+                      <Star className="mr-2 h-4 w-4" />
                       <span>Bubble World</span>
                     </DropdownMenuItem>
                   </Link>
                   <DropdownMenuItem onClick={signOut}>
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className="mr-2 h-4 w-4"
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -528,7 +297,7 @@ const Profile = () => {
                   
                   <div className="text-center sm:text-left flex-1">
                     <h1 className="text-3xl font-bold text-[#ebbd34]">
-                      {profile?.display_name || user?.email?.split('@')[0] || "User"}
+                      {profile?.display_name || profile?.username || "User"}
                     </h1>
                     <p className="text-gray-500 mt-1">
                       @{profile?.username || user?.email?.split('@')[0] || "user"}
@@ -664,116 +433,28 @@ const Profile = () => {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <h1 className="text-2xl font-bold text-[#ebbd34]">Edit Profile</h1>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setIsEditing(false);
-                        // Reset form data to profile data
-                        if (profile) {
-                          setFormData({
-                            display_name: profile.display_name || "",
-                            username: profile.username || "",
-                            avatar_url: profile.avatar_url || null
-                          });
-                          // Reset preview image
-                          setPreviewImage(profile.avatar_url);
-                        }
-                      }}
-                      className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={handleSaveProfile}
-                      className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white gap-1.5"
-                      disabled={isUploading}
-                    >
-                      {isUploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      <span>Save</span>
-                    </Button>
-                  </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-6">
-                  <div className="flex flex-col items-center gap-2">
-                    {/* Hidden file input */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      disabled={isUploading}
-                    />
-                    
-                    {/* Avatar with upload overlay */}
-                    <div className="relative cursor-pointer group" onClick={triggerFileInput}>
-                      <Avatar className="w-24 h-24 border-4 border-[#ebbd34] group-hover:opacity-80 transition-opacity overflow-hidden">
-                        {isUploading ? (
-                          <div className="h-full w-full flex items-center justify-center bg-[#ebbd34]/10">
-                            <Loader2 className="w-8 h-8 text-[#ebbd34] animate-spin" />
-                          </div>
-                        ) : (
-                          <>
-                            <AvatarImage 
-                              src={previewImage || undefined} 
-                              alt={formData.display_name || "Profile"} 
-                              className="object-cover"
-                            />
-                            <AvatarFallback className="bg-[#ebbd34] text-white">
-                              {getAvatarFallback()}
-                            </AvatarFallback>
-                          </>
-                        )}
-                      </Avatar>
+                  {user && profile && (
+                    <>
+                      <AvatarUpload 
+                        currentAvatarUrl={profile.avatar_url}
+                        userId={user.id}
+                        username={profile.username}
+                        displayName={profile.display_name}
+                        onAvatarUpdated={handleAvatarUpdate}
+                      />
                       
-                      {/* Upload overlay */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                        <Upload className="h-5 w-5 mb-1" />
-                        {isUploading ? "Uploading..." : "Change Photo"}
-                      </div>
-                    </div>
-                    
-                    <p className="text-xs text-gray-500 text-center mt-1 max-w-[150px]">
-                      Click the avatar to upload a new profile picture
-                    </p>
-                  </div>
-                  
-                  <div className="w-full space-y-4">
-                    <div>
-                      <Label htmlFor="display_name" className="text-[#ebbd34]">Display Name</Label>
-                      <Input
-                        id="display_name"
-                        name="display_name"
-                        value={formData.display_name}
-                        onChange={handleInputChange}
-                        placeholder="Your name"
-                        className="mt-1 border-[#ebbd34]/20"
-                        required
+                      <ProfileForm 
+                        userId={user.id}
+                        initialUsername={profile.username}
+                        initialDisplayName={profile.display_name || ""}
+                        avatarUrl={profile.avatar_url}
+                        onCancel={() => setIsEditing(false)}
                       />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="username" className="text-[#ebbd34]">Username</Label>
-                      <Input
-                        id="username"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleInputChange}
-                        placeholder="username"
-                        className="mt-1 border-[#ebbd34]/20"
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-1">This will be used as your @username</p>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}

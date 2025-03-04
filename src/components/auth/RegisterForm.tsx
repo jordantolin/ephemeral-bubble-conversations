@@ -172,7 +172,7 @@ export function RegisterForm() {
         console.log("Login check failed, continuing with registration:", loginErr);
       }
 
-      // Create the user in Supabase Auth with email_confirm set to true
+      // Create the user in Supabase Auth with metadata for display name and username
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: registerForm.email,
         password: registerForm.password,
@@ -180,9 +180,9 @@ export function RegisterForm() {
           emailRedirectTo: window.location.origin + "/auth", // Redirect to auth page after confirmation
           data: {
             username: registerForm.username,
-            full_name: `${registerForm.name} ${registerForm.surname}`,
-            name: registerForm.name,
-            surname: registerForm.surname,
+            display_name: `${registerForm.name} ${registerForm.surname}`,
+            first_name: registerForm.name,
+            last_name: registerForm.surname,
           },
         },
       });
@@ -243,7 +243,24 @@ export function RegisterForm() {
       }
       
       // If we got a session back, user is automatically logged in
-      if (authData.session) {
+      // Also ensure we properly set up the profile with correct display name and username
+      if (authData.session && authData.user) {
+        // Create or update the profile record to ensure display name and username are set
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authData.user.id,
+            username: registerForm.username, 
+            display_name: `${registerForm.name} ${registerForm.surname}`,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'id'
+          });
+          
+        if (profileError) {
+          console.error("Error updating profile on registration:", profileError);
+        }
+        
         toast({
           title: "Account created and logged in",
           description: "Welcome to Bubble Trouble!",

@@ -215,6 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+      
+      // Clear any stored profile data
+      setProfile(null);
+      
+      // Redirect to home
+      window.location.href = "/";
+      
       toast({
         title: "Signed out successfully",
         description: "You have been logged out",
