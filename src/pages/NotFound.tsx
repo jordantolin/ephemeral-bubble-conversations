@@ -17,7 +17,13 @@ const NotFound = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FEF7E4]">
       <div className="text-center p-8 max-w-md bg-white rounded-2xl shadow-lg">
-        <AlertTriangle className="h-16 w-16 text-[#ebbd34] mx-auto mb-4" />
+        <div className="flex justify-center mb-6">
+          <img 
+            src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
+            alt="Bubble Trouble" 
+            className="w-20 h-20"
+          />
+        </div>
         <h1 className="text-4xl font-bold mb-2 text-[#ebbd34]">404</h1>
         <p className="text-xl text-gray-600 mb-6">Oops! This bubble has popped</p>
         <p className="text-gray-500 mb-8">The page you're looking for doesn't exist or has been moved.</p>

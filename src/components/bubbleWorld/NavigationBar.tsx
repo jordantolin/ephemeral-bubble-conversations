@@ -3,7 +3,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, Sparkles, TrendingUp, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
 import {
   DropdownMenu,
@@ -71,7 +71,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
             <Link 
               to="/my-bubbles" 
               className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
+                location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10 font-medium' : ''
               }`}
             >
               <Sparkles className="w-4 h-4" />
@@ -80,7 +80,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
             <Link 
               to="/feed" 
               className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
+                location.pathname === '/feed' ? 'bg-[#ebbd34]/10 font-medium' : ''
               }`}
             >
               <TrendingUp className="w-4 h-4" />
@@ -96,19 +96,23 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
                     className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
                   >
                     <Avatar className="h-9 w-9 border-2 border-[#ebbd34]/20">
-                      <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] font-bold">
-                        {getUserInitials(profile?.display_name, user?.email)}
-                      </AvatarFallback>
+                      {profile?.avatar_url ? (
+                        <AvatarImage src={profile.avatar_url} alt={profile?.display_name || "Profile"} />
+                      ) : (
+                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] font-bold">
+                          {getUserInitials(profile?.display_name, user?.email)}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-white z-[100] shadow-lg rounded-lg border border-[#ebbd34]/10">
                   <DropdownMenuItem className="flex flex-col items-start p-3">
                     <span className="font-medium text-[#ebbd34]">
-                      {profile?.display_name || user?.email}
+                      {profile?.display_name || user?.email?.split('@')[0] || "User"}
                     </span>
                     <span className="text-xs text-gray-500">
-                      @{profile?.username || user?.email?.split('@')[0]}
+                      @{profile?.username || user?.email?.split('@')[0] || "user"}
                     </span>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

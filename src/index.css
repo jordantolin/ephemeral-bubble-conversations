@@ -79,3 +79,32 @@
     background-color: #FEF7E4;
   }
 }
+
+/* Global animations and transitions */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.bg-glow {
+  animation: pulse-glow 3s infinite ease-in-out;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Better focus states for accessibility */
+:focus-visible {
+  outline: 2px solid #ebbd34;
+  outline-offset: 2px;
+}
+
+/* Smoother transitions */
+.transition-all {
+  transition-duration: 300ms;
+}
