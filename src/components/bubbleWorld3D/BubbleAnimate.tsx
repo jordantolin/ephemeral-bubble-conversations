@@ -20,6 +20,8 @@ const BubbleAnimate = ({ topics, onBubbleClick }: BubbleAnimateProps) => {
   const centralWorldRef = useRef<THREE.Mesh | null>(null);
   const timeRef = useRef(0);
   
+  console.log("BubbleAnimate rendering with topics:", topics ? topics.length : 0);
+  
   // Interaction state
   const interactionRef = useRef<InteractionState>({
     isInteracting: false,
@@ -44,6 +46,8 @@ const BubbleAnimate = ({ topics, onBubbleClick }: BubbleAnimateProps) => {
   // Initialize scene and camera
   useEffect(() => {
     if (!containerRef.current || isInitialized) return;
+    
+    console.log("Initializing Three.js scene and camera");
     
     const container = containerRef.current;
     const width = container.clientWidth;
@@ -103,6 +107,8 @@ const BubbleAnimate = ({ topics, onBubbleClick }: BubbleAnimateProps) => {
   // Initialize renderer and world components
   useEffect(() => {
     if (!isInitialized || !containerRef.current || !sceneRef.current || !cameraRef.current) return;
+    
+    console.log("Initializing Three.js renderer and world components");
     
     const container = containerRef.current;
     const scene = sceneRef.current;

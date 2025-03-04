@@ -22,55 +22,58 @@ const BubbleDisplay = ({
   const centralWorldRef = useRef<THREE.Mesh | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
-  useEffect(() => {
-    // Set up the main renderer
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: "high-performance",
-      alpha: true
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+  // Set up the renderer and central world
+  console.log("BubbleDisplay initializing with container: ", container ? "exists" : "missing");
+  
+  // Set up the main renderer
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    powerPreference: "high-performance",
+    alpha: true
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  
+  container.appendChild(renderer.domElement);
+  rendererRef.current = renderer;
+
+  // Set up the background scene
+  scene.background = new THREE.Color('#F9F7F0');
+  scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
+
+  // Set up lighting
+  setupLighting(scene);
+
+  // Create central world
+  const worldGeometry = createCentralWorldGeometry();
+  const worldMaterial = createCentralWorldMaterial();
+  const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
+  centralWorld.castShadow = true;
+  centralWorld.receiveShadow = true;
+  centralWorld.scale.set(1.2, 1.2, 1.2);
+  centralWorldRef.current = centralWorld;
+  scene.add(centralWorld);
+
+  // Set up resize handling
+  const handleResize = () => {
+    if (!container || !camera || !renderer) return;
     
-    container.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    
+    renderer.setSize(width, height);
+  };
 
-    // Set up the background scene
-    scene.background = new THREE.Color('#F9F7F0');
-    scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
+  window.addEventListener('resize', handleResize);
 
-    // Set up lighting
-    setupLighting(scene);
-
-    // Create central world
-    const worldGeometry = createCentralWorldGeometry();
-    const worldMaterial = createCentralWorldMaterial();
-    const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
-    centralWorld.castShadow = true;
-    centralWorld.receiveShadow = true;
-    centralWorld.scale.set(1.2, 1.2, 1.2);
-    centralWorldRef.current = centralWorld;
-    scene.add(centralWorld);
-
-    // Set up resize handling
-    const handleResize = () => {
-      if (!container || !camera || !renderer) return;
-      
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      
-      renderer.setSize(width, height);
-    };
-
-    window.addEventListener('resize', handleResize);
-
+  useEffect(() => {
     return () => {
       if (rendererRef.current) {
         rendererRef.current.dispose();
@@ -95,7 +98,7 @@ const BubbleDisplay = ({
         scene.remove(centralWorldRef.current);
       }
     };
-  }, [container, scene, camera, isMobile]);
+  }, [container, scene, camera]);
 
   return { renderer: rendererRef.current, centralWorld: centralWorldRef.current };
 };
