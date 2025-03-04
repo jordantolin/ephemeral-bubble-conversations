@@ -11,28 +11,26 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Create a bucket for avatars if it doesn't exist
+// Log available storage buckets for debugging
 (async () => {
   try {
-    // Check if the buckets exist
     const { data: buckets, error } = await supabase.storage.listBuckets();
     
     if (error) {
       console.log('Note: Storage buckets check failed. This is normal in most deployment environments where bucket creation requires admin rights.');
-      return; // Exit early, we'll assume the buckets exist or handle errors during upload
+      return;
     }
     
-    // Log available buckets for debugging
     if (buckets && buckets.length > 0) {
-      console.log('Available buckets:', buckets.map(b => b.name).join(', '));
+      console.log('Available storage buckets:', buckets.map(b => b.name).join(', '));
       
       // Check if avatars bucket exists
       const avatarsBucketExists = buckets.some(b => b.name === 'avatars');
       if (!avatarsBucketExists) {
-        console.log('Avatars bucket not found. This needs to be created by an admin.');
+        console.log('Warning: Avatars bucket not found. Avatar uploads may not work correctly.');
       }
     } else {
-      console.log('No storage buckets found. Avatar uploads may not work until buckets are created by an admin.');
+      console.log('No storage buckets found. Avatar uploads may not work correctly.');
     }
   } catch (err) {
     console.log('Storage initialization check completed with warnings.');

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -166,85 +165,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
-      // Check if avatars bucket exists and try to upload
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const avatarsBucketExists = buckets?.some(b => b.name === 'avatars');
-      
-      if (!avatarsBucketExists) {
-        // Try with bubble_assets as fallback
-        const { data, error } = await supabase.storage
-          .from('bubble_assets')
-          .upload(`avatars/${fileName}`, file, {
-            cacheControl: '3600',
-            upsert: true
-          });
-
-        if (error) {
-          console.error("Error uploading avatar:", error);
-          toast({
-            title: "Error uploading avatar",
-            description: error.message,
-            variant: "destructive",
-          });
-          return { success: false, error };
-        }
-
-        // Get the public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('bubble_assets')
-          .getPublicUrl(`avatars/${fileName}`);
-
-        // Update profile with new avatar URL
-        const { success, error: updateError } = await updateProfile({ avatar_url: publicUrl });
-        
-        if (!success) {
-          return { success: false, error: updateError };
-        }
-        
-        toast({
-          title: "Avatar updated",
-          description: "Your avatar has been updated successfully",
+      // Upload to the avatars bucket
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
         });
-        
-        return { success: true, url: publicUrl };
-      } else {
-        // Use avatars bucket if it exists
-        const { data, error } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: true
-          });
 
-        if (error) {
-          console.error("Error uploading avatar:", error);
-          toast({
-            title: "Error uploading avatar",
-            description: error.message,
-            variant: "destructive",
-          });
-          return { success: false, error };
-        }
-
-        // Get the public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-
-        // Update profile with new avatar URL
-        const { success, error: updateError } = await updateProfile({ avatar_url: publicUrl });
-        
-        if (!success) {
-          return { success: false, error: updateError };
-        }
-        
+      if (error) {
+        console.error("Error uploading avatar:", error);
         toast({
-          title: "Avatar updated",
-          description: "Your avatar has been updated successfully",
+          title: "Error uploading avatar",
+          description: error.message,
+          variant: "destructive",
         });
-        
-        return { success: true, url: publicUrl };
+        return { success: false, error };
       }
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile with new avatar URL
+      const { success, error: updateError } = await updateProfile({ avatar_url: publicUrl });
+      
+      if (!success) {
+        return { success: false, error: updateError };
+      }
+      
+      toast({
+        title: "Avatar updated",
+        description: "Your avatar has been updated successfully",
+      });
+      
+      return { success: true, url: publicUrl };
     } catch (error) {
       console.error("Unexpected error uploading avatar:", error);
       toast({
