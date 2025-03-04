@@ -1,303 +1,193 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, X, Trophy, Menu, Home, MessageCircle, User, Star, Sparkles } from "lucide-react";
+import { Search, X, Trophy, Menu, Home, MessageCircle, User, Star, Sparkles, Plus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import LevelProgress from "@/components/gamification/LevelProgress";
 import Logo from "@/components/Logo";
 
 interface NavigationBarProps {
-  searchQuery?: string;
-  setSearchQuery?: (query: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 }
 
-const NavigationBar: React.FC<NavigationBarProps> = ({ 
-  searchQuery = "", 
-  setSearchQuery = () => {} 
-}) => {
+const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, signOut } = useAuth();
-  const [showSearch, setShowSearch] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  
-  // Handle scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-    };
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-  
-  // Handle outside clicks for search
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const searchInput = document.getElementById('search-input');
-      if (showSearch && searchInput && !searchInput.contains(target)) {
-        setShowSearch(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [showSearch]);
-
-  // Navigation items for desktop and mobile
-  const navItems = [
-    {
-      name: "Home",
-      path: "/",
-      icon: <Home className="h-5 w-5" />
-    },
-    {
-      name: "Feed",
-      path: "/feed",
-      icon: <Sparkles className="h-5 w-5" />
-    },
-    {
-      name: "My Bubbles",
-      path: "/my-bubbles",
-      icon: <MessageCircle className="h-5 w-5" />
-    },
-    {
-      name: "Profile",
-      path: "/profile",
-      icon: <User className="h-5 w-5" />
-    },
-    {
-      name: "Achievements",
-      path: "/achievements",
-      icon: <Trophy className="h-5 w-5" />
-    }
-  ];
-
-  // Active page indicator
-  const isActivePage = (path: string) => {
-    return location.pathname === path;
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
   };
-  
-  return (
-    <header 
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        scrolled ? "bg-white/90 backdrop-blur-md shadow-sm" : "bg-white/80 backdrop-blur-sm"
-      }`}
-    >
-      <div className="container mx-auto py-3 px-4 sm:px-6 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center">
-          <Logo withText={!showSearch} />
-        </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors px-2 py-1 rounded-md ${
-                isActivePage(item.path)
-                  ? "bg-[#ebbd34]/10 text-[#ebbd34]"
-                  : "text-gray-600 hover:text-[#ebbd34] hover:bg-[#ebbd34]/5"
-              }`}
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setIsMenuOpen(false);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setIsProfileMenuOpen(false);
+  }, [location.pathname]);
+
+  return (
+    <div className="bg-white/95 backdrop-blur-md fixed top-0 left-0 w-full z-20 shadow-md">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Logo and Brand */}
+        <Link to="/" className="flex items-center gap-2">
+          <Logo size="md" withText={true} />
+        </Link>
+
+        {/* Search Bar (Hidden on Small Screens) */}
+        <div className="hidden sm:flex items-center flex-grow ml-4 mr-6">
+          <Input
+            type="search"
+            placeholder="Search bubbles..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            className="bg-gray-50 border-gray-300 rounded-md focus:ring-primary focus:border-primary text-sm"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchQuery("")}
+              className="ml-2 hover:bg-gray-100"
             >
-              {item.icon}
-              <span>{item.name}</span>
-            </Link>
-          ))}
-        </nav>
-        
-        {/* Right side with search and user menu */}
-        <div className="flex items-center space-x-3">
-          {showSearch ? (
-            <div className="flex items-center">
-              <Input
-                type="text"
-                placeholder="Search bubbles..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-[200px] sm:w-[250px] mr-2 rounded-full focus-visible:ring-[#ebbd34]/40"
-                id="search-input"
-                autoFocus
-              />
-              <Button variant="ghost" size="icon" onClick={() => setShowSearch(false)}>
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-          ) : (
-            <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)}>
-              <Search className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
           )}
-          
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9 border border-[#ebbd34]/20">
-                    <AvatarImage src={user?.user_metadata?.avatar_url as string} />
-                    <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5">
-                  <LevelProgress minimal />
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/achievements')}>
-                  <Trophy className="mr-2 h-4 w-4 text-[#ebbd34]" />
-                  <span>Achievements</span>
-                  <div className="ml-auto flex items-center">
-                    <Star className="h-3 w-3 text-[#ebbd34]" />
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut()}>
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <div className="space-x-2">
-              <Button variant="outline" onClick={() => navigate('/auth')} className="text-sm hidden sm:inline-flex">Log In</Button>
-              <Button 
-                onClick={() => navigate('/auth')} 
-                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white text-sm"
+        </div>
+
+        {/* Mobile Menu Button */}
+        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              className="sm:hidden rounded-full p-2 hover:bg-gray-100"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <div className="py-4 px-6">
+              <Logo size="md" withText={true} />
+            </div>
+            <div className="px-4 pb-4">
+              <Input
+                type="search"
+                placeholder="Search bubbles..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="bg-gray-50 border-gray-300 rounded-md focus:ring-primary focus:border-primary text-sm"
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchQuery("")}
+              className="absolute top-2 right-2 text-gray-500 hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="py-2">
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => handleNavigation("/")}
               >
-                Sign Up
+                <Home className="mr-2 h-4 w-4" />
+                Home
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => handleNavigation("/leaderboard")}
+              >
+                <Trophy className="mr-2 h-4 w-4" />
+                Leaderboard
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => handleNavigation("/achievements")}
+              >
+                <Star className="mr-2 h-4 w-4" />
+                Achievements
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => handleNavigation("/profile")}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profile
               </Button>
             </div>
-          )}
-          
-          {/* Mobile Menu */}
-          <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
+            {user && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-none hover:bg-gray-100"
+                onClick={() => signOut()}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {/* Profile Section */}
+        {user ? (
+          <div className="relative">
+            <Button
+              variant="ghost"
+              className="rounded-full p-0 h-9 w-9 overflow-hidden"
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+            >
+              <Avatar>
+                <AvatarImage src={user.photoURL} alt={user.displayName || "User Avatar"} />
+                <AvatarFallback>{user.displayName?.[0] || "U"}</AvatarFallback>
+              </Avatar>
+            </Button>
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                <Link to="/profile">
+                  <Button variant="ghost" className="w-full justify-start rounded-none hover:bg-gray-100">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start rounded-none hover:bg-gray-100"
+                  onClick={() => signOut()}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Sign Out
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[80vw] sm:w-[350px] pt-12">
-                <div className="flex flex-col h-full">
-                  {user && (
-                    <div className="pb-4 mb-4 border-b border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10 border border-[#ebbd34]/20">
-                          <AvatarImage src={user?.user_metadata?.avatar_url as string} />
-                          <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
-                            {user?.email?.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{user.email}</p>
-                          <LevelProgress minimal />
-                        </div>
-                      </div>
-                      <Button 
-                        className="w-full mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-sm"
-                        onClick={() => {
-                          navigate('/');
-                          document.querySelector<HTMLButtonElement>('[data-state="open"]')?.click(); // Close sheet
-                        }}
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Bubble
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <nav className="flex-1">
-                    <ul className="space-y-2">
-                      {navItems.map((item) => (
-                        <li key={item.path}>
-                          <SheetClose asChild>
-                            <Link
-                              to={item.path}
-                              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
-                                isActivePage(item.path)
-                                  ? "bg-[#ebbd34]/10 text-[#ebbd34]"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
-                              {item.icon}
-                              <span>{item.name}</span>
-                            </Link>
-                          </SheetClose>
-                        </li>
-                      ))}
-                    </ul>
-                  </nav>
-                  
-                  {user ? (
-                    <div className="mt-auto pt-4 border-t border-gray-100">
-                      <SheetClose asChild>
-                        <Button variant="outline" className="w-full" onClick={() => signOut()}>
-                          Log out
-                        </Button>
-                      </SheetClose>
-                    </div>
-                  ) : (
-                    <div className="mt-auto pt-4 border-t border-gray-100 space-y-2">
-                      <SheetClose asChild>
-                        <Button 
-                          className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                          onClick={() => navigate('/auth')}
-                        >
-                          Sign Up
-                        </Button>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
-                          onClick={() => navigate('/auth')}
-                        >
-                          Log In
-                        </Button>
-                      </SheetClose>
-                    </div>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
+              </div>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="space-x-2 hidden sm:block">
+            <Button variant="outline" onClick={() => navigate("/login")}>
+              Log In
+            </Button>
+            <Button onClick={() => navigate("/register")}>Sign Up</Button>
+          </div>
+        )}
       </div>
-    </header>
+    </div>
   );
 };
 

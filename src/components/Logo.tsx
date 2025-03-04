@@ -17,11 +17,11 @@ const Logo = ({ size = "md", withText = true, className = "" }: LogoProps) => {
   return (
     <Link to="/" className={`flex items-center gap-2 transition-transform hover:scale-105 ${className}`}>
       <div className={`${sizeClasses[size]} relative overflow-hidden`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#ffda7b] to-[#ebbd34] rounded-full shadow-md" />
-        <div className="absolute inset-[2px] bg-white/90 backdrop-blur-sm rounded-full" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[#ebbd34] font-bold text-xs sm:text-sm">BT</span>
-        </div>
+        <img 
+          src="/lovable-uploads/dd70f452-6f79-4ba9-9293-885601e88a7b.png" 
+          alt="Bubble Trouble Logo" 
+          className="w-full h-full object-contain"
+        />
       </div>
       {withText && (
         <span className="font-semibold text-lg sm:text-xl text-[#ebbd34] hidden sm:block">
