@@ -151,27 +151,19 @@ const MyBubbles = () => {
     }
   };
 
-  // Add a debug console log to see if we're getting data
-  useEffect(() => {
-    if (myBubbles && myBubbles.length > 0) {
-      console.log("MyBubbles data is available:", myBubbles);
-    } else if (!isLoadingBubbles) {
-      console.log("No bubbles found or empty bubbles array");
-    }
-  }, [myBubbles, isLoadingBubbles]);
-
-  // Force a refresh of the bubbles data on mount
+  // Force a refresh of the bubbles data on mount and whenever dependencies change
   useEffect(() => {
     if (user && profile?.username && isClientSide) {
-      // This will trigger a refetch when the component mounts
       console.log("Forcing refetch of bubbles data");
+      // Immediately trigger a refetch when the component mounts
       refetchBubbles();
       
-      // Direct database query for debugging
+      // Additional direct database query for debugging
       const fetchBubbles = async () => {
         try {
           console.log("Starting direct fetch with username:", profile.username);
           
+          // Check if reflects exist for this user
           const { data: reflects, error: reflectsError } = await supabase
             .from('reflects')
             .select('bubble_id')
@@ -183,6 +175,7 @@ const MyBubbles = () => {
             const bubbleIds = reflects.map(r => r.bubble_id);
             console.log("Direct fetch bubble IDs:", bubbleIds);
             
+            // Fetch bubbles with these IDs
             const { data: bubbles, error: bubblesError } = await supabase
               .from('bubbles')
               .select('*')
@@ -200,6 +193,15 @@ const MyBubbles = () => {
       fetchBubbles();
     }
   }, [user, profile?.username, isClientSide, refetchBubbles]);
+
+  // Add a debug console log to see if we're getting data
+  useEffect(() => {
+    if (myBubbles && myBubbles.length > 0) {
+      console.log("MyBubbles data is available:", myBubbles);
+    } else if (!isLoadingBubbles) {
+      console.log("No bubbles found or empty bubbles array");
+    }
+  }, [myBubbles, isLoadingBubbles]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
