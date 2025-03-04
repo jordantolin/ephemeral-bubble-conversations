@@ -106,20 +106,11 @@ export const useBubbleReflection = () => {
           // If this bubble now has 5 or more reflections, create notification for bubble owner
           if (bubbleData.reflect_count >= 5) {
             try {
-              // Get user_id from username
-              const { data: ownerData } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('username', bubbleData.username)
-                .single();
-                
-              if (ownerData) {
-                // Check if popular-bubble achievement can be unlocked
-                await supabase.rpc('check_popular_bubble_achievement', { 
-                  bubble_id: bubbleId,
-                  bubble_name: bubbleName
-                });
-              }
+              // Call the check_popular_bubble_achievement function
+              await supabase.rpc('check_popular_bubble_achievement', { 
+                bubble_id: bubbleId,
+                bubble_name: bubbleName
+              });
             } catch (error) {
               console.error("Error checking popular bubble achievement:", error);
             }

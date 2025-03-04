@@ -23,7 +23,6 @@ const Logo = ({ size = "md", withText = true, className = "" }: LogoProps) => {
           className="w-full h-full object-contain"
         />
       </div>
-      {/* Removed the hidden span as requested */}
     </Link>
   );
 };

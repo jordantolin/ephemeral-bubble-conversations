@@ -7,17 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-
-export type Notification = {
-  id: string;
-  title: string;
-  message: string;
-  type: 'achievement' | 'reflection' | 'system' | 'level';
-  read: boolean;
-  createdAt: string;
-  iconType?: 'star' | 'award' | 'gift';
-  points?: number;
-}
+import { Notification, NotificationType, NotificationIconType } from "@/types/notification";
 
 const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,16 +38,18 @@ const NotificationCenter: React.FC = () => {
         if (error) throw error;
         
         if (data) {
-          setNotifications(data.map(n => ({
+          const typedNotifications: Notification[] = data.map(n => ({
             id: n.id,
             title: n.title,
             message: n.message,
-            type: n.type,
+            type: n.type as NotificationType,
             read: n.read,
             createdAt: n.created_at,
-            iconType: n.icon_type,
+            iconType: n.icon_type as NotificationIconType | undefined,
             points: n.points
-          })));
+          }));
+          
+          setNotifications(typedNotifications);
           
           // Calculate unread count
           setUnreadCount(data.filter(n => !n.read).length);
@@ -89,16 +81,18 @@ const NotificationCenter: React.FC = () => {
             const newNotification = payload.new as any;
             
             // Add to notifications
-            setNotifications(prev => [{
+            const typedNotification: Notification = {
               id: newNotification.id,
               title: newNotification.title,
               message: newNotification.message,
-              type: newNotification.type,
+              type: newNotification.type as NotificationType,
               read: newNotification.read,
               createdAt: newNotification.created_at,
-              iconType: newNotification.icon_type,
+              iconType: newNotification.icon_type as NotificationIconType | undefined,
               points: newNotification.points
-            }, ...prev]);
+            };
+            
+            setNotifications(prev => [typedNotification, ...prev]);
             
             // Increment unread count
             if (!newNotification.read) {

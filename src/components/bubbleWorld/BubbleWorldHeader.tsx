@@ -25,14 +25,19 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
           </h1>
         </motion.div>
         
-        <motion.p 
-          className="text-center text-[#ebbd34]/80 max-w-2xl mx-auto text-sm sm:text-base"
+        <motion.div 
+          className="text-center max-w-2xl mx-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          Explore ephemeral bubbles that last for 24 hours. Join conversations, earn achievements, and connect with others before bubbles disappear!
-        </motion.p>
+          <p className="font-medium text-[#ebbd34]/90 text-sm sm:text-base">
+            A community of ephemeral conversations that last only 24 hours
+          </p>
+          <p className="text-[#ebbd34]/80 mt-2 text-sm sm:text-base">
+            Create bubbles, join discussions, earn achievements, and connect with others before bubbles disappear!
+          </p>
+        </motion.div>
       </div>
       
       <motion.div 
