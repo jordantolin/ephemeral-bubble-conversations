@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2 } from "lucide-react";
 import { useAvatarUpload } from "@/hooks/useAvatarUpload";
+import { motion } from "framer-motion";
 
 interface AvatarUploadProps {
   userId: string;
@@ -67,10 +68,15 @@ const AvatarUpload = ({
   const displayUrl = previewUrl || avatarUrl;
 
   return (
-    <div className="relative flex flex-col items-center">
-      <Avatar className={`${sizeClass} border-2 border-[#ebbd34]/20`}>
-        <AvatarImage src={displayUrl || undefined} alt={displayName || "Profile"} />
-        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
+    <motion.div 
+      className="relative flex flex-col items-center"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <Avatar className={`${sizeClass} border-2 border-[#ebbd34]/20 shadow-md overflow-hidden`}>
+        <AvatarImage src={displayUrl || undefined} alt={displayName || "Profile"} className="object-cover" />
+        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] font-bold">
           {getInitials()}
         </AvatarFallback>
       </Avatar>
@@ -87,7 +93,7 @@ const AvatarUpload = ({
         type="button"
         onClick={handleButtonClick}
         disabled={isUploading}
-        className="absolute bottom-0 right-0 rounded-full h-8 w-8 p-0 bg-[#ebbd34] hover:bg-[#ebbd34]/90"
+        className="absolute bottom-0 right-0 rounded-full h-8 w-8 p-0 bg-[#ebbd34] hover:bg-[#ebbd34]/90 shadow-md transition-all duration-200 hover:scale-110"
         aria-label="Upload avatar"
       >
         {isUploading ? (
@@ -96,7 +102,7 @@ const AvatarUpload = ({
           <Camera className="h-4 w-4 text-white" />
         )}
       </Button>
-    </div>
+    </motion.div>
   );
 };
 

@@ -5,8 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 
 interface ProfileFormProps {
   userId: string;
@@ -132,32 +133,55 @@ const ProfileForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-4">
+    <motion.form 
+      onSubmit={handleSubmit} 
+      className="w-full space-y-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <div>
-        <Label htmlFor="display_name" className="text-[#ebbd34]">Display Name</Label>
+        <Label htmlFor="display_name" className="text-[#ebbd34] font-medium">Display Name</Label>
         <Input
           id="display_name"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your name"
-          className="mt-1 border-[#ebbd34]/20"
+          className="mt-1 border-[#ebbd34]/20 focus:border-[#ebbd34] focus:ring-[#ebbd34]/20 
+                   transition-colors duration-200"
         />
         {errors.displayName && (
-          <p className="text-red-500 text-xs mt-1">{errors.displayName}</p>
+          <motion.p 
+            className="text-red-500 text-xs mt-1"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+          >
+            {errors.displayName}
+          </motion.p>
         )}
       </div>
       
       <div>
-        <Label htmlFor="username" className="text-[#ebbd34]">Username</Label>
-        <Input
-          id="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="username"
-          className="mt-1 border-[#ebbd34]/20"
-        />
+        <Label htmlFor="username" className="text-[#ebbd34] font-medium">Username</Label>
+        <div className="relative">
+          <span className="absolute inset-y-0 left-3 flex items-center text-gray-400">@</span>
+          <Input
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="username"
+            className="pl-7 mt-1 border-[#ebbd34]/20 focus:border-[#ebbd34] focus:ring-[#ebbd34]/20 
+                     transition-colors duration-200"
+          />
+        </div>
         {errors.username ? (
-          <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+          <motion.p 
+            className="text-red-500 text-xs mt-1"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+          >
+            {errors.username}
+          </motion.p>
         ) : (
           <p className="text-xs text-gray-500 mt-1">This will be used as your @username</p>
         )}
@@ -168,13 +192,14 @@ const ProfileForm = ({
           type="button"
           variant="outline" 
           onClick={onCancel}
-          className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
+          className="border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors duration-200"
         >
+          <X className="h-4 w-4 mr-1" />
           Cancel
         </Button>
         <Button 
           type="submit"
-          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white gap-1.5"
+          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white gap-1.5 transition-colors duration-200"
           disabled={isSaving}
         >
           {isSaving ? (
@@ -185,7 +210,7 @@ const ProfileForm = ({
           <span>Save</span>
         </Button>
       </div>
-    </form>
+    </motion.form>
   );
 };
 
