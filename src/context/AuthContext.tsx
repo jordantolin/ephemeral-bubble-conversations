@@ -165,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
-      // Upload to the avatars bucket
+      // Upload to the dedicated avatars bucket
       const { data, error } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, {

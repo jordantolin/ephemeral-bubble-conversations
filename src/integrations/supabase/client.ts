@@ -11,7 +11,7 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Log available storage buckets for debugging
+// Check for the dedicated avatars bucket
 (async () => {
   try {
     const { data: buckets, error } = await supabase.storage.listBuckets();
@@ -27,12 +27,14 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
       // Check if avatars bucket exists
       const avatarsBucketExists = buckets.some(b => b.name === 'avatars');
       if (!avatarsBucketExists) {
-        console.log('Warning: Avatars bucket not found. Avatar uploads may not work correctly.');
+        console.log('Warning: Avatars bucket not found. Please create it for avatar uploads to work correctly.');
+      } else {
+        console.log('Avatars bucket verified and ready for use.');
       }
     } else {
       console.log('No storage buckets found. Avatar uploads may not work correctly.');
     }
   } catch (err) {
-    console.log('Storage initialization check completed with warnings.');
+    console.log('Storage initialization check completed with warnings:', err);
   }
 })();
