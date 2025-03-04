@@ -32,7 +32,8 @@ export function useOfflineAwareRequest() {
             try {
               const result = await requestFn();
               options.onSuccess?.(result);
-              return result;
+              // Return void to match the expected Promise<void> type
+              return;
             } catch (err) {
               options.onError?.(err);
               throw err;
