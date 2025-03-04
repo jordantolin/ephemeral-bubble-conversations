@@ -4,7 +4,12 @@ import { MessageSquare, Sparkles, Home, User, Trophy } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-const NavigationBar: React.FC = () => {
+interface NavigationBarProps {
+  searchQuery?: string;
+  setSearchQuery?: React.Dispatch<React.SetStateAction<string>>;
+}
+
+const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
   const location = useLocation();
   
   const navigationLinks = [

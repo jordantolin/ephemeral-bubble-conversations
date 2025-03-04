@@ -18,7 +18,9 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
         transition={{ duration: 0.5 }}
         className="flex items-center gap-3"
       >
-        <Logo withText={false} className="w-10 h-10" />
+        <div className="w-10 h-10">
+          <Logo withText={false} />
+        </div>
         
         <div>
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2 leading-tight">

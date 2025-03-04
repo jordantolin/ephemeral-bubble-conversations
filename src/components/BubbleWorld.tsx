@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -284,13 +283,8 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
       
       // Raycasting to detect clicks on bubbles
       const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera({ x, y }, cameraRef.current);
-      
-      // Check for intersections with bubble groups
-      const intersects = raycaster.intersectObjects(
-        bubbleGroupsRef.current.flatMap(group => group.children),
-        true
-      );
+      // Convert to THREE.Vector2 for the raycaster
+      raycaster.setFromCamera(new THREE.Vector2(x, y), cameraRef.current);
       
       if (intersects.length > 0) {
         // Find the parent group of the intersected object
