@@ -35,9 +35,20 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState(0); // -1 for up, 1 for down
+  const [showHelp, setShowHelp] = useState(true);
+  const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragStartY = useRef(0);
-  const dragThreshold = 100; // Pixels required to trigger a bubble change
+  const dragThreshold = 80; // Pixels required to trigger a bubble change
+  
+  // Hide help message after 5 seconds
+  useEffect(() => {
+    if (showHelp) {
+      const timer = setTimeout(() => {
+        setShowHelp(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showHelp]);
   
   // Navigate to the next bubble (scroll down)
   const navigateNext = () => {
@@ -72,7 +83,10 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     const container = containerRef.current;
     
     const handleTouchStart = (e: TouchEvent) => {
-      dragStartY.current = e.touches[0].clientY;
+      setStartTouch({
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      });
     };
     
     const handleTouchMove = (e: TouchEvent) => {
@@ -80,11 +94,15 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     };
     
     const handleTouchEnd = (e: TouchEvent) => {
-      const dragEndY = e.changedTouches[0].clientY;
-      const dragDiff = dragEndY - dragStartY.current;
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
       
-      if (Math.abs(dragDiff) > dragThreshold) {
-        if (dragDiff > 0) {
+      const diffX = endX - startTouch.x;
+      const diffY = endY - startTouch.y;
+      
+      // Only respond to vertical swipes
+      if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > dragThreshold) {
+        if (diffY > 0) {
           // Swiped down
           navigatePrev();
         } else {
@@ -120,9 +138,9 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     };
     
     // Add event listeners
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
     container.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('keydown', handleKeyDown);
     
@@ -134,12 +152,12 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       container.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [bubbles.length, isTransitioning]);
+  }, [bubbles.length, isTransitioning, startTouch]);
 
   // More subtle transition variants
   const bubbleVariants = {
     enter: (direction: number) => ({
-      y: direction > 0 ? '50%' : '-50%',
+      y: direction > 0 ? '40%' : '-40%',
       opacity: 0,
       scale: 0.9,
     }),
@@ -153,7 +171,7 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       }
     },
     exit: (direction: number) => ({
-      y: direction > 0 ? '-50%' : '50%',
+      y: direction > 0 ? '-40%' : '40%',
       opacity: 0,
       scale: 0.9,
       transition: {
@@ -193,6 +211,30 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       ref={containerRef}
       className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4]"
     >
+      {/* Help overlay - shown only initially */}
+      <AnimatePresence>
+        {showHelp && (
+          <motion.div 
+            className="absolute inset-0 bg-black/60 z-50 flex flex-col items-center justify-center text-white pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.div 
+              className="flex flex-col items-center"
+              initial={{ y: 20 }}
+              animate={{ y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <ChevronUp className="w-8 h-8 text-white animate-bounce" />
+              <p className="text-lg font-medium mb-12">Swipe up or down</p>
+              <ChevronDown className="w-8 h-8 text-white animate-bounce" />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Subtle swipe indicators */}
       <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 opacity-50 hover:opacity-80 transition-opacity">
         <ChevronUp className="w-5 h-5 text-[#ebbd34]" />

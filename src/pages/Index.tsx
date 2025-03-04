@@ -11,6 +11,7 @@ import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicato
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
+import { motion } from "framer-motion";
 
 const Index = () => {
   const location = useLocation();
@@ -83,6 +84,19 @@ const Index = () => {
     }
   }, []);
 
+  // Gentle entrance animation for main content
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        delay: 0.3,
+        when: "beforeChildren",
+        staggerChildren: 0.2
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
       {/* Reconnection indicator */}
@@ -94,7 +108,12 @@ const Index = () => {
         setSearchQuery={setSearchQuery}
       />
       
-      <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
+      <motion.div 
+        className="pt-24 sm:pt-28 pb-16 px-4 sm:px-6 relative z-10"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
           <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
@@ -108,7 +127,7 @@ const Index = () => {
             onCreateBubble={handleCreateBubble}
           />
         </div>
-      </div>
+      </motion.div>
       
       {/* New Bubble Dialog */}
       <CreateBubbleDialog 

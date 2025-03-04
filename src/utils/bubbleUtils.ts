@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
@@ -153,7 +152,7 @@ export const createRetryHandler = (
 
 // Create bubble geometry with improved quality
 export const createBubbleGeometry = (size: number) => {
-  const segments = Math.max(16, Math.floor(size * 24)); // Higher detail for larger bubbles
+  const segments = Math.max(24, Math.floor(size * 32)); // Higher detail for larger bubbles
   return new THREE.SphereGeometry(size, segments, segments);
 };
 
@@ -161,21 +160,21 @@ export const createBubbleGeometry = (size: number) => {
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     color: 0xebbd34,
-    metalness: 0,
-    roughness: 0.1,
-    transmission: 0.6,
-    reflectivity: 0.5,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.2,
+    metalness: 0.1,
+    roughness: 0.05,
+    transmission: 0.7,
+    reflectivity: 0.6,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.7,
     side: THREE.DoubleSide,
   });
 };
 
 // Create central world geometry
 export const createCentralWorldGeometry = () => {
-  const geometry = new THREE.IcosahedronGeometry(0.8, 1);
+  const geometry = new THREE.IcosahedronGeometry(0.8, 2); // Higher detail
   // Add some randomization to vertices for a more organic look
   const positions = geometry.attributes.position;
   
@@ -201,16 +200,16 @@ export const createCentralWorldGeometry = () => {
 export const createCentralWorldMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     color: 0xebbd34,
-    metalness: 0.4,
-    roughness: 0.3,
-    transmission: 0.2,
+    metalness: 0.5,
+    roughness: 0.2,
+    transmission: 0.3,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.2,
+    clearcoatRoughness: 0.1,
     emissive: 0x332200,
-    emissiveIntensity: 0.2,
+    emissiveIntensity: 0.3,
     wireframe: true,
     transparent: true,
-    opacity: 0.6
+    opacity: 0.7
   });
 };
 
@@ -234,18 +233,18 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
-  // Text shadow for better readability
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 4 * scaleFactor;
+  // Enhanced text shadow for better readability
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 5 * scaleFactor;
   ctx.shadowOffsetX = 2 * scaleFactor;
   ctx.shadowOffsetY = 2 * scaleFactor;
   
-  // Text styling
+  // Text styling with bold for better visibility
   ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.fillStyle = '#ebbd34';
+  ctx.fillStyle = '#ffd54f'; // Brighter color for better contrast
   
   // Center text and ensure all text is visible
-  const maxWidth = canvas.width * 0.9; // Limit width to avoid cutoff
+  const maxWidth = canvas.width * 0.92; // Limit width to avoid cutoff
   const words = text.split(' ');
   
   // Single line approach for shorter text
@@ -274,8 +273,22 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
     const totalHeight = lines.length * lineHeight;
     const startY = (canvas.height - totalHeight) / 2 + lineHeight / 2;
     
-    // Render each line
+    // Draw bright background to further improve readability
     lines.forEach((line, index) => {
+      const lineY = startY + index * lineHeight;
+      const textWidth = ctx.measureText(line).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(
+        canvas.width / 2 - textWidth / 2 - 10,
+        lineY - fontSize / 2 - 5,
+        textWidth + 20,
+        fontSize + 10
+      );
+    });
+    
+    // Render each line of text
+    lines.forEach((line, index) => {
+      ctx.fillStyle = '#ffffff'; // White text for maximum contrast
       ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, maxWidth);
     });
   }

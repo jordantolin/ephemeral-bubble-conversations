@@ -1,7 +1,8 @@
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 interface BubbleWorldHeaderProps {
   onCreateBubble: () => void;
@@ -9,24 +10,35 @@ interface BubbleWorldHeaderProps {
 
 const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
   return (
-    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-      <div>
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2">
+    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6 sm:mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2 leading-tight">
           Bubble World
         </h1>
-        <p className="text-[#ebbd34]/80 text-lg max-w-xl">
-          Explore ephemeral bubbles that last for just 24 hours. Join conversations and reflect on ideas before they disappear!
+        <p className="text-[#ebbd34]/80 text-sm sm:text-base md:text-lg max-w-xl">
+          Explore ephemeral bubbles that last for 24 hours. Join conversations and reflect on ideas before they disappear!
         </p>
-      </div>
+      </motion.div>
       
-      <Button
-        onClick={onCreateBubble}
-        className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white shadow-md transform hover:scale-105 transition-all duration-200"
-        size="lg"
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Plus className="mr-2 h-5 w-5" />
-        New 24h Bubble
-      </Button>
+        <Button
+          onClick={onCreateBubble}
+          className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white shadow-md transform hover:scale-105 transition-all duration-200 w-full sm:w-auto"
+          size="lg"
+        >
+          <Plus className="mr-2 h-5 w-5" />
+          <span className="mr-1">New</span>
+          <span className="hidden sm:inline">24h Bubble</span>
+        </Button>
+      </motion.div>
     </div>
   );
 };

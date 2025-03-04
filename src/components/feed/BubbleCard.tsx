@@ -83,7 +83,7 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
 
   return (
     <div 
-      className="relative w-[300px] h-[300px] rounded-full overflow-visible cursor-pointer"
+      className="relative w-[95vw] max-w-[300px] h-[300px] rounded-full overflow-visible cursor-pointer"
       onClick={() => navigateToBubble(bubble.id)}
     >
       {/* Background circle */}
@@ -155,12 +155,12 @@ const BubbleCard: React.FC<BubbleCardProps> = ({
           </div>
           
           {bubble.description && (
-            <p className={`${isExpired ? 'text-[#ebbd34]/50' : 'text-[#ebbd34]/70'} text-xs mb-2 max-w-[90%] line-clamp-2`}>
+            <p className={`${isExpired ? 'text-[#ebbd34]/50' : 'text-[#ebbd34]/80'} text-xs mb-2 max-w-[90%] line-clamp-2 font-medium leading-tight`}>
               {bubble.description}
             </p>
           )}
           
-          <p className="text-[#ebbd34]/60 text-xs">
+          <p className="text-[#ebbd34]/70 text-xs font-medium">
             by @{bubble.username?.split('@')[0] || 'unknown'}
           </p>
         </div>
