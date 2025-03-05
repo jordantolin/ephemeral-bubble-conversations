@@ -33,7 +33,7 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
             A community of ephemeral conversations that last only 24 hours
           </p>
           <p className="text-[#ebbd34]/80 mt-2 text-sm sm:text-base">
-            Create bubbles, join discussions, earn achievements, and connect with others before bubbles disappear!
+            Create bubbles, join discussions, earn achievements, and connect with others!
           </p>
         </motion.div>
       </div>
