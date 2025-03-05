@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -29,16 +30,19 @@ const formatTimeRemaining = (expiryTime: Date) => {
 };
 
 const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
+  // Create refs to manage Three.js objects
   const containerRef = useRef<HTMLDivElement>(null);
   const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
   const sceneRef = useRef<THREE.Scene | null>(null);
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const centralWorldRef = useRef<THREE.Object3D | null>(null);
+  const worldGroupRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const particlesRef = useRef<{[key: string]: THREE.Points}>({});
+  
+  // Interaction state
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -78,7 +82,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const height = container.clientHeight;
     const isMobile = width < 768;
 
-    // Create perspective camera with improved field of view for better immersion
+    // Create perspective camera
     const camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
     
     // Position camera to view the world from a better angle - adjusted for closer view
@@ -128,10 +132,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centerLight.position.set(0, 0, 0);
     scene.add(centerLight);
 
-    // Create a group to hold all bubbles - this is what we'll rotate instead of the central world
+    // Create a group to hold all bubbles - this is what we'll rotate
     const worldGroup = new THREE.Group();
     scene.add(worldGroup);
-    centralWorldRef.current = worldGroup;
+    worldGroupRef.current = worldGroup;
 
     // Create central world with enhanced appearance
     const worldGeometry = createCentralWorldGeometry();
@@ -319,7 +323,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Get optimized bubble positions
       const bubblePositions = calculateBubblePositions(topics);
       
-      // Create bubbles with enhanced random positioning and improved visuals
+      // Create bubbles with enhanced visuals and improved positioning
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
         if (topic.isExploding) {
@@ -400,9 +404,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           expiryTime // Store actual time
         };
 
-        // Create text labels with enhanced visibility
+        // Create text labels with enhanced visibility and readability
         const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
-          const canvas = createTextCanvas(text, fontSize, "#333333"); // Use dark gray for better readability
+          // Use black text for maximum readability
+          const canvas = createTextCanvas(text, fontSize, "#000000");
           const texture = new THREE.CanvasTexture(canvas);
           texture.needsUpdate = true;
           
@@ -518,19 +523,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           interactionRef.current.isDragging = true;
         }
         
-        if (interactionRef.current.isDragging) {
+        if (interactionRef.current.isDragging && worldGroupRef.current) {
           const dx = touch.clientX - interactionRef.current.lastX;
           const dy = touch.clientY - interactionRef.current.lastY;
           
           // Apply rotation to the entire world group to ensure bubbles and text move together
-          if (centralWorldRef.current) {
-            // Amplify vertical rotation for better response to vertical drags
-            centralWorldRef.current.rotation.x += dy * 0.02; // Increased sensitivity
-            centralWorldRef.current.rotation.y += dx * 0.01;
-            
-            // Limit vertical rotation to prevent flipping
-            centralWorldRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, centralWorldRef.current.rotation.x));
-          }
+          // Increased vertical sensitivity for better response to vertical drags
+          worldGroupRef.current.rotation.y += dx * 0.01;
+          worldGroupRef.current.rotation.x += dy * 0.02; // 2x more sensitive for vertical to feel more responsive
+          
+          // Limit vertical rotation to prevent flipping
+          worldGroupRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, worldGroupRef.current.rotation.x));
           
           interactionRef.current.momentum = {
             x: dx * 0.01 * 0.8,
@@ -557,18 +560,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           handleBubbleClick(e);
         }
         
-        if (wasDragging && centralWorldRef.current) {
+        if (wasDragging && worldGroupRef.current) {
           const decay = 0.95;
           const applyMomentum = () => {
-            if (!centralWorldRef.current) return;
+            if (!worldGroupRef.current) return;
             
             const momentum = interactionRef.current.momentum;
             if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-              centralWorldRef.current.rotation.y += momentum.x;
-              centralWorldRef.current.rotation.x += momentum.y;
+              worldGroupRef.current.rotation.y += momentum.x;
+              worldGroupRef.current.rotation.x += momentum.y;
               
               // Limit vertical rotation to prevent flipping
-              centralWorldRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, centralWorldRef.current.rotation.x));
+              worldGroupRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, worldGroupRef.current.rotation.x));
               
               momentum.x *= decay;
               momentum.y *= decay;
@@ -666,7 +669,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
+      if (!interactionRef.current.isInteracting || !worldGroupRef.current) return;
 
       const deltaX = Math.abs(e.clientX - interactionRef.current.startX);
       const deltaY = Math.abs(e.clientY - interactionRef.current.startY);
@@ -682,11 +685,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const dy = e.clientY - interactionRef.current.lastY;
 
         // Apply rotation with improved vertical responsiveness
-        centralWorldRef.current.rotation.y += dx * 0.005;
-        centralWorldRef.current.rotation.x += dy * 0.008; // Increased vertical sensitivity
+        worldGroupRef.current.rotation.y += dx * 0.005;
+        worldGroupRef.current.rotation.x += dy * 0.008; // Increased vertical sensitivity
         
         // Limit vertical rotation to prevent flipping
-        centralWorldRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, centralWorldRef.current.rotation.x));
+        worldGroupRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, worldGroupRef.current.rotation.x));
 
         interactionRef.current.momentum = {
           x: dx * 0.005 * 0.8,
@@ -706,18 +709,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         handleBubbleClick(e);
       }
 
-      if (wasDragging && centralWorldRef.current) {
+      if (wasDragging && worldGroupRef.current) {
         const decay = 0.95;
         const applyMomentum = () => {
-          if (!centralWorldRef.current) return;
+          if (!worldGroupRef.current) return;
           
           const momentum = interactionRef.current.momentum;
           if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-            centralWorldRef.current.rotation.y += momentum.x;
-            centralWorldRef.current.rotation.x += momentum.y;
+            worldGroupRef.current.rotation.y += momentum.x;
+            worldGroupRef.current.rotation.x += momentum.y;
             
             // Limit vertical rotation
-            centralWorldRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, centralWorldRef.current.rotation.x));
+            worldGroupRef.current.rotation.x = Math.max(-0.8, Math.min(0.8, worldGroupRef.current.rotation.x));
             
             momentum.x *= decay;
             momentum.y *= decay;
@@ -752,7 +755,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Enhanced animation loop with more subtle movement and improved vertical handling
+    // Animation loop with smoother camera movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -774,9 +777,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
 
-      // Note: We no longer update individual bubble positions here since they're part of the world group
-      // and rotate together. We only need to update the time indicators.
-
       // Update time labels for bubbles
       Object.values(bubblesRef.current).forEach(bubble => {
         // Update time label with current time remaining (only for the last sprite which is the time label)
@@ -789,7 +789,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               const timeCanvas = createTextCanvas(
                 `⏱ ${formatTimeRemaining(new Date(expiryTime))}`,
                 isMobile ? 24 : 28,
-                "#333333" // Use dark gray for better readability
+                "#000000" // Use black for better readability
               );
               const timeTexture = new THREE.CanvasTexture(timeCanvas);
               (timeSprite.material as THREE.SpriteMaterial).map?.dispose();

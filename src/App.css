@@ -1,3 +1,4 @@
+
 #root {
   max-width: 100%;
   margin: 0 auto;
@@ -170,20 +171,13 @@ body, html {
   .nav-text {
     font-size: 0.75rem;
   }
-
-  /* Fix for notifications positioning on mobile */
-  .notifications-dropdown {
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-  }
 }
 
-/* Improved bubble text readability */
+/* Improved bubble text readability - changed to black color */
 .bubble-text {
-  color: #333333 !important; 
-  font-weight: 500;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+  color: #000000 !important; 
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
 /* Better mobile touch handling */
@@ -207,14 +201,14 @@ body, html {
 
 /* Enhanced Bubble text styling for better readability */
 .bubble-text-dark {
-  color: #333333 !important; 
+  color: #000000 !important; 
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 /* Improved bubble text contrast */
 .bubble-label {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.4);
   border-radius: 4px;
   padding: 2px 6px;
 }
