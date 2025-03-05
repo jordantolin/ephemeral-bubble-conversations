@@ -1,11 +1,12 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { User, MessageCircle, Settings, Newspaper } from "lucide-react";
+import { User, MessageCircle, Settings, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/gamification/NotificationCenter";
 import Logo from "@/components/Logo";
+import LevelProgress from "@/components/gamification/LevelProgress";
 
 interface NavigationBarProps {
   searchQuery?: string;
@@ -48,17 +49,20 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
               <span className="text-xs mt-1">My Bubbles</span>
             </Link>
 
-            {/* Feed */}
+            {/* Feed with Sparkles icon */}
             <Link
               to="/feed"
               className={getButtonClass(isActive("/feed"))}
             >
-              <Newspaper size={22} />
+              <Sparkles size={22} />
               <span className="text-xs mt-1">Feed</span>
             </Link>
 
             {/* Notifications */}
             <NotificationCenter />
+
+            {/* Level Progress */}
+            {user && <LevelProgress minimal />}
 
             {/* Profile or Login */}
             {user && (
