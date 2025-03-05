@@ -68,17 +68,111 @@ export const createTextCanvas = (text: string, fontSize: number = 32, textColor:
   return canvas;
 };
 
-// Add these dummy exports to fix the build errors
-export const createRateLimiter = () => ({
-  checkLimit: () => true
-});
+// Properly implemented rate limiter with parameters and methods
+export const createRateLimiter = (maxRequests: number = 5, timeWindowMs: number = 5000) => {
+  const requests: number[] = [];
+  
+  return {
+    canMakeRequest: () => {
+      const now = Date.now();
+      // Remove requests older than the time window
+      const validRequests = requests.filter(time => now - time < timeWindowMs);
+      requests.length = 0;
+      requests.push(...validRequests);
+      
+      // Check if we can make a new request
+      if (requests.length < maxRequests) {
+        requests.push(now);
+        return true;
+      }
+      return false;
+    },
+    getWaitTime: () => {
+      if (requests.length === 0) return 0;
+      const now = Date.now();
+      const oldestRequest = Math.min(...requests);
+      const timeToWait = timeWindowMs - (now - oldestRequest);
+      return Math.max(0, timeToWait);
+    },
+    checkLimit: () => true // Keeping for backward compatibility
+  };
+};
 
-export const createRetryHandler = () => ({
-  retry: async (fn: Function) => await fn()
-});
+// Properly implemented retry handler with parameters
+export const createRetryHandler = (maxAttempts: number = 3, delayMs: number = 1000) => {
+  return {
+    retry: async (fn: Function) => {
+      let attempts = 0;
+      
+      while (attempts < maxAttempts) {
+        try {
+          return await fn();
+        } catch (error) {
+          attempts++;
+          if (attempts >= maxAttempts) throw error;
+          await new Promise(resolve => setTimeout(resolve, delayMs * attempts));
+        }
+      }
+    }
+  };
+};
 
+// Enhanced connection manager with channel support
 export const connectionManager = {
+  channels: new Map<string, any>(),
   isConnected: true,
-  connect: () => {},
-  disconnect: () => {}
+  
+  connect: () => {
+    connectionManager.isConnected = true;
+  },
+  
+  disconnect: () => {
+    connectionManager.isConnected = false;
+  },
+  
+  createChannel: async (supabase: any, channelName: string, filters: any[], callback: (payload: any) => void) => {
+    try {
+      // Create a Supabase channel
+      const channel = supabase.channel(channelName);
+      
+      // Add each filter to the channel
+      filters.forEach(filter => {
+        channel.on('postgres_changes', filter, callback);
+      });
+      
+      // Subscribe to the channel
+      await channel.subscribe();
+      
+      // Store the channel for later cleanup
+      connectionManager.channels.set(channelName, channel);
+      
+      return channel;
+    } catch (error) {
+      console.error(`Error creating channel ${channelName}:`, error);
+      throw error;
+    }
+  },
+  
+  removeChannel: async (supabase: any, channelName: string) => {
+    try {
+      const channel = connectionManager.channels.get(channelName);
+      if (channel) {
+        await supabase.removeChannel(channel);
+        connectionManager.channels.delete(channelName);
+      }
+    } catch (error) {
+      console.error(`Error removing channel ${channelName}:`, error);
+    }
+  },
+  
+  removeAllChannels: async (supabase: any) => {
+    try {
+      for (const [channelName, channel] of connectionManager.channels.entries()) {
+        await supabase.removeChannel(channel);
+        connectionManager.channels.delete(channelName);
+      }
+    } catch (error) {
+      console.error('Error removing all channels:', error);
+    }
+  }
 };
