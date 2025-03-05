@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -192,14 +193,15 @@ const Profile = () => {
                         </div>
                       </div>
                     
-                    <Button
-                      onClick={handleLogout}
-                      variant="outline"
-                      className="w-full mt-4 border-red-300 text-red-500 hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Log Out
-                    </Button>
+                      <Button
+                        onClick={handleLogout}
+                        variant="outline"
+                        className="w-full mt-4 border-red-300 text-red-500 hover:bg-red-50"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Log Out
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
