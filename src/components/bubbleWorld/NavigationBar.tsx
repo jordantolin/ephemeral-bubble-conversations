@@ -6,7 +6,12 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/gamification/NotificationCenter";
 
-const NavigationBar: React.FC = () => {
+interface NavigationBarProps {
+  searchQuery?: string;
+  setSearchQuery?: React.Dispatch<React.SetStateAction<string>>;
+}
+
+const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
   const location = useLocation();
   const { user } = useAuth();
 

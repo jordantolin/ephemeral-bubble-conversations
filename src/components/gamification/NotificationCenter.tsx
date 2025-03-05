@@ -43,7 +43,7 @@ const NotificationCenter: React.FC = () => {
         setIsLoading(true);
         // Using any type to bypass TypeScript error until Supabase types are updated
         const { data, error } = await supabase
-          .from('notifications' as any)
+          .from('notifications')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
@@ -53,7 +53,9 @@ const NotificationCenter: React.FC = () => {
         
         if (data) {
           // Convert database results to our frontend Notification type
-          const typedNotifications: Notification[] = (data as DatabaseNotification[]).map(n => ({
+          // Cast as any first to avoid TypeScript errors
+          const notificationsData = data as any as DatabaseNotification[];
+          const typedNotifications: Notification[] = notificationsData.map(n => ({
             id: n.id,
             title: n.title,
             message: n.message,
@@ -67,7 +69,8 @@ const NotificationCenter: React.FC = () => {
           setNotifications(typedNotifications);
           
           // Calculate unread count
-          setUnreadCount((data as DatabaseNotification[]).filter(n => !n.read).length);
+          const unreads = notificationsData.filter(n => !n.read).length;
+          setUnreadCount(unreads);
         }
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -93,7 +96,7 @@ const NotificationCenter: React.FC = () => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            const newNotification = payload.new as DatabaseNotification;
+            const newNotification = payload.new as any as DatabaseNotification;
             
             // Add to notifications
             const typedNotification: Notification = {
@@ -143,7 +146,7 @@ const NotificationCenter: React.FC = () => {
     try {
       // Update the database - using any type to bypass TypeScript error
       const { error } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .update({ read: true })
         .eq('id', notificationId)
         .eq('user_id', user.id);
@@ -169,7 +172,7 @@ const NotificationCenter: React.FC = () => {
     try {
       // Update the database - using any type to bypass TypeScript error
       const { error } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .update({ read: true })
         .eq('user_id', user.id)
         .eq('read', false);
@@ -193,7 +196,7 @@ const NotificationCenter: React.FC = () => {
     try {
       // Delete from database - using any type to bypass TypeScript error
       const { error } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .delete()
         .eq('id', notificationId)
         .eq('user_id', user.id);

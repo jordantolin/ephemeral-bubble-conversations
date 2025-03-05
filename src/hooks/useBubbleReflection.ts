@@ -116,7 +116,7 @@ export const useBubbleReflection = () => {
               if (ownerData) {
                 // Create a notification for the bubble owner using any type to bypass TypeScript error
                 await supabase
-                  .from('notifications' as any)
+                  .from('notifications')
                   .insert({
                     user_id: ownerData.id,
                     title: 'Popular Bubble Achievement!',
@@ -124,7 +124,7 @@ export const useBubbleReflection = () => {
                     type: 'achievement',
                     icon_type: 'gift',
                     points: 200
-                  });
+                  } as any);
               }
             } catch (error) {
               console.error("Error checking popular bubble achievement:", error);
