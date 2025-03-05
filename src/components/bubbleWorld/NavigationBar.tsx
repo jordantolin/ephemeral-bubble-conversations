@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router-dom";
 import { User, MessageCircle, Settings, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import NotificationCenter from "@/components/gamification/NotificationCenter";
 import Logo from "@/components/Logo";
 
 interface NavigationBarProps {
@@ -39,7 +38,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
           </Link>
 
           {/* Navigation Items - improved spacing for mobile with better distribution */}
-          <div className="flex items-center justify-center space-x-6 sm:space-x-12">
+          <div className="flex items-center justify-center space-x-8 sm:space-x-16">
             {/* My Bubbles */}
             <Link
               to="/my-bubbles"
@@ -78,11 +77,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
                 <span className="text-xs mt-1">Login</span>
               </Link>
             )}
-          </div>
-
-          {/* Notifications - positioned as a separate element for better centering */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
-            <NotificationCenter />
           </div>
         </div>
       </div>

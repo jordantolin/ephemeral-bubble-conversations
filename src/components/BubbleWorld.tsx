@@ -515,12 +515,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           interactionRef.current.isDragging = true;
         }
         
-        if (interactionRef.current.isDragging && centralWorldRef.current) {
+        if (interactionRef.current.isDragging) {
           const dx = touch.clientX - interactionRef.current.lastX;
           const dy = touch.clientY - interactionRef.current.lastY;
           
-          centralWorldRef.current.rotation.y += dx * 0.01;
-          centralWorldRef.current.rotation.x += dy * 0.01;
+          // Update the entire world rotation - this ensures bubbles and text move together
+          if (centralWorldRef.current) {
+            centralWorldRef.current.rotation.y += dx * 0.01;
+            centralWorldRef.current.rotation.x += dy * 0.01;
+          }
           
           interactionRef.current.momentum = {
             x: dx * 0.01 * 0.8,
@@ -769,26 +772,25 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         bubble.position.y = bubble.userData.movement.verticalOffset + verticalMovement;
         bubble.position.z = Math.sin(angle + rotationOffset.y) * movement.radius;
         
-        // Gentle floating rotation
+        // Gentle floating rotation that follows the central world rotation
+        // This ensures that bubbles and their text rotate together naturally
         bubble.rotation.x = Math.sin(time * movement.rotationSpeed) * 0.04 + rotationOffset.x * 0.8;
         bubble.rotation.y = Math.cos(time * movement.rotationSpeed) * 0.04 + rotationOffset.y * 0.8;
         
-        // Update text labels to always face camera
-        for (let i = 1; i < bubble.children.length; i++) {
-          const textSprite = bubble.children[i] as THREE.Sprite;
-          if (textSprite && textSprite.isSprite) {
-            // Update time label with current time remaining (only for the last sprite which is the time label)
-            if (i === bubble.children.length - 1) {
-              const expiryTime = bubble.userData.expiryTime;
-              if (expiryTime) {
-                const timeCanvas = createTextCanvas(
-                  `⏱ ${formatTimeRemaining(new Date(expiryTime))}`,
-                  isMobile ? 24 : 28
-                );
-                const timeTexture = new THREE.CanvasTexture(timeCanvas);
-                (textSprite.material as THREE.SpriteMaterial).map?.dispose();
-                (textSprite.material as THREE.SpriteMaterial).map = timeTexture;
-              }
+        // Update time label with current time remaining (only for the last sprite which is the time label)
+        const lastChildIndex = bubble.children.length - 1;
+        if (lastChildIndex >= 0) {
+          const timeSprite = bubble.children[lastChildIndex] as THREE.Sprite;
+          if (timeSprite && timeSprite.isSprite) {
+            const expiryTime = bubble.userData.expiryTime;
+            if (expiryTime) {
+              const timeCanvas = createTextCanvas(
+                `⏱ ${formatTimeRemaining(new Date(expiryTime))}`,
+                isMobile ? 24 : 28
+              );
+              const timeTexture = new THREE.CanvasTexture(timeCanvas);
+              (timeSprite.material as THREE.SpriteMaterial).map?.dispose();
+              (timeSprite.material as THREE.SpriteMaterial).map = timeTexture;
             }
           }
         }
