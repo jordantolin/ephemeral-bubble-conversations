@@ -38,80 +38,50 @@ export const useAvatarUpload = (userId: string) => {
       // Create a unique file path
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const filePath = `${userId}/${fileName}`;
       
-      console.log("Starting avatar upload process...");
+      // Check if avatars bucket exists, create if it doesn't
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarsBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
       
-      // Check if avatars bucket exists
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        console.log("Error checking buckets:", bucketsError);
-        // Continue anyway as we'll try to upload and handle any errors
-      }
-      
-      const hasAvatarsBucket = buckets?.some(bucket => bucket.name === 'avatars');
-      
-      console.log("Avatars bucket exists:", hasAvatarsBucket);
-      
-      // Try to create the bucket if it doesn't exist (may fail if user doesn't have permissions)
-      if (!hasAvatarsBucket) {
+      if (!avatarsBucketExists) {
         try {
-          console.log("Attempting to create avatars bucket");
-          const { data, error } = await supabase.storage.createBucket('avatars', {
+          await supabase.storage.createBucket('avatars', {
             public: true,
             fileSizeLimit: 2 * 1024 * 1024, // 2MB
           });
-          console.log("Bucket creation result:", data, error);
         } catch (err) {
-          console.error("Failed to create avatars bucket:", err);
-          // Continue anyway, as this is expected in production environments
+          console.error("Failed to create avatars bucket, may already exist:", err);
+          // Continue anyway, since the bucket might exist but with different permissions
         }
       }
       
       // Upload the file
-      console.log("Uploading file to path:", filePath);
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
         });
 
-      if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      console.log("Upload successful, getting public URL");
-      
       // Get the public URL
-      const { data: publicUrlData } = supabase.storage
+      const { data: publicURL } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      if (!publicUrlData) {
-        console.error("Failed to get public URL");
-        throw new Error("Failed to get public URL");
-      }
-      
-      const publicUrl = publicUrlData.publicUrl;
-      console.log("Public URL obtained:", publicUrl);
+      if (!publicURL) throw new Error("Failed to get public URL");
 
       // Update the profile with the new avatar URL
-      console.log("Updating profile with new avatar URL");
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: publicURL.publicUrl })
         .eq('id', userId);
 
-      if (updateError) {
-        console.error("Profile update error:", updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       // Invalidate profile query to refresh data
-      console.log("Invalidating profile cache");
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       
       toast({
@@ -119,7 +89,7 @@ export const useAvatarUpload = (userId: string) => {
         description: "Your profile picture has been updated successfully",
       });
       
-      return publicUrl;
+      return publicURL.publicUrl;
     } catch (error: any) {
       console.error("Avatar upload error:", error);
       toast({

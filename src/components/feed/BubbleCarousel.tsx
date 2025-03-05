@@ -35,20 +35,9 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState(0); // -1 for up, 1 for down
-  const [showHelp, setShowHelp] = useState(true);
-  const [startTouch, setStartTouch] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragThreshold = 80; // Pixels required to trigger a bubble change
-  
-  // Hide help message after 5 seconds
-  useEffect(() => {
-    if (showHelp) {
-      const timer = setTimeout(() => {
-        setShowHelp(false);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [showHelp]);
+  const dragStartY = useRef(0);
+  const dragThreshold = 100; // Pixels required to trigger a bubble change
   
   // Navigate to the next bubble (scroll down)
   const navigateNext = () => {
@@ -83,10 +72,7 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     const container = containerRef.current;
     
     const handleTouchStart = (e: TouchEvent) => {
-      setStartTouch({
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY
-      });
+      dragStartY.current = e.touches[0].clientY;
     };
     
     const handleTouchMove = (e: TouchEvent) => {
@@ -94,15 +80,11 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     };
     
     const handleTouchEnd = (e: TouchEvent) => {
-      const endX = e.changedTouches[0].clientX;
-      const endY = e.changedTouches[0].clientY;
+      const dragEndY = e.changedTouches[0].clientY;
+      const dragDiff = dragEndY - dragStartY.current;
       
-      const diffX = endX - startTouch.x;
-      const diffY = endY - startTouch.y;
-      
-      // Only respond to vertical swipes
-      if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > dragThreshold) {
-        if (diffY > 0) {
+      if (Math.abs(dragDiff) > dragThreshold) {
+        if (dragDiff > 0) {
           // Swiped down
           navigatePrev();
         } else {
@@ -138,9 +120,9 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     };
     
     // Add event listeners
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: false });
     container.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('keydown', handleKeyDown);
     
@@ -152,31 +134,34 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       container.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [bubbles.length, isTransitioning, startTouch]);
+  }, [bubbles.length, isTransitioning]);
 
-  // More subtle transition variants
+  // Transition variants for Framer Motion
   const bubbleVariants = {
     enter: (direction: number) => ({
-      y: direction > 0 ? '40%' : '-40%',
+      y: direction > 0 ? '100%' : '-100%',
       opacity: 0,
-      scale: 0.9,
+      scale: 0.8,
+      rotateY: direction > 0 ? -20 : 20,
     }),
     center: {
       y: 0,
       opacity: 1,
       scale: 1,
+      rotateY: 0,
       transition: {
-        duration: 0.4,
-        ease: 'easeOut',
+        duration: 0.5,
+        ease: [0.34, 1.56, 0.64, 1], // Custom cubic bezier for springy feel
       }
     },
     exit: (direction: number) => ({
-      y: direction > 0 ? '-40%' : '40%',
+      y: direction > 0 ? '-100%' : '100%',
       opacity: 0,
-      scale: 0.9,
+      scale: 0.8,
+      rotateY: direction > 0 ? 20 : -20,
       transition: {
-        duration: 0.3,
-        ease: 'easeIn',
+        duration: 0.4,
+        ease: [0.43, 0.13, 0.23, 0.96], // Custom cubic bezier for smooth exit
       }
     })
   };
@@ -210,37 +195,16 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     <div 
       ref={containerRef}
       className="h-[calc(100vh-220px)] sm:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4]"
+      style={{ perspective: '1200px' }}
     >
-      {/* Help overlay - shown only initially */}
-      <AnimatePresence>
-        {showHelp && (
-          <motion.div 
-            className="absolute inset-0 bg-black/60 z-50 flex flex-col items-center justify-center text-white pointer-events-none"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <motion.div 
-              className="flex flex-col items-center"
-              initial={{ y: 20 }}
-              animate={{ y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <ChevronUp className="w-8 h-8 text-white animate-bounce" />
-              <p className="text-lg font-medium mb-12">Swipe up or down</p>
-              <ChevronDown className="w-8 h-8 text-white animate-bounce" />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Subtle swipe indicators */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 opacity-50 hover:opacity-80 transition-opacity">
-        <ChevronUp className="w-5 h-5 text-[#ebbd34]" />
+      {/* Swipe indicators */}
+      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center opacity-70">
+        <ChevronUp className="w-6 h-6 text-[#ebbd34] animate-bounce" />
+        <span className="text-xs text-[#ebbd34]/80">Swipe</span>
       </div>
-      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 opacity-50 hover:opacity-80 transition-opacity">
-        <ChevronDown className="w-5 h-5 text-[#ebbd34]" />
+      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center opacity-70">
+        <span className="text-xs text-[#ebbd34]/80">Swipe</span>
+        <ChevronDown className="w-6 h-6 text-[#ebbd34] animate-bounce" />
       </div>
 
       {/* Bubble pagination indicator */}
@@ -266,6 +230,9 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
             animate="center"
             exit="exit"
             className="absolute inset-0 flex items-center justify-center"
+            style={{ 
+              transformStyle: 'preserve-3d',
+            }}
           >
             <BubbleCard
               bubble={bubbles[currentIndex]}

@@ -1,6 +1,7 @@
+
 import React, { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Send, Image, Video, Mic, SmilePlus, X, Clock, Award, Star } from "lucide-react";
+import { MessageCircle, Send, Image, Video, Mic, SmilePlus, X, Clock } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,9 +17,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
-import { useGamification } from "@/context/GamificationContext";
-import { motion } from "framer-motion";
-import { Progress } from "@/components/ui/progress";
 
 interface BubbleChatProps {
   chatOpen: boolean;
@@ -50,11 +48,7 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [messageRewardShown, setMessageRewardShown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Use gamification hooks
-  const { addPoints, incrementAchievementProgress, checkAchievement } = useGamification();
   
   // Create rate limiters and retry handlers
   const messageLimiter = useRef(createRateLimiter(5, 5000));
@@ -71,13 +65,6 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
       });
     }
   }, [lastMessageId, chatOpen]);
-  
-  // Reset message reward when opening chat
-  useEffect(() => {
-    if (chatOpen) {
-      setMessageRewardShown(false);
-    }
-  }, [chatOpen]);
 
   // Enhanced message sending with debounce, rate limiting and retry
   const handleSendMessage = async (content?: string) => {
@@ -134,8 +121,7 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
       const messageToSend = messageContent;
       setNewMessage("");
       
-      // Fix: Use the retry method instead of trying to call the handler directly
-      await sendRetry.current.retry(async () => {
+      await sendRetry.current(async () => {
         const { error } = await supabase
           .from('bubble_messages')
           .insert({
@@ -146,17 +132,6 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
 
         if (error) {
           throw error;
-        }
-        
-        // Add points for sending a message
-        await addPoints(5, 'message');
-        
-        // Increment achievement progress
-        await incrementAchievementProgress('social-butterfly');
-        
-        // Show message reward if not shown yet
-        if (!messageRewardShown) {
-          setMessageRewardShown(true);
         }
       });
       
@@ -219,45 +194,25 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
       return "Time unknown";
     }
   };
-  
-  // Handle reflection with gamification
-  const handleReflectWithPoints = async () => {
-    if (!selectedBubbleId) return;
-    
-    await handleReflect(selectedBubbleId);
-    
-    // Add points for reflecting
-    await addPoints(10, 'reflection');
-    
-    // Increment reflection master achievement
-    await incrementAchievementProgress('reflection-master');
-  };
 
   return (
     <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
       if (!open) setChatOpen(false);
     }}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col overflow-hidden rounded-lg p-0 bg-white/95 backdrop-blur-md border border-[#ebbd34]/20 shadow-xl">
-        <DialogHeader className="border-b pb-3 px-4 pt-4 bg-gradient-to-r from-[#ebbd34]/10 to-transparent">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col overflow-hidden rounded-lg p-0 bg-white/95 backdrop-blur-md">
+        <DialogHeader className="border-b pb-3 px-4 pt-4">
           <div className="flex justify-between items-center">
-            <DialogTitle className="text-xl text-[#ebbd34] font-bold flex items-center">
-              {isLoadingBubbleDetails ? (
-                <span className="flex items-center">
-                  <span className="h-5 w-5 rounded-full border-2 border-[#ebbd34] border-t-transparent animate-spin mr-2"></span>
-                  Loading...
-                </span>
-              ) : selectedBubble?.name}
+            <DialogTitle className="text-xl text-[#ebbd34] font-bold">
+              {isLoadingBubbleDetails ? 'Loading...' : selectedBubble?.name}
             </DialogTitle>
-            <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)} className="hover:bg-[#ebbd34]/10">
-              <X className="h-5 w-5 text-[#ebbd34]" />
+            <Button variant="ghost" size="icon" onClick={() => setChatOpen(false)}>
+              <X className="h-5 w-5" />
             </Button>
           </div>
           {!isLoadingBubbleDetails && selectedBubble && (
             <div className="flex flex-col text-sm mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-[#ebbd34]/80 font-medium flex items-center gap-1">
-                  Topic: {selectedBubble.topic}
-                </span>
+                <span className="text-[#ebbd34]/80 font-medium">Topic: {selectedBubble.topic}</span>
                 <Badge variant="outline" className="text-[#ebbd34] border-[#ebbd34]/20 font-medium">
                   <Clock className="h-3 w-3 mr-1" />
                   {formatExpiry(selectedBubble.expires_at)}
@@ -269,50 +224,29 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
                   {selectedBubble.reflect_count} reflects
                 </span>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  onClick={handleReflectWithPoints}
-                  className="text-[#ebbd34] hover:bg-[#ebbd34]/10 h-8 text-xs px-3 border-[#ebbd34]/20"
-                  disabled={isSendingMessage}
+                  onClick={() => handleReflect(selectedBubble.id)}
+                  className="text-[#ebbd34] hover:bg-[#ebbd34]/10 h-8 text-xs px-3"
                 >
                   <Sparkles className="h-3 w-3 mr-1" />
                   Reflect
                 </Button>
               </div>
               {selectedBubble.description && (
-                <motion.div 
-                  className="mt-3 p-3 bg-[#ebbd34]/5 rounded-md text-sm text-gray-700"
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
+                <div className="mt-3 p-3 bg-[#ebbd34]/5 rounded-md text-sm text-gray-700">
                   {selectedBubble.description}
-                </motion.div>
+                </div>
               )}
             </div>
           )}
         </DialogHeader>
         
-        {/* Messages Area with improved scrolling and animation */}
-        <ScrollArea className="flex-1 p-4 max-h-[50vh] relative">
-          {messageRewardShown && (
-            <motion.div
-              className="sticky top-0 bg-[#ebbd34]/10 rounded-md p-2 mb-3 flex justify-between items-center text-sm z-10"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.3 }}
-            >
-              <span className="text-gray-700">Keep the conversation going!</span>
-              <div className="flex items-center">
-                <Star className="h-3 w-3 text-[#ebbd34] mr-1" />
-                <span className="text-[#ebbd34] font-medium">+5 points per message</span>
-              </div>
-            </motion.div>
-          )}
-          
+        {/* Messages Area */}
+        <ScrollArea className="flex-1 p-4 max-h-[50vh]">
           {isLoadingMessages ? (
-            <div className="p-8 flex justify-center">
-              <div className="h-8 w-8 rounded-full border-2 border-[#ebbd34] border-t-transparent animate-spin"></div>
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-2 border-[#ebbd34]"></div>
             </div>
           ) : messagesError ? (
             <div className="text-center py-8 text-gray-500">
@@ -328,42 +262,17 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
               </Button>
             </div>
           ) : messages.length === 0 ? (
-            <motion.div 
-              className="text-center py-12 text-gray-500"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
+            <div className="text-center py-12 text-gray-500">
               <MessageCircle className="h-12 w-12 mx-auto mb-4 text-[#ebbd34]/30" />
               <p className="text-lg font-medium text-[#ebbd34]/60 mb-2">No messages yet</p>
               <p className="text-gray-500">Start the conversation! This bubble will disappear in 24 hours.</p>
-              
-              <motion.div
-                className="mt-6 bg-[#ebbd34]/10 rounded-lg p-3 mx-auto max-w-xs"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1 }}
-              >
-                <div className="flex items-center mb-2">
-                  <Award className="h-4 w-4 text-[#ebbd34] mr-2" />
-                  <span className="text-sm font-medium text-gray-700">First Message Bonus</span>
-                </div>
-                <p className="text-xs text-gray-600 mb-2">Be the first to send a message and earn bonus points!</p>
-                <div className="flex items-center">
-                  <Star className="h-3 w-3 text-[#ebbd34] mr-1" />
-                  <span className="text-xs font-medium text-[#ebbd34]">+10 points</span>
-                </div>
-              </motion.div>
-            </motion.div>
+            </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message, index) => (
-                <motion.div 
+              {messages.map((message) => (
+                <div 
                   key={message.id}
                   className={`flex ${message.username === (profile?.username || user?.email) ? 'justify-end' : 'justify-start'}`}
-                  initial={{ opacity: 0, x: message.username === (profile?.username || user?.email) ? 20 : -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.3 }}
                 >
                   <div 
                     className={`rounded-lg px-4 py-3 max-w-[85%] break-words shadow-sm ${
@@ -380,29 +289,14 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
                     </div>
                     <p className="break-words">{message.content}</p>
                   </div>
-                </motion.div>
+                </div>
               ))}
               <div ref={messagesEndRef} />
             </div>
           )}
         </ScrollArea>
         
-        {/* Social Butterfly Achievement Progress */}
-        <div className="px-4 py-2 border-t border-gray-100">
-          <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
-            <span className="flex items-center">
-              <Award className="h-3 w-3 mr-1 text-[#ebbd34]" />
-              Social Butterfly
-            </span>
-            <span>Send 10 messages</span>
-          </div>
-          <Progress 
-            value={(messages.filter(m => m.username === (profile?.username || user?.email)).length / 10) * 100} 
-            className="h-1 bg-gray-100" 
-          />
-        </div>
-        
-        {/* Enhanced Message Input with typing indicators */}
+        {/* Message Input */}
         <div className="p-4 border-t mt-auto bg-white/80">
           <div className="flex gap-2">
             <Input
@@ -411,7 +305,7 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
               placeholder="Type a message..."
               disabled={isSendingMessage}
               maxLength={500}
-              className="bg-white h-11 focus-visible:ring-[#ebbd34]/30 border-[#ebbd34]/20"
+              className="bg-white h-11"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

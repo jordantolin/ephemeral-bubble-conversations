@@ -1,14 +1,10 @@
 
-import React, { useRef, useEffect } from "react";
-import { Clock, Plus, X, Trophy, Star, Info } from "lucide-react";
+import React from "react";
+import { Clock, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
 import { useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { useGamification } from "@/context/GamificationContext";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 
 interface BubbleWorldContentProps {
   isLoadingBubbles: boolean;
@@ -28,57 +24,25 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   onCreateBubble,
 }) => {
   const queryClient = useQueryClient();
-  const { profile, isLoading: isLoadingGamification } = useGamification();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Add interaction instructions toast on first view
-  useEffect(() => {
-    if (!isLoadingBubbles && filteredBubbles.length > 0) {
-      const hasShownInstructions = localStorage.getItem('bubble_instructions_shown');
-      
-      if (!hasShownInstructions) {
-        setTimeout(() => {
-          toast({
-            title: "Tip: Interact with Bubbles",
-            description: "Drag to explore the bubble world. Pinch or scroll to zoom in/out.",
-            duration: 5000,
-          });
-          localStorage.setItem('bubble_instructions_shown', 'true');
-        }, 1500);
-      }
-    }
-  }, [isLoadingBubbles, filteredBubbles.length]);
 
   if (isLoadingBubbles) {
     return (
-      <motion.div 
-        className="text-center py-12 sm:py-16 bg-white/60 rounded-2xl backdrop-blur-sm shadow-md"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-4 border-t-4 border-[#ebbd34] mx-auto"></div>
-        <p className="mt-4 text-[#ebbd34] text-lg sm:text-xl font-medium">Loading bubbles...</p>
-        <p className="text-[#ebbd34]/60 mt-2 text-sm sm:text-base">Please wait while we gather the latest conversations</p>
-      </motion.div>
+      <div className="text-center py-24 bg-white/30 rounded-xl backdrop-blur-sm shadow-sm">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-4 border-[#ebbd34] mx-auto"></div>
+        <p className="mt-6 text-[#ebbd34] text-xl font-medium">Loading bubbles...</p>
+        <p className="text-[#ebbd34]/60 mt-2">Please wait while we gather the latest conversations</p>
+      </div>
     );
   }
 
   if (bubblesError) {
     return (
-      <motion.div 
-        className="text-center py-12 sm:py-16 px-4 bg-white/80 rounded-2xl backdrop-blur-sm shadow-md"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 bg-red-100">
-          <X className="w-6 h-6 sm:w-8 sm:h-8 text-red-500" />
+      <div className="text-center py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm">
+        <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-red-100">
+          <X className="w-10 h-10 text-red-500" />
         </div>
-        <h3 className="text-xl sm:text-2xl font-medium text-gray-800 mb-2">Error Loading Bubbles</h3>
-        <p className="text-gray-600 mt-2 max-w-md mx-auto mb-6 text-sm sm:text-base">
+        <h3 className="text-2xl font-medium text-gray-800 mb-2">Error Loading Bubbles</h3>
+        <p className="text-gray-600 mt-2 max-w-md mx-auto mb-6">
           There was a problem loading the bubbles. Please check your connection and try again.
         </p>
         <Button
@@ -89,60 +53,34 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
         >
           Retry
         </Button>
-      </motion.div>
+      </div>
     );
   }
 
   if (filteredBubbles.length === 0) {
     return (
-      <motion.div 
-        className="text-center py-12 sm:py-16 bg-white/60 rounded-2xl backdrop-blur-sm shadow-md"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
-          <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-[#ebbd34]" />
+      <div className="text-center py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm">
+        <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-[#ebbd34]/10">
+          <Clock className="w-10 h-10 text-[#ebbd34]" />
         </div>
-        <h3 className="text-xl sm:text-2xl font-medium text-[#ebbd34] mb-2">No active bubbles found</h3>
-        <p className="text-gray-600 max-w-md mx-auto mt-2 mb-6 text-sm sm:text-base px-4">
+        <h3 className="text-2xl font-medium text-[#ebbd34] mb-3">No active bubbles found</h3>
+        <p className="text-gray-600 max-w-md mx-auto mt-2 mb-8">
           Bubbles only last for 24 hours. Start a conversation by creating a new bubble!
         </p>
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+        <Button
+          onClick={onCreateBubble}
+          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-md px-8 py-6 text-lg"
+          size="lg"
         >
-          <Button
-            onClick={onCreateBubble}
-            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-md px-4 sm:px-6 py-2.5 sm:py-3 text-base sm:text-lg"
-            size="lg"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Your First Bubble
-          </Button>
-        </motion.div>
-      </motion.div>
+          <Plus className="mr-2 h-5 w-5" />
+          Create Your First Bubble
+        </Button>
+      </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="h-[calc(100vh-160px)] sm:h-[calc(100vh-220px)] md:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4] rounded-lg shadow-md"
-    >
-      {/* Instructions - enhanced and more visible for mobile users */}
-      <motion.div 
-        className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 shadow-md z-10 text-[10px] sm:text-xs text-gray-700"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <Info className="w-3 h-3 sm:w-4 sm:h-4 text-[#ebbd34]" />
-          <span className="whitespace-nowrap font-medium">Drag to explore • Pinch to zoom</span>
-        </div>
-      </motion.div>
-
+    <div className="h-[75vh] min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10">
       <BubbleWorld 
         topics={bubbleDataForComponent}
         onBubbleClick={onBubbleClick}
