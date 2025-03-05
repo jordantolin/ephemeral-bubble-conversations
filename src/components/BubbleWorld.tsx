@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -80,11 +79,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const isMobile = width < 768;
 
     // Create perspective camera with improved field of view for better immersion
-    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
     
-    // Position camera to view the world from a better angle
-    camera.position.z = isMobile ? 14 : 16; // Increased initial zoom distance
-    camera.position.y = 1; // Slightly above the center for a better looking-down perspective
+    // Position camera to view the world from a better angle - adjusted for closer view
+    camera.position.z = isMobile ? 12 : 14; // Reduced initial zoom distance
+    camera.position.y = 1.5; // Slightly raised for better looking-down perspective
     
     interactionRef.current.zoom.current = camera.position.z;
     interactionRef.current.zoom.target = camera.position.z;
@@ -135,8 +134,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
     centralWorld.castShadow = true;
     centralWorld.receiveShadow = true;
-    // Adjust central world size
-    centralWorld.scale.set(1.2, 1.2, 1.2);
+    // Adjust central world size for better proportion with closer bubbles
+    centralWorld.scale.set(1.0, 1.0, 1.0);
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
@@ -230,11 +229,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       return particles;
     };
 
-    // Calculate bubble positions with improved spacing to prevent overlaps
+    // Calculate bubble positions with improved spacing but keeping them closer together
     const calculateBubblePositions = (topics: any[]) => {
       // Create a grid-based system to place bubbles with better spacing
       const gridCells: { [key: string]: boolean } = {};
-      const minDistance = 5.0; // Increased minimum distance between bubble centers for better readability
+      const minDistance = 4.0; // Reduced minimum distance for more compact layout
       
       // Helper to check if a position is far enough from existing bubbles
       const isPositionFarEnough = (x: number, y: number, z: number) => {
@@ -243,10 +242,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const cellY = Math.floor(y / minDistance);
         const cellZ = Math.floor(z / minDistance);
         
-        // Check a wider 5x5x5 grid around the current cell for better spacing
-        for (let dx = -2; dx <= 2; dx++) {
-          for (let dy = -2; dy <= 2; dy++) {
-            for (let dz = -2; dz <= 2; dz++) {
+        // Check a 3x3x3 grid around the current cell for better spacing
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dz = -1; dz <= 1; dz++) {
               const key = `${cellX + dx},${cellY + dy},${cellZ + dz}`;
               if (gridCells[key]) return false;
             }
@@ -267,7 +266,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Generate positions for all bubbles
       const positions: { x: number, y: number, z: number, radius: number, angle: number }[] = [];
       
-      // Use Fibonacci sphere algorithm for more even distribution
+      // Use Fibonacci sphere algorithm with adjusted parameters for compact but non-overlapping distribution
       const topicsCount = topics.length;
       const goldenRatio = (1 + Math.sqrt(5)) / 2;
       const angleIncrement = Math.PI * 2 * goldenRatio;
@@ -278,21 +277,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const inclination = Math.acos(1 - 2 * t);
         const azimuth = angleIncrement * i;
         
-        // Base radius with larger minimum distance
-        const radiusBase = 5.5 + (Math.random() * 2.0); // Increased radius for better spacing
+        // Reduced base radius for closer bubbles
+        const radiusBase = 4.2 + (Math.random() * 1.3); // Smaller radius range for more compact layout
         
         // Calculate 3D position using spherical coordinates
         let x = radiusBase * Math.sin(inclination) * Math.cos(azimuth);
-        let y = (Math.random() * 1.5 - 0.75); // Less vertical scatter
+        let y = (Math.random() * 1.0 - 0.5); // Less vertical scatter
         let z = radiusBase * Math.sin(inclination) * Math.sin(azimuth);
         
         // Find a free spot if this position is too close to others
         let attempts = 0;
-        const maxAttempts = 50; // More attempts to find suitable position
+        const maxAttempts = 60; // More attempts to find suitable position
         
         while (!isPositionFarEnough(x, y, z) && attempts < maxAttempts) {
           // Adjust position with increasing offset on each attempt
-          const adjustFactor = (attempts / maxAttempts) * 3 + 1;
+          const adjustFactor = (attempts / maxAttempts) * 2.5 + 1;
           x += (Math.random() - 0.5) * minDistance * adjustFactor;
           y += (Math.random() - 0.5) * minDistance * adjustFactor;
           z += (Math.random() - 0.5) * minDistance * adjustFactor;
@@ -340,10 +339,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         const bubbleGroup = new THREE.Group();
         
-        // Larger base sizes for better visibility
-        const baseSize = topic.size === 'lg' ? 1.3 : 
-                        topic.size === 'md' ? 1.0 : 0.7;
-        const reflectScale = 1 + (topic.reflect_count * 0.1);
+        // Slightly smaller base sizes for more compact view
+        const baseSize = topic.size === 'lg' ? 1.1 : 
+                        topic.size === 'md' ? 0.85 : 0.6;
+        const reflectScale = 1 + (topic.reflect_count * 0.08);
         const finalSize = baseSize * reflectScale;
         
         const geometry = createBubbleGeometry(finalSize);
@@ -365,7 +364,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           material.opacity = 0.5 + (expiryRatio * 0.5); // More transparent as it ages
           material.transmission = 0.2 + (expiryRatio * 0.3);
           material.emissive = new THREE.Color(0xebbd34);
-          material.emissiveIntensity = 0.05 + (expiryRatio * 0.25); // Stronger glow for fresh bubbles
+          material.emissiveIntensity = 0.05 + (expiryRatio * 0.25);
           material.clearcoat = 1.0;
           material.clearcoatRoughness = 0.1;
           material.metalness = 0.1;
@@ -380,21 +379,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           orbitIndex: index,
           originalScale: finalSize,
           textScales: {
-            nameScale: finalSize * 1.6, // Larger text scales for better readability
-            topicScale: finalSize * 1.4,
-            reflectScale: finalSize * 1.2,
-            timeScale: finalSize
+            nameScale: finalSize * 1.8, // Optimal text scales for readability
+            topicScale: finalSize * 1.6,
+            reflectScale: finalSize * 1.4
           },
-          // Reduced movement patterns for better readability
+          // Further reduced movement patterns for better readability in more compact layout
           movement: {
-            speed: (Math.random() * 0.0005 + 0.0002) * (0.5 + expiryRatio * 0.5), // Slower movement overall
+            speed: (Math.random() * 0.0004 + 0.0002) * (0.5 + expiryRatio * 0.5), // Slower movement
             radius: position.radius, // Use calculated radius
             angle: position.angle, // Use calculated angle
-            verticalSpeed: (Math.random() * 0.001 - 0.0005) * expiryRatio, // Reduced up/down movement
-            verticalRange: Math.random() * 0.5 * expiryRatio, // Lower amplitude for less movement
+            verticalSpeed: (Math.random() * 0.0008 - 0.0004) * expiryRatio, // Reduced up/down movement
+            verticalRange: Math.random() * 0.4 * expiryRatio, // Lower amplitude for less movement
             verticalOffset: Math.random() * Math.PI * 2,
-            rotationSpeed: Math.random() * 0.004 - 0.002, // Slower rotation
-            wobble: Math.random() * 0.0005 * expiryRatio // Reduced random movement
+            rotationSpeed: Math.random() * 0.003 - 0.0015, // Slower rotation
+            wobble: Math.random() * 0.0004 * expiryRatio // Reduced random movement
           },
           expiryRatio, // Store for animation use
           expiryTime // Store actual time
@@ -414,7 +412,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           
           const sprite = new THREE.Sprite(spriteMaterial);
           sprite.scale.set(
-            finalSize * 1.8, // Wider text for better readability
+            finalSize * 2.0, // Wider text for better readability
             finalSize * 0.9, 
             1
           );
@@ -423,38 +421,38 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           return sprite;
         };
 
-        // Position text labels within bubble with better spacing
+        // Position text labels within bubble with better spacing for compact layout
         bubbleGroup.add(createLabelSprite(
           topic.name, 
           new THREE.Vector3(0, finalSize * 0.4, 0), 
-          isMobile ? 38 : 44 // Larger font sizes
+          isMobile ? 36 : 42 // Adjusted font sizes
         ));
         
         bubbleGroup.add(createLabelSprite(
           topic.topic, 
           new THREE.Vector3(0, -finalSize * 0.1, 0), 
-          isMobile ? 32 : 36
+          isMobile ? 30 : 34
         ));
         
         bubbleGroup.add(createLabelSprite(
           `⭐ ${topic.reflect_count}`, 
           new THREE.Vector3(0, -finalSize * 0.5, 0), 
-          isMobile ? 28 : 32
+          isMobile ? 26 : 30
         ));
         
         // Only one time remaining label
         bubbleGroup.add(createLabelSprite(
           `⏱ ${formatTimeRemaining(expiryTime)}`, 
           new THREE.Vector3(0, -finalSize * 0.85, 0), 
-          isMobile ? 26 : 30
+          isMobile ? 24 : 28
         ));
 
         // Set initial position from our calculated positions
         bubbleGroup.position.set(position.x, position.y, position.z);
         
         // Add random initial rotation to make it more interesting
-        bubbleGroup.rotation.x = Math.random() * 0.2 - 0.1;
-        bubbleGroup.rotation.y = Math.random() * 0.2 - 0.1;
+        bubbleGroup.rotation.x = Math.random() * 0.15 - 0.075;
+        bubbleGroup.rotation.y = Math.random() * 0.15 - 0.075;
         
         bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
@@ -731,7 +729,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Enhanced animation loop with more dynamic effects
+    // Enhanced animation loop with more subtle movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -758,9 +756,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const movement = bubble.userData.movement;
         const expiryRatio = bubble.userData.expiryRatio || 1;
         
-        // Calculate new position with more dynamic random movement
+        // Calculate new position with more subtle, natural movement
         const angle = time * movement.speed + movement.angle;
-        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.2;
+        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.15;
         const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
         
         // Apply rotation from central world for coordinated movement
@@ -772,8 +770,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         bubble.position.z = Math.sin(angle + rotationOffset.y) * movement.radius;
         
         // Gentle floating rotation
-        bubble.rotation.x = Math.sin(time * movement.rotationSpeed) * 0.05 + rotationOffset.x * 0.8;
-        bubble.rotation.y = Math.cos(time * movement.rotationSpeed) * 0.05 + rotationOffset.y * 0.8;
+        bubble.rotation.x = Math.sin(time * movement.rotationSpeed) * 0.04 + rotationOffset.x * 0.8;
+        bubble.rotation.y = Math.cos(time * movement.rotationSpeed) * 0.04 + rotationOffset.y * 0.8;
         
         // Update text labels to always face camera
         for (let i = 1; i < bubble.children.length; i++) {
@@ -785,7 +783,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
               if (expiryTime) {
                 const timeCanvas = createTextCanvas(
                   `⏱ ${formatTimeRemaining(new Date(expiryTime))}`,
-                  isMobile ? 26 : 30
+                  isMobile ? 24 : 28
                 );
                 const timeTexture = new THREE.CanvasTexture(timeCanvas);
                 (textSprite.material as THREE.SpriteMaterial).map?.dispose();

@@ -10,36 +10,36 @@ interface BubbleWorldHeaderProps {
 
 const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
   return (
-    <div className="flex flex-col items-center justify-between gap-6 mb-10">
+    <div className="flex flex-col items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-10">
       <div className="flex flex-col items-center text-center">
         <motion.div 
-          className="mb-4"
+          className="mb-3 sm:mb-4"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#ebbd34]">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#ebbd34]">
             Bubble World
           </h1>
         </motion.div>
         
         <motion.div 
-          className="text-center max-w-2xl mx-auto"
+          className="text-center max-w-2xl mx-auto px-2 sm:px-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <p className="font-medium text-[#ebbd34]/90 text-sm sm:text-base">
+          <p className="font-medium text-[#ebbd34]/90 text-xs sm:text-sm md:text-base">
             A community of ephemeral conversations that last only 24 hours
           </p>
-          <p className="text-[#ebbd34]/80 mt-2 text-sm sm:text-base">
+          <p className="text-[#ebbd34]/80 mt-1 sm:mt-2 text-xs sm:text-sm md:text-base">
             Create bubbles, join discussions, earn achievements, and connect with others!
           </p>
         </motion.div>
       </div>
       
       <motion.div 
-        className="w-full sm:w-auto"
+        className="w-full sm:w-auto mt-2"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.5 }}
@@ -51,7 +51,7 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
           className="w-full sm:w-auto bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white shadow-md"
           size="lg"
         >
-          <Plus className="mr-2 h-5 w-5" />
+          <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           New 24h Bubble
         </Button>
       </motion.div>
