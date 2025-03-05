@@ -24,7 +24,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
     return `flex flex-col items-center justify-center h-full transition-colors ${
       active
         ? "text-[#ebbd34]"
-        : "text-gray-600 hover:text-[#ebbd34]/70"
+        : "text-gray-700 hover:text-[#ebbd34]/70"
     }`;
   };
 
@@ -32,14 +32,14 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
     <div className="w-full h-16 bg-white/95 backdrop-blur-sm shadow-md border-b border-gray-200 fixed top-0 left-0 z-40">
       <div className="container mx-auto px-4 h-full">
         <div className="flex items-center justify-between h-full">
-          {/* Logo and text linking to home */}
+          {/* Logo and text linking to home - Enhanced for better mobile visibility */}
           <Link to="/" className="flex items-center">
             <Logo size="md" />
             <span className="text-lg font-bold text-[#ebbd34] ml-2 hidden sm:inline">Bubble Trouble</span>
           </Link>
 
-          {/* Navigation Items - improved spacing for mobile */}
-          <div className="flex items-center justify-center space-x-8 sm:space-x-10">
+          {/* Navigation Items - improved spacing for mobile with better distribution */}
+          <div className="flex items-center justify-center space-x-6 sm:space-x-12">
             {/* My Bubbles */}
             <Link
               to="/my-bubbles"
@@ -57,9 +57,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
               <Sparkles size={22} />
               <span className="text-xs mt-1">Feed</span>
             </Link>
-
-            {/* Notifications - positioned in center of nav */}
-            <NotificationCenter />
 
             {/* Profile or Login */}
             {user && (
@@ -81,6 +78,11 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
                 <span className="text-xs mt-1">Login</span>
               </Link>
             )}
+          </div>
+
+          {/* Notifications - positioned as a separate element for better centering */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
+            <NotificationCenter />
           </div>
         </div>
       </div>

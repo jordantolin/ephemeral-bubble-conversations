@@ -42,7 +42,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
         setTimeout(() => {
           toast({
             title: "Tip: Interact with Bubbles",
-            description: "Click and drag to rotate the bubble world. Scroll to zoom in/out.",
+            description: "Drag to explore the bubble world. Pinch or scroll to zoom in/out.",
             duration: 5000,
           });
           localStorage.setItem('bubble_instructions_shown', 'true');
@@ -50,27 +50,6 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
       }
     }
   }, [isLoadingBubbles, filteredBubbles.length]);
-
-  // Gamification indicators - more subtle and mobile-friendly
-  const renderGamificationStatus = () => {
-    if (isLoadingGamification || !user) return null;
-    
-    return (
-      <motion.div 
-        className="absolute top-2 sm:top-4 right-2 sm:right-4 bg-white/90 backdrop-blur-sm rounded-full px-2 sm:px-3 py-1 sm:py-1.5 shadow-md z-10"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <div className="flex items-center gap-1 sm:gap-2">
-          <div className="flex items-center">
-            <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-[#ebbd34] mr-0.5 sm:mr-1" />
-            <span className="text-[10px] sm:text-xs font-medium text-gray-700">Lv.{profile.level}</span>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
 
   if (isLoadingBubbles) {
     return (
@@ -149,20 +128,18 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="h-[calc(100vh-180px)] sm:h-[calc(100vh-220px)] md:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4] rounded-lg shadow-md"
+      className="h-[calc(100vh-160px)] sm:h-[calc(100vh-220px)] md:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4] rounded-lg shadow-md"
     >
-      {renderGamificationStatus()}
-      
-      {/* Instructions - centered and more visible */}
+      {/* Instructions - enhanced and more visible for mobile users */}
       <motion.div 
-        className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 shadow-md z-10 text-[10px] sm:text-xs text-gray-600"
+        className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 shadow-md z-10 text-[10px] sm:text-xs text-gray-700"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8 }}
       >
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Info className="w-3 h-3 sm:w-4 sm:h-4 text-[#ebbd34]" />
-          <span className="whitespace-nowrap">Drag to rotate • Scroll to zoom</span>
+          <span className="whitespace-nowrap font-medium">Drag to explore • Pinch to zoom</span>
         </div>
       </motion.div>
 

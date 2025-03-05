@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, Check, Star, Award, Gift } from "lucide-react";
@@ -267,11 +266,11 @@ const NotificationCenter: React.FC = () => {
         )}
       </Button>
       
-      {/* Notification Panel - centered on mobile */}
+      {/* Notification Panel - ensured central positioning on mobile */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="absolute top-full mt-2 w-[90vw] sm:w-96 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-[#ebbd34]/20 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0"
+            className="fixed left-1/2 -translate-x-1/2 top-16 mt-1 w-[94vw] sm:w-96 max-w-[450px] bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-[#ebbd34]/20"
             initial={{ opacity: 0, y: -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}

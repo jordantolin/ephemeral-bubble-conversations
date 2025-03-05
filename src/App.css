@@ -99,9 +99,14 @@ body, html {
     margin-top: 1.25rem;
     margin-bottom: 1.25rem;
   }
+
+  /* Better nav spacing for mobile */
+  .nav-item {
+    padding: 8px 12px !important;
+  }
 }
 
-/* Better mobile scrolling */
+/* Improved mobile scrolling */
 * {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
@@ -129,7 +134,7 @@ body, html {
   border-radius: 0.25rem;
 }
 
-/* Enhanced Bubble animations */
+/* Enhanced Bubble animations with optimized performance for mobile */
 @keyframes bubble-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); } /* Reduced movement for smoother animation */
@@ -139,7 +144,7 @@ body, html {
   animation: bubble-float 3s ease-in-out infinite;
 }
 
-/* Improved tap feedback */
+/* Improved tap feedback - more subtle for mobile */
 @keyframes tap-feedback {
   0% { transform: scale(1); }
   50% { transform: scale(0.97); } /* More subtle effect */
@@ -150,20 +155,53 @@ body, html {
   animation: tap-feedback 0.2s ease-in-out; /* Faster feedback */
 }
 
-/* Smooth transitions */
+/* Smoother transitions for mobile */
 .transition-all {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 200ms;
 }
 
-/* Enhanced mobile navigation */
+/* Enhanced mobile navigation with better spacing */
 @media (max-width: 640px) {
   .nav-item {
     padding: 0.5rem 0.75rem;
   }
   
   .nav-text {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
+
+  /* Fix for notifications positioning on mobile */
+  .notifications-dropdown {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
+/* Improved bubble text readability */
+.bubble-text {
+  color: #333333 !important; 
+  font-weight: 500;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+/* Better mobile touch handling */
+@media (hover: none) {
+  .tap-highlight {
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+  
+  .touch-action-none {
+    touch-action: none;
+  }
+}
+
+/* Enhanced 3D world controls for mobile */
+.bubble-world-container {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
 }
