@@ -244,7 +244,7 @@ const NotificationCenter: React.FC = () => {
   };
 
   return (
-    <div className="relative z-50">
+    <div className="relative z-50 flex justify-center">
       {/* Notification Bell */}
       <Button
         variant="ghost"
@@ -267,11 +267,11 @@ const NotificationCenter: React.FC = () => {
         )}
       </Button>
       
-      {/* Notification Panel */}
+      {/* Notification Panel - centered on mobile */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-[#ebbd34]/20"
+            className="absolute top-full mt-2 w-[90vw] sm:w-96 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-[#ebbd34]/20 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0"
             initial={{ opacity: 0, y: -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -314,7 +314,7 @@ const NotificationCenter: React.FC = () => {
               </div>
             ) : (
               <>
-                <ScrollArea className="max-h-[400px]">
+                <ScrollArea className="max-h-[60vh] sm:max-h-[400px]">
                   <div className="p-2">
                     {notifications.map((notification) => (
                       <motion.div

@@ -60,7 +60,7 @@ body, html {
   color: #888;
 }
 
-/* Mobile Responsiveness Improvements */
+/* Enhanced Mobile Responsiveness */
 @media (max-width: 640px) {
   .card {
     padding: 1em;
@@ -74,10 +74,10 @@ body, html {
     font-size: 1.25rem;
   }
   
-  /* Improve touch targets for mobile */
+  /* Improved touch targets for mobile */
   button, a {
-    min-height: 40px;
-    min-width: 40px;
+    min-height: 44px; /* Increased from 40px for better touch targets */
+    min-width: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -86,6 +86,18 @@ body, html {
   /* Fix input fields on mobile */
   input, select, textarea {
     font-size: 16px; /* Prevents iOS zoom */
+  }
+  
+  /* Enhance spacing in mobile views */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Improved spacing between elements */
+  .space-y-4 {
+    margin-top: 1.25rem;
+    margin-bottom: 1.25rem;
   }
 }
 
@@ -117,10 +129,10 @@ body, html {
   border-radius: 0.25rem;
 }
 
-/* Bubble animations */
+/* Enhanced Bubble animations */
 @keyframes bubble-float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-5px); } /* Reduced movement for smoother animation */
 }
 
 .bubble-float {
@@ -130,10 +142,28 @@ body, html {
 /* Improved tap feedback */
 @keyframes tap-feedback {
   0% { transform: scale(1); }
-  50% { transform: scale(0.95); }
+  50% { transform: scale(0.97); } /* More subtle effect */
   100% { transform: scale(1); }
 }
 
 .tap-feedback:active {
-  animation: tap-feedback 0.3s ease-in-out;
+  animation: tap-feedback 0.2s ease-in-out; /* Faster feedback */
+}
+
+/* Smooth transitions */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Enhanced mobile navigation */
+@media (max-width: 640px) {
+  .nav-item {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .nav-text {
+    font-size: 0.7rem;
+  }
 }

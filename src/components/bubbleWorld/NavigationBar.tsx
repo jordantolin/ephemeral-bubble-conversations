@@ -6,7 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/gamification/NotificationCenter";
 import Logo from "@/components/Logo";
-import LevelProgress from "@/components/gamification/LevelProgress";
 
 interface NavigationBarProps {
   searchQuery?: string;
@@ -36,10 +35,11 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
           {/* Logo and text linking to home */}
           <Link to="/" className="flex items-center">
             <Logo size="md" />
-            <span className="text-lg font-bold text-[#ebbd34] ml-2">Bubble Trouble</span>
+            <span className="text-lg font-bold text-[#ebbd34] ml-2 hidden sm:inline">Bubble Trouble</span>
           </Link>
 
-          <div className="flex items-center space-x-6">
+          {/* Navigation Items - improved spacing for mobile */}
+          <div className="flex items-center justify-center space-x-8 sm:space-x-10">
             {/* My Bubbles */}
             <Link
               to="/my-bubbles"
@@ -58,11 +58,8 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
               <span className="text-xs mt-1">Feed</span>
             </Link>
 
-            {/* Notifications */}
+            {/* Notifications - positioned in center of nav */}
             <NotificationCenter />
-
-            {/* Level Progress */}
-            {user && <LevelProgress minimal />}
 
             {/* Profile or Login */}
             {user && (

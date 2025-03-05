@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from "react";
 import { Clock, Plus, X, Trophy, Star, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,13 +66,6 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
           <div className="flex items-center">
             <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-[#ebbd34] mr-0.5 sm:mr-1" />
             <span className="text-[10px] sm:text-xs font-medium text-gray-700">Lv.{profile.level}</span>
-          </div>
-          
-          <div className="h-2 sm:h-3 w-px bg-gray-200 mx-0.5 sm:mx-1"></div>
-          
-          <div className="flex items-center">
-            <Star className="h-3 w-3 sm:h-4 sm:w-4 text-[#ebbd34] mr-0.5 sm:mr-1" />
-            <span className="text-[10px] sm:text-xs font-medium text-gray-700">{profile.points}</span>
           </div>
         </div>
       </motion.div>
@@ -155,13 +149,13 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="h-[calc(100vh-180px)] sm:h-[calc(100vh-220px)] md:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4]"
+      className="h-[calc(100vh-180px)] sm:h-[calc(100vh-220px)] md:h-[550px] w-full max-w-xl mx-auto relative overflow-hidden touch-none bg-[#FEF7E4] rounded-lg shadow-md"
     >
       {renderGamificationStatus()}
       
-      {/* Instructions - more compact for mobile */}
+      {/* Instructions - centered and more visible */}
       <motion.div 
-        className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 shadow-md z-10 text-[10px] sm:text-xs text-gray-600"
+        className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 shadow-md z-10 text-[10px] sm:text-xs text-gray-600"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8 }}
