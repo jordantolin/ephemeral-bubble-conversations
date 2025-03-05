@@ -1,162 +1,271 @@
 
-import React from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Sparkles, TrendingUp, LogOut, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import React, { useState, useEffect } from "react";
+import {
+  Search,
+  Menu,
+  X,
+  User,
+  LogOut,
+  ChevronRight,
+  Home,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate, Link } from "react-router-dom";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import NotificationsDropdown from "@/components/gamification/NotificationsDropdown";
 
 interface NavigationBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
 
-const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
-  const { user, profile } = useAuth();
-  const location = useLocation();
+const NavigationBar: React.FC<NavigationBarProps> = ({
+  searchQuery,
+  setSearchQuery,
+}) => {
+  const [scroll, setScroll] = useState(false);
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Get user initials for avatar
-  const getUserInitials = (displayName?: string | null, email?: string | null) => {
-    try {
-      if (displayName) {
-        return displayName.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
-      }
-      if (email) {
-        return email.substring(0, 2).toUpperCase();
-      }
-    } catch (error) {
-      console.error("Error generating user initials:", error);
-    }
-    return 'BT';
+  useEffect(() => {
+    const handleScroll = () => {
+      setScroll(window.scrollY > 20);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const getInitials = (name: string | null) => {
+    if (!name) return "U";
+    const parts = name.split(/\s+/);
+    return parts.length > 1
+      ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+  };
+
+  const getDisplayName = () => {
+    if (profile?.display_name) return profile.display_name;
+    if (user?.email) return user.email.split("@")[0];
+    return "User";
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-md border-b border-[#ebbd34]/10 shadow-sm">
-      <div className="container mx-auto">
-        <div className="flex items-center justify-between h-16 px-4">
-          {/* Logo and Search Section */}
-          <div className="flex items-center gap-6 flex-1">
-            <Link to="/" className="flex items-center gap-2 shrink-0">
-              <img 
-                src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                alt="Bubble Trouble"
-                className="w-9 h-9"
-              />
-              <span className="text-xl font-bold text-[#ebbd34] hidden sm:inline">
-                Bubble Trouble
-              </span>
-            </Link>
-            
-            <div className="relative flex-1 max-w-md hidden sm:block">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
-              <input
-                type="search"
-                placeholder="Search bubbles..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
-              />
-            </div>
-          </div>
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 px-4 py-3 transition-all duration-300 ${
+        scroll
+          ? "bg-white/95 backdrop-blur shadow-sm"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="container mx-auto flex justify-between items-center">
+        {/* Logo */}
+        <Link to="/" className="text-[#ebbd34] font-bold text-lg flex items-center">
+          <Sparkles className="h-5 w-5 mr-1" />
+          Bubble World
+        </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-2">
-            <Link 
-              to="/my-bubbles" 
-              className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10 font-medium' : ''
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">My Bubbles</span>
-            </Link>
-            <Link 
-              to="/feed" 
-              className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                location.pathname === '/feed' ? 'bg-[#ebbd34]/10 font-medium' : ''
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Feed</span>
-            </Link>
-            
-            {user ? (
+        {/* Search (Medium and above) */}
+        <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search bubbles..."
+              className="w-full rounded-full bg-gray-100 pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ebbd34]/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Desktop Menu */}
+        <div className="hidden md:flex items-center gap-2">
+          {user ? (
+            <>
+              {/* Add the notifications dropdown */}
+              <NotificationsDropdown />
+              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
-                  >
-                    <Avatar className="h-9 w-9 border-2 border-[#ebbd34]/20">
-                      {profile?.avatar_url ? (
-                        <AvatarImage src={profile.avatar_url} alt={profile?.display_name || "Profile"} />
-                      ) : (
-                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] font-bold">
-                          {getUserInitials(profile?.display_name, user?.email)}
-                        </AvatarFallback>
-                      )}
+                  <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <Avatar className="h-8 w-8 border border-[#ebbd34]/20">
+                      <AvatarImage
+                        src={profile?.avatar_url || undefined}
+                        alt={getDisplayName()}
+                      />
+                      <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
+                        {getInitials(profile?.display_name || user.email || null)}
+                      </AvatarFallback>
                     </Avatar>
-                  </Button>
+                    <span className="text-sm font-medium text-gray-700 mr-1 hidden lg:inline">
+                      {getDisplayName()}
+                    </span>
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white z-[100] shadow-lg rounded-lg border border-[#ebbd34]/10">
-                  <DropdownMenuItem className="flex flex-col items-start p-3">
-                    <span className="font-medium text-[#ebbd34]">
-                      {profile?.display_name || user?.email?.split('@')[0] || "User"}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      @{profile?.username || user?.email?.split('@')[0] || "user"}
-                    </span>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span>{getDisplayName()}</span>
+                      <span className="text-xs text-gray-500 font-normal mt-1">
+                        {user.email}
+                      </span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    navigate('/auth/logout');
-                  }}>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-500 focus:text-red-500"
+                    onClick={handleLogout}
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => navigate('/auth')}
-                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white ml-2"
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/auth")}
+                className="text-gray-700"
               >
-                Sign In
+                Log in
               </Button>
-            )}
-          </div>
+              <Button
+                onClick={() => navigate("/auth?signup=true")}
+                className="bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90"
+              >
+                Sign up
+              </Button>
+            </>
+          )}
         </div>
-      </div>
 
-      {/* Mobile Search Bar */}
-      <div className="sm:hidden px-4 pb-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
-          <input
-            type="search"
-            placeholder="Search bubbles..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
-          />
+        {/* Mobile Menu */}
+        <div className="flex md:hidden items-center gap-2">
+          {user && <NotificationsDropdown />}
+          
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full sm:w-80 pt-12">
+              <X
+                className="absolute right-4 top-4 h-5 w-5 text-gray-500"
+                onClick={() => document.body.click()}
+              />
+
+              {user ? (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4 pb-4 border-b">
+                    <Avatar className="h-10 w-10 border border-[#ebbd34]/20">
+                      <AvatarImage
+                        src={profile?.avatar_url || undefined}
+                        alt={getDisplayName()}
+                      />
+                      <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
+                        {getInitials(profile?.display_name || user.email || null)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{getDisplayName()}</span>
+                      <span className="text-xs text-gray-500">
+                        {user.email}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search on mobile */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search bubbles..."
+                      className="w-full rounded-full bg-gray-100 pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ebbd34]/20"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Button
+                      variant="ghost"
+                      onClick={() => navigate("/")}
+                      className="w-full justify-start"
+                    >
+                      <Home className="mr-2 h-4 w-4" />
+                      Home
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => navigate("/profile")}
+                      className="w-full justify-start"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-red-500 border-red-100"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log Out
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4 pt-4">
+                  <Button
+                    onClick={() => navigate("/auth")}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Log in
+                    <ChevronRight className="ml-auto h-4 w-4" />
+                  </Button>
+                  <Button
+                    onClick={() => navigate("/auth?signup=true")}
+                    className="w-full bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90"
+                  >
+                    Sign up
+                    <ChevronRight className="ml-auto h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

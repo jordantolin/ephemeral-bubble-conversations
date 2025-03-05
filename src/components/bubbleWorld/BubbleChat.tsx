@@ -17,6 +17,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
+import { checkAndAwardAchievements } from "@/utils/gamificationUtils";
 
 interface BubbleChatProps {
   chatOpen: boolean;
@@ -134,6 +135,11 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
           throw error;
         }
       });
+      
+      // Check for achievements after successfully sending a message
+      if (user) {
+        await checkAndAwardAchievements(user.id, username);
+      }
       
     } catch (error: any) {
       console.error("Failed to send message after retries:", error);

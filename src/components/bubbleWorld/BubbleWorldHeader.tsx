@@ -2,12 +2,28 @@
 import React from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { checkAndAwardAchievements } from "@/utils/gamificationUtils";
 
 interface BubbleWorldHeaderProps {
   onCreateBubble: () => void;
 }
 
 const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
+  const { user, profile } = useAuth();
+  
+  const handleCreateBubble = () => {
+    onCreateBubble();
+    
+    // Check for achievements after creating a bubble
+    if (user && profile) {
+      const username = profile.username || user.email || "";
+      checkAndAwardAchievements(user.id, username).catch(error => {
+        console.error("Error checking achievements after creating bubble:", error);
+      });
+    }
+  };
+  
   return (
     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
       <div>
@@ -20,7 +36,7 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
       </div>
       
       <Button
-        onClick={onCreateBubble}
+        onClick={handleCreateBubble}
         className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white shadow-md transform hover:scale-105 transition-all duration-200"
         size="lg"
       >

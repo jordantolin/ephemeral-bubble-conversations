@@ -1,14 +1,21 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Settings, ChevronLeft, LogOut } from "lucide-react";
+import { Loader2, Settings, ChevronLeft, LogOut, Trophy, Bell, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/bubbleWorld/NavigationBar";
 import ProfileForm from "@/components/profile/ProfileForm";
 import AvatarUpload from "@/components/profile/AvatarUpload";
+import AchievementsTab from "@/components/gamification/AchievementsTab";
+import LevelProgressBar from "@/components/gamification/LevelProgressBar";
+import NotificationItem from "@/components/gamification/NotificationItem";
+import { useGamification } from "@/hooks/useGamification";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -18,6 +25,15 @@ const Profile = () => {
   
   // Add state for search functionality
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Use the gamification hook
+  const {
+    notifications,
+    isLoadingNotifications,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    unreadNotificationsCount
+  } = useGamification();
   
   // Fetch the user's reflected bubbles
   const { data: reflectedBubbles, isLoading: reflectsLoading } = useQuery({
@@ -72,7 +88,7 @@ const Profile = () => {
         setSearchQuery={setSearchQuery}
       />
       
-      <main className="container max-w-3xl mx-auto px-4 pt-24 pb-12">
+      <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-[#ebbd34]/10 p-4 flex items-center justify-between">
@@ -111,6 +127,12 @@ const Profile = () => {
                   displayName={profile?.display_name || user.email?.split('@')[0] || null}
                   size="lg"
                 />
+                
+                {/* Level badge */}
+                <div className="mt-4 flex items-center justify-center bg-[#ebbd34]/10 text-[#ebbd34] rounded-full px-4 py-1">
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  <span className="font-semibold">Level {profile?.level || 1}</span>
+                </div>
               </div>
               
               {/* Profile Details */}
@@ -124,7 +146,7 @@ const Profile = () => {
                     onCancel={() => setIsEditing(false)}
                   />
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-800">
                         {profile?.display_name || user.email?.split('@')[0] || 'User'}
@@ -137,6 +159,15 @@ const Profile = () => {
                     <div className="text-sm text-gray-600">
                       <p>Email: {user.email}</p>
                       <p>Member since: {new Date(user.created_at || Date.now()).toLocaleDateString()}</p>
+                    </div>
+                    
+                    {/* Points and Level Progress */}
+                    <div className="p-4 bg-[#ebbd34]/5 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-semibold text-gray-700">Experience Points</h3>
+                        <div className="text-[#ebbd34] font-bold">{profile?.points || 0} points</div>
+                      </div>
+                      <LevelProgressBar points={profile?.points || 0} level={profile?.level || 1} />
                     </div>
                     
                     <div className="pt-4">
@@ -152,10 +183,9 @@ const Profile = () => {
                         
                         <div className="bg-[#ebbd34]/5 p-3 rounded-lg">
                           <p className="text-2xl font-bold text-[#ebbd34]">
-                            {/* We would fetch this from messages count */}
-                            0
+                            {unreadNotificationsCount}
                           </p>
-                          <p className="text-xs text-gray-600">Messages Sent</p>
+                          <p className="text-xs text-gray-600">New Notifications</p>
                         </div>
                       </div>
                     </div>
@@ -172,6 +202,81 @@ const Profile = () => {
                 )}
               </div>
             </div>
+          </div>
+          
+          {/* Tabs for Achievements and Notifications */}
+          <div className="p-6 border-t">
+            <Tabs defaultValue="achievements">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="achievements" className="flex items-center justify-center gap-2">
+                  <Trophy className="h-4 w-4" />
+                  Achievements
+                </TabsTrigger>
+                <TabsTrigger value="notifications" className="flex items-center justify-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  Notifications
+                  {unreadNotificationsCount > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center rounded-full bg-[#ebbd34] w-5 h-5 text-[10px] font-medium text-white">
+                      {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="achievements">
+                <AchievementsTab />
+              </TabsContent>
+              
+              <TabsContent value="notifications">
+                <div className="space-y-4">
+                  {/* Actions header */}
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-700">
+                      Recent Activity
+                    </h3>
+                    {unreadNotificationsCount > 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => markAllNotificationsAsRead.mutate()}
+                        className="text-[#ebbd34] border-[#ebbd34]/20 hover:bg-[#ebbd34]/10"
+                      >
+                        Mark all as read
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Notifications list */}
+                  <div className="border rounded-lg overflow-hidden">
+                    {isLoadingNotifications ? (
+                      <div className="flex justify-center items-center h-64">
+                        <Loader2 className="h-8 w-8 animate-spin text-[#ebbd34]" />
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Bell className="mx-auto h-12 w-12 text-gray-300" />
+                        <h3 className="mt-4 text-lg font-medium text-gray-900">No notifications yet</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          You'll receive notifications when you earn achievements and points
+                        </p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-96">
+                        <div className="space-y-0">
+                          {notifications.map((notification) => (
+                            <NotificationItem
+                              key={notification.id}
+                              notification={notification}
+                              onMarkAsRead={(id) => markNotificationAsRead.mutate(id)}
+                            />
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </main>
