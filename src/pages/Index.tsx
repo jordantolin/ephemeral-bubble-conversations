@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
@@ -128,14 +127,14 @@ const Index = () => {
       {/* Achievement popup for gamification */}
       <AchievementPopup />
       
-      {/* Navigation */}
+      {/* Navigation - Now at the top */}
       <NavigationBar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
       
       <motion.div 
-        className="pt-20 sm:pt-24 pb-16 px-4 sm:px-6 relative z-10"
+        className="pt-24 pb-8 px-4 sm:px-6 relative z-10"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

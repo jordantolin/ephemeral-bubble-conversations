@@ -15,15 +15,13 @@ const Logo = ({ size = "md", withText = true, className = "" }: LogoProps) => {
   };
 
   return (
-    <Link to="/" className={`flex items-center gap-2 transition-transform hover:scale-105 ${className}`}>
-      <div className={`${sizeClasses[size]} relative overflow-hidden`}>
-        <img 
-          src="/lovable-uploads/dd70f452-6f79-4ba9-9293-885601e88a7b.png" 
-          alt="Bubble Trouble Logo" 
-          className="w-full h-full object-contain"
-        />
-      </div>
-    </Link>
+    <div className={`relative overflow-hidden ${sizeClasses[size]} ${className}`}>
+      <img 
+        src="/lovable-uploads/dd70f452-6f79-4ba9-9293-885601e88a7b.png" 
+        alt="Bubble Trouble Logo" 
+        className="w-full h-full object-contain"
+      />
+    </div>
   );
 };
 
