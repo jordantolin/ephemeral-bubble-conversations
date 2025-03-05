@@ -191,7 +191,6 @@ const Profile = () => {
                           <p className="text-xs text-gray-600">New Notifications</p>
                         </div>
                       </div>
-                    </div>
                     
                     <Button
                       onClick={handleLogout}

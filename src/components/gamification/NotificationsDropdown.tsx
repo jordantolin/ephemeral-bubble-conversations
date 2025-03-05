@@ -33,11 +33,11 @@ const NotificationsDropdown = () => {
     markAllNotificationsAsRead.mutate();
   };
 
-  // Convert database notifications to the expected Notification type with is_read
+  // Format notifications to have a consistent interface
   const formattedNotifications: Notification[] = notifications.map(notification => ({
     ...notification,
-    is_read: notification.read
-  })) as Notification[];
+    is_read: notification.is_read !== undefined ? notification.is_read : false
+  }));
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>

@@ -63,7 +63,7 @@ export function useGamification() {
     queryFn: async () => {
       if (!user) return [];
       
-      // Using raw SQL to get the data we need
+      // Using RPC to get the data we need
       const { data, error } = await supabase
         .rpc('get_user_achievements_with_details', { user_id_param: user.id });
       
@@ -96,7 +96,7 @@ export function useGamification() {
   } = useQuery({
     queryKey: ['achievements'],
     queryFn: async () => {
-      // Using raw SQL to get all achievements
+      // Using RPC to get all achievements
       const { data, error } = await supabase
         .rpc('get_all_achievements');
       
