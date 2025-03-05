@@ -381,7 +381,7 @@ const Profile = () => {
                   whileHover={{ y: -5 }}
                 >
                   <div className="bg-purple-100 rounded-full w-12 h-12 mx-auto mb-2 flex items-center justify-center">
-                    <Sparkles className="h-6 w-6 text-purple-600" />
+                    <Zap className="h-6 w-6 text-purple-600" />
                   </div>
                   <p className="font-bold text-xl text-purple-600">{gamificationProfile.bubblePoints}</p>
                   <p className="text-xs text-gray-600">Bubble Points</p>
@@ -392,7 +392,7 @@ const Profile = () => {
                   whileHover={{ y: -5 }}
                 >
                   <div className="bg-green-100 rounded-full w-12 h-12 mx-auto mb-2 flex items-center justify-center">
-                    <Zap className="h-6 w-6 text-green-600" />
+                    <Sparkles className="h-6 w-6 text-green-600" />
                   </div>
                   <p className="font-bold text-xl text-green-600">{gamificationProfile.reflectionPoints}</p>
                   <p className="text-xs text-gray-600">Reflection Points</p>
