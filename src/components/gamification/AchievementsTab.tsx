@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { useGamification, Achievement, UserAchievement } from '@/hooks/useGamification';
+import { useGamificationContext } from '@/context/GamificationContext';
+import { Achievement, UserAchievement } from '@/hooks/useGamification';
 import AchievementCard from './AchievementCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,7 +17,7 @@ const AchievementsTab = () => {
     allAchievements, 
     isLoadingAchievements, 
     isLoadingAllAchievements 
-  } = useGamification();
+  } = useGamificationContext();
   
   // Helper function to check if an achievement is unlocked
   const isAchievementUnlocked = (achievementId: string) => {
@@ -55,26 +56,18 @@ const AchievementsTab = () => {
   
   // Get unlocked achievements for the "Unlocked" tab
   const unlockedAchievements = userAchievements
-    .map((ua: UserAchievement) => {
-      // Find the full achievement details from allAchievements
-      const achievement = allAchievements.find(
-        (a: Achievement) => a.id === ua.achievement_id
-      );
-      return {
-        ...ua,
-        achievement
-      };
-    })
-    .filter((ua: UserAchievement) => !!ua.achievement) // Filter out any that don't have matching achievements
+    .filter((ua: UserAchievement) => ua.achievement) // Filter out any that don't have matching achievements
     .filter((ua: UserAchievement) => {
+      if (!ua.achievement) return false;
+      
       const matchesSearch = 
         filter === '' || 
-        ua.achievement?.name.toLowerCase().includes(filter.toLowerCase()) ||
-        ua.achievement?.description.toLowerCase().includes(filter.toLowerCase());
+        ua.achievement.name.toLowerCase().includes(filter.toLowerCase()) ||
+        ua.achievement.description.toLowerCase().includes(filter.toLowerCase());
       
       const matchesCategory = 
         category === 'all' || 
-        ua.achievement?.category === category;
+        ua.achievement.category === category;
       
       return matchesSearch && matchesCategory;
     });

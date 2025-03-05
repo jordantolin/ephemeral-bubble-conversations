@@ -119,26 +119,26 @@ export const awardAchievementIfNotExists = async (
 ) => {
   try {
     // Get the achievement ID
-    const { data: achievement, error: achievementError } = await supabase
+    const { data: achievements, error: achievementError } = await supabase
       .from('achievements')
       .select('id, points, description, icon_type')
-      .eq('name', achievementName)
-      .single();
+      .eq('name', achievementName);
     
-    if (achievementError) {
+    if (achievementError || !achievements || achievements.length === 0) {
       console.error(`Achievement "${achievementName}" not found`, achievementError);
       return;
     }
     
+    const achievement = achievements[0];
+    
     // Check if the user already has this achievement
-    const { data: existingAchievement, error: existingError } = await supabase
+    const { data: existingAchievements, error: existingError } = await supabase
       .from('user_achievements')
       .select('id')
       .eq('user_id', userId)
-      .eq('achievement_id', achievement.id)
-      .single();
+      .eq('achievement_id', achievement.id);
     
-    if (!existingError && existingAchievement) {
+    if (!existingError && existingAchievements && existingAchievements.length > 0) {
       // User already has this achievement
       return;
     }
@@ -162,7 +162,8 @@ export const awardAchievementIfNotExists = async (
         message: `You earned "${achievementName}": ${achievement.description}`,
         type: 'achievement',
         icon_type: achievement.icon_type,
-        points: achievement.points
+        points: achievement.points,
+        read: false
       });
     
   } catch (error) {

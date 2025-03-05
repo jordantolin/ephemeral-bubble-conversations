@@ -14,7 +14,7 @@ import AvatarUpload from "@/components/profile/AvatarUpload";
 import AchievementsTab from "@/components/gamification/AchievementsTab";
 import LevelProgressBar from "@/components/gamification/LevelProgressBar";
 import NotificationItem from "@/components/gamification/NotificationItem";
-import { useGamification } from "@/hooks/useGamification";
+import { useGamificationContext } from "@/context/GamificationContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Profile = () => {
@@ -33,7 +33,7 @@ const Profile = () => {
     markNotificationAsRead,
     markAllNotificationsAsRead,
     unreadNotificationsCount
-  } = useGamification();
+  } = useGamificationContext();
   
   // Fetch the user's reflected bubbles
   const { data: reflectedBubbles, isLoading: reflectsLoading } = useQuery({
@@ -80,6 +80,10 @@ const Profile = () => {
       </div>
     );
   }
+  
+  // Extract points and level from profile, defaulting to 0 and 1
+  const points = profile?.points || 0;
+  const level = profile?.level || 1;
   
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
@@ -131,7 +135,7 @@ const Profile = () => {
                 {/* Level badge */}
                 <div className="mt-4 flex items-center justify-center bg-[#ebbd34]/10 text-[#ebbd34] rounded-full px-4 py-1">
                   <Sparkles className="h-4 w-4 mr-1" />
-                  <span className="font-semibold">Level {profile?.level || 1}</span>
+                  <span className="font-semibold">Level {level}</span>
                 </div>
               </div>
               
@@ -165,9 +169,9 @@ const Profile = () => {
                     <div className="p-4 bg-[#ebbd34]/5 rounded-lg">
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="font-semibold text-gray-700">Experience Points</h3>
-                        <div className="text-[#ebbd34] font-bold">{profile?.points || 0} points</div>
+                        <div className="text-[#ebbd34] font-bold">{points} points</div>
                       </div>
-                      <LevelProgressBar points={profile?.points || 0} level={profile?.level || 1} />
+                      <LevelProgressBar points={points} level={level} />
                     </div>
                     
                     <div className="pt-4">

@@ -13,7 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import NotificationItem from "./NotificationItem";
-import { useGamification, Notification } from "@/hooks/useGamification";
+import { useGamificationContext } from "@/context/GamificationContext";
+import { Notification } from "@/hooks/useGamification";
 
 const NotificationsDropdown = () => {
   const { 
@@ -21,7 +22,7 @@ const NotificationsDropdown = () => {
     unreadNotificationsCount, 
     markNotificationAsRead,
     markAllNotificationsAsRead 
-  } = useGamification();
+  } = useGamificationContext();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleMarkAsRead = (id: string) => {
@@ -75,7 +76,7 @@ const NotificationsDropdown = () => {
                 <p>No notifications yet</p>
               </div>
             ) : (
-              notifications.map((notification: Notification) => (
+              notifications.map((notification) => (
                 <NotificationItem
                   key={notification.id}
                   notification={notification}

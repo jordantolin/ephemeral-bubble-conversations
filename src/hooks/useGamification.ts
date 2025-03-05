@@ -58,7 +58,7 @@ export function useGamification() {
           user_id,
           achievement_id,
           created_at,
-          achievements:achievement_id (
+          achievements(
             id,
             name,
             description,
@@ -74,13 +74,13 @@ export function useGamification() {
       if (error) throw error;
       
       // Transform the data to have achievement nested under each user achievement
-      return data.map((item: any) => ({
+      return data.map((item) => ({
         id: item.id,
         user_id: item.user_id,
         achievement_id: item.achievement_id,
         created_at: item.created_at,
         achievement: item.achievements,
-      }));
+      })) as UserAchievement[];
     },
     enabled: !!user,
   });
@@ -98,7 +98,7 @@ export function useGamification() {
         .order('points', { ascending: false });
       
       if (error) throw error;
-      return data;
+      return data as Achievement[];
     },
     enabled: !!user,
   });
@@ -120,7 +120,12 @@ export function useGamification() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match our Notification type (read -> is_read)
+      return data.map(notification => ({
+        ...notification,
+        is_read: notification.read,
+      })) as Notification[];
     },
     enabled: !!user,
   });
@@ -132,7 +137,7 @@ export function useGamification() {
       
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .update({ read: true })
         .eq('id', notificationId)
         .eq('user_id', user.id);
       
@@ -142,7 +147,7 @@ export function useGamification() {
     onSuccess: (notificationId) => {
       // Update the local notification data
       queryClient.setQueryData(['notifications', user?.id], (oldData: any) => {
-        return oldData.map((notification: Notification) => {
+        return oldData.map((notification: any) => {
           if (notification.id === notificationId) {
             return { ...notification, is_read: true };
           }
@@ -166,9 +171,9 @@ export function useGamification() {
       
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .update({ read: true })
         .eq('user_id', user.id)
-        .eq('is_read', false);
+        .eq('read', false);
       
       if (error) throw error;
       return true;
@@ -176,7 +181,7 @@ export function useGamification() {
     onSuccess: () => {
       // Update all notifications in the cache
       queryClient.setQueryData(['notifications', user?.id], (oldData: any) => {
-        return oldData.map((notification: Notification) => {
+        return oldData.map((notification: any) => {
           return { ...notification, is_read: true };
         });
       });
@@ -268,7 +273,7 @@ export function useGamification() {
 
   // Get unread notifications count
   const unreadNotificationsCount = notifications.filter(
-    (notification: Notification) => !notification.is_read
+    (notification) => !notification.is_read
   ).length;
 
   return {
