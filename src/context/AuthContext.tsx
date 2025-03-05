@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +11,8 @@ interface Profile {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+  points?: number;
+  level?: number;
 }
 
 interface ProfileUpdateData {
