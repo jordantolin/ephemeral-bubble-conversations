@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, Check, Star, Award, Gift } from "lucide-react";
@@ -7,6 +8,19 @@ import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Notification, NotificationType, NotificationIconType } from "@/types/notification";
+
+// Temporary type definition for database notifications
+type DatabaseNotification = {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  created_at: string;
+  icon_type?: string;
+  points?: number;
+}
 
 const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,9 +41,9 @@ const NotificationCenter: React.FC = () => {
 
       try {
         setIsLoading(true);
-        // Assuming notifications table exists in the database
+        // Using any type to bypass TypeScript error until Supabase types are updated
         const { data, error } = await supabase
-          .from('notifications')
+          .from('notifications' as any)
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
@@ -38,7 +52,8 @@ const NotificationCenter: React.FC = () => {
         if (error) throw error;
         
         if (data) {
-          const typedNotifications: Notification[] = data.map(n => ({
+          // Convert database results to our frontend Notification type
+          const typedNotifications: Notification[] = (data as DatabaseNotification[]).map(n => ({
             id: n.id,
             title: n.title,
             message: n.message,
@@ -52,7 +67,7 @@ const NotificationCenter: React.FC = () => {
           setNotifications(typedNotifications);
           
           // Calculate unread count
-          setUnreadCount(data.filter(n => !n.read).length);
+          setUnreadCount((data as DatabaseNotification[]).filter(n => !n.read).length);
         }
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -78,7 +93,7 @@ const NotificationCenter: React.FC = () => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            const newNotification = payload.new as any;
+            const newNotification = payload.new as DatabaseNotification;
             
             // Add to notifications
             const typedNotification: Notification = {
@@ -126,9 +141,9 @@ const NotificationCenter: React.FC = () => {
     if (!user) return;
     
     try {
-      // Update the database
+      // Update the database - using any type to bypass TypeScript error
       const { error } = await supabase
-        .from('notifications')
+        .from('notifications' as any)
         .update({ read: true })
         .eq('id', notificationId)
         .eq('user_id', user.id);
@@ -152,9 +167,9 @@ const NotificationCenter: React.FC = () => {
     if (!user || notifications.length === 0) return;
     
     try {
-      // Update the database
+      // Update the database - using any type to bypass TypeScript error
       const { error } = await supabase
-        .from('notifications')
+        .from('notifications' as any)
         .update({ read: true })
         .eq('user_id', user.id)
         .eq('read', false);
@@ -176,9 +191,9 @@ const NotificationCenter: React.FC = () => {
     if (!user) return;
     
     try {
-      // Delete from database
+      // Delete from database - using any type to bypass TypeScript error
       const { error } = await supabase
-        .from('notifications')
+        .from('notifications' as any)
         .delete()
         .eq('id', notificationId)
         .eq('user_id', user.id);

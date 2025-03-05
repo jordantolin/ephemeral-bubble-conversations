@@ -1,104 +1,73 @@
 
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { Home, User, MessageCircle, Settings, PlusCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import Logo from "@/components/Logo";
-import LevelProgress from "@/components/gamification/LevelProgress";
-import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
 import NotificationCenter from "@/components/gamification/NotificationCenter";
 
 const NavigationBar: React.FC = () => {
-  const { user, profile } = useAuth();
-  
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+  const location = useLocation();
+  const { user } = useAuth();
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
+
+  const getButtonClass = (active: boolean) => {
+    return `flex flex-col items-center justify-center h-full transition-colors ${
+      active
+        ? "text-[#ebbd34]"
+        : "text-gray-400 hover:text-[#ebbd34]/70"
+    }`;
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 border-b bg-white/95 backdrop-blur-sm shadow-sm">
-      <div className="container mx-auto px-4 flex items-center justify-between h-16">
-        <div className="flex items-center">
-          <Logo size="md" />
-        </div>
-        
-        <div className="hidden md:flex items-center gap-1">
-          <NavLink 
-            to="/bubbles"
-            className={({ isActive }) => `px-4 py-2 rounded-md transition-colors ${
-              isActive 
-                ? 'text-[#ebbd34] font-semibold bg-amber-50' 
-                : 'text-gray-600 hover:text-[#ebbd34] hover:bg-amber-50/50'
-            }`}
+    <div className="w-full h-16 bg-white/95 backdrop-blur-sm shadow-md border-t border-gray-200 fixed bottom-0 left-0 z-40">
+      <div className="container mx-auto px-4 h-full">
+        <div className="flex items-center justify-between h-full">
+          <Link to="/" className={getButtonClass(isActive("/"))}>
+            <Home size={24} />
+            <span className="text-xs mt-1">Home</span>
+          </Link>
+
+          <Link
+            to="/my-bubbles"
+            className={getButtonClass(isActive("/my-bubbles"))}
           >
-            Explore
-          </NavLink>
-          
-          {user && (
-            <NavLink 
-              to="/my-bubbles"
-              className={({ isActive }) => `px-4 py-2 rounded-md transition-colors ${
-                isActive 
-                  ? 'text-[#ebbd34] font-semibold bg-amber-50' 
-                  : 'text-gray-600 hover:text-[#ebbd34] hover:bg-amber-50/50'
-              }`}
+            <MessageCircle size={24} />
+            <span className="text-xs mt-1">My Bubbles</span>
+          </Link>
+
+          <div className="flex items-center justify-center">
+            <Button
+              size="icon"
+              className="h-12 w-12 rounded-full bg-[#ebbd34] text-white hover:bg-[#ebbd34]/90 shadow-lg"
             >
-              My Bubbles
-            </NavLink>
-          )}
-          
+              <PlusCircle size={24} />
+            </Button>
+          </div>
+
+          <NotificationCenter />
+
           {user && (
-            <NavLink 
-              to="/achievements"
-              className={({ isActive }) => `px-4 py-2 rounded-md transition-colors ${
-                isActive 
-                  ? 'text-[#ebbd34] font-semibold bg-amber-50' 
-                  : 'text-gray-600 hover:text-[#ebbd34] hover:bg-amber-50/50'
-              }`}
+            <Link
+              to="/profile"
+              className={getButtonClass(isActive("/profile"))}
             >
-              Achievements
-            </NavLink>
+              <User size={24} />
+              <span className="text-xs mt-1">Profile</span>
+            </Link>
           )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {user ? (
-            <>
-              <div className="hidden sm:flex items-center mr-2">
-                <DailyStreakIndicator />
-                <LevelProgress />
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <NotificationCenter />
-                
-                <NavLink to="/profile">
-                  <Avatar className="cursor-pointer border-2 border-[#ebbd34]/20 hover:border-[#ebbd34]/50 transition-colors">
-                    <AvatarImage src={profile?.avatar_url || undefined} />
-                    <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34]">
-                      {profile?.display_name 
-                        ? getInitials(profile.display_name) 
-                        : user.email?.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </NavLink>
-              </div>
-            </>
-          ) : (
-            <div className="flex gap-2">
-              <Button asChild size="sm" variant="ghost">
-                <NavLink to="/auth?mode=login">Log in</NavLink>
-              </Button>
-              <Button asChild size="sm" className="bg-[#ebbd34] hover:bg-[#ebbd34]/90">
-                <NavLink to="/auth?mode=signup">Sign up</NavLink>
-              </Button>
-            </div>
+
+          {!user && (
+            <Link
+              to="/auth"
+              className={getButtonClass(isActive("/auth"))}
+            >
+              <Settings size={24} />
+              <span className="text-xs mt-1">Login</span>
+            </Link>
           )}
         </div>
       </div>

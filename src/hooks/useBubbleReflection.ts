@@ -114,9 +114,9 @@ export const useBubbleReflection = () => {
                 .single();
                 
               if (ownerData) {
-                // Create a notification for the bubble owner
+                // Create a notification for the bubble owner using any type to bypass TypeScript error
                 await supabase
-                  .from('notifications')
+                  .from('notifications' as any)
                   .insert({
                     user_id: ownerData.id,
                     title: 'Popular Bubble Achievement!',
