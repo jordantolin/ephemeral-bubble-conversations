@@ -35,6 +35,18 @@ export type Notification = {
   created_at: string;
 };
 
+// Extended Profile type that includes the new fields
+export interface GamificationProfile {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string | null;
+  points: number;
+  level: number;
+}
+
 export function useGamification() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -51,35 +63,27 @@ export function useGamification() {
     queryFn: async () => {
       if (!user) return [];
       
+      // Using raw SQL to get the data we need
       const { data, error } = await supabase
-        .from('user_achievements')
-        .select(`
-          id,
-          user_id,
-          achievement_id,
-          created_at,
-          achievements(
-            id,
-            name,
-            description,
-            points,
-            icon_type,
-            category,
-            created_at
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .rpc('get_user_achievements_with_details', { user_id_param: user.id });
       
       if (error) throw error;
       
-      // Transform the data to have achievement nested under each user achievement
-      return data.map((item) => ({
+      // Transform the data to match our expected format
+      return (data || []).map((item: any) => ({
         id: item.id,
         user_id: item.user_id,
         achievement_id: item.achievement_id,
         created_at: item.created_at,
-        achievement: item.achievements,
+        achievement: {
+          id: item.achievement_id,
+          name: item.name,
+          description: item.description,
+          points: item.points,
+          icon_type: item.icon_type,
+          category: item.category,
+          created_at: item.achievement_created_at
+        },
       })) as UserAchievement[];
     },
     enabled: !!user,
@@ -92,13 +96,21 @@ export function useGamification() {
   } = useQuery({
     queryKey: ['achievements'],
     queryFn: async () => {
+      // Using raw SQL to get all achievements
       const { data, error } = await supabase
-        .from('achievements')
-        .select('*')
-        .order('points', { ascending: false });
+        .rpc('get_all_achievements');
       
       if (error) throw error;
-      return data as Achievement[];
+      
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        points: item.points,
+        icon_type: item.icon_type,
+        category: item.category,
+        created_at: item.created_at
+      })) as Achievement[];
     },
     enabled: !!user,
   });

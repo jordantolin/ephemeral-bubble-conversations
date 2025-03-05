@@ -36,12 +36,12 @@ const checkBubbleAchievements = async (userId: string, username: string) => {
     
     // Check for "Bubble Creator" achievement (first bubble)
     if (bubbleCount > 0) {
-      await awardAchievementIfNotExists(userId, 'Bubble Creator');
+      await awardAchievementByName(userId, 'Bubble Creator');
     }
     
     // Check for "Bubble Enthusiast" achievement (5 bubbles)
     if (bubbleCount >= 5) {
-      await awardAchievementIfNotExists(userId, 'Bubble Enthusiast');
+      await awardAchievementByName(userId, 'Bubble Enthusiast');
     }
     
   } catch (error) {
@@ -65,12 +65,12 @@ const checkMessageAchievements = async (userId: string, username: string) => {
     
     // Check for "Conversation Starter" achievement (first message)
     if (messageCount > 0) {
-      await awardAchievementIfNotExists(userId, 'Conversation Starter');
+      await awardAchievementByName(userId, 'Conversation Starter');
     }
     
     // Check for "Active Participant" achievement (10 messages)
     if (messageCount >= 10) {
-      await awardAchievementIfNotExists(userId, 'Active Participant');
+      await awardAchievementByName(userId, 'Active Participant');
     }
     
   } catch (error) {
@@ -98,12 +98,12 @@ const checkReflectionAchievements = async (userId: string, username: string) => 
     
     // Check for "Reflector" achievement (5 different bubbles)
     if (uniqueBubbleCount >= 5) {
-      await awardAchievementIfNotExists(userId, 'Reflector');
+      await awardAchievementByName(userId, 'Reflector');
     }
     
     // Check for "Explorer" achievement (10 different bubbles)
     if (uniqueBubbleCount >= 10) {
-      await awardAchievementIfNotExists(userId, 'Explorer');
+      await awardAchievementByName(userId, 'Explorer');
     }
     
   } catch (error) {
@@ -112,60 +112,24 @@ const checkReflectionAchievements = async (userId: string, username: string) => 
   }
 };
 
-// Award an achievement if the user hasn't already earned it
-export const awardAchievementIfNotExists = async (
+// Award an achievement by name if the user hasn't already earned it
+export const awardAchievementByName = async (
   userId: string, 
   achievementName: string
 ) => {
   try {
-    // Get the achievement ID
-    const { data: achievements, error: achievementError } = await supabase
-      .from('achievements')
-      .select('id, points, description, icon_type')
-      .eq('name', achievementName);
+    // Use a stored procedure to handle the achievement awarding
+    const { data, error } = await supabase.rpc(
+      'award_achievement_by_name',
+      { 
+        user_id_param: userId,
+        achievement_name_param: achievementName
+      }
+    );
     
-    if (achievementError || !achievements || achievements.length === 0) {
-      console.error(`Achievement "${achievementName}" not found`, achievementError);
-      return;
-    }
+    if (error) throw error;
     
-    const achievement = achievements[0];
-    
-    // Check if the user already has this achievement
-    const { data: existingAchievements, error: existingError } = await supabase
-      .from('user_achievements')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('achievement_id', achievement.id);
-    
-    if (!existingError && existingAchievements && existingAchievements.length > 0) {
-      // User already has this achievement
-      return;
-    }
-    
-    // Award the achievement
-    const { error: awardError } = await supabase
-      .from('user_achievements')
-      .insert({
-        user_id: userId,
-        achievement_id: achievement.id
-      });
-    
-    if (awardError) throw awardError;
-    
-    // Create a notification
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: userId,
-        title: 'Achievement Unlocked!',
-        message: `You earned "${achievementName}": ${achievement.description}`,
-        type: 'achievement',
-        icon_type: achievement.icon_type,
-        points: achievement.points,
-        read: false
-      });
-    
+    return data;
   } catch (error) {
     console.error(`Error awarding achievement "${achievementName}":`, error);
     throw error;

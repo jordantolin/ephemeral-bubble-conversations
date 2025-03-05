@@ -33,6 +33,12 @@ const NotificationsDropdown = () => {
     markAllNotificationsAsRead.mutate();
   };
 
+  // Convert database notifications to the expected Notification type with is_read
+  const formattedNotifications: Notification[] = notifications.map(notification => ({
+    ...notification,
+    is_read: notification.read
+  })) as Notification[];
+
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -71,12 +77,12 @@ const NotificationsDropdown = () => {
         <DropdownMenuSeparator />
         <ScrollArea className="h-[300px] overflow-auto">
           <DropdownMenuGroup>
-            {notifications.length === 0 ? (
+            {formattedNotifications.length === 0 ? (
               <div className="py-6 text-center text-gray-500">
                 <p>No notifications yet</p>
               </div>
             ) : (
-              notifications.map((notification) => (
+              formattedNotifications.map((notification) => (
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
