@@ -106,11 +106,26 @@ export const useBubbleReflection = () => {
           // If this bubble now has 5 or more reflections, create notification for bubble owner
           if (bubbleData.reflect_count >= 5) {
             try {
-              // Call the check_popular_bubble_achievement function
-              await supabase.rpc('check_popular_bubble_achievement', { 
-                bubble_id: bubbleId,
-                bubble_name: bubbleName
-              });
+              // Get bubble owner's user ID from their username
+              const { data: ownerData } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('username', bubbleData.username)
+                .single();
+                
+              if (ownerData) {
+                // Create a notification for the bubble owner
+                await supabase
+                  .from('notifications')
+                  .insert({
+                    user_id: ownerData.id,
+                    title: 'Popular Bubble Achievement!',
+                    message: `Your bubble "${bubbleName}" has reached 5 reflections!`,
+                    type: 'achievement',
+                    icon_type: 'gift',
+                    points: 200
+                  });
+              }
             } catch (error) {
               console.error("Error checking popular bubble achievement:", error);
             }

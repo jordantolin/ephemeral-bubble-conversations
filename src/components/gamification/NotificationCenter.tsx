@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, Check, Star, Award, Gift } from "lucide-react";
@@ -28,6 +27,7 @@ const NotificationCenter: React.FC = () => {
 
       try {
         setIsLoading(true);
+        // Assuming notifications table exists in the database
         const { data, error } = await supabase
           .from('notifications')
           .select('*')
@@ -126,6 +126,7 @@ const NotificationCenter: React.FC = () => {
     if (!user) return;
     
     try {
+      // Update the database
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
@@ -151,6 +152,7 @@ const NotificationCenter: React.FC = () => {
     if (!user || notifications.length === 0) return;
     
     try {
+      // Update the database
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
@@ -174,6 +176,7 @@ const NotificationCenter: React.FC = () => {
     if (!user) return;
     
     try {
+      // Delete from database
       const { error } = await supabase
         .from('notifications')
         .delete()
