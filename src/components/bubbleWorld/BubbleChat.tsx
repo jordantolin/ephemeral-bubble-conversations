@@ -134,7 +134,8 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
       const messageToSend = messageContent;
       setNewMessage("");
       
-      await sendRetry.current(async () => {
+      // Fix: Use the retry method instead of trying to call the handler directly
+      await sendRetry.current.retry(async () => {
         const { error } = await supabase
           .from('bubble_messages')
           .insert({
