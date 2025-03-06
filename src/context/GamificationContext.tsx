@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Award, Star, Trophy, Target, Gift } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 
 // Define serializable achievement type for storage
 interface SerializableAchievement {
@@ -30,7 +31,7 @@ export type AchievementType = {
 };
 
 // Helper to convert React icons to serializable format
-const serializeAchievements = (achievements: AchievementType[]): SerializableAchievement[] => {
+const serializeAchievements = (achievements: AchievementType[]): Record<string, any>[] => {
   return achievements.map(ach => ({
     id: ach.id,
     name: ach.name,
@@ -57,7 +58,7 @@ const getIconTypeFromNode = (icon: React.ReactNode): string => {
 };
 
 // Helper to deserialize achievements back to React components
-const deserializeAchievements = (serialized: SerializableAchievement[]): AchievementType[] => {
+const deserializeAchievements = (serialized: any[]): AchievementType[] => {
   return serialized.map(ach => ({
     id: ach.id,
     name: ach.name,
@@ -250,7 +251,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (data) {
         // Parse stored achievements - deserialize the achievements from the database
         const storedAchievements = data.achievements ? 
-          deserializeAchievements(data.achievements as SerializableAchievement[]) : 
+          deserializeAchievements(data.achievements as any[]) : 
           defaultAchievements;
         
         // Create profile with updated daily streak
@@ -302,7 +303,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             bubble_points: newProfile.bubblePoints,
             reflection_points: newProfile.reflectionPoints,
             message_points: newProfile.messagePoints,
-            achievements: serializedAchievements,
+            achievements: serializedAchievements as unknown as Json,
             daily_streak: newProfile.dailyStreak,
             last_active: newProfile.lastActive
           });
@@ -419,7 +420,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           .update({
             points: updatedProfile.points,
             level: updatedProfile.level,
-            achievements: serializedAchievements
+            achievements: serializedAchievements as unknown as Json
           })
           .eq('user_id', user.id);
         
@@ -448,7 +449,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await supabase
           .from('gamification_profiles')
           .update({
-            achievements: serializedAchievements
+            achievements: serializedAchievements as unknown as Json
           })
           .eq('user_id', user.id);
         
@@ -503,7 +504,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await supabase
           .from('gamification_profiles')
           .update({
-            achievements: serializedAchievements
+            achievements: serializedAchievements as unknown as Json
           })
           .eq('user_id', user.id);
         
