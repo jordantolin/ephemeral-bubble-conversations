@@ -48,12 +48,12 @@ export const deserializeAchievements = (serialized: any[]): AchievementType[] =>
 // Helper to get React icon from type string
 export const getIconFromType = (iconType: string): React.ReactNode => {
   switch (iconType) {
-    case 'award': return <Award className="h-6 w-6 text-[#ebbd34]" />;
-    case 'star': return <Star className="h-6 w-6 text-[#ebbd34]" />;
-    case 'trophy': return <Trophy className="h-6 w-6 text-[#ebbd34]" />;
-    case 'target': return <Target className="h-6 w-6 text-[#ebbd34]" />;
-    case 'gift': return <Gift className="h-6 w-6 text-[#ebbd34]" />;
-    default: return <Award className="h-6 w-6 text-[#ebbd34]" />;
+    case 'award': return React.createElement(Award, { className: "h-6 w-6 text-[#ebbd34]" });
+    case 'star': return React.createElement(Star, { className: "h-6 w-6 text-[#ebbd34]" });
+    case 'trophy': return React.createElement(Trophy, { className: "h-6 w-6 text-[#ebbd34]" });
+    case 'target': return React.createElement(Target, { className: "h-6 w-6 text-[#ebbd34]" });
+    case 'gift': return React.createElement(Gift, { className: "h-6 w-6 text-[#ebbd34]" });
+    default: return React.createElement(Award, { className: "h-6 w-6 text-[#ebbd34]" });
   }
 };
 
@@ -63,7 +63,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "first-bubble",
     name: "Bubble Creator",
     description: "Create your first bubble",
-    icon: <Award className="h-6 w-6 text-[#ebbd34]" />,
+    icon: React.createElement(Award, { className: "h-6 w-6 text-[#ebbd34]" }),
     points: 100,
     unlocked: false
   },
@@ -71,7 +71,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "social-butterfly",
     name: "Social Butterfly",
     description: "Send 10 messages in bubbles",
-    icon: <Star className="h-6 w-6 text-[#ebbd34]" />,
+    icon: React.createElement(Star, { className: "h-6 w-6 text-[#ebbd34]" }),
     points: 50,
     unlocked: false,
     progress: 0,
@@ -81,7 +81,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "reflection-master",
     name: "Reflection Master",
     description: "Reflect on 5 different bubbles",
-    icon: <Trophy className="h-6 w-6 text-[#ebbd34]" />,
+    icon: React.createElement(Trophy, { className: "h-6 w-6 text-[#ebbd34]" }),
     points: 75,
     unlocked: false,
     progress: 0,
@@ -91,7 +91,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "daily-streak-3",
     name: "Regular Bubbler",
     description: "Log in for 3 consecutive days",
-    icon: <Target className="h-6 w-6 text-[#ebbd34]" />,
+    icon: React.createElement(Target, { className: "h-6 w-6 text-[#ebbd34]" }),
     points: 150,
     unlocked: false,
     progress: 0,
@@ -101,7 +101,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "popular-bubble",
     name: "Popular Bubble",
     description: "Create a bubble that gets 5+ reflections",
-    icon: <Gift className="h-6 w-6 text-[#ebbd34]" />,
+    icon: React.createElement(Gift, { className: "h-6 w-6 text-[#ebbd34]" }),
     points: 200,
     unlocked: false,
     progress: 0,
