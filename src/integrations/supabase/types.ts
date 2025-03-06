@@ -77,51 +77,6 @@ export type Database = {
         }
         Relationships: []
       }
-      gamification_profiles: {
-        Row: {
-          achievements: Json
-          bubble_points: number
-          created_at: string | null
-          daily_streak: number
-          id: string
-          last_active: string | null
-          level: number
-          message_points: number
-          points: number
-          reflection_points: number
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          achievements?: Json
-          bubble_points?: number
-          created_at?: string | null
-          daily_streak?: number
-          id?: string
-          last_active?: string | null
-          level?: number
-          message_points?: number
-          points?: number
-          reflection_points?: number
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          achievements?: Json
-          bubble_points?: number
-          created_at?: string | null
-          daily_streak?: number
-          id?: string
-          last_active?: string | null
-          level?: number
-          message_points?: number
-          points?: number
-          reflection_points?: number
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       messages: {
         Row: {
           created_at: string
@@ -143,42 +98,6 @@ export type Database = {
           id?: number
           message?: string
           name?: string
-        }
-        Relationships: []
-      }
-      notifications: {
-        Row: {
-          created_at: string
-          icon_type: string | null
-          id: string
-          message: string
-          points: number | null
-          read: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          icon_type?: string | null
-          id?: string
-          message: string
-          points?: number | null
-          read?: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          icon_type?: string | null
-          id?: string
-          message?: string
-          points?: number | null
-          read?: boolean
-          title?: string
-          type?: string
-          user_id?: string
         }
         Relationships: []
       }

@@ -10,8 +10,6 @@ interface Profile {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
-  points: number;
-  level: number;
 }
 
 interface ProfileUpdateData {
@@ -84,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setProfile(data as Profile);
+      setProfile(data);
     } catch (error) {
       console.error("Unexpected error fetching profile:", error);
     }
