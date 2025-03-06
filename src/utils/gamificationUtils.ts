@@ -119,6 +119,7 @@ export const awardAchievementByName = async (
 ) => {
   try {
     // Use a stored procedure to handle the achievement awarding
+    // The RPC expects named parameters
     const { data, error } = await supabase.rpc(
       'award_achievement_by_name',
       { 
