@@ -9,6 +9,7 @@ import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
 import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicator";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
+import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -132,6 +133,7 @@ const Index = () => {
       
       {/* Gamification Components */}
       <DailyStreakIndicator />
+      <AchievementPopup />
     </div>
   );
 };

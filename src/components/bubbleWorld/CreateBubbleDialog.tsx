@@ -1,23 +1,23 @@
 
 import React, { useState } from "react";
-import { Plus, Clock } from "lucide-react";
+import { PlusCircle, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import useBubbleCreation from "@/hooks/useBubbleCreation";
+import { useGamification } from "@/context/GamificationContext";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -31,184 +31,168 @@ interface CreateBubbleDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({ open, onOpenChange }) => {
-  const { user, profile } = useAuth();
+const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
+  open,
+  onOpenChange,
+}) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const [newBubbleInfo, setNewBubbleInfo] = useState({
-    name: "",
-    topic: "general",
-    description: "",
-  });
-  const [isCreatingBubble, setIsCreatingBubble] = useState(false);
-
+  const { createBubble, isCreating } = useBubbleCreation();
+  const { addPoints, checkAchievement } = useGamification();
+  
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [topic, setTopic] = useState("");
+  
   const handleCreateBubble = async () => {
     if (!user) {
       toast({
         title: "Authentication required",
-        description: "Please sign in to create bubbles",
+        description: "Please sign in to create a bubble",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!name.trim() || !topic.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please provide both a name and topic for your bubble",
         variant: "destructive"
       });
       return;
     }
     
     try {
-      setIsCreatingBubble(true);
-      
-      // Simple validation
-      if (!newBubbleInfo.name.trim()) {
-        toast({
-          title: "Missing information",
-          description: "Please provide a name for your bubble",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Set expiry date to 24 hours from now
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-      
-      const username = profile?.username || user?.email || "";
-      
-      const { data, error } = await supabase
-        .from('bubbles')
-        .insert({
-          name: newBubbleInfo.name,
-          topic: newBubbleInfo.topic || "general",
-          description: newBubbleInfo.description,
-          size: 'sm' as const, // Explicitly type as 'sm'
-          reflect_count: 0,
-          expires_at: expiresAt.toISOString(),
-          username: username
-        })
-        .select()
-        .single();
-        
-      if (error) {
-        throw error;
-      }
-      
-      toast({
-        title: "Bubble Created!",
-        description: `Your bubble "${newBubbleInfo.name}" will be active for 24 hours`
+      // Create the bubble
+      await createBubble({
+        name,
+        description,
+        topic,
       });
       
-      // Reset form and close dialog
-      setNewBubbleInfo({
-        name: "",
-        topic: "general",
-        description: ""
-      });
+      // Add points for creating a bubble
+      await addPoints(20, 'bubble');
+      
+      // Check first bubble achievement
+      await checkAchievement('first-bubble');
+      
+      // Reset form
+      setName("");
+      setDescription("");
+      setTopic("");
+      
+      // Close dialog
       onOpenChange(false);
+      
+      // Show success toast
+      toast({
+        title: "Bubble created!",
+        description: "Your bubble has been created successfully.",
+      });
       
       // Refresh bubbles list
       queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-      
-      // Navigate to the new bubble's chat page
-      if (data) {
-        navigate(`/bubble/${data.id}`);
-      }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating bubble:", error);
+      
       toast({
         title: "Error creating bubble",
-        description: error.message || "An error occurred while creating your bubble",
+        description: "Failed to create your bubble. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      setIsCreatingBubble(false);
     }
   };
-
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] rounded-lg p-6 bg-white/95 backdrop-blur-md">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-2xl text-[#ebbd34] font-bold">Create a 24h Bubble</DialogTitle>
-          <DialogDescription className="text-base">
-            Create a new bubble that will last for exactly 24 hours before exploding.
+          <DialogTitle className="text-[#ebbd34] flex items-center">
+            <PlusCircle className="h-5 w-5 mr-2" />
+            Create New Bubble
+          </DialogTitle>
+          <DialogDescription>
+            Create a new bubble that will last for 24 hours. Invite others to join your conversation!
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-5 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name" className="text-[#ebbd34] font-medium">Name</Label>
+        
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="bubble-name" className="text-right">
+              Name
+            </Label>
             <Input
-              id="name"
-              value={newBubbleInfo.name}
-              onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter bubble name"
+              id="bubble-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My awesome bubble"
+              className="col-span-3"
               maxLength={50}
-              className="bg-white/80 h-11 text-base"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="topic" className="text-[#ebbd34] font-medium">Topic</Label>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="bubble-topic" className="text-right">
+              Topic
+            </Label>
             <Select
-              value={newBubbleInfo.topic}
-              onValueChange={(value) => setNewBubbleInfo(prev => ({ ...prev, topic: value }))}
+              value={topic}
+              onValueChange={setTopic}
             >
-              <SelectTrigger id="topic" className="bg-white/80 h-11 text-base">
+              <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select a topic" />
               </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="tech">Technology</SelectItem>
-                <SelectItem value="science">Science</SelectItem>
-                <SelectItem value="arts">Arts & Culture</SelectItem>
-                <SelectItem value="social">Social</SelectItem>
-                <SelectItem value="health">Health & Wellness</SelectItem>
-                <SelectItem value="education">Education</SelectItem>
-                <SelectItem value="gaming">Gaming</SelectItem>
-                <SelectItem value="sports">Sports</SelectItem>
-                <SelectItem value="food">Food & Cooking</SelectItem>
-                <SelectItem value="travel">Travel</SelectItem>
-                <SelectItem value="music">Music</SelectItem>
-                <SelectItem value="movies">Movies & TV</SelectItem>
-                <SelectItem value="books">Books & Literature</SelectItem>
-                <SelectItem value="environment">Environment</SelectItem>
-                <SelectItem value="business">Business & Finance</SelectItem>
-                <SelectItem value="philosophy">Philosophy</SelectItem>
-                <SelectItem value="politics">Politics</SelectItem>
-                <SelectItem value="news">Current Events</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+              <SelectContent>
+                <SelectItem value="Technology">Technology</SelectItem>
+                <SelectItem value="Science">Science</SelectItem>
+                <SelectItem value="Art">Art</SelectItem>
+                <SelectItem value="Movies">Movies</SelectItem>
+                <SelectItem value="Music">Music</SelectItem>
+                <SelectItem value="Books">Books</SelectItem>
+                <SelectItem value="Gaming">Gaming</SelectItem>
+                <SelectItem value="Food">Food</SelectItem>
+                <SelectItem value="Travel">Travel</SelectItem>
+                <SelectItem value="Sports">Sports</SelectItem>
+                <SelectItem value="Philosophy">Philosophy</SelectItem>
+                <SelectItem value="Education">Education</SelectItem>
+                <SelectItem value="Personal">Personal</SelectItem>
+                <SelectItem value="Random">Random</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="description" className="text-[#ebbd34] font-medium">Description (Optional)</Label>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="bubble-description" className="text-right">
+              Description
+            </Label>
             <Textarea
-              id="description"
-              value={newBubbleInfo.description}
-              onChange={(e) => setNewBubbleInfo(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter a brief description"
-              className="resize-none bg-white/80 text-base"
-              rows={4}
+              id="bubble-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What would you like to discuss in this bubble? (optional)"
+              className="col-span-3"
               maxLength={200}
             />
           </div>
-          <div className="flex items-center rounded-lg bg-[#ebbd34]/10 p-4 mt-2">
-            <Clock className="h-6 w-6 text-[#ebbd34] mr-3 flex-shrink-0" />
-            <span className="text-sm text-[#ebbd34]">
-              This bubble will automatically expire after 24 hours. Join conversations and reflect on ideas before they disappear!
-            </span>
-          </div>
         </div>
+        
         <DialogFooter>
           <Button
-            variant={isCreatingBubble ? "outline" : "default"}
+            type="submit"
             onClick={handleCreateBubble}
-            disabled={isCreatingBubble || !newBubbleInfo.name.trim()}
-            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white w-full sm:w-auto py-6 text-base"
-            size="lg"
+            disabled={isCreating || !name.trim() || !topic.trim()}
+            className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white"
           >
-            {isCreatingBubble ? (
+            {isCreating ? (
               <>
-                <span className="mr-2">Creating...</span>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
               </>
-            ) : "Create 24h Bubble"}
+            ) : (
+              'Create Bubble'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

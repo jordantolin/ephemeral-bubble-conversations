@@ -12,13 +12,6 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
       <div>
         <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2 flex items-center">
-          <div className="flex items-center sm:hidden mr-2">
-            <img 
-              src="/lovable-uploads/0bbe2757-6eb3-427d-87a5-3c0594d4ae5c.png" 
-              alt="Bubble Trouble Logo" 
-              className="w-8 h-8"
-            />
-          </div>
           <span>Bubble World</span>
           <Sparkles className="ml-2 h-8 w-8 text-[#ebbd34] hidden sm:inline-block" />
         </h1>
