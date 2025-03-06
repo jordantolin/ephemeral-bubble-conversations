@@ -96,10 +96,9 @@ export function useGamification() {
   } = useQuery({
     queryKey: ['achievements'],
     queryFn: async () => {
-      // Using RPC to get all achievements
+      // Use the RPC function to get all achievements
       const { data, error } = await supabase
-        .from('achievements')
-        .select('*');
+        .rpc('get_all_achievements');
       
       if (error) throw error;
       
