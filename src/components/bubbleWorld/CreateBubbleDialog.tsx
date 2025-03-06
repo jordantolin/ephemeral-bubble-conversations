@@ -4,7 +4,7 @@ import { PlusCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import useBubbleCreation from "@/hooks/useBubbleCreation";
+import { useBubbleCreation } from "@/hooks/useBubbleCreation";
 import { useGamification } from "@/context/GamificationContext";
 import {
   Dialog,
