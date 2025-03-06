@@ -22,11 +22,11 @@ interface NavigationBarProps {
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await logout?.();
+    await signOut?.();
     navigate("/auth");
   };
 

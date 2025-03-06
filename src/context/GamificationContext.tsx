@@ -5,7 +5,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Award, Star, Trophy, Target, Gift } from "lucide-react";
 
-// Define achievement types
+// Define serializable achievement type for storage
+interface SerializableAchievement {
+  id: string;
+  name: string;
+  description: string;
+  iconType: string; // Store icon type as a string instead of ReactNode
+  points: number;
+  unlocked: boolean;
+  progress?: number;
+  maxProgress?: number;
+}
+
+// Define achievement types for use in the app
 export type AchievementType = {
   id: string;
   name: string;
@@ -15,6 +27,59 @@ export type AchievementType = {
   unlocked: boolean;
   progress?: number;
   maxProgress?: number;
+};
+
+// Helper to convert React icons to serializable format
+const serializeAchievements = (achievements: AchievementType[]): SerializableAchievement[] => {
+  return achievements.map(ach => ({
+    id: ach.id,
+    name: ach.name,
+    description: ach.description,
+    iconType: getIconTypeFromNode(ach.icon),
+    points: ach.points,
+    unlocked: ach.unlocked,
+    progress: ach.progress,
+    maxProgress: ach.maxProgress
+  }));
+};
+
+// Helper to get icon type from React node
+const getIconTypeFromNode = (icon: React.ReactNode): string => {
+  if (React.isValidElement(icon)) {
+    const iconType = icon.type;
+    if (iconType === Award) return 'award';
+    if (iconType === Star) return 'star';
+    if (iconType === Trophy) return 'trophy';
+    if (iconType === Target) return 'target';
+    if (iconType === Gift) return 'gift';
+  }
+  return 'award'; // Default icon type
+};
+
+// Helper to deserialize achievements back to React components
+const deserializeAchievements = (serialized: SerializableAchievement[]): AchievementType[] => {
+  return serialized.map(ach => ({
+    id: ach.id,
+    name: ach.name,
+    description: ach.description,
+    icon: getIconFromType(ach.iconType),
+    points: ach.points,
+    unlocked: ach.unlocked,
+    progress: ach.progress,
+    maxProgress: ach.maxProgress
+  }));
+};
+
+// Helper to get React icon from type string
+const getIconFromType = (iconType: string): React.ReactNode => {
+  switch (iconType) {
+    case 'award': return <Award className="h-6 w-6 text-[#ebbd34]" />;
+    case 'star': return <Star className="h-6 w-6 text-[#ebbd34]" />;
+    case 'trophy': return <Trophy className="h-6 w-6 text-[#ebbd34]" />;
+    case 'target': return <Target className="h-6 w-6 text-[#ebbd34]" />;
+    case 'gift': return <Gift className="h-6 w-6 text-[#ebbd34]" />;
+    default: return <Award className="h-6 w-6 text-[#ebbd34]" />;
+  }
 };
 
 // Define user gamification profile
@@ -183,8 +248,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       if (data) {
-        // Parse stored achievements
-        const storedAchievements = data.achievements || defaultAchievements;
+        // Parse stored achievements - deserialize the achievements from the database
+        const storedAchievements = data.achievements ? 
+          deserializeAchievements(data.achievements as SerializableAchievement[]) : 
+          defaultAchievements;
         
         // Create profile with updated daily streak
         const updatedProfile = updateDailyStreak({
@@ -223,6 +290,9 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           lastActive: new Date().toISOString()
         };
         
+        // Serialize achievements for storage
+        const serializedAchievements = serializeAchievements(newProfile.achievements);
+        
         await supabase
           .from('gamification_profiles')
           .insert({
@@ -232,7 +302,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             bubble_points: newProfile.bubblePoints,
             reflection_points: newProfile.reflectionPoints,
             message_points: newProfile.messagePoints,
-            achievements: newProfile.achievements,
+            achievements: serializedAchievements,
             daily_streak: newProfile.dailyStreak,
             last_active: newProfile.lastActive
           });
@@ -340,13 +410,16 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           achievements: updatedAchievements
         };
         
+        // Serialize achievements for storage
+        const serializedAchievements = serializeAchievements(updatedAchievements);
+        
         // Update database
         await supabase
           .from('gamification_profiles')
           .update({
             points: updatedProfile.points,
             level: updatedProfile.level,
-            achievements: updatedAchievements
+            achievements: serializedAchievements
           })
           .eq('user_id', user.id);
         
@@ -368,11 +441,14 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const updatedAchievements = [...profile.achievements];
         updatedAchievements[achievementIndex] = updatedAchievement;
         
+        // Serialize achievements for storage
+        const serializedAchievements = serializeAchievements(updatedAchievements);
+        
         // Update database
         await supabase
           .from('gamification_profiles')
           .update({
-            achievements: updatedAchievements
+            achievements: serializedAchievements
           })
           .eq('user_id', user.id);
         
@@ -420,11 +496,14 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const updatedAchievements = [...profile.achievements];
         updatedAchievements[achievementIndex] = updatedAchievement;
         
+        // Serialize achievements for storage
+        const serializedAchievements = serializeAchievements(updatedAchievements);
+        
         // Update database
         await supabase
           .from('gamification_profiles')
           .update({
-            achievements: updatedAchievements
+            achievements: serializedAchievements
           })
           .eq('user_id', user.id);
         
