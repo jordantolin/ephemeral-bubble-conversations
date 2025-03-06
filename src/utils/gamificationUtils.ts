@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -72,19 +73,6 @@ export const initializeGamificationProfile = async (userId: string) => {
   }
 };
 
-type AwardPointsParams = {
-  user_id: string;
-  amount: number;
-  points_type: 'message' | 'bubble' | 'reflection' | 'general';
-};
-
-type AwardAchievementParams = {
-  user_id: string;
-  achievement_name: string;
-  achievement_description: string;
-  points: number;
-};
-
 // Award points to a user
 export const awardPoints = async (
   userId: string, 
@@ -92,13 +80,11 @@ export const awardPoints = async (
   pointsType: 'message' | 'bubble' | 'reflection' | 'general' = 'general'
 ) => {
   try {
-    const params: AwardPointsParams = {
+    const { error } = await supabase.rpc('award_points', {
       user_id: userId,
       amount,
       points_type: pointsType
-    };
-
-    const { error } = await supabase.rpc('award_points', params);
+    });
     
     if (error) throw error;
     
@@ -117,14 +103,12 @@ export const awardAchievement = async (
   points: number = 50
 ) => {
   try {
-    const params: AwardAchievementParams = {
+    const { error } = await supabase.rpc('award_achievement', {
       user_id: userId,
       achievement_name: name,
       achievement_description: description,
       points
-    };
-
-    const { error } = await supabase.rpc('award_achievement', params);
+    });
     
     if (error) throw error;
     
