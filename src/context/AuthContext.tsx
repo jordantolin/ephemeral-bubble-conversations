@@ -46,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchProfile(session.user.id);
-        initializeGamificationProfile(session.user.id);
       }
     });
 
@@ -60,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         fetchProfile(session.user.id);
-        initializeGamificationProfile(session.user.id);
       } else {
         setProfile(null);
       }
@@ -235,26 +233,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "An error occurred while signing out",
         variant: "destructive",
       });
-    }
-  };
-
-  // Initialize gamification profile for a user
-  const initializeGamificationProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('gamification_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-        
-      if (error || !data) {
-        // Create profile if it doesn't exist
-        await supabase
-          .from('gamification_profiles')
-          .insert({ user_id: userId });
-      }
-    } catch (error) {
-      console.error("Error initializing gamification profile:", error);
     }
   };
 

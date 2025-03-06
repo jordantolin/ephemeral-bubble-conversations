@@ -1,16 +1,20 @@
 
 import React from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Sparkles, TrendingUp, LogOut, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Trophy, User, UserCircle, Sparkles, Home, LogOut, LogIn, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import InstallButton from "../InstallButton";
 import { useAuth } from "@/context/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import LevelProgress from "@/components/gamification/LevelProgress";
 
 interface NavigationBarProps {
   searchQuery: string;
@@ -18,145 +22,143 @@ interface NavigationBarProps {
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQuery }) => {
-  const { user, profile } = useAuth();
-  const location = useLocation();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Get user initials for avatar
-  const getUserInitials = (displayName?: string | null, email?: string | null) => {
-    try {
-      if (displayName) {
-        return displayName.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
-      }
-      if (email) {
-        return email.substring(0, 2).toUpperCase();
-      }
-    } catch (error) {
-      console.error("Error generating user initials:", error);
-    }
-    return 'BT';
+  const handleLogout = async () => {
+    await logout?.();
+    navigate("/auth");
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-md border-b border-[#ebbd34]/10 shadow-sm">
-      <div className="container mx-auto">
-        <div className="flex items-center justify-between h-16 px-4">
-          {/* Logo and Search Section */}
-          <div className="flex items-center gap-6 flex-1">
-            <Link to="/" className="flex items-center gap-2 shrink-0">
-              <img 
-                src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                alt="Bubble Trouble"
-                className="w-9 h-9"
-              />
-              <span className="text-xl font-bold text-[#ebbd34] hidden sm:inline">
-                Bubble Trouble
-              </span>
+    <div className="fixed top-0 left-0 right-0 z-50 bg-[#FEF7E4]/80 backdrop-blur-lg shadow-sm border-b border-[#ebbd34]/10">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-[72px]">
+          {/* Logo */}
+          <div className="flex items-center">
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="w-9 h-9 rounded-full bg-[#ebbd34] flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div className="font-bold text-xl text-[#ebbd34] hidden sm:block">Bubble Trouble</div>
             </Link>
-            
-            <div className="relative flex-1 max-w-md hidden sm:block">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#ebbd34]/70 w-4 h-4" />
-              <input
-                type="search"
+          </div>
+
+          {/* Search Bar */}
+          <div className="flex-1 max-w-md mx-4 relative hidden md:block">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                type="text"
                 placeholder="Search bubbles..."
+                className="pl-10 pr-4 h-9 bg-white/60"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-2">
-            <Link 
-              to="/my-bubbles" 
-              className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10 font-medium' : ''
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">My Bubbles</span>
-            </Link>
-            <Link 
-              to="/feed" 
-              className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                location.pathname === '/feed' ? 'bg-[#ebbd34]/10 font-medium' : ''
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Feed</span>
-            </Link>
+          {/* Navigation Links and User Profile */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <InstallButton />
             
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
-                  >
-                    <Avatar className="h-9 w-9 border-2 border-[#ebbd34]/20">
-                      {profile?.avatar_url ? (
-                        <AvatarImage src={profile.avatar_url} alt={profile?.display_name || "Profile"} />
-                      ) : (
-                        <AvatarFallback className="bg-[#ebbd34]/10 text-[#ebbd34] font-bold">
-                          {getUserInitials(profile?.display_name, user?.email)}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white z-[100] shadow-lg rounded-lg border border-[#ebbd34]/10">
-                  <DropdownMenuItem className="flex flex-col items-start p-3">
-                    <span className="font-medium text-[#ebbd34]">
-                      {profile?.display_name || user?.email?.split('@')[0] || "User"}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      @{profile?.username || user?.email?.split('@')[0] || "user"}
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="cursor-pointer">
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                  onClick={() => navigate('/')}
+                >
+                  <Home className="h-5 w-5" />
+                  <span className="ml-1 hidden sm:inline">Home</span>
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                  onClick={() => navigate('/achievements')}
+                >
+                  <Trophy className="h-5 w-5" />
+                  <span className="ml-1 hidden sm:inline">Achievements</span>
+                </Button>
+                
+                <div className="mx-1 hidden md:block">
+                  <LevelProgress minimal />
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-1 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                    >
+                      <UserCircle className="h-6 w-6" />
+                      <span className="sr-only">Profile</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col">
+                        <span>My Account</span>
+                        <span className="text-xs text-gray-500">{user.email}</span>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate("/profile")}>
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    navigate('/auth/logout');
-                  }}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/my-bubbles")}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      <span>My Bubbles</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/achievements")}>
+                      <Trophy className="mr-2 h-4 w-4" />
+                      <span>Achievements</span>
+                      <div className="ml-auto">
+                        <LevelProgress minimal />
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
-              <Button 
-                variant="default" 
+              <Button
+                variant="ghost"
                 size="sm"
-                onClick={() => navigate('/auth')}
-                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white ml-2"
+                className="text-[#ebbd34] hover:bg-[#ebbd34]/10"
+                onClick={() => navigate("/auth")}
               >
-                Sign In
+                <LogIn className="h-5 w-5 mr-1" />
+                <span>Login</span>
               </Button>
             )}
           </div>
         </div>
       </div>
-
+      
       {/* Mobile Search Bar */}
-      <div className="sm:hidden px-4 pb-3">
+      <div className="md:hidden px-4 pb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
-          <input
-            type="search"
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
             placeholder="Search bubbles..."
+            className="pl-10 pr-4 h-9 bg-white/60"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-full bg-[#ebbd34]/5 border-none text-[#ebbd34] placeholder-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
           />
         </div>
       </div>
-    </nav>
+    </div>
   );
 };
 

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Send, Image, Video, Mic, SmilePlus, X, Clock } from "lucide-react";
+import { MessageCircle, Send, Image, Video, Mic, SmilePlus, X, Clock, Award, Star } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createRateLimiter, createRetryHandler } from "@/utils/bubbleUtils";
+import { useGamification } from "@/context/GamificationContext";
+import { motion } from "framer-motion";
+import { Progress } from "@/components/ui/progress";
 
 interface BubbleChatProps {
   chatOpen: boolean;
@@ -48,7 +51,11 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [messageRewardShown, setMessageRewardShown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Use gamification hooks
+  const { addPoints, incrementAchievementProgress, checkAchievement } = useGamification();
   
   // Create rate limiters and retry handlers
   const messageLimiter = useRef(createRateLimiter(5, 5000));
@@ -65,6 +72,13 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
       });
     }
   }, [lastMessageId, chatOpen]);
+  
+  // Reset message reward when opening chat
+  useEffect(() => {
+    if (chatOpen) {
+      setMessageRewardShown(false);
+    }
+  }, [chatOpen]);
 
   // Enhanced message sending with debounce, rate limiting and retry
   const handleSendMessage = async (content?: string) => {
@@ -133,6 +147,17 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
         if (error) {
           throw error;
         }
+        
+        // Add points for sending a message
+        await addPoints(5, 'message');
+        
+        // Increment achievement progress
+        await incrementAchievementProgress('social-butterfly');
+        
+        // Show message reward if not shown yet
+        if (!messageRewardShown) {
+          setMessageRewardShown(true);
+        }
       });
       
     } catch (error: any) {
@@ -194,6 +219,19 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
       return "Time unknown";
     }
   };
+  
+  // Handle reflection with gamification
+  const handleReflectWithPoints = async () => {
+    if (!selectedBubbleId) return;
+    
+    await handleReflect(selectedBubbleId);
+    
+    // Add points for reflecting
+    await addPoints(10, 'reflection');
+    
+    // Increment reflection master achievement
+    await incrementAchievementProgress('reflection-master');
+  };
 
   return (
     <Dialog open={chatOpen && !!selectedBubbleId} onOpenChange={(open) => {
@@ -226,7 +264,7 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleReflect(selectedBubble.id)}
+                  onClick={handleReflectWithPoints}
                   className="text-[#ebbd34] hover:bg-[#ebbd34]/10 h-8 text-xs px-3"
                 >
                   <Sparkles className="h-3 w-3 mr-1" />
@@ -243,7 +281,22 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
         </DialogHeader>
         
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4 max-h-[50vh]">
+        <ScrollArea className="flex-1 p-4 max-h-[50vh] relative">
+          {messageRewardShown && (
+            <motion.div
+              className="sticky top-0 bg-[#ebbd34]/10 rounded-md p-2 mb-3 flex justify-between items-center text-sm"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.3 }}
+            >
+              <span className="text-gray-700">Keep the conversation going!</span>
+              <div className="flex items-center">
+                <Star className="h-3 w-3 text-[#ebbd34] mr-1" />
+                <span className="text-[#ebbd34] font-medium">+5 points per message</span>
+              </div>
+            </motion.div>
+          )}
+          
           {isLoadingMessages ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-2 border-[#ebbd34]"></div>
@@ -266,6 +319,23 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
               <MessageCircle className="h-12 w-12 mx-auto mb-4 text-[#ebbd34]/30" />
               <p className="text-lg font-medium text-[#ebbd34]/60 mb-2">No messages yet</p>
               <p className="text-gray-500">Start the conversation! This bubble will disappear in 24 hours.</p>
+              
+              <motion.div
+                className="mt-6 bg-[#ebbd34]/10 rounded-lg p-3 mx-auto max-w-xs"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+              >
+                <div className="flex items-center mb-2">
+                  <Award className="h-4 w-4 text-[#ebbd34] mr-2" />
+                  <span className="text-sm font-medium text-gray-700">First Message Bonus</span>
+                </div>
+                <p className="text-xs text-gray-600 mb-2">Be the first to send a message and earn bonus points!</p>
+                <div className="flex items-center">
+                  <Star className="h-3 w-3 text-[#ebbd34] mr-1" />
+                  <span className="text-xs font-medium text-[#ebbd34]">+5 points</span>
+                </div>
+              </motion.div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -295,6 +365,21 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
             </div>
           )}
         </ScrollArea>
+        
+        {/* Social Butterfly Achievement Progress */}
+        <div className="px-4 py-2 border-t border-gray-100">
+          <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
+            <span className="flex items-center">
+              <Award className="h-3 w-3 mr-1 text-[#ebbd34]" />
+              Social Butterfly
+            </span>
+            <span>Send 10 messages</span>
+          </div>
+          <Progress 
+            value={(messages.filter(m => m.username === (profile?.username || user?.email)).length / 10) * 100} 
+            className="h-1 bg-gray-100" 
+          />
+        </div>
         
         {/* Message Input */}
         <div className="p-4 border-t mt-auto bg-white/80">
