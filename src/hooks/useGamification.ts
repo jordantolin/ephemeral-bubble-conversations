@@ -98,7 +98,8 @@ export function useGamification() {
     queryFn: async () => {
       // Using RPC to get all achievements
       const { data, error } = await supabase
-        .rpc('get_all_achievements');
+        .from('achievements')
+        .select('*');
       
       if (error) throw error;
       
@@ -158,8 +159,9 @@ export function useGamification() {
     },
     onSuccess: (notificationId) => {
       // Update the local notification data
-      queryClient.setQueryData(['notifications', user?.id], (oldData: any) => {
-        return oldData.map((notification: any) => {
+      queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.map((notification) => {
           if (notification.id === notificationId) {
             return { ...notification, is_read: true };
           }
@@ -192,8 +194,9 @@ export function useGamification() {
     },
     onSuccess: () => {
       // Update all notifications in the cache
-      queryClient.setQueryData(['notifications', user?.id], (oldData: any) => {
-        return oldData.map((notification: any) => {
+      queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.map((notification) => {
           return { ...notification, is_read: true };
         });
       });
