@@ -80,14 +80,14 @@ export const awardPoints = async (
   pointsType: 'message' | 'bubble' | 'reflection' | 'general' = 'general'
 ) => {
   try {
-    // Fix TypeScript error by using type assertions with Record<string, any>
+    // Fix TypeScript error by using a proper type assertion
     const { error } = await supabase.rpc(
       'award_points', 
       { 
         user_id: userId, 
         amount, 
         points_type: pointsType 
-      } as Record<string, any>
+      } as unknown as Record<string, unknown>
     );
     
     if (error) throw error;
@@ -107,7 +107,7 @@ export const awardAchievement = async (
   points: number = 50
 ) => {
   try {
-    // Fix TypeScript error by using type assertions with Record<string, any>
+    // Fix TypeScript error by using a proper type assertion
     const { error } = await supabase.rpc(
       'award_achievement',
       {
@@ -115,7 +115,7 @@ export const awardAchievement = async (
         achievement_name: name,
         achievement_description: description,
         points
-      } as Record<string, any>
+      } as unknown as Record<string, unknown>
     );
     
     if (error) throw error;
