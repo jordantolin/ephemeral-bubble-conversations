@@ -64,9 +64,10 @@ export function useGamification() {
       if (!user) return [];
       
       // Using RPC to get the data we need - use proper typing for the RPC response
-      const { data, error } = await supabase.rpc('get_user_achievements_with_details', { 
-        user_id_param: user.id 
-      });
+      const { data, error } = await supabase.rpc(
+        'get_user_achievements_with_details',
+        { user_id_param: user.id } as any
+      );
       
       if (error) throw error;
       
@@ -98,7 +99,9 @@ export function useGamification() {
     queryKey: ['achievements'],
     queryFn: async () => {
       // Use the RPC function to get all achievements with proper typing
-      const { data, error } = await supabase.rpc('get_all_achievements');
+      const { data, error } = await supabase.rpc(
+        'get_all_achievements' as any
+      );
       
       if (error) throw error;
       

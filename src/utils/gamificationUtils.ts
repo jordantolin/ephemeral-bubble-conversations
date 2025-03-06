@@ -125,7 +125,7 @@ export const awardAchievementByName = async (
       { 
         user_id_param: userId,
         achievement_name_param: achievementName
-      }
+      } as any
     );
     
     if (error) throw error;
