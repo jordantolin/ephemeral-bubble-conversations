@@ -86,7 +86,7 @@ export const awardPoints = async (
         user_id: userId, 
         amount, 
         points_type: pointsType 
-      } as any
+      } as any // Type assertion needed due to RPC typing limitations
     );
     
     if (error) throw error;
@@ -113,7 +113,7 @@ export const awardAchievement = async (
         achievement_name: name,
         achievement_description: description,
         points
-      } as any
+      } as any // Type assertion needed due to RPC typing limitations
     );
     
     if (error) throw error;
