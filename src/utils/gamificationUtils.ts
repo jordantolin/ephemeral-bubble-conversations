@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -79,15 +80,14 @@ export const awardPoints = async (
   pointsType: 'message' | 'bubble' | 'reflection' | 'general' = 'general'
 ) => {
   try {
-    // Fixed type error by using a more specific type
+    // Using type assertion to fix the TypeScript error
     const { error } = await supabase.rpc(
       'award_points', 
       { 
         user_id: userId, 
         amount, 
         points_type: pointsType 
-      },
-      { count: 'exact' } // Add options to avoid type errors
+      } as any
     );
     
     if (error) throw error;
@@ -107,7 +107,7 @@ export const awardAchievement = async (
   points: number = 50
 ) => {
   try {
-    // Fixed type error by using a more specific type
+    // Using type assertion to fix the TypeScript error
     const { error } = await supabase.rpc(
       'award_achievement',
       {
@@ -115,8 +115,7 @@ export const awardAchievement = async (
         achievement_name: name,
         achievement_description: description,
         points
-      },
-      { count: 'exact' } // Add options to avoid type errors
+      } as any
     );
     
     if (error) throw error;
