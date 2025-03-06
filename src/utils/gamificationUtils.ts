@@ -80,6 +80,7 @@ export const awardPoints = async (
   pointsType: 'message' | 'bubble' | 'reflection' | 'general' = 'general'
 ) => {
   try {
+    // Fix: Add explicit type assertion to avoid TypeScript error
     const { error } = await supabase.rpc(
       'award_points', 
       { 
@@ -106,6 +107,7 @@ export const awardAchievement = async (
   points: number = 50
 ) => {
   try {
+    // Fix: Add explicit type assertion to avoid TypeScript error
     const { error } = await supabase.rpc(
       'award_achievement',
       {
