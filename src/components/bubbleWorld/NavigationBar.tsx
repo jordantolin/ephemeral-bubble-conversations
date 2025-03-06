@@ -37,8 +37,15 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-9 h-9 rounded-full bg-[#ebbd34] flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 rounded-full bg-[#ebbd34] flex items-center justify-center sm:flex">
+                {/* Mobile logo (visible only on small screens) */}
+                <img 
+                  src="/lovable-uploads/0bbe2757-6eb3-427d-87a5-3c0594d4ae5c.png" 
+                  alt="Bubble Trouble Logo" 
+                  className="w-8 h-8 sm:hidden"
+                />
+                {/* Desktop icon (only visible on larger screens) */}
+                <Sparkles className="w-5 h-5 text-white hidden sm:block" />
               </div>
               <div className="font-bold text-xl text-[#ebbd34] hidden sm:block">Bubble Trouble</div>
             </Link>
