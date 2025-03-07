@@ -30,6 +30,15 @@ const MyBubbles = () => {
     setIsClientSide(true);
   }, []);
 
+  // Validate bubble size to ensure it matches the expected type
+  const validateBubbleSize = (size: string): "sm" | "md" | "lg" => {
+    if (size === "sm" || size === "md" || size === "lg") {
+      return size;
+    }
+    // Default to "sm" if the size doesn't match any expected values
+    return "sm";
+  };
+
   // Fetch user's reflected bubbles and created bubbles
   const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
     queryKey: ['myBubbles', profile?.username],
@@ -116,7 +125,12 @@ const MyBubbles = () => {
         });
         
         console.log("Final combined bubbles count:", allBubbles.length);
-        return allBubbles;
+        
+        // Transform the data to ensure it matches the BubbleData interface
+        return allBubbles.map(bubble => ({
+          ...bubble,
+          size: validateBubbleSize(bubble.size) // Validate and convert size to expected type
+        })) as BubbleData[];
       } catch (e) {
         console.error("Unexpected error in myBubbles query:", e);
         toast({
