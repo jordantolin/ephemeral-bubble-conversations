@@ -73,15 +73,13 @@ const MyBubbles = () => {
 
         console.log("Reflects found:", reflects?.length || 0);
 
-        // Get all bubbles created by the user within the last 72 hours
-        const cutoffDate = get72HoursAgoDate();
-        console.log("Fetching bubbles created after:", cutoffDate);
+        // Get all bubbles created by the user (without time constraint)
+        console.log("Fetching bubbles created by user:", profile.username);
         
         const { data: createdBubbles, error: createdBubblesError } = await supabase
           .from('bubbles')
           .select('*')
-          .eq('username', profile.username)
-          .gte('created_at', cutoffDate);
+          .eq('username', profile.username);
         
         if (createdBubblesError) {
           console.error("Error fetching created bubbles:", createdBubblesError);
@@ -130,6 +128,14 @@ const MyBubbles = () => {
           }
         });
         
+        // Log all bubbles with their details (for debugging)
+        console.log("All bubbles before filtering:", allBubbles.map(b => ({
+          id: b.id,
+          name: b.name,
+          username: b.username,
+          reflected: reflectedBubbles.some(rb => rb.id === b.id)
+        })));
+        
         console.log("Total bubbles to display:", allBubbles.length);
         return allBubbles;
       } catch (e) {
@@ -143,11 +149,11 @@ const MyBubbles = () => {
       }
     },
     enabled: !!user && !!profile?.username && isClientSide,
-    retry: 2,
+    retry: 3,
     staleTime: 0, // Set stale time to 0 to always fetch fresh data
     refetchOnMount: true, // Always refetch when the component mounts
     refetchOnWindowFocus: true,
-    refetchInterval: 20000, // Refresh every 20 seconds to catch new reflects
+    refetchInterval: 10000, // Refresh every 10 seconds to catch new reflects
   });
 
   // Filter bubbles based on search query
@@ -193,6 +199,17 @@ const MyBubbles = () => {
       console.log("Forcing refetch of bubbles data");
     }
   }, [user, profile?.username, isClientSide]);
+
+  // Debug logging
+  useEffect(() => {
+    console.log("My Bubbles component rendered with:", {
+      userLoggedIn: !!user,
+      profileLoaded: !!profile,
+      username: profile?.username,
+      bubblesLoaded: myBubbles?.length,
+      isLoadingBubbles
+    });
+  }, [user, profile, myBubbles, isLoadingBubbles]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
