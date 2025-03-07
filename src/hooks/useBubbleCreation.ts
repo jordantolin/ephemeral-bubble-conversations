@@ -104,15 +104,6 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       // Check achievement for first bubble created
       await checkAchievement('first-bubble');
       
-      // Monitor this bubble for reflections (for the "popular-bubble" achievement)
-      // We'll store the bubble ID to check for reflections later
-      localStorage.setItem(`bubble_created_${newBubble.id}`, JSON.stringify({
-        id: newBubble.id,
-        name: newBubble.name,
-        createdAt: new Date().toISOString(),
-        reflections: 0
-      }));
-      
       // Clear form
       form.reset();
       

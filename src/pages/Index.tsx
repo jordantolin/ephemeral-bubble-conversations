@@ -153,7 +153,7 @@ const Index = () => {
         messages={messages}
         isLoadingMessages={isLoadingMessages}
         messagesError={messagesError}
-        isBubbleExpired={isBubbleExpired(selectedBubble)}
+        isBubbleExpired={isBubbleExpired}
         handleReflect={handleReflectWithGamification}
       />
       

@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Award, Star, Trophy, Target, Gift, MessageCircle, Calendar, Users } from "lucide-react";
+import { Award, Star, Trophy, Target, Gift } from "lucide-react";
 import { AchievementType, SerializableAchievement } from "@/types/gamification";
 import { Json } from "@/integrations/supabase/types";
 
@@ -27,9 +27,6 @@ export const getIconTypeFromNode = (icon: React.ReactNode): string => {
     if (iconType === Trophy) return 'trophy';
     if (iconType === Target) return 'target';
     if (iconType === Gift) return 'gift';
-    if (iconType === MessageCircle) return 'message-circle';
-    if (iconType === Calendar) return 'calendar';
-    if (iconType === Users) return 'users';
   }
   return 'award'; // Default icon type
 };
@@ -66,9 +63,6 @@ export const getIconFromType = (iconType: string): React.ReactNode => {
     case 'trophy': return React.createElement(Trophy, { className: "h-6 w-6 text-white" });
     case 'target': return React.createElement(Target, { className: "h-6 w-6 text-white" });
     case 'gift': return React.createElement(Gift, { className: "h-6 w-6 text-white" });
-    case 'message-circle': return React.createElement(MessageCircle, { className: "h-6 w-6 text-white" });
-    case 'calendar': return React.createElement(Calendar, { className: "h-6 w-6 text-white" });
-    case 'users': return React.createElement(Users, { className: "h-6 w-6 text-white" });
     default: return React.createElement(Award, { className: "h-6 w-6 text-white" });
   }
 };
@@ -87,7 +81,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "social-butterfly",
     name: "Social Butterfly",
     description: "Send 10 messages in bubbles",
-    icon: React.createElement(MessageCircle, { className: "h-6 w-6 text-white" }),
+    icon: React.createElement(Star, { className: "h-6 w-6 text-white" }),
     points: 50,
     unlocked: false,
     progress: 0,
@@ -107,7 +101,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "daily-streak-3",
     name: "Regular Bubbler",
     description: "Log in for 3 consecutive days",
-    icon: React.createElement(Calendar, { className: "h-6 w-6 text-white" }),
+    icon: React.createElement(Target, { className: "h-6 w-6 text-white" }),
     points: 150,
     unlocked: false,
     progress: 0,
@@ -117,7 +111,7 @@ export const defaultAchievements: AchievementType[] = [
     id: "popular-bubble",
     name: "Popular Bubble",
     description: "Create a bubble that gets 5+ reflections",
-    icon: React.createElement(Users, { className: "h-6 w-6 text-white" }),
+    icon: React.createElement(Gift, { className: "h-6 w-6 text-white" }),
     points: 200,
     unlocked: false,
     progress: 0,

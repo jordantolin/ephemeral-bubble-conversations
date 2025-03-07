@@ -1,227 +1,197 @@
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { AchievementType, GamificationContextType, GamificationProfile } from "@/types/gamification";
+import { calculateLevel } from "@/utils/profileUtils";
+import { validateAchievements } from "@/utils/achievementUtils";
 import { 
+  createNewUserProfile, 
+  defaultProfile, 
   fetchUserGamificationProfile, 
-  createNewUserProfile,
-  updatePointsInDB,
-  updateAchievementsInDB,
-  updateProfileWithAchievementPointsInDB
-} from '@/services/gamificationService';
-import { 
-  GamificationProfile, 
-  GamificationContextType,
-  AchievementType 
-} from '@/types/gamification';
-import { defaultAchievements } from '@/utils/achievementUtils';
-import { supabase } from '@/integrations/supabase/client';
+  updateAchievementsInDB, 
+  updateDailyStreakInDB, 
+  updatePointsInDB, 
+  updateProfileWithAchievementPointsInDB 
+} from "@/services/gamificationService";
 
-// Create context with default value
-const GamificationContext = createContext<GamificationContextType>({
-  profile: {
-    level: 1,
-    points: 0,
-    bubblePoints: 0,
-    reflectionPoints: 0,
-    messagePoints: 0,
-    achievements: defaultAchievements,
-    dailyStreak: 0,
-    lastActive: new Date().toISOString()
-  },
-  achievements: defaultAchievements,
-  recentAchievement: null,
-  isLoading: false,
-  addPoints: async () => false,
-  checkAchievement: async () => false,
-  incrementAchievementProgress: async () => false,
-  trackMessageSent: async () => {},
-  resetRecentAchievement: () => {},
-  refreshGamificationProfile: async () => {}
-});
+const GamificationContext = createContext<GamificationContextType | undefined>(undefined);
 
-// Provider component
 export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<GamificationProfile>({
-    level: 1,
-    points: 0,
-    bubblePoints: 0,
-    reflectionPoints: 0,
-    messagePoints: 0,
-    achievements: defaultAchievements,
-    dailyStreak: 0,
-    lastActive: new Date().toISOString()
-  });
-  const [achievements, setAchievements] = useState<AchievementType[]>(defaultAchievements);
+  const { toast } = useToast();
+  const [profile, setProfile] = useState<GamificationProfile>(defaultProfile);
   const [recentAchievement, setRecentAchievement] = useState<AchievementType | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Reset recent achievement
-  const resetRecentAchievement = () => {
-    setRecentAchievement(null);
-  };
-  
-  // Fetch or create user profile
-  const fetchProfile = async () => {
-    if (!user) return;
-    
-    setIsLoading(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch user's gamification profile
+  const fetchGamificationProfile = async () => {
+    if (!user) {
+      setProfile(defaultProfile);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      let userProfile = await fetchUserGamificationProfile(user.id);
+      // Get profile from service
+      const userProfile = await fetchUserGamificationProfile(user.id);
       
-      if (!userProfile) {
-        userProfile = await createNewUserProfile(user.id);
+      // Update the profile in the database if streak changed
+      if (userProfile.dailyStreak !== profile.dailyStreak || userProfile.lastActive !== profile.lastActive) {
+        await updateDailyStreakInDB(user.id, userProfile.dailyStreak, userProfile.lastActive);
+        
+        // Check if streak achievement unlocked
+        if (userProfile.dailyStreak >= 3) {
+          await checkAchievement('daily-streak-3', userProfile.dailyStreak);
+        }
       }
       
       setProfile(userProfile);
-      setAchievements(userProfile.achievements);
     } catch (error) {
       console.error("Error fetching gamification profile:", error);
+      
+      try {
+        // Try to create a new profile
+        const newProfile = await createNewUserProfile(user.id);
+        setProfile(newProfile);
+      } catch (createError) {
+        console.error("Error creating new profile:", createError);
+        // Use default profile if there's an error
+        setProfile(defaultProfile);
+      }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
-  
-  // Fetch profile when user changes
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-  
-  // Calculate level from points
-  const calculateLevel = (points: number): number => {
-    // Simple level calculation: Level = 1 + floor(points/100)
-    return 1 + Math.floor(points / 100);
-  };
-  
-  // Add points to user profile
-  const addPoints = async (
-    amount: number, 
-    category?: 'bubble' | 'reflection' | 'message'
-  ): Promise<boolean> => {
-    if (!user) return false;
+
+  // Add points to user's profile
+  const addPoints = async (amount: number, category?: 'bubble' | 'reflection' | 'message') => {
+    if (!user) return;
     
     try {
       const newPoints = profile.points + amount;
       const newLevel = calculateLevel(newPoints);
       
-      // Update category points
-      let bubblePoints = profile.bubblePoints;
-      let reflectionPoints = profile.reflectionPoints;
-      let messagePoints = profile.messagePoints;
-      
-      if (category === 'bubble') {
-        bubblePoints += amount;
-      } else if (category === 'reflection') {
-        reflectionPoints += amount;
-      } else if (category === 'message') {
-        messagePoints += amount;
-      }
-      
-      // Update profile in state
-      setProfile(prev => ({
-        ...prev,
+      // Create updated profile
+      const updatedProfile = {
+        ...profile,
         points: newPoints,
         level: newLevel,
-        bubblePoints,
-        reflectionPoints,
-        messagePoints
-      }));
+        bubblePoints: category === 'bubble' ? profile.bubblePoints + amount : profile.bubblePoints,
+        reflectionPoints: category === 'reflection' ? profile.reflectionPoints + amount : profile.reflectionPoints,
+        messagePoints: category === 'message' ? profile.messagePoints + amount : profile.messagePoints,
+      };
       
-      // Save to database
+      // Update database
       await updatePointsInDB(
         user.id, 
-        newPoints, 
-        newLevel,
-        bubblePoints,
-        reflectionPoints,
-        messagePoints
+        updatedProfile.points, 
+        updatedProfile.level,
+        updatedProfile.bubblePoints,
+        updatedProfile.reflectionPoints,
+        updatedProfile.messagePoints
       );
       
+      // Show level up toast if level increased
+      if (newLevel > profile.level) {
+        toast({
+          title: "Level Up! 🎉",
+          description: `You've reached level ${newLevel}!`,
+          variant: "default",
+        });
+      }
+      
+      // Update state
+      setProfile(updatedProfile);
       return true;
     } catch (error) {
       console.error("Error adding points:", error);
       return false;
     }
   };
-  
+
   // Check and unlock achievement
-  const checkAchievement = async (id: string, progress?: number): Promise<boolean> => {
+  const checkAchievement = async (id: string, progressValue?: number): Promise<boolean> => {
     if (!user) return false;
     
     try {
-      // Find achievement in the list
-      const achievementIndex = achievements.findIndex(a => a.id === id);
+      const achievementIndex = profile.achievements.findIndex(a => a.id === id);
       if (achievementIndex === -1) return false;
       
-      const achievement = achievements[achievementIndex];
+      const achievement = profile.achievements[achievementIndex];
       
       // Skip if already unlocked
       if (achievement.unlocked) return false;
       
-      let shouldUnlock = false;
+      // If this is a progress-based achievement, update progress
+      let unlocked = false;
+      let updatedAchievement = {...achievement};
       
-      // Check if achievement should be unlocked based on progress
-      if (achievement.maxProgress && progress) {
-        // Update progress
-        const newProgress = Math.max(progress, achievement.progress || 0);
-        
-        // Update achievement in state
-        const updatedAchievements = [...achievements];
-        updatedAchievements[achievementIndex] = {
-          ...achievement,
-          progress: newProgress
-        };
-        
-        setAchievements(updatedAchievements);
-        
-        // Check if achievement should be unlocked
-        if (newProgress >= achievement.maxProgress) {
-          shouldUnlock = true;
-        } else {
-          // Only update progress in DB
-          await updateAchievementsInDB(user.id, updatedAchievements);
-          return false;
-        }
+      if (achievement.progress !== undefined && achievement.maxProgress !== undefined) {
+        // If progressValue is provided, use it directly, otherwise increment by 1
+        const newProgress = progressValue !== undefined ? progressValue : (achievement.progress + 1);
+        updatedAchievement.progress = newProgress;
+        unlocked = newProgress >= achievement.maxProgress;
       } else {
-        // Simple achievement - unlock immediately
-        shouldUnlock = true;
+        // Simple achievement, just unlock it
+        unlocked = true;
       }
       
-      if (shouldUnlock) {
-        // Unlock achievement
-        const updatedAchievements = [...achievements];
-        updatedAchievements[achievementIndex] = {
-          ...achievement,
-          unlocked: true,
-          progress: achievement.maxProgress || 0
-        };
+      if (unlocked) {
+        updatedAchievement.unlocked = true;
         
-        // Add points
+        // Create updated achievements array
+        const updatedAchievements = [...profile.achievements];
+        updatedAchievements[achievementIndex] = updatedAchievement;
+        
+        // Add achievement points to user profile
         const newPoints = profile.points + achievement.points;
         const newLevel = calculateLevel(newPoints);
         
-        // Update state
-        setAchievements(updatedAchievements);
-        setProfile(prev => ({
-          ...prev,
+        // Create updated profile
+        const updatedProfile = {
+          ...profile,
           points: newPoints,
-          level: newLevel
-        }));
+          level: newLevel,
+          achievements: updatedAchievements
+        };
         
-        // Set recent achievement
-        setRecentAchievement(updatedAchievements[achievementIndex]);
-        
-        // Save to database
+        // Update database with combined point and achievement update
         await updateProfileWithAchievementPointsInDB(
           user.id,
-          newPoints,
-          newLevel,
+          updatedProfile.points,
+          updatedProfile.level,
           updatedAchievements
         );
         
+        // Show toast for achievement
+        toast({
+          title: "Achievement Unlocked! 🏆",
+          description: `${achievement.name}: ${achievement.description}`,
+          variant: "default",
+        });
+        
+        // Set recent achievement for animation
+        setRecentAchievement(updatedAchievement);
+        
+        // Update state
+        setProfile(updatedProfile);
         return true;
+      } else if (achievement.progress !== updatedAchievement.progress) {
+        // Progress updated but not unlocked
+        const updatedAchievements = [...profile.achievements];
+        updatedAchievements[achievementIndex] = updatedAchievement;
+        
+        // Update achievements in database
+        await updateAchievementsInDB(user.id, updatedAchievements);
+        
+        // Update state
+        setProfile({
+          ...profile,
+          achievements: updatedAchievements
+        });
       }
     } catch (error) {
       console.error("Error checking achievement:", error);
@@ -229,40 +199,46 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     
     return false;
   };
-  
-  // Increment achievement progress
+
+  // Increment progress for an achievement
   const incrementAchievementProgress = async (id: string, amount: number = 1): Promise<boolean> => {
     if (!user) return false;
     
     try {
-      // Find achievement in the list
-      const achievementIndex = achievements.findIndex(a => a.id === id);
+      const achievementIndex = profile.achievements.findIndex(a => a.id === id);
       if (achievementIndex === -1) return false;
       
-      const achievement = achievements[achievementIndex];
+      const achievement = profile.achievements[achievementIndex];
       
-      // Skip if already unlocked
-      if (achievement.unlocked) return false;
+      // Skip if already unlocked or not a progress-based achievement
+      if (achievement.unlocked || achievement.progress === undefined || achievement.maxProgress === undefined) {
+        return false;
+      }
       
-      // Update progress
-      const currentProgress = achievement.progress || 0;
-      const newProgress = Math.max(amount, currentProgress);
+      // Calculate new progress
+      const newProgress = Math.min(achievement.progress + amount, achievement.maxProgress);
       
-      // Update achievement in state
-      const updatedAchievements = [...achievements];
-      updatedAchievements[achievementIndex] = {
-        ...achievement,
-        progress: newProgress
-      };
-      
-      setAchievements(updatedAchievements);
-      
-      // Check if achievement should be unlocked
-      if (achievement.maxProgress && newProgress >= achievement.maxProgress) {
+      // Check if achievement unlocked
+      if (newProgress >= achievement.maxProgress) {
         return await checkAchievement(id, newProgress);
       } else {
-        // Only update progress in DB
+        // Just update progress
+        const updatedAchievement = {
+          ...achievement,
+          progress: newProgress
+        };
+        
+        const updatedAchievements = [...profile.achievements];
+        updatedAchievements[achievementIndex] = updatedAchievement;
+        
+        // Update achievements in database
         await updateAchievementsInDB(user.id, updatedAchievements);
+        
+        // Update state
+        setProfile({
+          ...profile,
+          achievements: updatedAchievements
+        });
       }
     } catch (error) {
       console.error("Error incrementing achievement progress:", error);
@@ -270,35 +246,44 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     
     return false;
   };
-  
-  // Track message sent for social butterfly achievement
-  const trackMessageSent = async () => {
-    if (!user) return;
-    
-    try {
-      // Increment progress for social butterfly achievement
-      await incrementAchievementProgress('social-butterfly');
-    } catch (error) {
-      console.error("Error tracking message sent:", error);
-    }
+
+  // Reset recent achievement
+  const resetRecentAchievement = () => {
+    setRecentAchievement(null);
   };
-  
+
   // Refresh gamification profile
   const refreshGamificationProfile = async () => {
-    await fetchProfile();
+    setIsRefreshing(true);
+    await fetchGamificationProfile();
   };
-  
+
+  // Initialize profile on user change
+  useEffect(() => {
+    fetchGamificationProfile();
+  }, [user]);
+
+  // Auto refresh profile every 5 minutes
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      fetchGamificationProfile();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [user]);
+
   return (
     <GamificationContext.Provider
       value={{
         profile,
-        achievements,
+        achievements: validateAchievements(profile.achievements),
         recentAchievement,
-        isLoading,
+        isLoading: isLoading || isRefreshing,
         addPoints,
         checkAchievement,
         incrementAchievementProgress,
-        trackMessageSent,
         resetRecentAchievement,
         refreshGamificationProfile
       }}
@@ -308,5 +293,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 };
 
-// Hook for using gamification context
-export const useGamification = () => useContext(GamificationContext);
+export const useGamification = () => {
+  const context = useContext(GamificationContext);
+  if (context === undefined) {
+    throw new Error("useGamification must be used within a GamificationProvider");
+  }
+  return context;
+};
