@@ -10,7 +10,7 @@ interface BubbleWorldHeaderProps {
 const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
   return (
     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-      <div className="text-center md:text-left">
+      <div className="text-center">
         <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2">
           <span>Bubble World</span>
         </h1>

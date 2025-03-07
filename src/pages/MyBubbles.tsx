@@ -1,22 +1,18 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Search, TrendingUp, Sparkles, User, Loader2, Star } from "lucide-react";
+import { Search, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { 
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import NavigationBar from "@/components/bubbleWorld/NavigationBar";
+import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 
 interface Bubble {
   id: string;
@@ -26,11 +22,11 @@ interface Bubble {
   reflect_count: number;
   expires_at: string;
   created_at: string;
+  username: string;
 }
 
 const MyBubbles = () => {
-  const { user, profile, signOut } = useAuth();
-  const location = useLocation();
+  const { user, profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const [isClientSide, setIsClientSide] = useState(false);
@@ -40,7 +36,14 @@ const MyBubbles = () => {
     setIsClientSide(true);
   }, []);
 
-  // Fetch user's reflected bubbles with proper error handling
+  // Calculate the cutoff date (72 hours ago)
+  const get72HoursAgoDate = () => {
+    const date = new Date();
+    date.setHours(date.getHours() - 72);
+    return date.toISOString();
+  };
+
+  // Fetch both user's reflected bubbles and created bubbles with proper error handling
   const { data: myBubbles = [], isLoading: isLoadingBubbles, refetch: refetchBubbles } = useQuery({
     queryKey: ['myBubbles', profile?.username],
     queryFn: async () => {
@@ -50,7 +53,7 @@ const MyBubbles = () => {
       }
 
       try {
-        console.log("Fetching reflects for username:", profile.username);
+        console.log("Fetching bubbles for username:", profile.username);
         
         // First, get all bubble IDs that the user has reflected on
         const { data: reflects, error: reflectsError } = await supabase
@@ -68,34 +71,63 @@ const MyBubbles = () => {
           return [];
         }
 
-        console.log("Reflects data:", reflects);
-        if (!reflects || reflects.length === 0) {
-          console.log("No reflects found for user");
-          return [];
-        }
-
-        // Extract bubble IDs from the reflects
-        const bubbleIds = reflects.map(r => r.bubble_id);
-        console.log("Fetching bubbles with IDs:", bubbleIds);
+        // Get all bubbles created by the user within the last 72 hours
+        const cutoffDate = get72HoursAgoDate();
+        console.log("Fetching bubbles created after:", cutoffDate);
         
-        // Then fetch the actual bubble data for those IDs
-        const { data: bubbles, error: bubblesError } = await supabase
+        const { data: createdBubbles, error: createdBubblesError } = await supabase
           .from('bubbles')
           .select('*')
-          .in('id', bubbleIds);
+          .eq('username', profile.username)
+          .gte('created_at', cutoffDate);
         
-        if (bubblesError) {
-          console.error("Error fetching bubbles:", bubblesError);
+        if (createdBubblesError) {
+          console.error("Error fetching created bubbles:", createdBubblesError);
           toast({
-            title: "Error fetching bubbles",
-            description: bubblesError.message,
+            title: "Error fetching created bubbles",
+            description: createdBubblesError.message,
             variant: "destructive"
           });
           return [];
         }
+        
+        console.log("Created bubbles found:", createdBubbles?.length || 0);
 
-        console.log("Bubbles data received:", bubbles?.length || 0, bubbles);
-        return bubbles || [];
+        // Extract bubble IDs from the reflects
+        const bubbleIds = reflects?.map(r => r.bubble_id) || [];
+        
+        // If there are reflected bubbles, fetch them
+        let reflectedBubbles = [];
+        if (bubbleIds.length > 0) {
+          const { data: bubbles, error: bubblesError } = await supabase
+            .from('bubbles')
+            .select('*')
+            .in('id', bubbleIds);
+          
+          if (bubblesError) {
+            console.error("Error fetching reflected bubbles:", bubblesError);
+            toast({
+              title: "Error fetching bubbles",
+              description: bubblesError.message,
+              variant: "destructive"
+            });
+          } else {
+            reflectedBubbles = bubbles || [];
+          }
+        }
+        
+        // Combine reflected and created bubbles, removing duplicates
+        const allBubbles = [...reflectedBubbles];
+        
+        // Add created bubbles if they're not already in the list (from reflects)
+        createdBubbles?.forEach(bubble => {
+          if (!allBubbles.some(b => b.id === bubble.id)) {
+            allBubbles.push(bubble);
+          }
+        });
+        
+        console.log("Total bubbles to display:", allBubbles.length);
+        return allBubbles;
       } catch (e) {
         console.error("Unexpected error in myBubbles query:", e);
         toast({
@@ -151,187 +183,53 @@ const MyBubbles = () => {
     }
   };
 
-  // Add a debug console log to see if we're getting data
-  useEffect(() => {
-    if (myBubbles && myBubbles.length > 0) {
-      console.log("MyBubbles data is available:", myBubbles);
-    } else if (!isLoadingBubbles) {
-      console.log("No bubbles found or empty bubbles array");
-    }
-  }, [myBubbles, isLoadingBubbles]);
-
   // Force a refresh of the bubbles data on mount
   useEffect(() => {
     if (user && profile?.username && isClientSide) {
-      // This will trigger a refetch when the component mounts
       console.log("Forcing refetch of bubbles data");
       refetchBubbles();
-      
-      // Direct database query for debugging
-      const fetchBubbles = async () => {
-        try {
-          console.log("Starting direct fetch with username:", profile.username);
-          
-          const { data: reflects, error: reflectsError } = await supabase
-            .from('reflects')
-            .select('bubble_id')
-            .eq('username', profile.username);
-          
-          console.log("Direct fetch reflects:", reflects, "Error:", reflectsError);
-          
-          if (reflects && reflects.length > 0) {
-            const bubbleIds = reflects.map(r => r.bubble_id);
-            console.log("Direct fetch bubble IDs:", bubbleIds);
-            
-            const { data: bubbles, error: bubblesError } = await supabase
-              .from('bubbles')
-              .select('*')
-              .in('id', bubbleIds);
-            
-            console.log("Direct fetch bubbles:", bubbles, "Error:", bubblesError);
-          } else {
-            console.log("No reflects found in direct fetch");
-          }
-        } catch (e) {
-          console.error("Error in direct fetch:", e);
-        }
-      };
-      
-      fetchBubbles();
     }
   }, [user, profile?.username, isClientSide, refetchBubbles]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#ebbd34]/10">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between h-16 px-4">
-            {/* Logo and Search Section */}
-            <div className="flex items-center gap-6 flex-1">
-              <Link to="/" className="flex items-center gap-2 shrink-0">
-                <img 
-                  src="/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png"
-                  alt="Bubble Trouble"
-                  className="w-8 h-8"
-                />
-                <span className="text-xl font-semibold hidden sm:inline text-[#ebbd34]">
-                  Bubble Trouble
-                </span>
-              </Link>
-              
-              <div className="relative flex-1 max-w-md hidden sm:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
-                <input
-                  type="search"
-                  placeholder="Search your bubbles..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Navigation Links */}
-            <div className="flex items-center gap-1">
-              <Link 
-                to="/my-bubbles" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/my-bubbles' ? 'bg-[#ebbd34]/10' : ''
-                }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">My Bubbles</span>
-              </Link>
-              <Link 
-                to="/feed" 
-                className={`nav-link flex items-center gap-2 px-4 py-2 rounded-full text-[#ebbd34] hover:bg-[#ebbd34]/5 transition-colors ${
-                  location.pathname === '/feed' ? 'bg-[#ebbd34]/10' : ''
-                }`}
-              >
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Feed</span>
-              </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="hover:bg-[#ebbd34]/5 rounded-full text-[#ebbd34]"
-                  >
-                    <User className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white z-[100]">
-                  <DropdownMenuItem className="flex flex-col items-start p-3">
-                    <span className="font-medium text-[#ebbd34]">
-                      {profile?.display_name || user?.email}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      @{profile?.username || user?.email?.split('@')[0]}
-                    </span>
-                  </DropdownMenuItem>
-                  <Link to="/profile">
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                  </Link>
-                  <Link to="/">
-                    <DropdownMenuItem>
-                      <Star className="mr-2 h-4 w-4" />
-                      <span>Bubble World</span>
-                    </DropdownMenuItem>
-                  </Link>
-                  <DropdownMenuItem onClick={signOut}>
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className="mr-2 h-4 w-4"
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Search Bar */}
-        <div className="sm:hidden px-4 pb-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
-            <input
-              type="search"
-              placeholder="Search your bubbles..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
-            />
-          </div>
-        </div>
-      </nav>
+      {/* Navigation */}
+      <NavigationBar 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
       
-      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-[#ebbd34]">My Reflected Bubbles</h1>
+      <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
+        <div className="container mx-auto max-w-6xl">
+          {/* Header - Using the same BubbleWorldHeader component */}
+          <BubbleWorldHeader 
+            onCreateBubble={() => {}} 
+          />
+        
+          <div className="md:flex justify-between items-center mb-6 mt-8">
+            <h2 className="text-2xl font-bold text-[#ebbd34] mb-4 md:mb-0">My Reflected & Created Bubbles</h2>
             <Link to="/">
               <Button 
                 variant="outline" 
-                className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5"
+                className="border-[#ebbd34]/20 text-[#ebbd34] hover:bg-[#ebbd34]/5 w-full md:w-auto"
               >
                 Explore More Bubbles
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile Search Bar */}
+          <div className="mb-6 md:hidden">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#ebbd34]/70" />
+              <input
+                type="search"
+                placeholder="Search your bubbles..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-full border-none bg-[#ebbd34]/5 text-[#ebbd34] placeholder:text-[#ebbd34]/50 focus:ring-2 focus:ring-[#ebbd34]/20 focus:outline-none text-sm"
+              />
+            </div>
           </div>
 
           {isLoadingBubbles ? (
@@ -354,8 +252,8 @@ const MyBubbles = () => {
                   <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
                     <Sparkles className="w-8 h-8 text-[#ebbd34]" />
                   </div>
-                  <h3 className="text-lg font-medium text-[#ebbd34]">No reflected bubbles yet</h3>
-                  <p className="text-gray-500 mt-2">Explore the bubble world and reflect on topics that interest you!</p>
+                  <h3 className="text-lg font-medium text-[#ebbd34]">No bubbles yet</h3>
+                  <p className="text-gray-500 mt-2">Create a new bubble or reflect on existing ones!</p>
                   <Link to="/">
                     <Button className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white">
                       Explore Bubbles
@@ -404,7 +302,7 @@ const MyBubbles = () => {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };
