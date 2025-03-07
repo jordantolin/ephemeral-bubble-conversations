@@ -40,6 +40,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const particlesRef = useRef<{[key: string]: THREE.Points}>({});
+  const worldGroupRef = useRef<THREE.Group | null>(null); // Add a group ref to hold all bubbles and central world
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -129,6 +130,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centerLight.position.set(0, 0, 0);
     scene.add(centerLight);
 
+    // Create a group to hold all bubbles and central world for unified rotation
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+    worldGroupRef.current = worldGroup;
+    
     // Create central world with enhanced appearance
     const worldGeometry = createCentralWorldGeometry();
     const worldMaterial = createCentralWorldMaterial();
@@ -138,7 +144,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Adjust central world size
     centralWorld.scale.set(1.2, 1.2, 1.2);
     centralWorldRef.current = centralWorld;
-    scene.add(centralWorld);
+    worldGroup.add(centralWorld); // Add central world to the group instead of the scene
 
     // Add subtle environment fog for depth
     scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
@@ -266,7 +272,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
             
             // Remove the original bubble
-            scene.remove(lastKnownBubble);
+            worldGroup.remove(lastKnownBubble); // Remove from worldGroup instead of scene
             delete bubblesRef.current[topic.id];
           }
           return;
@@ -499,7 +505,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         bubbleGroup.position.set(finalX, finalY, finalZ);
         
         bubblesRef.current[topic.id] = bubbleGroup;
-        scene.add(bubbleGroup);
+        worldGroup.add(bubbleGroup); // Add to worldGroup instead of scene
       });
     } else {
       console.log("No topics to render in BubbleWorld");
@@ -559,12 +565,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           interactionRef.current.isDragging = true;
         }
         
-        if (interactionRef.current.isDragging && centralWorldRef.current) {
+        if (interactionRef.current.isDragging && worldGroupRef.current) {
           const dx = touch.clientX - interactionRef.current.lastX;
           const dy = touch.clientY - interactionRef.current.lastY;
           
-          centralWorldRef.current.rotation.y += dx * 0.01;
-          centralWorldRef.current.rotation.x += dy * 0.01;
+          worldGroupRef.current.rotation.y += dx * 0.01;
+          worldGroupRef.current.rotation.x += dy * 0.01;
           
           interactionRef.current.momentum = {
             x: dx * 0.01 * 0.8,
@@ -591,15 +597,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           handleBubbleClick(e);
         }
         
-        if (wasDragging && centralWorldRef.current) {
+        if (wasDragging && worldGroupRef.current) {
           const decay = 0.95;
           const applyMomentum = () => {
-            if (!centralWorldRef.current) return;
+            if (!worldGroupRef.current) return;
             
             const momentum = interactionRef.current.momentum;
             if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-              centralWorldRef.current.rotation.y += momentum.x;
-              centralWorldRef.current.rotation.x += momentum.y;
+              worldGroupRef.current.rotation.y += momentum.x;
+              worldGroupRef.current.rotation.x += momentum.y;
               momentum.x *= decay;
               momentum.y *= decay;
               requestAnimationFrame(applyMomentum);
@@ -696,7 +702,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
+      if (!interactionRef.current.isInteracting || !worldGroupRef.current) return;
 
       const deltaX = Math.abs(e.clientX - interactionRef.current.startX);
       const deltaY = Math.abs(e.clientY - interactionRef.current.startY);
@@ -710,8 +716,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const dx = e.clientX - interactionRef.current.lastX;
         const dy = e.clientY - interactionRef.current.lastY;
 
-        centralWorldRef.current.rotation.y += dx * 0.005;
-        centralWorldRef.current.rotation.x += dy * 0.005;
+        worldGroupRef.current.rotation.y += dx * 0.005;
+        worldGroupRef.current.rotation.x += dy * 0.005;
 
         interactionRef.current.momentum = {
           x: dx * 0.005 * 0.8,
@@ -731,15 +737,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         handleBubbleClick(e);
       }
 
-      if (wasDragging && centralWorldRef.current) {
+      if (wasDragging && worldGroupRef.current) {
         const decay = 0.95;
         const applyMomentum = () => {
-          if (!centralWorldRef.current) return;
+          if (!worldGroupRef.current) return;
           
           const momentum = interactionRef.current.momentum;
           if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-            centralWorldRef.current.rotation.y += momentum.x;
-            centralWorldRef.current.rotation.x += momentum.y;
+            worldGroupRef.current.rotation.y += momentum.x;
+            worldGroupRef.current.rotation.x += momentum.y;
             momentum.x *= decay;
             momentum.y *= decay;
             requestAnimationFrame(applyMomentum);
@@ -790,7 +796,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       }
       
-      // Fix: Store original positions for bubbles if not already stored
+      // Store original positions for bubbles if not already stored
       Object.values(bubblesRef.current).forEach(bubble => {
         const userData = bubble.userData;
         if (!userData?.originalPosition && bubble.position) {
@@ -846,7 +852,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       });
       
-      // Central world gentle rotation - Fix: Make sure it rotates consistently
+      // Central world gentle rotation within the worldGroup
       if (centralWorldRef.current) {
         centralWorldRef.current.rotation.y += 0.001;
         centralWorldRef.current.rotation.x += 0.0005;
@@ -858,6 +864,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           1.2 * pulseFactor,
           1.2 * pulseFactor
         );
+      }
+      
+      // Add gentle auto-rotation to the world group when not interacting
+      if (worldGroupRef.current && !interactionRef.current.isInteracting) {
+        worldGroupRef.current.rotation.y += 0.0005;
       }
       
       // Update TWEEN animations
