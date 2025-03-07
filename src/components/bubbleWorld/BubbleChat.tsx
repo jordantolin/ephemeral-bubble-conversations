@@ -54,11 +54,16 @@ export const useSendBubbleMessage = (bubbleId: string) => {
   return { sendMessage, isSending };
 };
 
+type ReflectOnBubbleType = {
+  incrementAchievementProgress: (achievementId: string) => Promise<void>;
+  addPoints: (points: number, reason: string) => Promise<void>;
+};
+
 export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  const { addPoints, incrementAchievementProgress } = useGamification();
+  const { addPoints, incrementAchievementProgress } = useGamification() as unknown as ReflectOnBubbleType;
 
   const reflectOnBubble = async () => {
     if (!user) return false;
