@@ -1,7 +1,8 @@
 
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import Auth from '@/pages/Auth';
 import Index from '@/pages/Index';
 import Feed from '@/pages/Feed';
@@ -15,20 +16,19 @@ import { GamificationProvider } from '@/context/GamificationContext';
 import AchievementPopup from '@/components/gamification/AchievementPopup';
 import GamificationTracker from '@/components/gamification/GamificationTracker';
 import DailyStreakIndicator from '@/components/gamification/DailyStreakIndicator';
-import { useAuth } from '@/context/AuthContext';
 import './App.css';
 
-function App() {
+function AppContent() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // Clear queries when user changes
   useEffect(() => {
     queryClient.clear();
-  }, [user?.id]);
+  }, [user?.id, queryClient]);
 
   return (
-    <GamificationProvider>
+    <>
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth/*" element={<Auth />} />
@@ -49,7 +49,19 @@ function App() {
           <GamificationTracker />
         </>
       )}
-    </GamificationProvider>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <GamificationProvider>
+          <AppContent />
+        </GamificationProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
