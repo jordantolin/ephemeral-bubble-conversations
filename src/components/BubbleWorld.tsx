@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -780,3 +781,139 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       // Smoother camera movement with enhanced zooming
       const zoom = interactionRef.current.zoom;
+      
+      // Smooth camera zoom with improved easing
+      if (Math.abs(zoom.current - zoom.target) > 0.01) {
+        zoom.current += (zoom.target - zoom.current) * 0.1;
+        if (cameraRef.current) {
+          cameraRef.current.position.z = zoom.current;
+        }
+      }
+      
+      // Bubble movement animation with improved smoothness and variety
+      Object.values(bubblesRef.current).forEach(bubble => {
+        const userData = bubble.userData;
+        if (!userData || !userData.movement) return;
+        
+        const movement = userData.movement;
+        
+        // Orbit movement using sin and cos for smoother transitions
+        const orbitSpeed = movement.speed;
+        movement.angle += orbitSpeed;
+        
+        // Calculate position with wobble effect for more natural movement
+        const wobbleX = Math.sin(time * 3.7 + userData.orbitIndex) * movement.wobble;
+        const wobbleZ = Math.cos(time * 4.3 + userData.orbitIndex) * movement.wobble;
+        
+        const targetX = Math.cos(movement.angle) * movement.radius + wobbleX;
+        const targetZ = Math.sin(movement.angle) * movement.radius + wobbleZ;
+        
+        // Vertical bobbing with varying speed and range
+        const verticalOffset = Math.sin(time * 2.5 + movement.verticalOffset) * movement.verticalRange;
+        const targetY = userData.originalPosition?.y + verticalOffset || 0;
+        
+        // Smooth interpolation for more natural movement
+        bubble.position.x += (targetX - bubble.position.x) * 0.05;
+        bubble.position.z += (targetZ - bubble.position.z) * 0.05;
+        bubble.position.y += (targetY - bubble.position.y) * 0.05;
+        
+        // Gentle rotation for a floaty feel
+        bubble.rotation.x += movement.rotationSpeed * 0.2;
+        bubble.rotation.y += movement.rotationSpeed * 0.5;
+        bubble.rotation.z += movement.rotationSpeed * 0.3;
+        
+        // Text/Label billboarding for better readability
+        if (bubble.children.length > 1 && cameraRef.current) {
+          for (let i = 1; i < bubble.children.length; i++) {
+            const textSprite = bubble.children[i];
+            if (textSprite instanceof THREE.Sprite) {
+              textSprite.lookAt(cameraRef.current.position);
+            }
+          }
+        }
+        
+        // Central world gentle rotation
+        if (centralWorldRef.current) {
+          centralWorldRef.current.rotation.y += 0.001;
+          centralWorldRef.current.rotation.x += 0.0005;
+          
+          // Pulse effect on central world
+          const pulseFactor = 1 + Math.sin(time * 3) * 0.03;
+          centralWorldRef.current.scale.set(
+            1.2 * pulseFactor,
+            1.2 * pulseFactor,
+            1.2 * pulseFactor
+          );
+        }
+      });
+      
+      // Update TWEEN animations
+      TWEEN.update();
+      
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
+    };
+    
+    // Start animation loop
+    animate();
+    
+    // Return cleanup function to stop animation and remove event listeners
+    return () => {
+      console.log("Cleaning up BubbleWorld");
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (rendererRef.current && container.contains(rendererRef.current.domElement)) {
+        container.removeChild(rendererRef.current.domElement);
+      }
+      
+      // Remove event listeners
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('mousemove', onMouseMove);
+      container.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('mouseleave', onMouseLeave);
+      container.removeEventListener('wheel', onWheel);
+      
+      // Clear all objects from scene for proper cleanup
+      if (sceneRef.current) {
+        const scene = sceneRef.current;
+        // Recursive disposal function
+        const disposeObject = (obj: THREE.Object3D) => {
+          while (obj.children.length > 0) {
+            disposeObject(obj.children[0]);
+            obj.remove(obj.children[0]);
+          }
+          
+          if (obj instanceof THREE.Mesh) {
+            if (obj.geometry) {
+              obj.geometry.dispose();
+            }
+            
+            if (obj.material) {
+              if (Array.isArray(obj.material)) {
+                obj.material.forEach(material => material.dispose());
+              } else {
+                obj.material.dispose();
+              }
+            }
+          }
+        };
+        
+        disposeObject(scene);
+      }
+    };
+  }, [topics, onBubbleClick, navigate]);
+
+  return (
+    <div ref={containerRef} className="w-full h-full min-h-[500px] md:min-h-[600px] rounded-2xl overflow-hidden">
+      {/* The Three.js canvas will be added here */}
+    </div>
+  );
+};
+
+export default BubbleWorld;
