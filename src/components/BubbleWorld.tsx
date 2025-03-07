@@ -790,6 +790,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       }
       
+      // Fix: Store original positions for bubbles if not already stored
+      Object.values(bubblesRef.current).forEach(bubble => {
+        const userData = bubble.userData;
+        if (!userData?.originalPosition && bubble.position) {
+          userData.originalPosition = {
+            x: bubble.position.x,
+            y: bubble.position.y,
+            z: bubble.position.z
+          };
+        }
+      });
+      
       // Bubble movement animation with improved smoothness and variety
       Object.values(bubblesRef.current).forEach(bubble => {
         const userData = bubble.userData;
@@ -810,7 +822,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         // Vertical bobbing with varying speed and range
         const verticalOffset = Math.sin(time * 2.5 + movement.verticalOffset) * movement.verticalRange;
-        const targetY = userData.originalPosition?.y + verticalOffset || 0;
+        const baseY = userData.originalPosition?.y || 0;
+        const targetY = baseY + verticalOffset;
         
         // Smooth interpolation for more natural movement
         bubble.position.x += (targetX - bubble.position.x) * 0.05;
@@ -831,21 +844,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             }
           }
         }
-        
-        // Central world gentle rotation
-        if (centralWorldRef.current) {
-          centralWorldRef.current.rotation.y += 0.001;
-          centralWorldRef.current.rotation.x += 0.0005;
-          
-          // Pulse effect on central world
-          const pulseFactor = 1 + Math.sin(time * 3) * 0.03;
-          centralWorldRef.current.scale.set(
-            1.2 * pulseFactor,
-            1.2 * pulseFactor,
-            1.2 * pulseFactor
-          );
-        }
       });
+      
+      // Central world gentle rotation - Fix: Make sure it rotates consistently
+      if (centralWorldRef.current) {
+        centralWorldRef.current.rotation.y += 0.001;
+        centralWorldRef.current.rotation.x += 0.0005;
+        
+        // Pulse effect on central world
+        const pulseFactor = 1 + Math.sin(time * 3) * 0.03;
+        centralWorldRef.current.scale.set(
+          1.2 * pulseFactor,
+          1.2 * pulseFactor,
+          1.2 * pulseFactor
+        );
+      }
       
       // Update TWEEN animations
       TWEEN.update();
