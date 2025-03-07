@@ -201,13 +201,16 @@ const MyBubbles = () => {
       
       <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
         <div className="container mx-auto max-w-6xl">
-          {/* Header - Using the same BubbleWorldHeader component */}
+          {/* Header - Using the updated BubbleWorldHeader component with customized props */}
           <BubbleWorldHeader 
             onCreateBubble={() => {}} 
+            showDescription={false}
+            showCreateButton={false}
+            title="My Reflected & Created Bubbles"
           />
         
           <div className="md:flex justify-between items-center mb-6 mt-8">
-            <h2 className="text-2xl font-bold text-[#ebbd34] mb-4 md:mb-0">My Reflected & Created Bubbles</h2>
+            <div></div> {/* Empty div to maintain layout */}
             <Link to="/">
               <Button 
                 variant="outline" 
