@@ -1,4 +1,4 @@
-<lov-code>
+
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -775,4 +775,175 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('touchend', onTouchEnd, { passive: false });
     container.addEventListener('mousedown', onMouseDown);
     container.addEventListener('mousemove', onMouseMove);
-    container.addEventListener('
+    container.addEventListener('mouseup', onMouseUp);
+    container.addEventListener('mouseleave', onMouseLeave);
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    // Animation loop with improved performance
+    const animate = () => {
+      if (!sceneRef.current || !cameraRef.current || !rendererRef.current) return;
+      
+      const camera = cameraRef.current;
+      const scene = sceneRef.current;
+      const renderer = rendererRef.current;
+      
+      // Update TWEEN animations
+      TWEEN.update();
+      
+      // Smooth camera zoom
+      const zoom = interactionRef.current.zoom;
+      const zoomDelta = (zoom.target - zoom.current) * 0.1;
+      
+      if (Math.abs(zoomDelta) > 0.01) {
+        zoom.current += zoomDelta;
+        camera.position.z = zoom.current;
+      }
+      
+      // Animate bubbles
+      Object.values(bubblesRef.current).forEach(bubbleGroup => {
+        if (!bubbleGroup || !bubbleGroup.userData) return;
+        
+        const { movement, expiryRatio } = bubbleGroup.userData;
+        
+        // Add subtle independent movement to each bubble
+        if (movement) {
+          // Only move if the bubble is not part of a dragging operation
+          if (!interactionRef.current.isDragging) {
+            // Update angle based on speed
+            movement.angle += movement.speed * (Math.random() * 0.2 + 0.9);
+            
+            // Apply subtle vertical bobbing motion
+            const verticalOffset = Math.sin(Date.now() * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
+            
+            // Apply subtle random horizontal wobble for more natural movement
+            const wobbleX = Math.sin(Date.now() * movement.wobble * 1.1) * 0.3;
+            const wobbleZ = Math.cos(Date.now() * movement.wobble * 0.9) * 0.3;
+          }
+          
+          // Make text sprites always face the camera
+          if (bubbleGroup.children) {
+            bubbleGroup.children.forEach((child, i) => {
+              if (i > 0 && child instanceof THREE.Sprite) {
+                child.quaternion.copy(camera.quaternion);
+              }
+            });
+          }
+          
+          // Rotate bubble slowly for visual interest
+          if (bubbleGroup.children[0]) {
+            bubbleGroup.children[0].rotation.y += movement.rotationSpeed * 0.5;
+            bubbleGroup.children[0].rotation.x += movement.rotationSpeed * 0.3;
+          }
+        }
+      });
+      
+      // Rotate central world gently
+      if (centralWorldRef.current) {
+        centralWorldRef.current.rotation.y += 0.001;
+        centralWorldRef.current.rotation.x += 0.0005;
+      }
+      
+      // Render the scene
+      renderer.render(scene, camera);
+      
+      // Request next frame
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+    
+    // Start animation loop
+    animate();
+
+    // Cleanup function to properly dispose resources
+    return () => {
+      console.log("Cleaning up BubbleWorld resources");
+      
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        
+        // Only attempt to remove if container still exists
+        if (containerRef.current && containerRef.current.contains(rendererRef.current.domElement)) {
+          containerRef.current.removeChild(rendererRef.current.domElement);
+        }
+      }
+      
+      // Clean up event listeners
+      if (containerRef.current) {
+        containerRef.current.removeEventListener('touchstart', onTouchStart);
+        containerRef.current.removeEventListener('touchmove', onTouchMove);
+        containerRef.current.removeEventListener('touchend', onTouchEnd);
+        containerRef.current.removeEventListener('mousedown', onMouseDown);
+        containerRef.current.removeEventListener('mousemove', onMouseMove);
+        containerRef.current.removeEventListener('mouseup', onMouseUp);
+        containerRef.current.removeEventListener('mouseleave', onMouseLeave);
+        containerRef.current.removeEventListener('wheel', onWheel);
+      }
+      
+      // Dispose geometries and materials
+      Object.values(bubblesRef.current).forEach(group => {
+        if (group) {
+          group.children.forEach(child => {
+            if (child instanceof THREE.Mesh) {
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) {
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(mat => mat.dispose());
+                } else {
+                  child.material.dispose();
+                }
+              }
+            } else if (child instanceof THREE.Sprite) {
+              if (child.material && (child.material as THREE.SpriteMaterial).map) {
+                (child.material as THREE.SpriteMaterial).map.dispose();
+                child.material.dispose();
+              }
+            }
+          });
+        }
+      });
+      
+      // Clear references
+      bubblesRef.current = {};
+      sceneRef.current = null;
+      rendererRef.current = null;
+      cameraRef.current = null;
+      worldGroupRef.current = null;
+      centralWorldRef.current = null;
+      
+      // Dispose any remaining explosion particles
+      Object.values(particlesRef.current).forEach(particles => {
+        if (particles && particles.geometry) particles.geometry.dispose();
+        if (particles && particles.material) {
+          if (Array.isArray(particles.material)) {
+            particles.material.forEach(mat => mat.dispose());
+          } else {
+            particles.material.dispose();
+          }
+        }
+      });
+      
+      particlesRef.current = {};
+      
+      console.log("BubbleWorld cleanup complete");
+    };
+  }, [topics, onBubbleClick, navigate]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="relative w-full h-[calc(100vh-13rem)] md:h-[calc(100vh-11rem)] overflow-hidden rounded-xl flex items-center justify-center bg-secondary/20"
+    >
+      {(topics === undefined || topics.length === 0) && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+          <h3 className="text-2xl font-bold mb-2">No Bubbles Available</h3>
+          <p className="text-muted-foreground">Create a bubble to start a conversation or join one that interests you!</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default BubbleWorld;
