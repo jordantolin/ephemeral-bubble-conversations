@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -83,7 +82,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
     
     // Position camera to view the world from a better angle
-    camera.position.z = isMobile ? 8 : 10;
+    camera.position.z = isMobile ? 10 : 12;
     camera.position.y = 1; // Slightly above the center for a better looking-down perspective
     
     interactionRef.current.zoom.current = camera.position.z;
@@ -232,26 +231,29 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
-      // Create bubbles with enhanced random positioning and improved visuals
+      // MODIFIED: Create bubbles with better positioning to avoid overlap
+      
+      // Distribute bubbles across multiple layers (orbits)
+      const numLayers = Math.min(3, Math.ceil(topics.length / 4));
+      const bubblesPerLayer = Math.ceil(topics.length / numLayers);
+      
+      // Create a more organized positioning system
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
         if (topic.isExploding) {
-          // Create explosion effect if not already created
-          if (!particlesRef.current[topic.id]) {
-            // Use the last known position or a default
-            const lastKnownBubble = bubblesRef.current[topic.id];
-            if (lastKnownBubble) {
-              const position = lastKnownBubble.position.clone();
-              const size = topic.size === 'lg' ? 1.3 : 
-                          topic.size === 'md' ? 1.0 : 0.7;
-              const finalSize = size * (1 + topic.reflect_count * 0.1);
-              
-              particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
-              
-              // Remove the original bubble
-              scene.remove(lastKnownBubble);
-              delete bubblesRef.current[topic.id];
-            }
+          // Use the last known position or a default
+          const lastKnownBubble = bubblesRef.current[topic.id];
+          if (lastKnownBubble) {
+            const position = lastKnownBubble.position.clone();
+            const size = topic.size === 'lg' ? 1.3 : 
+                        topic.size === 'md' ? 1.0 : 0.7;
+            const finalSize = size * (1 + topic.reflect_count * 0.1);
+            
+            particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
+            
+            // Remove the original bubble
+            scene.remove(lastKnownBubble);
+            delete bubblesRef.current[topic.id];
           }
           return;
         }
@@ -290,6 +292,28 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           material.roughness = 0.2;
         }
 
+        // Determine which layer (orbit) this bubble belongs to
+        const layerIndex = Math.floor(index / bubblesPerLayer);
+        
+        // Calculate position within the layer
+        const layerBubbleIndex = index % bubblesPerLayer;
+        const angleStep = (2 * Math.PI) / bubblesPerLayer;
+        const baseAngle = layerBubbleIndex * angleStep;
+        
+        // Add randomness but keep within reasonable bounds to prevent overlap
+        const angleVariation = angleStep * 0.25; // Limit the variation to 25% of the angle step
+        const angle = baseAngle + (Math.random() * 2 - 1) * angleVariation;
+        
+        // Radius increases with each layer to prevent overlap between layers
+        const baseRadius = 3.5 + (layerIndex * 2.5);
+        const radiusVariation = 0.5; // Limit the variation to prevent overlap
+        const radius = baseRadius + (Math.random() * 2 - 1) * radiusVariation;
+        
+        // Vertical position varies by layer, with some randomness
+        const baseY = (layerIndex % 2 === 0) ? 0 : 1.5;
+        const yVariation = 0.8;
+        const y = baseY + (Math.random() * 2 - 1) * yVariation;
+
         bubbleGroup.userData = {
           id: topic.id,
           orbitIndex: index,
@@ -300,16 +324,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             reflectScale: finalSize * 1.2,
             timeScale: finalSize
           },
-          // More interesting movement patterns
+          // More structured movement patterns to avoid overlapping
           movement: {
-            speed: (Math.random() * 0.002 + 0.001) * (0.5 + expiryRatio * 0.5), // Slower as it ages
-            radius: Math.random() * 4.0 + 2.5 + (Math.random() * expiryRatio * 2), // Wider orbits for newer bubbles
-            angle: Math.random() * Math.PI * 2,
-            verticalSpeed: (Math.random() * 0.004 - 0.002) * expiryRatio, // More up/down movement when fresh
-            verticalRange: Math.random() * 2.5 * expiryRatio, // Higher amplitude when fresh
-            verticalOffset: Math.random() * Math.PI * 2,
-            rotationSpeed: Math.random() * 0.012 - 0.006,
-            wobble: Math.random() * 0.003 * expiryRatio // Extra random movement
+            speed: (0.001 + (Math.random() * 0.0015)) * (0.5 + expiryRatio * 0.5),
+            radius: radius,
+            angle: angle,
+            layer: layerIndex,
+            verticalSpeed: (0.002 + (Math.random() * 0.001)) * expiryRatio,
+            verticalRange: 0.8 + (Math.random() * 0.8) * expiryRatio,
+            verticalOffset: baseY + Math.random() * Math.PI * 2,
+            rotationSpeed: 0.003 + (Math.random() * 0.006),
+            wobble: Math.random() * 0.002 * expiryRatio // Small amount of random movement
           },
           expiryRatio, // Store for animation use
           expiryTime // Store actual time
@@ -364,10 +389,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           isMobile ? 26 : 30
         ));
 
-        // Set initial random position with wider distribution
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * 4.0 + 2.5;
-        const y = (Math.random() - 0.5) * 5.0;
+        // Set initial position based on the structured layout
         bubbleGroup.position.set(
           Math.cos(angle) * radius,
           y,
@@ -649,7 +671,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Enhanced animation loop with more dynamic effects
+    // Animate function - Modified for better bubble movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -668,15 +690,20 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
 
-      // Update bubble positions with enhanced random movement
+      // Update bubble positions with improved movement to prevent overlap
       Object.values(bubblesRef.current).forEach(bubble => {
         const movement = bubble.userData.movement;
         const expiryRatio = bubble.userData.expiryRatio || 1;
+        const layer = movement.layer || 0;
         
-        // Calculate new position with more dynamic random movement
+        // Calculate new position with more structured and consistent movement
         const angle = time * movement.speed + movement.angle;
-        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.2;
-        const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
+        // Reduced wobble to minimize random overlap
+        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.1;
+        
+        // Vertical movement depends on the layer to prevent overlap between layers
+        const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * 
+                                movement.verticalRange * (1 + (layer * 0.2));
         
         // Apply rotation from central world for coordinated movement
         const rotationOffset = new THREE.Euler(
@@ -685,8 +712,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           centralWorld.rotation.z
         );
         
+        // Use the structured movement values
         const x = Math.cos(angle) * movement.radius + wobble;
-        const y = verticalMovement;
+        const y = verticalMovement + movement.verticalOffset;
         const z = Math.sin(angle) * movement.radius + wobble;
         
         const position = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
