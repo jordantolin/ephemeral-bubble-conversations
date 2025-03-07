@@ -6,7 +6,7 @@ import NavigationBar from "@/components/bubbleWorld/NavigationBar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
 import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
-import BubbleChat from "@/components/bubbleWorld/BubbleChat"; // Updated import
+import BubbleChat from "@/components/bubbleWorld/BubbleChat";
 import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicator";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
 import AchievementPopup from "@/components/gamification/AchievementPopup";
