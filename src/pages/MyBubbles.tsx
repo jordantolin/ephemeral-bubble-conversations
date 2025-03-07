@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, Sparkles } from "lucide-react";
@@ -30,18 +30,12 @@ const MyBubbles = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const [isClientSide, setIsClientSide] = useState(false);
+  const queryClient = useQueryClient();
 
   // Set isClientSide to true after mount to avoid hydration issues
   useEffect(() => {
     setIsClientSide(true);
   }, []);
-
-  // Calculate the cutoff date (72 hours ago)
-  const get72HoursAgoDate = () => {
-    const date = new Date();
-    date.setHours(date.getHours() - 72);
-    return date.toISOString();
-  };
 
   // Fetch both user's reflected bubbles and created bubbles with proper error handling
   const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
@@ -55,7 +49,7 @@ const MyBubbles = () => {
       try {
         console.log("Fetching bubbles for username:", profile.username);
         
-        // First, get all bubble IDs that the user has reflected on
+        // Get all bubble IDs that the user has reflected on directly from the reflects table
         const { data: reflects, error: reflectsError } = await supabase
           .from('reflects')
           .select('bubble_id')
@@ -71,7 +65,7 @@ const MyBubbles = () => {
           return [];
         }
 
-        console.log("Reflects found:", reflects?.length || 0);
+        console.log("Reflects found:", reflects?.length || 0, "with bubble IDs:", reflects?.map(r => r.bubble_id));
 
         // Get all bubbles created by the user (without time constraint)
         console.log("Fetching bubbles created by user:", profile.username);
@@ -92,6 +86,9 @@ const MyBubbles = () => {
         }
         
         console.log("Created bubbles found:", createdBubbles?.length || 0);
+        if (createdBubbles?.length > 0) {
+          console.log("First created bubble:", createdBubbles[0]);
+        }
 
         // Extract bubble IDs from the reflects
         const bubbleIds = reflects?.map(r => r.bubble_id) || [];
@@ -115,28 +112,28 @@ const MyBubbles = () => {
           } else {
             reflectedBubbles = bubbles || [];
             console.log("Reflected bubbles fetched:", reflectedBubbles.length);
+            if (reflectedBubbles.length > 0) {
+              console.log("First reflected bubble:", reflectedBubbles[0]);
+            }
           }
         }
         
         // Combine reflected and created bubbles, removing duplicates
-        const allBubbles = [...reflectedBubbles];
+        let allBubbles = Array.isArray(reflectedBubbles) ? [...reflectedBubbles] : [];
         
         // Add created bubbles if they're not already in the list (from reflects)
-        createdBubbles?.forEach(bubble => {
-          if (!allBubbles.some(b => b.id === bubble.id)) {
-            allBubbles.push(bubble);
-          }
-        });
+        if (Array.isArray(createdBubbles)) {
+          createdBubbles.forEach(bubble => {
+            if (!allBubbles.some(b => b.id === bubble.id)) {
+              allBubbles.push(bubble);
+            }
+          });
+        }
         
         // Log all bubbles with their details (for debugging)
-        console.log("All bubbles before filtering:", allBubbles.map(b => ({
-          id: b.id,
-          name: b.name,
-          username: b.username,
-          reflected: reflectedBubbles.some(rb => rb.id === b.id)
-        })));
+        console.log("All bubbles to display:", allBubbles.length);
+        console.log("All bubbles data:", JSON.stringify(allBubbles));
         
-        console.log("Total bubbles to display:", allBubbles.length);
         return allBubbles;
       } catch (e) {
         console.error("Unexpected error in myBubbles query:", e);
@@ -149,22 +146,25 @@ const MyBubbles = () => {
       }
     },
     enabled: !!user && !!profile?.username && isClientSide,
-    retry: 3,
+    retry: 5,
+    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000),
     staleTime: 0, // Set stale time to 0 to always fetch fresh data
     refetchOnMount: true, // Always refetch when the component mounts
     refetchOnWindowFocus: true,
-    refetchInterval: 10000, // Refresh every 10 seconds to catch new reflects
+    refetchInterval: 5000, // Refresh every 5 seconds to catch new reflects
   });
 
   // Filter bubbles based on search query
-  const filteredBubbles = (myBubbles || []).filter((bubble: Bubble) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      bubble.name.toLowerCase().includes(searchLower) ||
-      bubble.topic.toLowerCase().includes(searchLower) ||
-      (bubble.description && bubble.description.toLowerCase().includes(searchLower))
-    );
-  });
+  const filteredBubbles = Array.isArray(myBubbles) 
+    ? myBubbles.filter((bubble: Bubble) => {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          bubble.name.toLowerCase().includes(searchLower) ||
+          bubble.topic.toLowerCase().includes(searchLower) ||
+          (bubble.description && bubble.description.toLowerCase().includes(searchLower))
+        );
+      })
+    : [];
 
   // Check if a bubble is expired
   const isBubbleExpired = (bubble: Bubble) => {
@@ -193,12 +193,21 @@ const MyBubbles = () => {
     }
   };
 
-  // Force a refresh of the bubbles data on mount
+  // Force a refresh of the bubbles data on mount and every 30 seconds
   useEffect(() => {
     if (user && profile?.username && isClientSide) {
-      console.log("Forcing refetch of bubbles data");
+      console.log("Forcing initial refetch of bubbles data");
+      queryClient.invalidateQueries({ queryKey: ['myBubbles', profile?.username] });
+      
+      // Set up periodic refresh
+      const intervalId = setInterval(() => {
+        console.log("Periodic refetch of bubbles data");
+        queryClient.invalidateQueries({ queryKey: ['myBubbles', profile?.username] });
+      }, 30000);
+      
+      return () => clearInterval(intervalId);
     }
-  }, [user, profile?.username, isClientSide]);
+  }, [user, profile?.username, isClientSide, queryClient]);
 
   // Debug logging
   useEffect(() => {
@@ -207,9 +216,10 @@ const MyBubbles = () => {
       profileLoaded: !!profile,
       username: profile?.username,
       bubblesLoaded: myBubbles?.length,
-      isLoadingBubbles
+      isLoadingBubbles,
+      filteredBubblesLength: filteredBubbles.length
     });
-  }, [user, profile, myBubbles, isLoadingBubbles]);
+  }, [user, profile, myBubbles, isLoadingBubbles, filteredBubbles.length]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
@@ -255,12 +265,12 @@ const MyBubbles = () => {
             </div>
           </div>
 
-          {isLoadingBubbles ? (
+          {isLoadingBubbles && (!myBubbles || myBubbles.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="w-10 h-10 text-[#ebbd34] animate-spin mb-4" />
               <p className="text-[#ebbd34]">Loading your bubbles...</p>
             </div>
-          ) : !myBubbles || filteredBubbles.length === 0 ? (
+          ) : !Array.isArray(myBubbles) || myBubbles.length === 0 || filteredBubbles.length === 0 ? (
             <div className="text-center py-16 bg-white/60 rounded-3xl shadow-sm backdrop-blur-sm">
               {searchQuery ? (
                 <>
