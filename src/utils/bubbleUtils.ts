@@ -153,12 +153,20 @@ export const createRetryHandler = (
 
 // Create bubble geometry with improved quality
 export const createBubbleGeometry = (size: number) => {
-  const segments = Math.max(16, Math.floor(size * 24)); // Higher detail for larger bubbles
+  // Optimize segment count for mobile - lower detail for smaller bubbles
+  const isMobile = window.innerWidth < 768;
+  const segments = isMobile 
+    ? Math.max(12, Math.floor(size * 18)) // Lower detail on mobile
+    : Math.max(16, Math.floor(size * 24)); // Higher detail for desktop
+    
   return new THREE.SphereGeometry(size, segments, segments);
 };
 
 // Create bubble material with improved appearance
 export const createBubbleMaterial = () => {
+  // Check for mobile to optimize material settings
+  const isMobile = window.innerWidth < 768;
+  
   return new THREE.MeshPhysicalMaterial({
     color: 0xebbd34,
     metalness: 0,
@@ -170,12 +178,19 @@ export const createBubbleMaterial = () => {
     transparent: true,
     opacity: 0.6,
     side: THREE.DoubleSide,
+    // Optimize for mobile by reducing complexity
+    flatShading: isMobile
   });
 };
 
 // Create central world geometry
 export const createCentralWorldGeometry = () => {
-  const geometry = new THREE.IcosahedronGeometry(0.8, 1);
+  // Optimize geometry based on device
+  const isMobile = window.innerWidth < 768;
+  // Use simpler geometry on mobile
+  const detail = isMobile ? 0 : 1;
+  const geometry = new THREE.IcosahedronGeometry(0.8, detail);
+  
   // Add some randomization to vertices for a more organic look
   const positions = geometry.attributes.position;
   
@@ -184,7 +199,8 @@ export const createCentralWorldGeometry = () => {
     const y = positions.getY(i);
     const z = positions.getZ(i);
     
-    const jitter = 0.05;
+    // Less jitter on mobile for better performance
+    const jitter = isMobile ? 0.03 : 0.05;
     positions.setXYZ(
       i,
       x + (Math.random() - 0.5) * jitter,
@@ -199,6 +215,9 @@ export const createCentralWorldGeometry = () => {
 
 // Create central world material with improved appearance
 export const createCentralWorldMaterial = () => {
+  // Check for mobile to optimize material settings
+  const isMobile = window.innerWidth < 768;
+  
   return new THREE.MeshPhysicalMaterial({
     color: 0xebbd34,
     metalness: 0.4,
@@ -210,7 +229,9 @@ export const createCentralWorldMaterial = () => {
     emissiveIntensity: 0.2,
     wireframe: true,
     transparent: true,
-    opacity: 0.6
+    opacity: 0.6,
+    // Optimize for mobile
+    flatShading: isMobile
   });
 };
 
@@ -221,9 +242,10 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   
   if (!ctx) return canvas;
   
-  // Set canvas size
-  canvas.width = 512;
-  canvas.height = 256;
+  // Set canvas size - smaller on mobile for better performance
+  const isMobile = window.innerWidth < 768;
+  canvas.width = isMobile ? 256 : 512;
+  canvas.height = isMobile ? 128 : 256;
   
   // Clear canvas
   ctx.fillStyle = 'rgba(0,0,0,0)';
@@ -234,14 +256,15 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
-  // Text shadow for better readability
+  // Text shadow for better readability - lighter on mobile
+  const shadowBlur = isMobile ? 3 * scaleFactor : 4 * scaleFactor;
   ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 4 * scaleFactor;
+  ctx.shadowBlur = shadowBlur;
   ctx.shadowOffsetX = 2 * scaleFactor;
   ctx.shadowOffsetY = 2 * scaleFactor;
   
-  // Text styling
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  // Text styling - use system fonts first for better performance
+  ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
   ctx.fillStyle = '#ebbd34';
   
   // Center text and ensure all text is visible
@@ -250,7 +273,11 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   
   // Single line approach for shorter text
   if (words.length <= 3 || text.length <= 20) {
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2, maxWidth);
+    // Truncate very long text on mobile
+    const displayText = isMobile && text.length > 15 
+      ? text.substring(0, 15) + '...'
+      : text;
+    ctx.fillText(displayText, canvas.width / 2, canvas.height / 2, maxWidth);
   } else {
     // Multi-line approach for longer text
     const lines = [];
@@ -268,6 +295,12 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
       }
     }
     lines.push(currentLine); // Add the last line
+    
+    // On mobile, limit to 2 lines maximum
+    if (isMobile && lines.length > 2) {
+      lines.length = 2;
+      lines[1] += '...';
+    }
     
     // Calculate total height of text block
     const lineHeight = fontSize * 1.2;
