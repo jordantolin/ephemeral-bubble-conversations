@@ -67,8 +67,8 @@ const MyBubbles = () => {
 
         console.log("Reflects found:", reflects?.length || 0, "with bubble IDs:", reflects?.map(r => r.bubble_id));
 
-        // Get all bubbles created by the user (without time constraint)
-        console.log("Fetching bubbles created by user:", profile.username);
+        // Get ALL bubbles created by the user WITHOUT time constraints
+        console.log("Directly fetching ALL bubbles created by user:", profile.username);
         
         const { data: createdBubbles, error: createdBubblesError } = await supabase
           .from('bubbles')
@@ -118,21 +118,22 @@ const MyBubbles = () => {
           }
         }
         
-        // Combine reflected and created bubbles, removing duplicates
-        let allBubbles = Array.isArray(reflectedBubbles) ? [...reflectedBubbles] : [];
+        // Ensure createdBubbles and reflectedBubbles are always arrays even if undefined
+        const createdBubblesArray = Array.isArray(createdBubbles) ? createdBubbles : [];
+        const reflectedBubblesArray = Array.isArray(reflectedBubbles) ? reflectedBubbles : [];
         
-        // Add created bubbles if they're not already in the list (from reflects)
-        if (Array.isArray(createdBubbles)) {
-          createdBubbles.forEach(bubble => {
-            if (!allBubbles.some(b => b.id === bubble.id)) {
-              allBubbles.push(bubble);
-            }
-          });
-        }
+        // Combine both arrays and remove duplicates
+        const allBubbles = [...createdBubblesArray];
         
-        // Log all bubbles with their details (for debugging)
-        console.log("All bubbles to display:", allBubbles.length);
-        console.log("All bubbles data:", JSON.stringify(allBubbles));
+        // Add reflected bubbles if they're not already in the array (due to being created by user)
+        reflectedBubblesArray.forEach(bubble => {
+          if (!allBubbles.some(b => b.id === bubble.id)) {
+            allBubbles.push(bubble);
+          }
+        });
+        
+        console.log("Final combined bubbles count:", allBubbles.length);
+        console.log("Final bubbles data:", JSON.stringify(allBubbles));
         
         return allBubbles;
       } catch (e) {
