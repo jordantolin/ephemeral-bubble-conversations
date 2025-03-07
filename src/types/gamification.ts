@@ -46,6 +46,7 @@ export type GamificationContextType = {
   addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
   checkAchievement: (id: string, progress?: number) => Promise<boolean>;
   incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
+  trackMessageSent: () => Promise<void>;
   resetRecentAchievement: () => void;
   refreshGamificationProfile: () => Promise<void>;
 };

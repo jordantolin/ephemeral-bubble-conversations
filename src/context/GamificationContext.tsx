@@ -14,6 +14,7 @@ import {
   updatePointsInDB, 
   updateProfileWithAchievementPointsInDB 
 } from "@/services/gamificationService";
+import { supabase } from "@/integrations/supabase/client";
 
 const GamificationContext = createContext<GamificationContextType | undefined>(undefined);
 
@@ -48,6 +49,9 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
       
       setProfile(userProfile);
+      
+      // Set up subscription for reflect counts
+      setupReflectionSubscription();
     } catch (error) {
       console.error("Error fetching gamification profile:", error);
       
@@ -66,9 +70,75 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  // Setup subscription to track reflections on user's bubbles
+  const setupReflectionSubscription = async () => {
+    if (!user) return;
+    
+    try {
+      // Get user's bubbles
+      const { data: userBubbles } = await supabase
+        .from('bubbles')
+        .select('id, name')
+        .eq('username', user.email);
+      
+      if (userBubbles && userBubbles.length > 0) {
+        // Store bubble IDs for tracking reflections
+        userBubbles.forEach(bubble => {
+          if (!localStorage.getItem(`bubble_created_${bubble.id}`)) {
+            localStorage.setItem(`bubble_created_${bubble.id}`, JSON.stringify({
+              id: bubble.id,
+              name: bubble.name,
+              createdAt: new Date().toISOString(),
+              reflections: 0
+            }));
+          }
+        });
+        
+        // Set up subscription for reflects
+        const reflectsSubscription = supabase
+          .channel('reflects-changes')
+          .on('postgres_changes', 
+            { event: 'INSERT', schema: 'public', table: 'reflects' },
+            async (payload) => {
+              // Check if the reflection is for one of our bubbles
+              const reflection = payload.new as any;
+              if (!reflection || !reflection.bubble_id) return;
+              
+              const bubbleKey = `bubble_created_${reflection.bubble_id}`;
+              const bubbleData = localStorage.getItem(bubbleKey);
+              
+              if (bubbleData) {
+                const bubble = JSON.parse(bubbleData);
+                bubble.reflections += 1;
+                localStorage.setItem(bubbleKey, JSON.stringify(bubble));
+                
+                // Check for popular bubble achievement
+                if (bubble.reflections >= 5) {
+                  await checkAchievement('popular-bubble', bubble.reflections);
+                }
+              }
+              
+              // Also check if the user should get the reflection master achievement
+              if (reflection.username === user.email) {
+                await incrementAchievementProgress('reflection-master');
+              }
+            }
+          )
+          .subscribe();
+          
+        // Clean up subscription on unmount
+        return () => {
+          supabase.removeChannel(reflectsSubscription);
+        };
+      }
+    } catch (error) {
+      console.error("Error setting up reflection subscription:", error);
+    }
+  };
+
   // Add points to user's profile
   const addPoints = async (amount: number, category?: 'bubble' | 'reflection' | 'message') => {
-    if (!user) return;
+    if (!user) return false;
     
     try {
       const newPoints = profile.points + amount;
@@ -247,6 +317,21 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return false;
   };
 
+  // Track message sending for the Social Butterfly achievement
+  const trackMessageSent = async () => {
+    if (!user) return;
+    
+    try {
+      // Add points for sending a message
+      await addPoints(5, 'message');
+      
+      // Increment progress for Social Butterfly achievement
+      await incrementAchievementProgress('social-butterfly');
+    } catch (error) {
+      console.error("Error tracking message:", error);
+    }
+  };
+
   // Reset recent achievement
   const resetRecentAchievement = () => {
     setRecentAchievement(null);
@@ -284,6 +369,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         addPoints,
         checkAchievement,
         incrementAchievementProgress,
+        trackMessageSent,
         resetRecentAchievement,
         refreshGamificationProfile
       }}
