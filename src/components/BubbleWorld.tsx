@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -445,6 +444,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           time: isMobile ? 22 : 30
         };
         
+        // Improved label sprite creation with better orientation stability
         const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
           const canvas = createTextCanvas(text, fontSize);
           const texture = new THREE.CanvasTexture(canvas);
@@ -453,23 +453,37 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const spriteMaterial = new THREE.SpriteMaterial({ 
             map: texture,
             transparent: true,
-            depthTest: false
+            depthTest: false,
+            sizeAttenuation: false // Prevent size changes with distance
           });
           
           const sprite = new THREE.Sprite(spriteMaterial);
+          
+          // Fixed scale to ensure consistent size regardless of camera distance
           sprite.scale.set(
-            finalSize * (isMobile ? 1.5 : 1.8), // Slightly narrower on mobile
+            finalSize * (isMobile ? 1.5 : 1.8), 
             finalSize * (isMobile ? 0.75 : 0.9), 
             1
           );
           
-          sprite.position.copy(position);
-          return sprite;
+          // Create a parent object to handle positioning
+          const spriteContainer = new THREE.Object3D();
+          spriteContainer.position.copy(position);
+          spriteContainer.add(sprite);
+          
+          // Mark this object for special handling during animation
+          spriteContainer.userData = {
+            isLabel: true,
+            originalPosition: position.clone()
+          };
+          
+          return spriteContainer;
         };
 
         // Position text labels with better spacing for mobile
         const textSpacing = isMobile ? 0.8 : 1.0; // Scale factor for text spacing
         
+        // Add labels as children to the bubble group
         bubbleGroup.add(createLabelSprite(
           topic.name, 
           new THREE.Vector3(0, finalSize * 0.4 * textSpacing, 0), 
@@ -686,6 +700,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
+    // Improved mouse handling for better dragging in all directions
     const onMouseDown = (e: MouseEvent) => {
       interactionRef.current.isInteracting = true;
       interactionRef.current.lastX = e.clientX;
@@ -710,8 +725,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const dx = e.clientX - interactionRef.current.lastX;
         const dy = e.clientY - interactionRef.current.lastY;
 
+        // Enhanced rotation for more natural dragging in all directions
         centralWorldRef.current.rotation.y += dx * 0.005;
         centralWorldRef.current.rotation.x += dy * 0.005;
+        
+        // Keep rotation within reasonable limits to prevent flipping
+        centralWorldRef.current.rotation.x = Math.max(
+          -Math.PI / 3, 
+          Math.min(Math.PI / 3, centralWorldRef.current.rotation.x)
+        );
 
         interactionRef.current.momentum = {
           x: dx * 0.005 * 0.8,
@@ -773,7 +795,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Animate function - Modified for better bubble movement
+    // Improved animation function for better text orientation
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -794,7 +816,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       // Rotate central world slightly for ambient motion
       if (centralWorldRef.current) {
         centralWorldRef.current.rotation.y += 0.001;
-        centralWorldRef.current.rotation.x += 0.0005;
+        
+        // Limit x rotation to prevent the central world from flipping
+        centralWorldRef.current.rotation.x = Math.max(
+          -Math.PI / 3,
+          Math.min(centralWorldRef.current.rotation.x + 0.0005, Math.PI / 3)
+        );
       }
       
       // Update bubble positions with improved motion
@@ -831,10 +858,34 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         bubbleGroup.rotation.y += movement.rotationSpeed * 0.5;
         bubbleGroup.rotation.x += movement.rotationSpeed * 0.2;
         
-        // Make text labels face the camera
+        // Improve text label orientation - always face camera while maintaining vertical position
         bubbleGroup.children.forEach((child, index) => {
-          if (index > 0 && child instanceof THREE.Sprite) {
-            child.lookAt(camera.position);
+          // Skip the bubble itself (first child)
+          if (index === 0) return;
+          
+          // Handle our label containers
+          if (child.userData && child.userData.isLabel) {
+            // Get the child's first child, which is the sprite
+            const sprite = child.children[0];
+            if (sprite && sprite instanceof THREE.Sprite) {
+              // Calculate direction to camera
+              const cameraPosition = cameraRef.current?.position || new THREE.Vector3(0, 0, 10);
+              
+              // Make the container look at the camera, but only on the horizontal plane
+              const targetPosition = new THREE.Vector3(
+                cameraPosition.x,
+                child.position.y, // Keep the original Y position
+                cameraPosition.z
+              );
+              
+              // Make the container look at the camera (horizontally only)
+              child.lookAt(targetPosition);
+              
+              // Force the sprites to maintain their original local orientation
+              // This ensures text is always right-side up regardless of camera position
+              child.rotation.z = 0;
+              child.rotation.x = 0;
+            }
           }
         });
       });
