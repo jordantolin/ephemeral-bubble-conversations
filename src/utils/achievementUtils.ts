@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Award, Star, Trophy, Target, Gift, Medal, Sparkles, Heart } from "lucide-react";
+import { Award, Star, Trophy, Target, Gift } from "lucide-react";
 import { AchievementType, SerializableAchievement } from "@/types/gamification";
 import { Json } from "@/integrations/supabase/types";
 
@@ -27,9 +27,6 @@ export const getIconTypeFromNode = (icon: React.ReactNode): string => {
     if (iconType === Trophy) return 'trophy';
     if (iconType === Target) return 'target';
     if (iconType === Gift) return 'gift';
-    if (iconType === Medal) return 'medal';
-    if (iconType === Sparkles) return 'sparkles';
-    if (iconType === Heart) return 'heart';
   }
   return 'award'; // Default icon type
 };
@@ -66,9 +63,6 @@ export const getIconFromType = (iconType: string): React.ReactNode => {
     case 'trophy': return React.createElement(Trophy, { className: "h-6 w-6 text-white" });
     case 'target': return React.createElement(Target, { className: "h-6 w-6 text-white" });
     case 'gift': return React.createElement(Gift, { className: "h-6 w-6 text-white" });
-    case 'medal': return React.createElement(Medal, { className: "h-6 w-6 text-white" });
-    case 'sparkles': return React.createElement(Sparkles, { className: "h-6 w-6 text-white" });
-    case 'heart': return React.createElement(Heart, { className: "h-6 w-6 text-white" });
     default: return React.createElement(Award, { className: "h-6 w-6 text-white" });
   }
 };
@@ -119,16 +113,6 @@ export const defaultAchievements: AchievementType[] = [
     description: "Create a bubble that gets 5+ reflections",
     icon: React.createElement(Gift, { className: "h-6 w-6 text-white" }),
     points: 200,
-    unlocked: false,
-    progress: 0,
-    maxProgress: 5
-  },
-  {
-    id: "bubble-enthusiast",
-    name: "Bubble Enthusiast",
-    description: "Create 5 bubbles",
-    icon: React.createElement(Medal, { className: "h-6 w-6 text-white" }),
-    points: 150,
     unlocked: false,
     progress: 0,
     maxProgress: 5

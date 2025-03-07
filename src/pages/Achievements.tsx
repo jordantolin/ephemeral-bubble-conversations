@@ -46,11 +46,6 @@ const Achievements: React.FC = () => {
     );
   }
   
-  // Calculate achievement completion percentage
-  const achievementPercentage = achievements.length > 0 
-    ? Math.round((achievements.filter(a => a.unlocked).length / achievements.length) * 100) 
-    : 0;
-  
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 pt-20 pb-20 px-4">
       <div className="container mx-auto max-w-4xl">
@@ -118,14 +113,7 @@ const Achievements: React.FC = () => {
               </div>
               
               <div className="mt-4">
-                <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
-                  <span>Achievement Progress</span>
-                  <span>{achievementPercentage}%</span>
-                </div>
-                <Progress value={achievementPercentage} className="h-2 bg-[#ebbd34]/20" />
-                <div className="mt-3">
-                  <LevelProgress />
-                </div>
+                <LevelProgress />
               </div>
             </div>
           </div>

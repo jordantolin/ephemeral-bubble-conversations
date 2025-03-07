@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
@@ -40,7 +39,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const particlesRef = useRef<{[key: string]: THREE.Points}>({});
-  const worldGroupRef = useRef<THREE.Group | null>(null); // Add a group ref to hold all bubbles and central world
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -130,11 +128,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centerLight.position.set(0, 0, 0);
     scene.add(centerLight);
 
-    // Create a group to hold all bubbles and central world for unified rotation
-    const worldGroup = new THREE.Group();
-    scene.add(worldGroup);
-    worldGroupRef.current = worldGroup;
-    
     // Create central world with enhanced appearance
     const worldGeometry = createCentralWorldGeometry();
     const worldMaterial = createCentralWorldMaterial();
@@ -144,7 +137,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Adjust central world size
     centralWorld.scale.set(1.2, 1.2, 1.2);
     centralWorldRef.current = centralWorld;
-    worldGroup.add(centralWorld); // Add central world to the group instead of the scene
+    scene.add(centralWorld);
 
     // Add subtle environment fog for depth
     scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
@@ -272,7 +265,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             particlesRef.current[topic.id] = createExplosionParticles(position, finalSize * 2);
             
             // Remove the original bubble
-            worldGroup.remove(lastKnownBubble); // Remove from worldGroup instead of scene
+            scene.remove(lastKnownBubble);
             delete bubblesRef.current[topic.id];
           }
           return;
@@ -451,10 +444,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           time: isMobile ? 22 : 30
         };
         
-        // Create a container object for text sprites to ensure they stay properly aligned
-        const textContainer = new THREE.Object3D();
-        bubbleGroup.add(textContainer);
-        
         const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
           const canvas = createTextCanvas(text, fontSize);
           const texture = new THREE.CanvasTexture(canvas);
@@ -480,26 +469,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         // Position text labels with better spacing for mobile
         const textSpacing = isMobile ? 0.8 : 1.0; // Scale factor for text spacing
         
-        textContainer.add(createLabelSprite(
+        bubbleGroup.add(createLabelSprite(
           topic.name, 
           new THREE.Vector3(0, finalSize * 0.4 * textSpacing, 0), 
           fontSizes.name
         ));
         
-        textContainer.add(createLabelSprite(
+        bubbleGroup.add(createLabelSprite(
           topic.topic, 
           new THREE.Vector3(0, -finalSize * 0.1 * textSpacing, 0), 
           fontSizes.topic
         ));
         
-        textContainer.add(createLabelSprite(
+        bubbleGroup.add(createLabelSprite(
           `⭐ ${topic.reflect_count}`, 
           new THREE.Vector3(0, -finalSize * 0.5 * textSpacing, 0), 
           fontSizes.reflect
         ));
         
         // Add time remaining label
-        textContainer.add(createLabelSprite(
+        bubbleGroup.add(createLabelSprite(
           `⏱ ${formatTimeRemaining(expiryTime)}`, 
           new THREE.Vector3(0, -finalSize * 0.85 * textSpacing, 0), 
           fontSizes.time
@@ -509,7 +498,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         bubbleGroup.position.set(finalX, finalY, finalZ);
         
         bubblesRef.current[topic.id] = bubbleGroup;
-        worldGroup.add(bubbleGroup); // Add to worldGroup instead of scene
+        scene.add(bubbleGroup);
       });
     } else {
       console.log("No topics to render in BubbleWorld");
@@ -569,12 +558,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           interactionRef.current.isDragging = true;
         }
         
-        if (interactionRef.current.isDragging && worldGroupRef.current) {
+        if (interactionRef.current.isDragging && centralWorldRef.current) {
           const dx = touch.clientX - interactionRef.current.lastX;
           const dy = touch.clientY - interactionRef.current.lastY;
           
-          worldGroupRef.current.rotation.y += dx * 0.01;
-          worldGroupRef.current.rotation.x += dy * 0.01;
+          centralWorldRef.current.rotation.y += dx * 0.01;
+          centralWorldRef.current.rotation.x += dy * 0.01;
           
           interactionRef.current.momentum = {
             x: dx * 0.01 * 0.8,
@@ -601,15 +590,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           handleBubbleClick(e);
         }
         
-        if (wasDragging && worldGroupRef.current) {
+        if (wasDragging && centralWorldRef.current) {
           const decay = 0.95;
           const applyMomentum = () => {
-            if (!worldGroupRef.current) return;
+            if (!centralWorldRef.current) return;
             
             const momentum = interactionRef.current.momentum;
             if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-              worldGroupRef.current.rotation.y += momentum.x;
-              worldGroupRef.current.rotation.x += momentum.y;
+              centralWorldRef.current.rotation.y += momentum.x;
+              centralWorldRef.current.rotation.x += momentum.y;
               momentum.x *= decay;
               momentum.y *= decay;
               requestAnimationFrame(applyMomentum);
@@ -706,7 +695,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!interactionRef.current.isInteracting || !worldGroupRef.current) return;
+      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
 
       const deltaX = Math.abs(e.clientX - interactionRef.current.startX);
       const deltaY = Math.abs(e.clientY - interactionRef.current.startY);
@@ -720,8 +709,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const dx = e.clientX - interactionRef.current.lastX;
         const dy = e.clientY - interactionRef.current.lastY;
 
-        worldGroupRef.current.rotation.y += dx * 0.005;
-        worldGroupRef.current.rotation.x += dy * 0.005;
+        centralWorldRef.current.rotation.y += dx * 0.005;
+        centralWorldRef.current.rotation.x += dy * 0.005;
 
         interactionRef.current.momentum = {
           x: dx * 0.005 * 0.8,
@@ -741,15 +730,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         handleBubbleClick(e);
       }
 
-      if (wasDragging && worldGroupRef.current) {
+      if (wasDragging && centralWorldRef.current) {
         const decay = 0.95;
         const applyMomentum = () => {
-          if (!worldGroupRef.current) return;
+          if (!centralWorldRef.current) return;
           
           const momentum = interactionRef.current.momentum;
           if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-            worldGroupRef.current.rotation.y += momentum.x;
-            worldGroupRef.current.rotation.x += momentum.y;
+            centralWorldRef.current.rotation.y += momentum.x;
+            centralWorldRef.current.rotation.x += momentum.y;
             momentum.x *= decay;
             momentum.y *= decay;
             requestAnimationFrame(applyMomentum);
@@ -776,121 +765,18 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Add event listeners with proper cleanup
     container.addEventListener('touchstart', onTouchStart, { passive: false });
     container.addEventListener('touchmove', onTouchMove, { passive: false });
-    container.addEventListener('touchend', onTouchEnd);
+    container.addEventListener('touchend', onTouchEnd, { passive: false });
     container.addEventListener('mousedown', onMouseDown);
     container.addEventListener('mousemove', onMouseMove);
     container.addEventListener('mouseup', onMouseUp);
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Animation and update function
+    // Animate function - Modified for better bubble movement
+    let time = 0;
     const animate = () => {
-      TWEEN.update();
-
-      const camera = cameraRef.current;
-      const renderer = rendererRef.current;
-      
-      if (!camera || !renderer) return;
-      
-      // Handle camera zoom with smooth transition
-      const zoom = interactionRef.current.zoom;
-      if (Math.abs(zoom.current - zoom.target) > 0.01) {
-        zoom.current += (zoom.target - zoom.current) * 0.05;
-        camera.position.z = zoom.current;
-      }
-      
-      // Make sure camera is looking at the center
-      camera.lookAt(new THREE.Vector3(0, 0, 0));
-      
-      // Make all bubbles face the camera (billboard effect for text)
-      Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        // Get the text container (second child of the bubble group)
-        const textContainer = bubbleGroup.children[1];
-        if (textContainer) {
-          textContainer.quaternion.copy(camera.quaternion);
-        }
-        
-        // Apply gentle floating and wobbling movements
-        const movement = bubbleGroup.userData.movement;
-        const time = Date.now() * 0.001;
-        
-        // Update angle based on orbital speed
-        movement.angle += movement.speed;
-        
-        // Calculate new position
-        const radius = movement.radius;
-        bubbleGroup.position.x = Math.cos(movement.angle) * radius;
-        bubbleGroup.position.z = Math.sin(movement.angle) * radius;
-        
-        // Add gentle vertical bobbing
-        bubbleGroup.position.y += Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * 0.005;
-        
-        // Apply slight rotation to the bubble for more liveliness
-        bubbleGroup.rotation.y += movement.rotationSpeed * 0.01;
-        
-        // Add subtle wobble to the movement
-        if (movement.wobble > 0) {
-          bubbleGroup.position.x += Math.sin(time * 0.7) * movement.wobble;
-          bubbleGroup.position.z += Math.cos(time * 0.6) * movement.wobble;
-        }
-      });
-      
-      // Animate central world with gentle rotation
-      if (centralWorldRef.current) {
-        centralWorldRef.current.rotation.y += 0.001;
-        centralWorldRef.current.rotation.x += 0.0005;
-      }
-      
-      renderer.render(sceneRef.current as THREE.Scene, camera);
       animationFrameRef.current = requestAnimationFrame(animate);
-    };
-    
-    animate();
-
-    // Window resize handler
-    const handleResize = () => {
-      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+      time += 0.002;
       
-      const container = containerRef.current;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      cameraRef.current.aspect = width / height;
-      cameraRef.current.updateProjectionMatrix();
-      
-      rendererRef.current.setSize(width, height);
-    };
-    
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup function
-    return () => {
-      console.log("Cleaning up BubbleWorld");
-      window.removeEventListener('resize', handleResize);
-      
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      container.removeEventListener('touchstart', onTouchStart);
-      container.removeEventListener('touchmove', onTouchMove);
-      container.removeEventListener('touchend', onTouchEnd);
-      container.removeEventListener('mousedown', onMouseDown);
-      container.removeEventListener('mousemove', onMouseMove);
-      container.removeEventListener('mouseup', onMouseUp);
-      container.removeEventListener('mouseleave', onMouseLeave);
-      container.removeEventListener('wheel', onWheel);
-      
-      if (rendererRef.current) {
-        rendererRef.current.dispose();
-        container.removeChild(rendererRef.current.domElement);
-      }
-    };
-  }, [topics, onBubbleClick, navigate]);
-
-  return (
-    <div ref={containerRef} className="h-full w-full" />
-  );
-};
-
-export default BubbleWorld;
+      // Smoother camera movement with enhanced zooming
+      const zoom = interactionRef.current.zoom;
