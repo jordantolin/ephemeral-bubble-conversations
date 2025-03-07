@@ -38,12 +38,27 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { createBubble, isCreating } = useBubbleCreation();
   const { addPoints, checkAchievement } = useGamification();
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [topic, setTopic] = useState("");
+  
+  // Use the hook with an onSuccess callback to handle achievements after creation
+  const { form, isSubmitting, onSubmit } = useBubbleCreation(() => {
+    // This will run after successful bubble creation
+    
+    // Reset form values
+    setName("");
+    setDescription("");
+    setTopic("");
+    
+    // Close dialog
+    onOpenChange(false);
+    
+    // Refresh bubbles list
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+  });
   
   const handleCreateBubble = async () => {
     if (!user) {
@@ -65,35 +80,25 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
     }
     
     try {
-      // Create the bubble
-      await createBubble({
-        name,
-        description,
-        topic,
-      });
+      // Set the form values
+      form.setValue("name", name);
+      form.setValue("topic", topic);
+      form.setValue("description", description);
       
-      // Add points for creating a bubble
+      // Submit the form
+      await onSubmit();
+      
+      // Add points for creating a bubble - will be called after successful creation
       await addPoints(20, 'bubble');
       
       // Check first bubble achievement
       await checkAchievement('first-bubble');
-      
-      // Reset form
-      setName("");
-      setDescription("");
-      setTopic("");
-      
-      // Close dialog
-      onOpenChange(false);
       
       // Show success toast
       toast({
         title: "Bubble created!",
         description: "Your bubble has been created successfully.",
       });
-      
-      // Refresh bubbles list
-      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
     } catch (error) {
       console.error("Error creating bubble:", error);
       
@@ -182,10 +187,10 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
           <Button
             type="submit"
             onClick={handleCreateBubble}
-            disabled={isCreating || !name.trim() || !topic.trim()}
+            disabled={isSubmitting || !name.trim() || !topic.trim()}
             className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white"
           >
-            {isCreating ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating...
