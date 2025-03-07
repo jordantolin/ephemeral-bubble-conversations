@@ -40,7 +40,7 @@ const AchievementPopup: React.FC = () => {
     <AnimatePresence onExitComplete={handleAnimationComplete}>
       {visible && (
         <motion.div
-          className="fixed bottom-4 right-4 z-50 max-w-sm w-full"
+          className="fixed bottom-16 md:bottom-4 right-4 z-50 max-w-sm w-[calc(100%-2rem)] md:w-full"
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -48,7 +48,7 @@ const AchievementPopup: React.FC = () => {
         >
           <div className="bg-gradient-to-br from-[#ebbd34]/20 to-[#ebbd34]/40 backdrop-blur-md rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
             <div className="flex items-start">
-              <div className="bg-[#ebbd34] rounded-full p-3 mr-4">
+              <div className="bg-[#ebbd34] rounded-full p-3 mr-4 flex-shrink-0">
                 {recentAchievement.icon || <Award className="h-6 w-6 text-white" />}
               </div>
               

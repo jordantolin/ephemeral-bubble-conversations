@@ -70,7 +70,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
           value={progressPercentage} 
           className="h-2 bg-[#ebbd34]/20 flex-1" 
         />
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 whitespace-nowrap">
           {currentLevelPoints}/{pointsNeeded}
         </span>
       </div>

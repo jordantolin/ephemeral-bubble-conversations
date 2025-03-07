@@ -49,3 +49,6 @@ export type GamificationContextType = {
   resetRecentAchievement: () => void;
   refreshGamificationProfile: () => Promise<void>;
 };
+
+// Define size types for bubbles
+export type BubbleSize = "sm" | "md" | "lg";

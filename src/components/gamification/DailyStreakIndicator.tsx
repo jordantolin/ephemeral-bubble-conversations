@@ -13,10 +13,12 @@ const DailyStreakIndicator: React.FC = () => {
   
   return (
     <motion.div
-      className="fixed bottom-4 left-4 z-40 bg-white/80 backdrop-blur-md rounded-lg shadow-md border border-[#ebbd34]/30 p-3"
+      className="fixed bottom-16 md:bottom-4 left-4 z-40 bg-white/90 backdrop-blur-md rounded-lg shadow-md border border-[#ebbd34]/30 p-3 max-w-[220px]"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 1 }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
     >
       <div className="flex items-center mb-2">
         <Flame className="h-5 w-5 text-[#ebbd34] mr-2" />
@@ -27,7 +29,7 @@ const DailyStreakIndicator: React.FC = () => {
         {Array.from({ length: 7 }).map((_, i) => (
           <div
             key={i}
-            className={`h-2 w-6 rounded-full ${
+            className={`h-2 w-6 rounded-full transition-all duration-200 ${
               i < streakDays 
                 ? 'bg-[#ebbd34]' 
                 : 'bg-gray-200'
@@ -51,7 +53,7 @@ const DailyStreakIndicator: React.FC = () => {
           <span className="text-xs font-medium text-gray-700">Streak Bonus!</span>
           <div className="ml-auto flex items-center">
             <Star className="h-3 w-3 text-[#ebbd34] mr-1" />
-            <span className="text-xs font-medium text-[#ebbd34]">+{profile.dailyStreak * 10} points</span>
+            <span className="text-xs font-medium text-[#ebbd34]">+{profile.dailyStreak * 10} pts</span>
           </div>
         </motion.div>
       )}

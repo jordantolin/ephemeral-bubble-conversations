@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
 import NavigationBar from "@/components/bubbleWorld/NavigationBar";
@@ -17,7 +18,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
-  const { checkAchievement, addPoints } = useGamification();
+  const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
   
   const {
     searchQuery,
@@ -54,15 +55,36 @@ const Index = () => {
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
-    await handleReflect(bubbleId);
+    const success = await handleReflect(bubbleId);
     
-    if (user) {
+    if (success && user) {
       // Add points for the reflection
       await addPoints(10, 'reflection');
       
       // Increment progress for the reflection master achievement
-      await checkAchievement('reflection-master');
+      await incrementAchievementProgress('reflection-master');
+      
+      // Refresh gamification profile to ensure all achievements are up to date
+      await refreshGamificationProfile();
     }
+    
+    return success;
+  };
+  
+  // Track message count for the social butterfly achievement
+  const handleSendMessage = async () => {
+    if (user) {
+      // Add points for sending a message
+      await addPoints(5, 'message');
+      
+      // Increment progress for the social butterfly achievement
+      await incrementAchievementProgress('social-butterfly');
+    }
+  };
+  
+  // Increment achievement progress
+  const incrementAchievementProgress = async (achievementId: string) => {
+    await checkAchievement(achievementId);
   };
   
   // Check URL params for bubble to open
@@ -82,6 +104,13 @@ const Index = () => {
       localStorage.removeItem('openBubbleId');
     }
   }, [setSelectedBubbleId, setChatOpen]);
+  
+  // Refresh gamification profile when the component mounts
+  useEffect(() => {
+    if (user) {
+      refreshGamificationProfile();
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
@@ -94,7 +123,7 @@ const Index = () => {
         setSearchQuery={setSearchQuery}
       />
       
-      <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
+      <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
           <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
@@ -128,6 +157,7 @@ const Index = () => {
         messagesError={messagesError}
         isBubbleExpired={isBubbleExpired}
         handleReflect={handleReflectWithGamification}
+        onSendMessage={handleSendMessage}
       />
       
       {/* Gamification Components */}

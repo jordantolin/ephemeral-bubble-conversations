@@ -47,9 +47,9 @@ const Achievements: React.FC = () => {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 pt-24 pb-16 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 pt-20 pb-20 px-4">
       <div className="container mx-auto max-w-4xl">
-        <div className="flex items-center mb-8">
+        <div className="flex items-center mb-6">
           <Button 
             variant="ghost" 
             size="icon" 
@@ -58,14 +58,14 @@ const Achievements: React.FC = () => {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-3xl md:text-4xl font-bold text-[#ebbd34]">
+          <h1 className="text-2xl md:text-4xl font-bold text-[#ebbd34]">
             Your Achievements
           </h1>
         </div>
         
         {/* Profile Stats Card */}
         <motion.div 
-          className="bg-white/60 backdrop-blur-sm rounded-xl shadow-md p-6 mb-8"
+          className="bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-4 md:p-6 mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -79,7 +79,7 @@ const Achievements: React.FC = () => {
                 @{userProfile?.username?.split('@')[0] || "user"}
               </p>
               
-              <div className="flex items-center space-x-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <div className="bg-[#ebbd34] rounded-xl px-3 py-1 flex items-center">
                   <Crown className="h-4 w-4 text-white mr-1" />
                   <span className="text-white font-semibold text-sm">Level {profile.level}</span>
@@ -93,22 +93,22 @@ const Achievements: React.FC = () => {
             </div>
             
             <div className="flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4">
                 <div className="bg-[#ebbd34]/10 rounded-lg p-3 text-center">
                   <p className="text-xs text-gray-600 mb-1">Total Points</p>
-                  <p className="text-2xl font-bold text-[#ebbd34]">{profile.points}</p>
+                  <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">{profile.points}</p>
                 </div>
                 
                 <div className="bg-[#ebbd34]/10 rounded-lg p-3 text-center">
                   <p className="text-xs text-gray-600 mb-1">Achievements</p>
-                  <p className="text-2xl font-bold text-[#ebbd34]">
+                  <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">
                     {achievements.filter(a => a.unlocked).length}/{achievements.length}
                   </p>
                 </div>
                 
                 <div className="bg-[#ebbd34]/10 rounded-lg p-3 text-center">
                   <p className="text-xs text-gray-600 mb-1">Daily Streak</p>
-                  <p className="text-2xl font-bold text-[#ebbd34]">{profile.dailyStreak} days</p>
+                  <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">{profile.dailyStreak} days</p>
                 </div>
               </div>
               
@@ -125,7 +125,7 @@ const Achievements: React.FC = () => {
             {achievements.map((achievement, index) => (
               <motion.div
                 key={achievement.id}
-                className={`bg-white/60 backdrop-blur-sm rounded-lg shadow-sm p-4 border ${
+                className={`bg-white/70 backdrop-blur-sm rounded-lg shadow-sm p-4 border ${
                   achievement.unlocked 
                     ? 'border-[#ebbd34]/30' 
                     : 'border-gray-200 opacity-70'
@@ -135,9 +135,10 @@ const Achievements: React.FC = () => {
                 animate="visible"
                 variants={cardVariants}
                 layout
+                whileHover={{ y: -3, transition: { duration: 0.2 } }}
               >
                 <div className="flex items-start">
-                  <div className={`rounded-full p-3 mr-3 ${
+                  <div className={`rounded-full p-3 mr-3 flex-shrink-0 ${
                     achievement.unlocked ? 'bg-[#ebbd34]' : 'bg-gray-200'
                   }`}>
                     {achievement.icon || <Trophy className={`h-5 w-5 ${

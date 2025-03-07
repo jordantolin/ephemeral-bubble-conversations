@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AchievementType, GamificationContextType, GamificationProfile } from "@/types/gamification";
 import { calculateLevel } from "@/utils/profileUtils";
+import { validateAchievements } from "@/utils/achievementUtils";
 import { 
   createNewUserProfile, 
   defaultProfile, 
@@ -22,6 +23,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [profile, setProfile] = useState<GamificationProfile>(defaultProfile);
   const [recentAchievement, setRecentAchievement] = useState<AchievementType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch user's gamification profile
   const fetchGamificationProfile = async () => {
@@ -60,6 +62,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -102,8 +105,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       
       // Update state
       setProfile(updatedProfile);
+      return true;
     } catch (error) {
       console.error("Error adding points:", error);
+      return false;
     }
   };
 
@@ -249,6 +254,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Refresh gamification profile
   const refreshGamificationProfile = async () => {
+    setIsRefreshing(true);
     await fetchGamificationProfile();
   };
 
@@ -257,13 +263,24 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchGamificationProfile();
   }, [user]);
 
+  // Auto refresh profile every 5 minutes
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      fetchGamificationProfile();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [user]);
+
   return (
     <GamificationContext.Provider
       value={{
         profile,
-        achievements: profile.achievements,
+        achievements: validateAchievements(profile.achievements),
         recentAchievement,
-        isLoading,
+        isLoading: isLoading || isRefreshing,
         addPoints,
         checkAchievement,
         incrementAchievementProgress,

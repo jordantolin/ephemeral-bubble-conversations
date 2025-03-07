@@ -73,10 +73,13 @@
   }
   body {
     @apply bg-[#FEF7E4] text-foreground;
+    -webkit-tap-highlight-color: transparent;
   }
   html, body, #root {
     min-height: 100vh;
     background-color: #FEF7E4;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 }
 
@@ -93,8 +96,25 @@
 /* Mobile optimizations */
 @media (max-width: 640px) {
   .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  h1 {
+    font-size: 1.5rem !important;
+  }
+  
+  h2 {
+    font-size: 1.25rem !important;
+  }
+  
+  .mobile-spacing {
+    margin-bottom: 4rem;
+  }
+  
+  /* Fix mobile bottom spacing for fixed elements */
+  .fixed.bottom-4 {
+    bottom: 4.5rem;
   }
 }
 
@@ -104,7 +124,35 @@
   outline-offset: 2px;
 }
 
+/* Remove tap highlight on mobile */
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Smoother transitions */
 .transition-all {
   transition-duration: 300ms;
+}
+
+/* Improved touch targets for mobile */
+@media (max-width: 640px) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Better scrolling experience */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Glassmorphism utility */
+.glass {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
 }
