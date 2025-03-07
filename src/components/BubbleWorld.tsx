@@ -1,5 +1,6 @@
+<lov-code>
 import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import * * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
 import { 
@@ -775,4 +776,4 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Add event listeners with proper cleanup
     container.addEventListener('touchstart', onTouchStart, { passive: false });
     container.addEventListener('touchmove', onTouchMove, { passive: false });
-    container.addEventListener('touchend
+    container.
