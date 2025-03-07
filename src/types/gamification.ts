@@ -43,7 +43,7 @@ export type GamificationContextType = {
   achievements: AchievementType[];
   recentAchievement: AchievementType | null;
   isLoading: boolean;
-  addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<void>;
+  addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
   checkAchievement: (id: string, progress?: number) => Promise<boolean>;
   incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
   resetRecentAchievement: () => void;

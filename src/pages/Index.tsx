@@ -55,9 +55,9 @@ const Index = () => {
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
-    const success = await handleReflect(bubbleId);
+    await handleReflect(bubbleId);
     
-    if (success && user) {
+    if (user) {
       // Add points for the reflection
       await addPoints(10, 'reflection');
       
@@ -67,11 +67,9 @@ const Index = () => {
       // Refresh gamification profile to ensure all achievements are up to date
       await refreshGamificationProfile();
     }
-    
-    return success;
   };
   
-  // Track message count for the social butterfly achievement
+  // Handle sending messages with gamification
   const handleSendMessage = async () => {
     if (user) {
       // Add points for sending a message
@@ -157,7 +155,6 @@ const Index = () => {
         messagesError={messagesError}
         isBubbleExpired={isBubbleExpired}
         handleReflect={handleReflectWithGamification}
-        onSendMessage={handleSendMessage}
       />
       
       {/* Gamification Components */}
