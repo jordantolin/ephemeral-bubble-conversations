@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { Award, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const AchievementPopup: React.FC = () => {
   const { recentAchievement, resetRecentAchievement } = useGamification();
@@ -44,7 +45,11 @@ const AchievementPopup: React.FC = () => {
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ 
+            type: "spring", 
+            stiffness: 300, 
+            damping: 30 
+          }}
         >
           <div className="bg-gradient-to-br from-[#ebbd34]/20 to-[#ebbd34]/40 backdrop-blur-md rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
             <div className="flex items-start">
@@ -54,7 +59,15 @@ const AchievementPopup: React.FC = () => {
               
               <div className="flex-1">
                 <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-lg text-[#ebbd34]">Achievement Unlocked!</h3>
+                  <div>
+                    <h3 className="font-bold text-lg text-[#ebbd34]">Achievement Unlocked!</h3>
+                    <Badge variant="outline" className="mt-1 bg-white/50 border-[#ebbd34]/20">
+                      <Star className="h-3 w-3 text-[#ebbd34] mr-1" />
+                      <span className="text-xs font-medium text-[#ebbd34]">
+                        +{recentAchievement.points} points
+                      </span>
+                    </Badge>
+                  </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -65,15 +78,8 @@ const AchievementPopup: React.FC = () => {
                   </Button>
                 </div>
                 
-                <h4 className="font-semibold text-gray-800 mt-1">{recentAchievement.name}</h4>
+                <h4 className="font-semibold text-gray-800 mt-2">{recentAchievement.name}</h4>
                 <p className="text-sm text-gray-600 mt-1">{recentAchievement.description}</p>
-                
-                <div className="mt-2 flex items-center">
-                  <Star className="h-4 w-4 text-[#ebbd34] mr-1" />
-                  <span className="text-sm font-medium text-[#ebbd34]">
-                    +{recentAchievement.points} points
-                  </span>
-                </div>
               </div>
             </div>
           </div>
