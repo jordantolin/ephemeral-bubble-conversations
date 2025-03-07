@@ -1,4 +1,3 @@
-
 #root {
   max-width: 100%;
   margin: 0 auto;
@@ -93,4 +92,33 @@ body, html {
   background-color: rgba(255, 255, 255, 0.7);
   padding: 0.5rem;
   border-radius: 0.25rem;
+}
+
+/* Feed and My Bubbles Pages Styling */
+.feed-container, .my-bubbles-container {
+  min-height: 100vh;
+  background-color: #FEF7E4;
+  padding-top: 86px;
+}
+
+.bubble-card {
+  transition: all 0.2s ease-in-out;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.bubble-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(235, 189, 52, 0.1);
+}
+
+.bubble-expired {
+  opacity: 0.7;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .feed-container, .my-bubbles-container {
+    padding-top: 110px;
+  }
 }

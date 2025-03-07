@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BubbleWorldHeaderProps {
@@ -10,10 +10,9 @@ interface BubbleWorldHeaderProps {
 const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
   return (
     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-      <div>
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2 flex items-center">
+      <div className="text-center md:text-left">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2">
           <span>Bubble World</span>
-          <Sparkles className="ml-2 h-8 w-8 text-[#ebbd34] hidden sm:inline-block" />
         </h1>
         <p className="text-[#ebbd34]/80 text-lg max-w-xl">
           Explore ephemeral bubbles that last for just 24 hours. Join conversations and reflect on ideas before they disappear!

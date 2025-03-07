@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
@@ -72,7 +71,7 @@ const Index = () => {
       setSelectedBubbleId(bubbleToOpen);
       setChatOpen(true);
     }
-  }, [bubbleToOpen]);
+  }, [bubbleToOpen, setSelectedBubbleId, setChatOpen]);
 
   // Check for stored bubble ID (from profile page clicks)
   useEffect(() => {
@@ -82,7 +81,7 @@ const Index = () => {
       setChatOpen(true);
       localStorage.removeItem('openBubbleId');
     }
-  }, []);
+  }, [setSelectedBubbleId, setChatOpen]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
