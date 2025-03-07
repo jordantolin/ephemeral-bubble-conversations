@@ -120,3 +120,9 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
   return { reflectOnBubble, isReflecting };
 };
+
+// Add default export to fix import issues
+export default {
+  useSendBubbleMessage,
+  useReflectOnBubble
+};
