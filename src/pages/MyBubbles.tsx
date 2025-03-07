@@ -44,7 +44,7 @@ const MyBubbles = () => {
   };
 
   // Fetch both user's reflected bubbles and created bubbles with proper error handling
-  const { data: myBubbles = [], isLoading: isLoadingBubbles, refetch: refetchBubbles } = useQuery({
+  const { data: myBubbles = [], isLoading: isLoadingBubbles } = useQuery({
     queryKey: ['myBubbles', profile?.username],
     queryFn: async () => {
       if (!user || !profile?.username) {
@@ -71,6 +71,8 @@ const MyBubbles = () => {
           return [];
         }
 
+        console.log("Reflects found:", reflects?.length || 0);
+
         // Get all bubbles created by the user within the last 72 hours
         const cutoffDate = get72HoursAgoDate();
         console.log("Fetching bubbles created after:", cutoffDate);
@@ -95,6 +97,7 @@ const MyBubbles = () => {
 
         // Extract bubble IDs from the reflects
         const bubbleIds = reflects?.map(r => r.bubble_id) || [];
+        console.log("Reflected bubble IDs:", bubbleIds);
         
         // If there are reflected bubbles, fetch them
         let reflectedBubbles = [];
@@ -113,6 +116,7 @@ const MyBubbles = () => {
             });
           } else {
             reflectedBubbles = bubbles || [];
+            console.log("Reflected bubbles fetched:", reflectedBubbles.length);
           }
         }
         
@@ -140,10 +144,10 @@ const MyBubbles = () => {
     },
     enabled: !!user && !!profile?.username && isClientSide,
     retry: 2,
-    retryDelay: 1000,
+    staleTime: 0, // Set stale time to 0 to always fetch fresh data
+    refetchOnMount: true, // Always refetch when the component mounts
     refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Refresh every 30 seconds to catch new reflects
-    staleTime: 10000 // Consider data fresh for 10 seconds
+    refetchInterval: 20000, // Refresh every 20 seconds to catch new reflects
   });
 
   // Filter bubbles based on search query
@@ -187,9 +191,8 @@ const MyBubbles = () => {
   useEffect(() => {
     if (user && profile?.username && isClientSide) {
       console.log("Forcing refetch of bubbles data");
-      refetchBubbles();
     }
-  }, [user, profile?.username, isClientSide, refetchBubbles]);
+  }, [user, profile?.username, isClientSide]);
 
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
