@@ -81,9 +81,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     // Create perspective camera with improved field of view for better immersion
     const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
     
-    // Position camera for better view - move further back on mobile
-    camera.position.z = isMobile ? 14 : 12;
-    camera.position.y = isMobile ? 1.5 : 1; // Slightly higher on mobile for better perspective
+    // Position camera to view the world from a better angle
+    camera.position.z = isMobile ? 10 : 12;
+    camera.position.y = 1; // Slightly above the center for a better looking-down perspective
     
     interactionRef.current.zoom.current = camera.position.z;
     interactionRef.current.zoom.target = camera.position.z;
@@ -231,26 +231,13 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
-      // Improved positioning system for mobile and desktop
+      // MODIFIED: Create bubbles with better positioning to avoid overlap
       
-      // Determine number of layers based on screen size and topic count
-      const numTopics = topics.length;
-      // More layers on mobile to prevent overlap
-      const numLayers = isMobile 
-        ? Math.min(Math.ceil(numTopics / 3), 5) // Max 5 layers on mobile
-        : Math.min(Math.ceil(numTopics / 4), 3); // Max 3 layers on desktop
+      // Distribute bubbles across multiple layers (orbits)
+      const numLayers = Math.min(3, Math.ceil(topics.length / 4));
+      const bubblesPerLayer = Math.ceil(topics.length / numLayers);
       
-      // Calculate optimal bubbles per layer
-      const bubblesPerLayer = Math.ceil(numTopics / numLayers);
-      
-      // Calculate base radius - smaller on mobile to fit screen
-      const baseRadius = isMobile ? 2.8 : 3.5;
-      // More spacing between layers on mobile
-      const layerSpacing = isMobile ? 3.0 : 2.5;
-      
-      // Pre-calculate positions to check for overlaps
-      const positions: {x: number, y: number, z: number, size: number}[] = [];
-      
+      // Create a more organized positioning system
       topics.forEach((topic, index) => {
         // Skip if bubble is already in exploding animation
         if (topic.isExploding) {
@@ -273,11 +260,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         const bubbleGroup = new THREE.Group();
         
-        // Adjust base sizes for better visibility - smaller on mobile
-        const baseSize = isMobile 
-          ? (topic.size === 'lg' ? 1.0 : topic.size === 'md' ? 0.8 : 0.6)
-          : (topic.size === 'lg' ? 1.3 : topic.size === 'md' ? 1.0 : 0.7);
-        
+        // Larger base sizes for better visibility
+        const baseSize = topic.size === 'lg' ? 1.3 : 
+                        topic.size === 'md' ? 1.0 : 0.7;
         const reflectScale = 1 + (topic.reflect_count * 0.1);
         const finalSize = baseSize * reflectScale;
         
@@ -307,99 +292,27 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           material.roughness = 0.2;
         }
 
-        // Determine which layer this bubble belongs to using strict assignments
+        // Determine which layer (orbit) this bubble belongs to
         const layerIndex = Math.floor(index / bubblesPerLayer);
         
-        // Calculate position within the layer with fixed angles
+        // Calculate position within the layer
         const layerBubbleIndex = index % bubblesPerLayer;
         const angleStep = (2 * Math.PI) / bubblesPerLayer;
         const baseAngle = layerBubbleIndex * angleStep;
         
-        // Reduce angle variation to minimize overlap
-        const angleVariation = isMobile ? angleStep * 0.1 : angleStep * 0.2;
+        // Add randomness but keep within reasonable bounds to prevent overlap
+        const angleVariation = angleStep * 0.25; // Limit the variation to 25% of the angle step
+        const angle = baseAngle + (Math.random() * 2 - 1) * angleVariation;
         
-        // Use golden ratio to distribute bubbles more evenly
-        const goldenRatio = 1.618033988749895;
-        const angle = baseAngle + (((index * goldenRatio) % 1) * 2 - 1) * angleVariation;
+        // Radius increases with each layer to prevent overlap between layers
+        const baseRadius = 3.5 + (layerIndex * 2.5);
+        const radiusVariation = 0.5; // Limit the variation to prevent overlap
+        const radius = baseRadius + (Math.random() * 2 - 1) * radiusVariation;
         
-        // Radius increases with each layer - more space between layers on mobile
-        const radius = baseRadius + (layerIndex * layerSpacing);
-        
-        // Vertical positioning alternates by layer to further reduce overlap
-        const baseY = isMobile 
-          ? (layerIndex % 3 - 1) * 1.8 // Three levels of vertical placement for mobile
-          : (layerIndex % 2 === 0) ? 0 : 1.5;
-        
-        // Reduced vertical variation on mobile
-        const yVariation = isMobile ? 0.4 : 0.8;
-        
-        // Deterministic vertical position based on index for more predictable placement
-        const y = baseY + ((index % bubblesPerLayer) / bubblesPerLayer - 0.5) * yVariation;
-
-        // Calculate potential position
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        
-        // Check for overlaps with previously positioned bubbles
-        let hasOverlap = false;
-        let attempts = 0;
-        const maxAttempts = 10;
-        let finalX = x;
-        let finalY = y;
-        let finalZ = z;
-        
-        // Try to find non-overlapping position
-        while (attempts < maxAttempts) {
-          hasOverlap = false;
-          
-          for (const pos of positions) {
-            // Calculate distance between centers
-            const dx = finalX - pos.x;
-            const dy = finalY - pos.y;
-            const dz = finalZ - pos.z;
-            
-            const distanceSquared = dx * dx + dy * dy + dz * dz;
-            // Minimum distance is sum of radii plus a buffer
-            const minDistance = (finalSize + pos.size) * 1.2; // 20% buffer
-            
-            if (distanceSquared < minDistance * minDistance) {
-              hasOverlap = true;
-              break;
-            }
-          }
-          
-          if (!hasOverlap) break;
-          
-          // If overlap, adjust position slightly
-          attempts++;
-          
-          // Adjust more aggressively as attempts increase
-          const adjustFactor = 0.2 + (attempts * 0.05);
-          
-          // Try different avoidance strategies based on attempt number
-          if (attempts % 3 === 0) {
-            // Adjust radius
-            const newRadius = radius * (1 + (attempts * 0.03));
-            finalX = Math.cos(angle) * newRadius;
-            finalZ = Math.sin(angle) * newRadius;
-          } else if (attempts % 3 === 1) {
-            // Adjust angle
-            const angleAdjust = (attempts * 0.1) * angleStep;
-            finalX = Math.cos(baseAngle + angleAdjust) * radius;
-            finalZ = Math.sin(baseAngle + angleAdjust) * radius;
-          } else {
-            // Adjust height
-            finalY = y + (attempts * 0.3 * (attempts % 2 === 0 ? 1 : -1));
-          }
-        }
-        
-        // Add the final position to our list
-        positions.push({
-          x: finalX,
-          y: finalY,
-          z: finalZ,
-          size: finalSize
-        });
+        // Vertical position varies by layer, with some randomness
+        const baseY = (layerIndex % 2 === 0) ? 0 : 1.5;
+        const yVariation = 0.8;
+        const y = baseY + (Math.random() * 2 - 1) * yVariation;
 
         bubbleGroup.userData = {
           id: topic.id,
@@ -411,40 +324,23 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             reflectScale: finalSize * 1.2,
             timeScale: finalSize
           },
-          // More structured movement with reduced randomness for mobile
+          // More structured movement patterns to avoid overlapping
           movement: {
-            speed: isMobile
-              ? (0.0008 + (Math.random() * 0.0005)) * (0.5 + expiryRatio * 0.5)
-              : (0.001 + (Math.random() * 0.0015)) * (0.5 + expiryRatio * 0.5),
+            speed: (0.001 + (Math.random() * 0.0015)) * (0.5 + expiryRatio * 0.5),
             radius: radius,
             angle: angle,
             layer: layerIndex,
-            verticalSpeed: isMobile
-              ? (0.001 + (Math.random() * 0.0005)) * expiryRatio
-              : (0.002 + (Math.random() * 0.001)) * expiryRatio,
-            verticalRange: isMobile 
-              ? 0.4 + (Math.random() * 0.4) * expiryRatio
-              : 0.8 + (Math.random() * 0.8) * expiryRatio,
+            verticalSpeed: (0.002 + (Math.random() * 0.001)) * expiryRatio,
+            verticalRange: 0.8 + (Math.random() * 0.8) * expiryRatio,
             verticalOffset: baseY + Math.random() * Math.PI * 2,
             rotationSpeed: 0.003 + (Math.random() * 0.006),
-            wobble: isMobile 
-              ? Math.random() * 0.001 * expiryRatio // Less wobble on mobile
-              : Math.random() * 0.002 * expiryRatio
+            wobble: Math.random() * 0.002 * expiryRatio // Small amount of random movement
           },
           expiryRatio, // Store for animation use
           expiryTime // Store actual time
         };
 
         // Create text labels with enhanced visibility
-        // Smaller fonts for mobile to prevent label overlap
-        const fontSizes = {
-          name: isMobile ? 32 : 44,
-          topic: isMobile ? 26 : 36,
-          reflect: isMobile ? 24 : 32,
-          time: isMobile ? 22 : 30
-        };
-        
-        // Improved label sprite creation with better orientation stability
         const createLabelSprite = (text: string, position: THREE.Vector3, fontSize: number) => {
           const canvas = createTextCanvas(text, fontSize);
           const texture = new THREE.CanvasTexture(canvas);
@@ -453,64 +349,52 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           const spriteMaterial = new THREE.SpriteMaterial({ 
             map: texture,
             transparent: true,
-            depthTest: false,
-            sizeAttenuation: false // Prevent size changes with distance
+            depthTest: false
           });
           
           const sprite = new THREE.Sprite(spriteMaterial);
-          
-          // Fixed scale to ensure consistent size regardless of camera distance
           sprite.scale.set(
-            finalSize * (isMobile ? 1.5 : 1.8), 
-            finalSize * (isMobile ? 0.75 : 0.9), 
+            finalSize * 1.8, // Wider text for better readability
+            finalSize * 0.9, 
             1
           );
           
-          // Create a parent object to handle positioning
-          const spriteContainer = new THREE.Object3D();
-          spriteContainer.position.copy(position);
-          spriteContainer.add(sprite);
-          
-          // Mark this object for special handling during animation
-          spriteContainer.userData = {
-            isLabel: true,
-            originalPosition: position.clone()
-          };
-          
-          return spriteContainer;
+          sprite.position.copy(position);
+          return sprite;
         };
 
-        // Position text labels with better spacing for mobile
-        const textSpacing = isMobile ? 0.8 : 1.0; // Scale factor for text spacing
-        
-        // Add labels as children to the bubble group
+        // Position text labels within bubble with better spacing
         bubbleGroup.add(createLabelSprite(
           topic.name, 
-          new THREE.Vector3(0, finalSize * 0.4 * textSpacing, 0), 
-          fontSizes.name
+          new THREE.Vector3(0, finalSize * 0.4, 0), 
+          isMobile ? 38 : 44 // Larger font sizes
         ));
         
         bubbleGroup.add(createLabelSprite(
           topic.topic, 
-          new THREE.Vector3(0, -finalSize * 0.1 * textSpacing, 0), 
-          fontSizes.topic
+          new THREE.Vector3(0, -finalSize * 0.1, 0), 
+          isMobile ? 32 : 36
         ));
         
         bubbleGroup.add(createLabelSprite(
           `⭐ ${topic.reflect_count}`, 
-          new THREE.Vector3(0, -finalSize * 0.5 * textSpacing, 0), 
-          fontSizes.reflect
+          new THREE.Vector3(0, -finalSize * 0.5, 0), 
+          isMobile ? 28 : 32
         ));
         
         // Add time remaining label
         bubbleGroup.add(createLabelSprite(
           `⏱ ${formatTimeRemaining(expiryTime)}`, 
-          new THREE.Vector3(0, -finalSize * 0.85 * textSpacing, 0), 
-          fontSizes.time
+          new THREE.Vector3(0, -finalSize * 0.85, 0), 
+          isMobile ? 26 : 30
         ));
 
-        // Set initial position
-        bubbleGroup.position.set(finalX, finalY, finalZ);
+        // Set initial position based on the structured layout
+        bubbleGroup.position.set(
+          Math.cos(angle) * radius,
+          y,
+          Math.sin(angle) * radius
+        );
         
         bubblesRef.current[topic.id] = bubbleGroup;
         scene.add(bubbleGroup);
@@ -700,7 +584,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
     };
 
-    // Improved mouse handling for better dragging in all directions
     const onMouseDown = (e: MouseEvent) => {
       interactionRef.current.isInteracting = true;
       interactionRef.current.lastX = e.clientX;
@@ -725,15 +608,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const dx = e.clientX - interactionRef.current.lastX;
         const dy = e.clientY - interactionRef.current.lastY;
 
-        // Enhanced rotation for more natural dragging in all directions
         centralWorldRef.current.rotation.y += dx * 0.005;
         centralWorldRef.current.rotation.x += dy * 0.005;
-        
-        // Keep rotation within reasonable limits to prevent flipping
-        centralWorldRef.current.rotation.x = Math.max(
-          -Math.PI / 3, 
-          Math.min(Math.PI / 3, centralWorldRef.current.rotation.x)
-        );
 
         interactionRef.current.momentum = {
           x: dx * 0.005 * 0.8,
@@ -795,7 +671,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Improved animation function for better text orientation
+    // Animate function - Modified for better bubble movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -803,154 +679,207 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       // Smoother camera movement with enhanced zooming
       const zoom = interactionRef.current.zoom;
-      if (Math.abs(zoom.current - zoom.target) > 0.01) {
-        zoom.current += (zoom.target - zoom.current) * 0.05;
-        if (cameraRef.current) {
-          cameraRef.current.position.z = zoom.current;
-        }
+      const zoomLerpFactor = isMobile ? 0.15 : 0.1;
+      zoom.current += (zoom.target - zoom.current) * zoomLerpFactor;
+      if (camera) {
+        camera.position.z = zoom.current;
       }
-      
-      // Update TWEEN animations
-      TWEEN.update();
-      
-      // Rotate central world slightly for ambient motion
-      if (centralWorldRef.current) {
-        centralWorldRef.current.rotation.y += 0.001;
+
+      // Calculate zoom scaling factor with improved curve for more natural scaling
+      const zoomRange = interactionRef.current.zoom.max - interactionRef.current.zoom.min;
+      const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
+      const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
+
+      // Update bubble positions with improved movement to prevent overlap
+      Object.values(bubblesRef.current).forEach(bubble => {
+        const movement = bubble.userData.movement;
+        const expiryRatio = bubble.userData.expiryRatio || 1;
+        const layer = movement.layer || 0;
         
-        // Limit x rotation to prevent the central world from flipping
-        centralWorldRef.current.rotation.x = Math.max(
-          -Math.PI / 3,
-          Math.min(centralWorldRef.current.rotation.x + 0.0005, Math.PI / 3)
-        );
-      }
-      
-      // Update bubble positions with improved motion
-      Object.values(bubblesRef.current).forEach(bubbleGroup => {
-        if (!bubbleGroup) return;
+        // Calculate new position with more structured and consistent movement
+        const angle = time * movement.speed + movement.angle;
+        // Reduced wobble to minimize random overlap
+        const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.1;
         
-        const movement = bubbleGroup.userData.movement;
-        if (!movement) return;
+        // Vertical movement depends on the layer to prevent overlap between layers
+        const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * 
+                                movement.verticalRange * (1 + (layer * 0.2));
         
-        // Update angle for orbital movement
-        movement.angle += movement.speed;
-        
-        // Calculate new position with vertical bobbing
-        const verticalOffset = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * movement.verticalRange;
-        
-        // Add subtle wobble to the orbit
-        const orbitWobble = Math.sin(time * 0.2 + bubbleGroup.userData.orbitIndex) * movement.wobble;
-        const orbitRadius = movement.radius * (1 + orbitWobble);
-        
-        const x = Math.cos(movement.angle) * orbitRadius;
-        const z = Math.sin(movement.angle) * orbitRadius;
-        
-        // Update bubble position
-        bubbleGroup.position.set(
-          x,
-          bubbleGroup.position.y + verticalOffset - bubbleGroup.userData.lastVerticalOffset || 0,
-          z
+        // Apply rotation from central world for coordinated movement
+        const rotationOffset = new THREE.Euler(
+          centralWorld.rotation.x,
+          centralWorld.rotation.y,
+          centralWorld.rotation.z
         );
         
-        // Store last vertical offset for smooth movement
-        bubbleGroup.userData.lastVerticalOffset = verticalOffset;
+        // Use the structured movement values
+        const x = Math.cos(angle) * movement.radius + wobble;
+        const y = verticalMovement + movement.verticalOffset;
+        const z = Math.sin(angle) * movement.radius + wobble;
         
-        // Rotate bubble slightly for more dynamic feel
-        bubbleGroup.rotation.y += movement.rotationSpeed * 0.5;
-        bubbleGroup.rotation.x += movement.rotationSpeed * 0.2;
+        const position = new THREE.Vector3(x, y, z).applyEuler(rotationOffset);
+        bubble.position.copy(position);
         
-        // Improve text label orientation - always face camera while maintaining vertical position
-        bubbleGroup.children.forEach((child, index) => {
-          // Skip the bubble itself (first child)
-          if (index === 0) return;
+        // Add subtle rotation to each bubble
+        bubble.rotation.y += movement.rotationSpeed;
+        
+        // Make bubbles face camera for better text readability
+        bubble.quaternion.copy(camera.quaternion);
+        
+        // Scale the bubble and text based on zoom level
+        const origScale = bubble.userData.originalScale;
+        const bubbleMesh = bubble.children[0] as THREE.Mesh;
+        const scaleFactor = origScale * zoomFactor;
+        bubbleMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        
+        // Update bubble appearance based on time remaining
+        if (bubbleMesh.material instanceof THREE.MeshPhysicalMaterial) {
+          // Update expiry ratio
+          const now = new Date();
+          const expiryTime = bubble.userData.expiryTime || new Date();
+          const timeUntilExpiry = Math.max(0, expiryTime.getTime() - now.getTime());
+          const updatedExpiryRatio = timeUntilExpiry / (24*60*60*1000);
+          bubble.userData.expiryRatio = updatedExpiryRatio;
           
-          // Handle our label containers
-          if (child.userData && child.userData.isLabel) {
-            // Get the child's first child, which is the sprite
-            const sprite = child.children[0];
-            if (sprite && sprite instanceof THREE.Sprite) {
-              // Calculate direction to camera
-              const cameraPosition = cameraRef.current?.position || new THREE.Vector3(0, 0, 10);
+          // Pulse effect as bubble gets closer to expiry
+          if (updatedExpiryRatio < 0.1) {
+            const pulseIntensity = 0.2 + Math.sin(time * 20) * 0.2;
+            bubbleMesh.material.emissiveIntensity = pulseIntensity;
+            bubbleMesh.material.opacity = 0.5 + pulseIntensity * 0.5;
+          }
+        }
+        
+        // Update time remaining label
+        if (bubble.children.length >= 4) {
+          const timeRemainingSprite = bubble.children[3] as THREE.Sprite;
+          if (bubble.userData.expiryTime) {
+            const now = new Date();
+            const expiryTime = bubble.userData.expiryTime;
+            
+            // If it's been more than a minute, update the label
+            if (now.getTime() % 60000 < 1000) {
+              const formattedTime = formatTimeRemaining(expiryTime);
+              const canvas = createTextCanvas(`⏱ ${formattedTime}`, isMobile ? 26 : 30);
+              const texture = new THREE.CanvasTexture(canvas);
+              texture.needsUpdate = true;
               
-              // Make the container look at the camera, but only on the horizontal plane
-              const targetPosition = new THREE.Vector3(
-                cameraPosition.x,
-                child.position.y, // Keep the original Y position
-                cameraPosition.z
-              );
-              
-              // Make the container look at the camera (horizontally only)
-              child.lookAt(targetPosition);
-              
-              // Force the sprites to maintain their original local orientation
-              // This ensures text is always right-side up regardless of camera position
-              child.rotation.z = 0;
-              child.rotation.x = 0;
+              if (timeRemainingSprite.material instanceof THREE.SpriteMaterial) {
+                timeRemainingSprite.material.map = texture;
+                timeRemainingSprite.material.needsUpdate = true;
+              }
             }
           }
-        });
+        }
+        
+        // Scale text sprites with improved proportions
+        for (let i = 1; i < bubble.children.length; i++) {
+          const sprite = bubble.children[i] as THREE.Sprite;
+          const textScales = bubble.userData.textScales;
+          const textScaleFactor = zoomFactor * 0.9;
+          
+          let baseScale;
+          let yOffset;
+          if (i === 1) {
+            baseScale = textScales.nameScale;
+            yOffset = scaleFactor * 0.4;
+          } else if (i === 2) {
+            baseScale = textScales.topicScale;
+            yOffset = -scaleFactor * 0.1;
+          } else if (i === 3) {
+            baseScale = textScales.reflectScale;
+            yOffset = -scaleFactor * 0.5;
+          } else {
+            baseScale = textScales.timeScale;
+            yOffset = -scaleFactor * 0.85;
+          }
+          
+          sprite.scale.set(
+            baseScale * textScaleFactor,
+            baseScale * textScaleFactor * 0.6,
+            1
+          );
+          sprite.position.set(0, yOffset, 0);
+        }
       });
-      
-      // Render the scene
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
+
+      // Apply gentle auto-rotation to central world when not interacting
+      if (!interactionRef.current.isInteracting && centralWorld) {
+        centralWorld.rotation.y += 0.0003;
       }
+
+      TWEEN.update();
+      renderer.render(scene, camera);
     };
-    
-    // Start animation
+
     animate();
-    
+
     // Handle window resize
     const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
       
       const width = containerRef.current.clientWidth;
       const height = containerRef.current.clientHeight;
       
-      rendererRef.current.setSize(width, height);
       cameraRef.current.aspect = width / height;
       cameraRef.current.updateProjectionMatrix();
+      
+      rendererRef.current.setSize(width, height);
     };
-    
+
     window.addEventListener('resize', handleResize);
-    
-    // Clean up
+
+    // Clean up resources when component unmounts
     return () => {
-      console.log("Cleaning up BubbleWorld");
+      console.log("Cleaning up BubbleWorld resources");
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       
       if (rendererRef.current) {
-        if (rendererRef.current.domElement && containerRef.current) {
+        rendererRef.current.dispose();
+        if (containerRef.current?.contains(rendererRef.current.domElement)) {
           containerRef.current.removeChild(rendererRef.current.domElement);
         }
-        rendererRef.current.dispose();
       }
       
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('mousemove', onMouseMove);
+      container.removeEventListener('mouseup', onMouseUp);
+      container.removeEventListener('mouseleave', onMouseLeave);
+      container.removeEventListener('wheel', onWheel);
       window.removeEventListener('resize', handleResize);
       
-      // Remove event listeners
-      if (containerRef.current) {
-        containerRef.current.removeEventListener('touchstart', onTouchStart);
-        containerRef.current.removeEventListener('touchmove', onTouchMove);
-        containerRef.current.removeEventListener('touchend', onTouchEnd);
-        containerRef.current.removeEventListener('mousedown', onMouseDown);
-        containerRef.current.removeEventListener('mousemove', onMouseMove);
-        containerRef.current.removeEventListener('mouseup', onMouseUp);
-        containerRef.current.removeEventListener('mouseleave', onMouseLeave);
-        containerRef.current.removeEventListener('wheel', onWheel);
-      }
+      // Clear all references
+      Object.values(bubblesRef.current).forEach(group => {
+        group.children.forEach(child => {
+          if (child instanceof THREE.Mesh && child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child instanceof THREE.Mesh && child.material) {
+            const material = Array.isArray(child.material) ? child.material : [child.material];
+            material.forEach(m => m.dispose());
+          }
+        });
+      });
       
-      // Clean up THREE.js objects
-      if (sceneRef.current) {
-        sceneRef.current.clear();
-      }
+      bubblesRef.current = {};
+      sceneRef.current = null;
+      rendererRef.current = null;
+      cameraRef.current = null;
+      centralWorldRef.current = null;
     };
   }, [topics, onBubbleClick, navigate]);
 
   return (
-    <div ref={containerRef} className="w-full h-full" />
+    <div 
+      ref={containerRef} 
+      className="w-full h-full touch-none select-none"
+      style={{ touchAction: 'none' }}
+    />
   );
 };
 
