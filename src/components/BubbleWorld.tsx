@@ -840,17 +840,21 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         bubble.rotation.x += movement.rotationSpeed * 0.2;
         bubble.rotation.y += movement.rotationSpeed * 0.5;
         bubble.rotation.z += movement.rotationSpeed * 0.3;
-        
-        // Text/Label billboarding for better readability
-        if (bubble.children.length > 1 && cameraRef.current) {
-          for (let i = 1; i < bubble.children.length; i++) {
-            const textSprite = bubble.children[i];
+      });
+      
+      // Update text billboarding - ensure all text labels face the camera
+      if (cameraRef.current) {
+        Object.values(bubblesRef.current).forEach(bubbleGroup => {
+          // Start from index 1 since index 0 is the bubble mesh
+          for (let i = 1; i < bubbleGroup.children.length; i++) {
+            const textSprite = bubbleGroup.children[i];
             if (textSprite instanceof THREE.Sprite) {
-              textSprite.lookAt(cameraRef.current.position);
+              // Make text sprites always face the camera
+              textSprite.lookAt(cameraRef.current!.position);
             }
           }
-        }
-      });
+        });
+      }
       
       // Central world gentle rotation within the worldGroup
       if (centralWorldRef.current) {
