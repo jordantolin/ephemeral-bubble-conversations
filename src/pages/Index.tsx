@@ -12,6 +12,7 @@ import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
+import { AchievementId } from "@/types/gamification";
 
 const Index = () => {
   const location = useLocation();
@@ -81,7 +82,7 @@ const Index = () => {
   };
   
   // Increment achievement progress
-  const incrementAchievementProgress = async (achievementId: string) => {
+  const incrementAchievementProgress = async (achievementId: AchievementId) => {
     await checkAchievement(achievementId);
   };
   

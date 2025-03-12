@@ -27,7 +27,7 @@ export type AchievementType = {
 };
 
 // Achievement IDs type for type safety
-export type AchievementId = 'first-bubble' | 'reflection-master' | 'social-butterfly';
+export type AchievementId = 'first-bubble' | 'reflection-master' | 'social-butterfly' | 'daily-streak-3';
 
 // Define user gamification profile
 export type GamificationProfile = {
