@@ -1,234 +1,128 @@
 
 import { ConnectionNode, ConnectionLink } from '@/types/heartfelt';
 
-/**
- * Generates sample connection data for the Heartfelt Connections visualization
- */
-export function generateSampleData() {
-  // Create sample nodes
+// Generate a heart shape for nodes
+export const generateHeartShape = (count: number, width: number, height: number): [number, number][] => {
+  const points: [number, number][] = [];
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const scale = Math.min(width, height) * 0.4; // Scale to fit within the container
+  
+  // Generate points along a heart curve
+  for (let i = 0; i < count; i++) {
+    const t = (i / count) * 2 * Math.PI;
+    
+    // Heart curve parametric equations
+    // x = 16 * sin(t)^3
+    // y = 13 * cos(t) - 5 * cos(2t) - 2 * cos(3t) - cos(4t)
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    
+    // Scale and position the heart
+    const scaledX = centerX + (x * scale / 16);
+    const scaledY = centerY - (y * scale / 16); // Subtract because SVG y increases downward
+    
+    points.push([scaledX, scaledY]);
+  }
+  
+  return points;
+};
+
+// Generate sample connection data for demo purposes
+export const generateSampleConnections = (): { nodes: ConnectionNode[], links: ConnectionLink[] } => {
+  // Sample nodes representing important connections
   const nodes: ConnectionNode[] = [
-    // Family connections
-    {
-      id: 'mom',
-      name: 'Mom',
-      type: 'family',
-      category: 'person',
-      size: 30,
-      depth: 0.9,
-      recency: 0.95,
-      location: 'Chicago, IL',
-      lastContact: '2 days ago',
-      description: 'My biggest supporter and confidant. We speak almost daily.'
+    { 
+      id: "1", name: "Sarah", type: "family", category: "person", 
+      size: 25, depth: 0.9, recency: 0.95, location: "Chicago" 
     },
-    {
-      id: 'dad',
-      name: 'Dad',
-      type: 'family',
-      category: 'person',
-      size: 28,
-      depth: 0.85,
-      recency: 0.8,
-      location: 'Chicago, IL',
-      lastContact: '1 week ago',
-      description: 'Always there with wisdom and advice when I need it most.'
+    { 
+      id: "2", name: "Michael", type: "romantic", category: "person", 
+      size: 30, depth: 1.0, recency: 1.0, location: "Chicago" 
     },
-    {
-      id: 'sister',
-      name: 'Sister',
-      type: 'family',
-      category: 'person',
-      size: 25,
-      depth: 0.78,
-      recency: 0.9,
-      location: 'New York, NY',
-      lastContact: '3 days ago',
-      description: 'We've grown closer as adults despite the distance.'
+    { 
+      id: "3", name: "College Friends", type: "friend", category: "person", 
+      size: 20, depth: 0.8, recency: 0.7, location: "Boston" 
     },
-    
-    // Close friends
-    {
-      id: 'alex',
-      name: 'Alex',
-      type: 'friend',
-      category: 'person',
-      size: 26,
-      depth: 0.85,
-      recency: 0.7,
-      location: 'Boston, MA',
-      lastContact: '2 weeks ago',
-      description: 'Best friend since college. We've been through everything together.'
+    { 
+      id: "4", name: "Childhood Home", type: "location", category: "location", 
+      size: 18, depth: 0.9, recency: 0.3, location: "Portland" 
     },
-    {
-      id: 'jamie',
-      name: 'Jamie',
-      type: 'friend',
-      category: 'person',
-      size: 24,
-      depth: 0.75,
-      recency: 0.85,
-      location: 'Seattle, WA',
-      lastContact: '5 days ago',
-      description: 'A newer friendship that quickly became important in my life.'
+    { 
+      id: "5", name: "First Job", type: "work", category: "experience", 
+      size: 15, depth: 0.6, recency: 0.2, location: "Seattle" 
     },
-    {
-      id: 'taylor',
-      name: 'Taylor',
-      type: 'friend',
-      category: 'person',
-      size: 22,
-      depth: 0.7,
-      recency: 0.6,
-      location: 'Portland, OR',
-      lastContact: '3 weeks ago',
-      description: 'We bonded over shared creative interests.'
+    { 
+      id: "6", name: "Mom", type: "family", category: "person", 
+      size: 28, depth: 1.0, recency: 0.9, location: "Portland" 
     },
-    
-    // Work connections
-    {
-      id: 'boss',
-      name: 'Morgan',
-      type: 'colleague',
-      category: 'work',
-      size: 20,
-      depth: 0.6,
-      recency: 0.95,
-      location: 'San Francisco, CA',
-      lastContact: '1 day ago',
-      description: 'My mentor at work who has helped guide my career.'
+    { 
+      id: "7", name: "Dad", type: "family", category: "person", 
+      size: 26, depth: 0.9, recency: 0.85, location: "Portland" 
     },
-    {
-      id: 'coworker1',
-      name: 'Casey',
-      type: 'colleague',
-      category: 'work',
-      size: 18,
-      depth: 0.5,
-      recency: 0.9,
-      location: 'San Francisco, CA',
-      lastContact: '1 day ago',
-      description: 'We collaborate daily and have become friends outside work.'
+    { 
+      id: "8", name: "Alex", type: "friend", category: "person", 
+      size: 22, depth: 0.8, recency: 0.9, location: "Chicago" 
     },
-    {
-      id: 'coworker2',
-      name: 'Jordan',
-      type: 'colleague',
-      category: 'work',
-      size: 16,
-      depth: 0.4,
-      recency: 0.8,
-      location: 'San Francisco, CA',
-      lastContact: '3 days ago',
-      description: 'A friendly presence in the office and occasional lunch companion.'
+    { 
+      id: "9", name: "European Trip", type: "experience", category: "experience", 
+      size: 20, depth: 0.95, recency: 0.6, location: "Paris" 
     },
-    
-    // Significant places
-    {
-      id: 'hometown',
-      name: 'Hometown',
-      type: 'place',
-      category: 'location',
-      size: 24,
-      depth: 0.8,
-      recency: 0.3,
-      location: 'Chicago, IL',
-      description: 'Where I grew up and still feel most at home.'
+    { 
+      id: "10", name: "Mentor", type: "mentor", category: "person", 
+      size: 18, depth: 0.7, recency: 0.8, location: "New York" 
     },
-    {
-      id: 'college',
-      name: 'University',
-      type: 'place',
-      category: 'location',
-      size: 22,
-      depth: 0.7,
-      recency: 0.5,
-      location: 'Boston, MA',
-      description: 'Where I discovered myself and formed lifelong friendships.'
+    { 
+      id: "11", name: "Current Company", type: "work", category: "work", 
+      size: 22, depth: 0.8, recency: 1.0, location: "Chicago" 
     },
-    {
-      id: 'park',
-      name: 'Central Park',
-      type: 'place',
-      category: 'location',
-      size: 18,
-      depth: 0.5,
-      recency: 0.6,
-      location: 'New York, NY',
-      description: 'My favorite place to reflect and find peace in the city.'
-    },
-    
-    // Romantic connection
-    {
-      id: 'partner',
-      name: 'Sam',
-      type: 'romantic',
-      category: 'person',
-      size: 32,
-      depth: 0.95,
-      recency: 0.99,
-      location: 'San Francisco, CA',
-      lastContact: 'Today',
-      description: 'My partner and closest confidant in all things.'
-    },
-    
-    // Mentor
-    {
-      id: 'professor',
-      name: 'Dr. Williams',
-      type: 'mentor',
-      category: 'person',
-      size: 20,
-      depth: 0.65,
-      recency: 0.4,
-      location: 'Boston, MA',
-      lastContact: '2 months ago',
-      description: 'My college professor who still offers guidance and wisdom.'
-    },
+    { 
+      id: "12", name: "College", type: "experience", category: "location", 
+      size: 20, depth: 0.8, recency: 0.4, location: "Boston" 
+    }
   ];
   
-  // Create links between nodes
+  // Links between nodes representing relationships
   const links: ConnectionLink[] = [
-    // Family connections
-    { source: 'mom', target: 'dad', type: 'family', strength: 0.9, communicationType: 'phone', frequency: 0.8 },
-    { source: 'mom', target: 'sister', type: 'family', strength: 0.85, communicationType: 'text', frequency: 0.7 },
-    { source: 'dad', target: 'sister', type: 'family', strength: 0.8, communicationType: 'phone', frequency: 0.6 },
-    
-    // Friend connections
-    { source: 'alex', target: 'jamie', type: 'friend', strength: 0.7, communicationType: 'text', frequency: 0.5 },
-    { source: 'alex', target: 'taylor', type: 'friend', strength: 0.6, communicationType: 'text', frequency: 0.4 },
-    
-    // Work connections
-    { source: 'boss', target: 'coworker1', type: 'colleague', strength: 0.7, communicationType: 'email', frequency: 0.9 },
-    { source: 'coworker1', target: 'coworker2', type: 'colleague', strength: 0.6, communicationType: 'inPerson', frequency: 0.8 },
-    { source: 'boss', target: 'coworker2', type: 'colleague', strength: 0.5, communicationType: 'email', frequency: 0.6 },
-    
-    // Personal connections to self
-    { source: 'partner', target: 'mom', type: 'family', strength: 0.8, communicationType: 'phone', frequency: 0.6 },
-    { source: 'partner', target: 'dad', type: 'family', strength: 0.75, communicationType: 'phone', frequency: 0.5 },
-    { source: 'partner', target: 'sister', type: 'family', strength: 0.7, communicationType: 'text', frequency: 0.6 },
-    { source: 'partner', target: 'alex', type: 'friend', strength: 0.85, communicationType: 'inPerson', frequency: 0.7 },
-    
-    // Friend to family connections
-    { source: 'alex', target: 'mom', type: 'friend', strength: 0.4, communicationType: 'text', frequency: 0.2 },
-    { source: 'alex', target: 'sister', type: 'friend', strength: 0.6, communicationType: 'text', frequency: 0.5 },
-    
-    // Work and social crossover
-    { source: 'coworker1', target: 'alex', type: 'friend', strength: 0.5, communicationType: 'text', frequency: 0.3 },
-    
-    // Places connections
-    { source: 'mom', target: 'hometown', type: 'place', strength: 0.9, communicationType: 'inPerson', frequency: 0.5 },
-    { source: 'dad', target: 'hometown', type: 'place', strength: 0.9, communicationType: 'inPerson', frequency: 0.5 },
-    { source: 'sister', target: 'hometown', type: 'place', strength: 0.8, communicationType: 'inPerson', frequency: 0.3 },
-    { source: 'alex', target: 'college', type: 'place', strength: 0.8, communicationType: 'inPerson', frequency: 0.2 },
-    { source: 'professor', target: 'college', type: 'place', strength: 0.9, communicationType: 'inPerson', frequency: 0.5 },
-    { source: 'sister', target: 'park', type: 'place', strength: 0.7, communicationType: 'inPerson', frequency: 0.4 },
-    
-    // Mentor connections
-    { source: 'professor', target: 'alex', type: 'mentor', strength: 0.6, communicationType: 'email', frequency: 0.3 },
-    
-    // More connections for density
-    { source: 'partner', target: 'park', type: 'place', strength: 0.7, communicationType: 'inPerson', frequency: 0.6 },
-    { source: 'jamie', target: 'taylor', type: 'friend', strength: 0.8, communicationType: 'text', frequency: 0.7 },
+    { source: "2", target: "1", type: "romantic", strength: 0.95, communicationType: "inPerson", frequency: 0.9 },
+    { source: "1", target: "8", type: "friendship", strength: 0.8, communicationType: "text", frequency: 0.7 },
+    { source: "6", target: "7", type: "family", strength: 0.9, communicationType: "phone", frequency: 0.8 },
+    { source: "1", target: "6", type: "family", strength: 0.9, communicationType: "phone", frequency: 0.7 },
+    { source: "1", target: "7", type: "family", strength: 0.85, communicationType: "phone", frequency: 0.6 },
+    { source: "1", target: "4", type: "location", strength: 0.7, communicationType: "inPerson", frequency: 0.3 },
+    { source: "1", target: "11", type: "work", strength: 0.8, communicationType: "inPerson", frequency: 0.9 },
+    { source: "10", target: "11", type: "work", strength: 0.6, communicationType: "email", frequency: 0.5 },
+    { source: "1", target: "10", type: "mentor", strength: 0.7, communicationType: "text", frequency: 0.6 },
+    { source: "1", target: "3", type: "friendship", strength: 0.8, communicationType: "text", frequency: 0.5 },
+    { source: "3", target: "12", type: "location", strength: 0.9, communicationType: "inPerson", frequency: 0.4 },
+    { source: "1", target: "12", type: "location", strength: 0.8, communicationType: "inPerson", frequency: 0.2 },
+    { source: "1", target: "9", type: "experience", strength: 0.85, communicationType: "inPerson", frequency: 0.1 },
+    { source: "8", target: "11", type: "work", strength: 0.6, communicationType: "inPerson", frequency: 0.8 },
+    { source: "2", target: "9", type: "experience", strength: 0.9, communicationType: "inPerson", frequency: 0.1 },
+    { source: "1", target: "5", type: "work", strength: 0.5, communicationType: "inPerson", frequency: 0.1 }
   ];
   
   return { nodes, links };
-}
+};
+
+// Function to get color based on relationship type
+export const getRelationshipColor = (type: string): string => {
+  const colors: Record<string, string> = {
+    family: '#FF9AA2',      // Soft pink
+    romantic: '#FF6B6B',    // Red-pink
+    friend: '#C7CEEA',      // Soft blue
+    colleague: '#B5EAD7',   // Mint green
+    mentor: '#FFD166',      // Gold yellow
+    work: '#A0C4FF',        // Light blue
+    location: '#FFDAC1',    // Peach
+    experience: '#E2F0CB'   // Light green
+  };
+  
+  return colors[type] || '#BBBBBB'; // Default gray
+};
+
+// Function to calculate link strength for visual representation
+export const calculateLinkStrength = (link: ConnectionLink): number => {
+  // Combine frequency and strength for visual weight
+  return (link.strength + link.frequency) / 2;
+};

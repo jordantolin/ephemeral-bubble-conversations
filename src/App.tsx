@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   createBrowserRouter,
@@ -5,7 +6,7 @@ import {
 } from "react-router-dom";
 import Index from "@/pages/Index";
 import Profile from "@/pages/Profile";
-import BubbleChatPage from "@/pages/BubbleChatPage";
+import BubbleChat from "@/pages/BubbleChat";
 import NotFound from "@/pages/NotFound";
 import Legal from "@/pages/Legal";
 import AuthWrapper from "@/components/AuthWrapper";
@@ -32,7 +33,7 @@ const router = createBrowserRouter([
     path: "/bubble-chat/:id",
     element: (
       <AuthWrapper>
-        <BubbleChatPage />
+        <BubbleChat />
       </AuthWrapper>
     ),
   },
