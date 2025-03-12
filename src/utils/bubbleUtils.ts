@@ -72,6 +72,74 @@ export const createTextCanvas = (text: string, fontSize: number = 32) => {
   return canvas;
 };
 
+// Create rate limiter for API requests, message sending, etc.
+export const createRateLimiter = (maxRequests: number, timeWindowMs: number) => {
+  let requestTimestamps: number[] = [];
+  
+  return {
+    canMakeRequest: () => {
+      const now = Date.now();
+      
+      // Remove expired timestamps
+      requestTimestamps = requestTimestamps.filter(
+        timestamp => now - timestamp < timeWindowMs
+      );
+      
+      // Check if under the limit
+      if (requestTimestamps.length < maxRequests) {
+        requestTimestamps.push(now);
+        return true;
+      }
+      
+      return false;
+    },
+    
+    getWaitTime: () => {
+      const now = Date.now();
+      
+      if (requestTimestamps.length === 0) {
+        return 0;
+      }
+      
+      // Sort timestamps and find the oldest one
+      const oldestTimestamp = [...requestTimestamps].sort()[0];
+      
+      // Calculate when this request will expire
+      const waitTime = timeWindowMs - (now - oldestTimestamp);
+      return Math.max(0, waitTime);
+    },
+    
+    reset: () => {
+      requestTimestamps = [];
+    }
+  };
+};
+
+// Create retry handler for API calls
+export const createRetryHandler = (maxRetries: number, delayMs: number) => {
+  return async (fn: () => Promise<any>) => {
+    let attempts = 0;
+    
+    while (attempts < maxRetries) {
+      try {
+        return await fn();
+      } catch (error) {
+        attempts++;
+        
+        if (attempts >= maxRetries) {
+          throw error;
+        }
+        
+        // Exponential backoff
+        const backoffDelay = delayMs * Math.pow(2, attempts - 1);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+  };
+};
+
 // Manage realtime channel connections
 export const connectionManager = {
   channels: {} as Record<string, any>,
