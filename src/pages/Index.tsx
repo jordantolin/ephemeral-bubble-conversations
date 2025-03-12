@@ -63,7 +63,7 @@ const Index = () => {
       await addPoints(10, 'reflection');
       
       // Increment progress for the reflection master achievement
-      await incrementAchievementProgress('reflection-master');
+      await incrementAchievementProgress('reflection-master' as AchievementId);
       
       // Refresh gamification profile to ensure all achievements are up to date
       await refreshGamificationProfile();
@@ -77,7 +77,7 @@ const Index = () => {
       await addPoints(5, 'message');
       
       // Increment progress for the social butterfly achievement
-      await incrementAchievementProgress('social-butterfly');
+      await incrementAchievementProgress('social-butterfly' as AchievementId);
     }
   };
   
