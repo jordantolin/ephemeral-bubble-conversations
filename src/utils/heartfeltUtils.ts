@@ -1,4 +1,3 @@
-
 import { ConnectionNode, ConnectionLink } from '@/types/heartfelt';
 
 // Generate a heart shape for nodes
@@ -125,4 +124,10 @@ export const getRelationshipColor = (type: string): string => {
 export const calculateLinkStrength = (link: ConnectionLink): number => {
   // Combine frequency and strength for visual weight
   return (link.strength + link.frequency) / 2;
+};
+
+// Export the generateSampleData function that's required in HeartfeltConnections
+export const generateSampleData = (): { nodes: ConnectionNode[], links: ConnectionLink[] } => {
+  // This function will call the existing generateSampleConnections function
+  return generateSampleConnections();
 };
