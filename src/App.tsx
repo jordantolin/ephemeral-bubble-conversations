@@ -1,94 +1,60 @@
+import React from 'react';
+import {
+  createBrowserRouter,
+  RouterProvider,
+} from "react-router-dom";
+import Index from "@/pages/Index";
+import Profile from "@/pages/Profile";
+import BubbleChatPage from "@/pages/BubbleChatPage";
+import NotFound from "@/pages/NotFound";
+import Legal from "@/pages/Legal";
+import AuthWrapper from "@/components/AuthWrapper";
+import HeartfeltConnectionsPage from '@/pages/HeartfeltConnectionsPage';
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import Index from "./pages/Index";
-import Feed from "./pages/Feed";
-import BubbleChat from "./pages/BubbleChat";
-import MyBubbles from "./pages/MyBubbles";
-import Profile from "./pages/Profile";
-import Achievements from "./pages/Achievements";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
-import { AuthProvider } from "./context/AuthContext";
-import RequireAuth from "./components/RequireAuth";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { NetworkProvider } from "./context/NetworkContext";
-import { GamificationProvider } from "./context/GamificationContext";
-import ErrorBoundary from "./components/errorHandling/ErrorBoundary";
-import OfflineIndicator from "./components/network/OfflineIndicator";
-import AchievementPopup from "./components/gamification/AchievementPopup";
-import "./App.css";
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: (
+      <AuthWrapper>
+        <Index />
+      </AuthWrapper>
+    ),
+  },
+  {
+    path: "/profile/:id",
+    element: (
+      <AuthWrapper>
+        <Profile />
+      </AuthWrapper>
+    ),
+  },
+  {
+    path: "/bubble-chat/:id",
+    element: (
+      <AuthWrapper>
+        <BubbleChatPage />
+      </AuthWrapper>
+    ),
+  },
+  {
+    path: "/legal",
+    element: <Legal />,
+  },
+  {
+    path: "*",
+    element: <NotFound />,
+  },
+  {
+    path: "/heartfelt",
+    element: (
+      <HeartfeltConnectionsPage />
+    ),
+  },
+]);
 
 function App() {
-  // Create a query client with better configuration for reliability
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-        retry: 1, // Reduced retries for better user experience
-        retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000),
-        staleTime: 5000,
-      },
-      mutations: {
-        // Add error handling for mutations
-        retry: 1,
-        onError: (error) => {
-          console.error('Mutation error:', error);
-        }
-      },
-    },
-  });
-
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <NetworkProvider>
-            <AuthProvider>
-              <GamificationProvider>
-                <div className="bg-[#FEF7E4] min-h-screen w-full">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/auth/logout" element={<Auth />} />
-                    <Route path="/feed" element={
-                      <RequireAuth>
-                        <Feed />
-                      </RequireAuth>
-                    } />
-                    <Route path="/bubble/:id" element={
-                      <RequireAuth>
-                        <BubbleChat />
-                      </RequireAuth>
-                    } />
-                    <Route path="/my-bubbles" element={
-                      <RequireAuth>
-                        <MyBubbles />
-                      </RequireAuth>
-                    } />
-                    <Route path="/profile" element={
-                      <RequireAuth>
-                        <Profile />
-                      </RequireAuth>
-                    } />
-                    <Route path="/achievements" element={
-                      <RequireAuth>
-                        <Achievements />
-                      </RequireAuth>
-                    } />
-                    <Route path="/404" element={<NotFound />} />
-                    <Route path="*" element={<Navigate to="/404" replace />} />
-                  </Routes>
-                  <OfflineIndicator />
-                  <Toaster />
-                  <AchievementPopup />
-                </div>
-              </GamificationProvider>
-            </AuthProvider>
-          </NetworkProvider>
-        </Router>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <RouterProvider router={router} />
   );
 }
 
