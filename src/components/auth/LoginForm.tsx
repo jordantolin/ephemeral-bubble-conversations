@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 interface LocationState {
   from?: {
@@ -67,6 +67,7 @@ export function LoginForm() {
       toast({
         title: "Login successful!",
         description: "Welcome back to Bubble Trouble",
+        className: "toast-success",
       });
       
       // Navigate to the page the user was trying to access before being redirected to login
@@ -78,6 +79,7 @@ export function LoginForm() {
         title: "Login failed",
         description: error.message,
         variant: "destructive",
+        className: "toast-error",
       });
     } finally {
       setIsLoading(false);
@@ -85,7 +87,7 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="border-[#ebbd34]/20 bg-white/80 backdrop-blur-md w-full max-w-md mx-auto">
+    <Card className="border-[#ebbd34]/20 bg-white/80 backdrop-blur-md w-full max-w-md mx-auto animate-scaleIn">
       <CardHeader>
         <CardTitle className="text-[#ebbd34]">Welcome Back</CardTitle>
         <CardDescription>Enter your credentials to continue</CardDescription>
@@ -93,7 +95,7 @@ export function LoginForm() {
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           {error && (
-            <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded relative animate-fadeIn" role="alert">
               <div className="flex items-start">
                 <div className="py-1">
                   <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
@@ -117,6 +119,7 @@ export function LoginForm() {
               className="border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]/20"
               required
               aria-invalid={error && !loginForm.email ? "true" : "false"}
+              autoComplete="email"
             />
           </div>
           <div className="space-y-2">
@@ -131,16 +134,22 @@ export function LoginForm() {
               className="border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]/20"
               required
               aria-invalid={error && !loginForm.password ? "true" : "false"}
+              autoComplete="current-password"
             />
           </div>
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <Button 
             type="submit"
-            className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+            className="w-full bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white transition-all"
             disabled={isLoading}
           >
-            {isLoading ? "Logging in..." : "Login"}
+            {isLoading ? (
+              <span className="flex items-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging in...
+              </span>
+            ) : "Login"}
           </Button>
           <p className="text-sm text-gray-500">
             Don't have an account? <a href="/auth?tab=register" className="text-[#ebbd34] hover:underline">Sign up</a>
