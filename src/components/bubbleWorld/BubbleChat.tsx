@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -63,6 +64,8 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
+  
+  // Explicitly type the entire object returned from useGamification
   const gamification = useGamification() as GamificationContextType;
   
   const reflectOnBubble = async () => {
@@ -100,8 +103,8 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
+      // Call methods from the fully typed gamification object
       await gamification.addPoints(10, 'reflection');
-
       await gamification.incrementAchievementProgress('reflection-master');
 
       toast({
