@@ -61,12 +61,28 @@ const Index = () => {
       // Add points for the reflection
       await addPoints(10, 'reflection');
       
-      // Check "reflection-master" achievement
-      await checkAchievement('reflection-master');
+      // Increment progress for the reflection master achievement
+      await incrementAchievementProgress('reflection-master');
       
       // Refresh gamification profile to ensure all achievements are up to date
       await refreshGamificationProfile();
     }
+  };
+  
+  // Handle sending messages with gamification
+  const handleSendMessage = async () => {
+    if (user) {
+      // Add points for sending a message
+      await addPoints(5, 'message');
+      
+      // Increment progress for the social butterfly achievement
+      await incrementAchievementProgress('social-butterfly');
+    }
+  };
+  
+  // Increment achievement progress
+  const incrementAchievementProgress = async (achievementId: string) => {
+    await checkAchievement(achievementId);
   };
   
   // Check URL params for bubble to open
@@ -92,7 +108,7 @@ const Index = () => {
     if (user) {
       refreshGamificationProfile();
     }
-  }, [user, refreshGamificationProfile]);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">

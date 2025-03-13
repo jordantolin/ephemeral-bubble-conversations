@@ -9,7 +9,6 @@ import { motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
-import LevelProgress from "@/components/gamification/LevelProgress";
 
 interface BubbleWorldContentProps {
   isLoadingBubbles: boolean;
@@ -64,11 +63,6 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
               Achievements
             </Button>
           </Link>
-        </div>
-        
-        {/* Add visible level progress bar */}
-        <div className="mt-2">
-          <LevelProgress minimal={true} />
         </div>
       </motion.div>
     );
