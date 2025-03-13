@@ -46,6 +46,7 @@ const Index = () => {
   const searchParams = new URLSearchParams(location.search);
   const bubbleToOpen = searchParams.get('bubble');
   
+  // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
     
@@ -53,6 +54,7 @@ const Index = () => {
     // in the CreateBubbleDialog component
   };
   
+  // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
     await handleReflect(bubbleId);
     
@@ -68,6 +70,7 @@ const Index = () => {
     }
   };
   
+  // Handle sending messages with gamification
   const handleSendMessage = async () => {
     if (user) {
       // Add points for sending a message
@@ -78,10 +81,12 @@ const Index = () => {
     }
   };
   
+  // Increment achievement progress
   const incrementAchievementProgress = async (achievementId: AchievementId) => {
     await checkAchievement(achievementId);
   };
   
+  // Check URL params for bubble to open
   useEffect(() => {
     if (bubbleToOpen) {
       setSelectedBubbleId(bubbleToOpen);
@@ -89,6 +94,7 @@ const Index = () => {
     }
   }, [bubbleToOpen, setSelectedBubbleId, setChatOpen]);
 
+  // Check for stored bubble ID (from profile page clicks)
   useEffect(() => {
     const storedBubbleId = localStorage.getItem('openBubbleId');
     if (storedBubbleId) {
@@ -98,6 +104,7 @@ const Index = () => {
     }
   }, [setSelectedBubbleId, setChatOpen]);
   
+  // Refresh gamification profile when the component mounts
   useEffect(() => {
     if (user) {
       refreshGamificationProfile();
@@ -106,14 +113,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
+      {/* Reconnection indicator */}
       <ReconnectionIndicator isReconnecting={isReconnecting} />
       
+      {/* Navigation */}
       <NavigationBar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
       
       <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
+        {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
           <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
           
@@ -128,11 +138,13 @@ const Index = () => {
         </div>
       </div>
       
+      {/* New Bubble Dialog */}
       <CreateBubbleDialog 
         open={newBubbleDialog} 
         onOpenChange={setNewBubbleDialog} 
       />
       
+      {/* Chat Dialog */}
       <BubbleChat
         chatOpen={chatOpen}
         setChatOpen={setChatOpen}
@@ -146,6 +158,7 @@ const Index = () => {
         handleReflect={handleReflectWithGamification}
       />
       
+      {/* Gamification Components */}
       <DailyStreakIndicator />
       <AchievementPopup />
     </div>

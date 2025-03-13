@@ -1,4 +1,0 @@
-// This file should be replaced with a specular map for Earth's surface (2048×1024px minimum).
-// The specular map controls light reflection characteristics - oceans should be more reflective than land.
-// Darker areas will be less reflective, brighter areas more reflective.
-// Keep file size under 1MB for optimal loading performance.

@@ -1,4 +1,3 @@
-
 import { useRef, useCallback } from 'react';
 import * as THREE from 'three';
 
@@ -6,7 +5,7 @@ export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 3, // Closer minimum zoom for better Earth visibility
+    min: 4, // Increased minimum zoom for better mobile visibility
     max: 30
   });
 
@@ -14,73 +13,48 @@ export const useCameraControls = () => {
     x: 0,
     y: 0,
     targetX: 0,
-    targetY: 0,
-    velocityX: 0,
-    velocityY: 0,
-    inertia: 0.95 // Inertia coefficient (0-1)
+    targetY: 0
   });
 
   const mouseRef = useRef({
     startX: 0,
     startY: 0,
-    lastX: 0,
-    lastY: 0,
     isDragging: false,
     lastPinchDistance: 0,
-    moveThreshold: 5, // Threshold to determine if it's a drag or tap
-    lastTime: 0 // For calculating velocity
+    moveThreshold: 5 // Threshold to determine if it's a drag or tap
   });
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
-    mouseRef.current.isDragging = true;
+    mouseRef.current.isDragging = false;
     mouseRef.current.startX = event.clientX;
     mouseRef.current.startY = event.clientY;
-    mouseRef.current.lastX = event.clientX;
-    mouseRef.current.lastY = event.clientY;
-    mouseRef.current.lastTime = performance.now();
-    
-    // Reset velocity when starting a new drag
-    rotationRef.current.velocityX = 0;
-    rotationRef.current.velocityY = 0;
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!mouseRef.current.isDragging) return;
-    
-    const now = performance.now();
-    const deltaTime = now - mouseRef.current.lastTime;
-    
-    if (deltaTime === 0) return;
-    
-    const deltaX = event.clientX - mouseRef.current.lastX;
-    const deltaY = event.clientY - mouseRef.current.lastY;
-    
-    // Calculate instantaneous velocity
-    rotationRef.current.velocityX = deltaX / deltaTime * 16; // Scaled for 60fps
-    rotationRef.current.velocityY = deltaY / deltaTime * 16;
-    
-    // Update rotation targets
+    const deltaX = event.clientX - mouseRef.current.startX;
+    const deltaY = event.clientY - mouseRef.current.startY;
+
+    // Check if movement exceeds threshold
+    if (Math.abs(deltaX) > mouseRef.current.moveThreshold || 
+        Math.abs(deltaY) > mouseRef.current.moveThreshold) {
+      mouseRef.current.isDragging = true;
+    }
+
     rotationRef.current.targetY += deltaX * 0.004;
     rotationRef.current.targetX += deltaY * 0.004;
-    
+
     // Limit vertical rotation
-    rotationRef.current.targetX = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, rotationRef.current.targetX));
-    
-    // Store current position and time for next calculation
-    mouseRef.current.lastX = event.clientX;
-    mouseRef.current.lastY = event.clientY;
-    mouseRef.current.lastTime = now;
+    rotationRef.current.targetX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.targetX));
+
+    mouseRef.current.startX = event.clientX;
+    mouseRef.current.startY = event.clientY;
   }, []);
 
   const handleMouseUp = useCallback(() => {
+    // Keep track of dragging state
+    const wasDragging = mouseRef.current.isDragging;
     mouseRef.current.isDragging = false;
-  }, []);
-
-  const handleDoubleClick = useCallback(() => {
-    // Reset to default view
-    rotationRef.current.targetX = 0;
-    rotationRef.current.targetY = 0;
-    zoomRef.current.target = 16;
+    return wasDragging;
   }, []);
 
   const handleWheel = useCallback((event: WheelEvent) => {
@@ -117,20 +91,6 @@ export const useCameraControls = () => {
   const updateCamera = useCallback((camera: THREE.Camera) => {
     if (!camera) return;
 
-    // Apply inertia when not dragging
-    if (!mouseRef.current.isDragging) {
-      rotationRef.current.velocityX *= rotationRef.current.inertia;
-      rotationRef.current.velocityY *= rotationRef.current.inertia;
-      
-      if (Math.abs(rotationRef.current.velocityX) > 0.01 || Math.abs(rotationRef.current.velocityY) > 0.01) {
-        rotationRef.current.targetY += rotationRef.current.velocityX * 0.004;
-        rotationRef.current.targetX += rotationRef.current.velocityY * 0.004;
-        
-        // Limit vertical rotation
-        rotationRef.current.targetX = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, rotationRef.current.targetX));
-      }
-    }
-
     // Smoother rotation transitions
     rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.1;
     rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.1;
@@ -152,7 +112,6 @@ export const useCameraControls = () => {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    handleDoubleClick,
     handleWheel,
     handlePinchZoom,
     updateCamera,
