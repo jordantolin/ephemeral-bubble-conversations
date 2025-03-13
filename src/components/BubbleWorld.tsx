@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
@@ -76,7 +75,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
     };
 
     const touchEndHandler = () => {
-      handleMouseUp({} as MouseEvent);
+      handleMouseUp();
       mouseRef.current.lastPinchDistance = 0;
     };
 
@@ -102,9 +101,8 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
     const angle = (index / total) * Math.PI * 2;
     const distance = 3 + (topic.size === "lg" ? 1 : topic.size === "md" ? 0.5 : 0);
     
-    // Calculate position in 3D space
     const x = Math.cos(angle) * distance;
-    const y = (Math.random() - 0.5) * 2; // Slight vertical variation
+    const y = (Math.random() - 0.5) * 2;
     const z = Math.sin(angle) * distance;
     
     return {
@@ -139,10 +137,8 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} intensity={1} />
         
-        {/* Earth as the central element */}
         <Earth3D scale={1.5} rotationSpeed={0.001} />
         
-        {/* Topic bubbles */}
         {positionedTopics.map((topic) => (
           <mesh
             key={topic.id}
@@ -167,7 +163,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
         <Stars radius={100} depth={50} count={5000} factor={4} fade speed={1} />
       </Canvas>
       
-      {/* Display bubble labels */}
       {positionedTopics.map((topic) => {
         const vector = new THREE.Vector3(topic.x, topic.y, topic.z);
         vector.project(new THREE.PerspectiveCamera(50, dimensions.width / dimensions.height, 0.1, 1000));
@@ -175,7 +170,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
         const x = (vector.x * 0.5 + 0.5) * dimensions.width;
         const y = (-(vector.y * 0.5) + 0.5) * dimensions.height;
         
-        // Only show label if bubble is in front of the Earth (z > 0)
         const isVisible = topic.z > 0;
         
         return isVisible && (
@@ -185,7 +179,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ topics, onBubbleClick }) => {
             style={{
               left: `${x}px`,
               top: `${y}px`,
-              opacity: Math.min(1, topic.z * 0.5 + 0.5), // Fade based on z-position
+              opacity: Math.min(1, topic.z * 0.5 + 0.5),
             }}
             onClick={(e) => handleBubbleClick(e, topic.id)}
           >
