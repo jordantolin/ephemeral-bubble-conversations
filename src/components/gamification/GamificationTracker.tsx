@@ -4,6 +4,7 @@ import { useLoginStreak } from "@/hooks/useLoginStreak";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { GamificationContextType } from "@/types/gamification";
 
 // This component should be included in a main layout component 
 // to track achievements without adding any visual elements
@@ -13,7 +14,7 @@ const GamificationTracker: React.FC = () => {
     refreshGamificationProfile, 
     checkAchievement, 
     incrementAchievementProgress 
-  } = useGamification();
+  } = useGamification() as GamificationContextType;
   const [isMounted, setIsMounted] = useState(false);
   
   // Use the login streak hook
@@ -46,6 +47,11 @@ const GamificationTracker: React.FC = () => {
         if (data) {
           const messageCount = data.length;
           await incrementAchievementProgress('social-butterfly', messageCount);
+          
+          // Check if the achievement should be unlocked
+          if (messageCount >= 10) {
+            await checkAchievement('social-butterfly');
+          }
         }
       } catch (error) {
         console.error("Error tracking messages for Social Butterfly achievement:", error);
@@ -53,7 +59,7 @@ const GamificationTracker: React.FC = () => {
     };
 
     trackMessages();
-  }, [user, isMounted, incrementAchievementProgress]);
+  }, [user, isMounted, incrementAchievementProgress, checkAchievement]);
 
   // Track Reflection Master achievement
   useEffect(() => {
@@ -72,7 +78,14 @@ const GamificationTracker: React.FC = () => {
         if (data) {
           // Get unique reflection count
           const uniqueBubbles = new Set(data.map(reflection => reflection.bubble_id));
-          await incrementAchievementProgress('reflection-master', uniqueBubbles.size);
+          const reflectionCount = uniqueBubbles.size;
+          
+          await incrementAchievementProgress('reflection-master', reflectionCount);
+          
+          // Check if the achievement should be unlocked
+          if (reflectionCount >= 5) {
+            await checkAchievement('reflection-master');
+          }
         }
       } catch (error) {
         console.error("Error tracking reflections for Reflection Master achievement:", error);
@@ -80,7 +93,7 @@ const GamificationTracker: React.FC = () => {
     };
 
     trackReflections();
-  }, [user, isMounted, incrementAchievementProgress]);
+  }, [user, isMounted, incrementAchievementProgress, checkAchievement]);
 
   // Track Popular Bubble achievement
   useEffect(() => {
@@ -100,7 +113,7 @@ const GamificationTracker: React.FC = () => {
 
         if (data && data.length > 0) {
           // If any popular bubble exists, unlock the achievement
-          await checkAchievement('popular-bubble', 5);
+          await checkAchievement('popular-bubble');
         }
       } catch (error) {
         console.error("Error tracking popular bubbles achievement:", error);

@@ -3,10 +3,11 @@ import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useGamification } from "@/context/GamificationContext";
 import { updateDailyStreakInDB } from "@/services/gamificationService";
+import { GamificationContextType } from "@/types/gamification";
 
 export const useLoginStreak = () => {
   const { user } = useAuth();
-  const { profile, checkAchievement } = useGamification();
+  const { profile, checkAchievement, addPoints } = useGamification() as GamificationContextType;
 
   useEffect(() => {
     if (!user) return;
@@ -35,6 +36,15 @@ export const useLoginStreak = () => {
           const newStreak = profile.dailyStreak + 1;
           updateDailyStreakInDB(user.id, newStreak, today);
           
+          // Add daily streak points (base 10 + 5 per day of streak)
+          const streakPoints = 10 + (newStreak * 5);
+          addPoints(streakPoints);
+          
+          // Add bonus points for milestone streaks (every 5 days)
+          if (newStreak % 5 === 0) {
+            addPoints(newStreak * 10, 'bubble');
+          }
+          
           // Check for streak achievement when streak reaches 3 or more days
           if (newStreak >= 3) {
             checkAchievement('daily-streak-3', newStreak);
@@ -46,7 +56,7 @@ export const useLoginStreak = () => {
         }
       }
     }
-  }, [user, profile.dailyStreak, checkAchievement]);
+  }, [user, profile.dailyStreak, checkAchievement, addPoints]);
 
   return null;
 };
