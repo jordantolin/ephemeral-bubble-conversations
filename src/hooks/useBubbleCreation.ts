@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,6 +34,9 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPoints, checkAchievement } = useGamification();
+  const [location, setLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Initialize form with react-hook-form
   const form = useForm<BubbleCreationForm>({
@@ -44,6 +47,31 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       description: "",
     },
   });
+
+  // Get user's geolocation
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setIsGettingLocation(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+          setIsGettingLocation(false);
+          setLocationError(null);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          setLocationError("Unable to get your location. Bubbles will be placed randomly.");
+          setIsGettingLocation(false);
+        },
+        { timeout: 10000, enableHighAccuracy: true }
+      );
+    } else {
+      setLocationError("Geolocation is not supported by your browser. Bubbles will be placed randomly.");
+    }
+  }, []);
 
   // Function to calculate expiry time (24 hours from now)
   const calculateExpiryTime = () => {
@@ -71,7 +99,13 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       // Calculate expiry time (24 hours from now)
       const expiryTime = calculateExpiryTime();
       
-      // Insert new bubble
+      // Generate random coordinates if location is not available
+      const bubbleLocation = location || {
+        latitude: (Math.random() * 180) - 90,  // Random latitude between -90 and 90
+        longitude: (Math.random() * 360) - 180  // Random longitude between -180 and 180
+      };
+      
+      // Insert new bubble with location data
       const { data: newBubble, error } = await supabase
         .from("bubbles")
         .insert({
@@ -81,6 +115,8 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
           username,
           size: "sm", // Default size for new bubbles
           expires_at: expiryTime,
+          latitude: bubbleLocation.latitude,
+          longitude: bubbleLocation.longitude
         })
         .select()
         .single();
@@ -134,5 +170,8 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
     form,
     isSubmitting,
     onSubmit: form.handleSubmit(onSubmit),
+    isGettingLocation,
+    locationError,
+    hasLocation: !!location
   };
 };

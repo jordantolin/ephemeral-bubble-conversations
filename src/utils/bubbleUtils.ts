@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { geoToCartesian } from './geoCoordinates';
 
 // Collection of active channels for better management
 const activeChannels: { [key: string]: RealtimeChannel } = {};
@@ -156,6 +157,26 @@ export const createBubbleGeometry = (size: number) => {
   return new THREE.SphereGeometry(size, segments, segments);
 };
 
+// Create Earth geometry
+export const createEarthGeometry = (radius: number) => {
+  const segments = 64; // Higher detail for the Earth
+  return new THREE.SphereGeometry(radius, segments, segments);
+};
+
+// Create Earth material with texture
+export const createEarthMaterial = () => {
+  const textureLoader = new THREE.TextureLoader();
+  const earthTexture = textureLoader.load('/lovable-uploads/earth-texture.jpg');
+  
+  return new THREE.MeshPhysicalMaterial({
+    map: earthTexture,
+    metalness: 0.1,
+    roughness: 0.8,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.2,
+  });
+};
+
 // Create bubble material with improved appearance
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
@@ -170,6 +191,13 @@ export const createBubbleMaterial = () => {
     opacity: 0.6,
     side: THREE.DoubleSide,
   });
+};
+
+// Calculate bubble position based on geographic coordinates
+export const calculateBubblePosition = (latitude: number, longitude: number, radius: number, bubbleSize: number) => {
+  // Convert from geographic to Cartesian coordinates
+  const position = geoToCartesian(latitude, longitude, radius + bubbleSize * 0.5);
+  return position;
 };
 
 // Create text canvas with improved readability

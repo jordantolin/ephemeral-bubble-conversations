@@ -1,6 +1,6 @@
 
-import React from "react";
-import { Clock, Plus, X, Trophy, Star, Award, RefreshCw } from "lucide-react";
+import React, { useState } from "react";
+import { Clock, Plus, X, Trophy, Star, Award, RefreshCw, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
@@ -10,6 +10,7 @@ import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
 import { GamificationContextType } from "@/types/gamification";
+import { getLocationName } from "@/utils/geoCoordinates";
 
 interface BubbleWorldContentProps {
   isLoadingBubbles: boolean;
@@ -31,6 +32,16 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   const queryClient = useQueryClient();
   const { profile, isLoading: isLoadingGamification } = useGamification() as GamificationContextType;
   const { user } = useAuth();
+  const [showLocationInfo, setShowLocationInfo] = useState<string | null>(null);
+
+  // Handle hovering over a bubble to show its location
+  const handleBubbleHover = (bubble: BubbleData | null) => {
+    if (bubble && bubble.latitude && bubble.longitude) {
+      setShowLocationInfo(getLocationName(bubble.latitude, bubble.longitude));
+    } else {
+      setShowLocationInfo(null);
+    }
+  };
 
   // Gamification indicators
   const renderGamificationStatus = () => {
@@ -64,6 +75,25 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
               Achievements
             </Button>
           </Link>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // Location information display
+  const renderLocationInfo = () => {
+    if (!showLocationInfo) return null;
+    
+    return (
+      <motion.div 
+        className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-[#ebbd34]/20"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+      >
+        <div className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-[#ebbd34]" />
+          <span className="text-xs font-medium text-gray-700">{showLocationInfo}</span>
         </div>
       </motion.div>
     );
@@ -135,9 +165,11 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   return (
     <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
       {renderGamificationStatus()}
+      {renderLocationInfo()}
       <BubbleWorld 
         topics={bubbleDataForComponent}
         onBubbleClick={onBubbleClick}
+        onBubbleHover={handleBubbleHover}
       />
     </div>
   );

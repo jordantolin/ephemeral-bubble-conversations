@@ -10,6 +10,8 @@ export interface BubbleData {
   description?: string;
   expires_at?: string;
   isExploding?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface BubbleWorldProps {

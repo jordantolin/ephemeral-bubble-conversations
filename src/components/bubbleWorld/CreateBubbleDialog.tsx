@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CreateBubbleDialogProps {
   open: boolean;
@@ -45,7 +46,14 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
   const [topic, setTopic] = useState("");
   
   // Use the hook with an onSuccess callback to handle achievements after creation
-  const { form, isSubmitting, onSubmit } = useBubbleCreation(() => {
+  const { 
+    form, 
+    isSubmitting, 
+    onSubmit, 
+    isGettingLocation, 
+    locationError, 
+    hasLocation 
+  } = useBubbleCreation(() => {
     // This will run after successful bubble creation
     
     // Reset form values
@@ -56,7 +64,7 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
     // Close dialog
     onOpenChange(false);
     
-    // Refresh bubbles list
+    // Refresh bubbles query
     queryClient.invalidateQueries({ queryKey: ['bubbles'] });
   });
   
@@ -108,6 +116,42 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
         variant: "destructive"
       });
     }
+  };
+
+  // Render location status
+  const renderLocationStatus = () => {
+    if (isGettingLocation) {
+      return (
+        <Alert className="mt-2">
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          <AlertDescription>
+            Getting your location to place your bubble on the map...
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (locationError) {
+      return (
+        <Alert variant="destructive" className="mt-2">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>{locationError}</AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (hasLocation) {
+      return (
+        <Alert className="mt-2 bg-[#ebbd34]/10 text-[#ebbd34] border-[#ebbd34]/20">
+          <MapPin className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            Your bubble will be placed on the map at your current location.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    return null;
   };
   
   return (
@@ -181,6 +225,9 @@ const CreateBubbleDialog: React.FC<CreateBubbleDialogProps> = ({
               maxLength={200}
             />
           </div>
+          
+          {/* Location Status */}
+          {renderLocationStatus()}
         </div>
         
         <DialogFooter>

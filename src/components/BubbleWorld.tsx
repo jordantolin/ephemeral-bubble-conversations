@@ -26,7 +26,7 @@ const formatTimeRemaining = (expiryTime: Date) => {
   }
 };
 
-const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
+const BubbleWorld = ({ topics, onBubbleClick, onBubbleHover }: BubbleWorldProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bubblesRef = useRef<{ [key: string]: THREE.Group }>({});
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -853,15 +853,5 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       cameraRef.current = null;
       centralWorldRef.current = null;
     };
-  }, [topics, onBubbleClick, navigate]);
+  }, [topics, onBubbleClick, onBubbleHover,
 
-  return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full touch-none select-none"
-      style={{ touchAction: 'none' }}
-    />
-  );
-};
-
-export default BubbleWorld;
