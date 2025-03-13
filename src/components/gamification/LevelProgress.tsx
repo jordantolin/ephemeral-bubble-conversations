@@ -40,7 +40,12 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
         >
           {profile.level}
         </motion.div>
-        <Progress value={progressPercentage} className="w-14 h-2 bg-[#ebbd34]/20" />
+        <Progress 
+          value={progressPercentage} 
+          className="w-14 h-2" 
+          progressColor="bg-[#ebbd34]" 
+          backgroundColor="bg-[#ebbd34]/20" 
+        />
       </div>
     );
   }
@@ -68,7 +73,9 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
       <div className="flex items-center gap-2">
         <Progress 
           value={progressPercentage} 
-          className="h-2 bg-[#ebbd34]/20 flex-1" 
+          className="h-2 flex-1" 
+          progressColor="bg-[#ebbd34]" 
+          backgroundColor="bg-[#ebbd34]/20" 
         />
         <span className="text-xs text-gray-500 whitespace-nowrap">
           {currentLevelPoints}/{pointsNeeded}
