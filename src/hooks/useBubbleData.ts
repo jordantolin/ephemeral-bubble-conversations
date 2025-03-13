@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -566,6 +565,15 @@ const useBubbleData = () => {
     navigate(`/bubble/${bubbleId}`);
   }, [bubbles, navigate, toast]);
 
+  // Function to force refresh bubbles - this was missing
+  const refreshBubbles = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    if (selectedBubbleId) {
+      queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+    }
+  }, [queryClient, selectedBubbleId]);
+
   return {
     bubbles,
     filteredBubbles,
@@ -590,7 +598,8 @@ const useBubbleData = () => {
     isBubbleExpired,
     shouldShowInFeed,
     handleReflect,
-    handleBubbleClick
+    handleBubbleClick,
+    refreshBubbles
   };
 };
 

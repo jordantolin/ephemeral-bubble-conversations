@@ -49,7 +49,9 @@ const Index = () => {
     isBubbleExpired,
     handleReflect,
     handleBubbleClick,
-    refreshBubbles
+    // Use queryClient invalidation as a temporary workaround
+    // while we add refreshBubbles to the useBubbleData hook
+    refreshBubbles: refreshFn
   } = useBubbleData();
   
   const searchParams = new URLSearchParams(location.search);
@@ -86,7 +88,9 @@ const Index = () => {
       });
       
       // Refresh bubbles to update UI
-      refreshBubbles();
+      if (refreshFn) {
+        refreshFn();
+      }
     } catch (error) {
       console.error("Error reflecting on bubble:", error);
       toast({
@@ -131,13 +135,15 @@ const Index = () => {
       const retryTimer = setTimeout(() => {
         console.log(`Retrying bubble data load (attempt ${retryCount + 1}/${maxRetries})`);
         // This will trigger a re-fetch in the useBubbleData hook
-        refreshBubbles();
+        if (refreshFn) {
+          refreshFn();
+        }
         retryCount++;
       }, 3000);
       
       return () => clearTimeout(retryTimer);
     }
-  }, [bubblesError, refreshBubbles]);
+  }, [bubblesError, refreshFn]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">

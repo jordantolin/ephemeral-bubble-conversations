@@ -42,16 +42,21 @@ export const deserializeAchievements = (serialized: Json): AchievementType[] => 
   }
   
   try {
-    return serialized.map(ach => ({
-      id: ach.id || 'unknown',
-      name: ach.name || 'Unknown Achievement',
-      description: ach.description || 'No description available',
-      icon: getIconFromType(ach.iconType || 'award'),
-      points: typeof ach.points === 'number' ? ach.points : 50,
-      unlocked: Boolean(ach.unlocked),
-      progress: typeof ach.progress === 'number' ? ach.progress : undefined,
-      maxProgress: typeof ach.maxProgress === 'number' ? ach.maxProgress : undefined
-    }));
+    return serialized.map(ach => {
+      // Safely access properties with proper type checking
+      const achievement = ach as Record<string, any>;
+      
+      return {
+        id: typeof achievement.id === 'string' ? achievement.id : 'unknown',
+        name: typeof achievement.name === 'string' ? achievement.name : 'Unknown Achievement',
+        description: typeof achievement.description === 'string' ? achievement.description : 'No description available',
+        icon: getIconFromType(typeof achievement.iconType === 'string' ? achievement.iconType : 'award'),
+        points: typeof achievement.points === 'number' ? achievement.points : 50,
+        unlocked: Boolean(achievement.unlocked),
+        progress: typeof achievement.progress === 'number' ? achievement.progress : undefined,
+        maxProgress: typeof achievement.maxProgress === 'number' ? achievement.maxProgress : undefined
+      };
+    });
   } catch (error) {
     console.error("Error deserializing achievements:", error);
     return defaultAchievements;
