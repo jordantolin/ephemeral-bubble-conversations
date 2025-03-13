@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -65,7 +64,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
   
-  const gamification = useGamification() as GamificationContextType;
+  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
   
   const reflectOnBubble = async () => {
     if (!user) return false;
@@ -102,12 +101,9 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      await gamification.addPoints(10, 'reflection');
+      await addPoints(10, 'reflection');
       
-      // Fix: TypeScript expects a specific type for the achievement ID
-      // Use type assertion to match the expected type in the GamificationContextType
-      const achievementId: string = 'reflection-master';
-      await gamification.incrementAchievementProgress(achievementId);
+      await incrementAchievementProgress('reflection-master');
 
       toast({
         title: "Reflection Added!",
