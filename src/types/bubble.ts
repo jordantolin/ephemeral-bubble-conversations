@@ -12,9 +12,11 @@ export interface BubbleData {
   isExploding?: boolean;
   latitude?: number;
   longitude?: number;
+  location?: string;
 }
 
 export interface BubbleWorldProps {
   topics: BubbleData[];
   onBubbleClick: (id: string) => void;
+  showEarth?: boolean;
 }

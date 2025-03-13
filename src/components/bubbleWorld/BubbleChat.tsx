@@ -1,25 +1,38 @@
 
-import { useState, useRef, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useRef, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, MessageSquare, ThumbsUp, Clock, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { BubbleData } from "@/types/bubble";
+import { getInitials } from "@/utils/bubbleUtils";
+import { Loader2, SendHorizonal, AlertTriangle, ThumbsUp, MapPin, AlertCircle, Clock } from "lucide-react";
 import { useSendBubbleMessage } from "@/hooks/useSendBubbleMessage";
-import { useReflectOnBubble } from "@/hooks/useReflectOnBubble";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { format, formatDistance } from "date-fns";
+import { getLocationName } from "@/utils/geoCoordinates"; 
+
+interface BubbleMessage {
+  id: string;
+  content: string;
+  username: string;
+  created_at: string;
+}
 
 interface BubbleChatProps {
   chatOpen: boolean;
   setChatOpen: (open: boolean) => void;
   selectedBubbleId: string | null;
-  selectedBubble: any;
+  selectedBubble: BubbleData | null;
   isLoadingBubbleDetails: boolean;
-  messages: any[];
+  messages: BubbleMessage[];
   isLoadingMessages: boolean;
-  messagesError: any;
+  messagesError: Error | null;
   isBubbleExpired: boolean;
-  handleReflect: (bubbleId: string) => Promise<void>;
+  handleReflect: (bubbleId: string) => void;
 }
 
 const BubbleChat = ({
@@ -32,180 +45,206 @@ const BubbleChat = ({
   isLoadingMessages,
   messagesError,
   isBubbleExpired,
-  handleReflect
+  handleReflect,
 }: BubbleChatProps) => {
-  const [messageContent, setMessageContent] = useState("");
-  const { sendMessage, isSending } = selectedBubbleId ? useSendBubbleMessage(selectedBubbleId) : { sendMessage: async () => false, isSending: false };
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { sendMessage, isSending } = useSendBubbleMessage(selectedBubbleId || "");
   
-  // Auto-scroll to bottom of messages on new messages
+  // Scroll to bottom of messages
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // Handle sending a message
   const handleSendMessage = async () => {
-    if (!selectedBubbleId || !messageContent.trim()) return;
-    
-    const success = await sendMessage(messageContent);
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to send messages",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newMessage.trim()) return;
+
+    const success = await sendMessage(newMessage);
     if (success) {
-      setMessageContent("");
+      setNewMessage("");
+      // Focus back on textarea
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
     }
   };
 
-  // Helper function to handle message time formatting
-  const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Handle textarea key press (send on Enter without shift)
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
-  // Helper to get colors based on username
-  const getUserColor = (username: string) => {
-    let hash = 0;
-    for (let i = 0; i < username.length; i++) {
-      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  // Format location name from coordinates
+  const formatLocation = (latitude?: number, longitude?: number) => {
+    if (latitude === undefined || longitude === undefined) {
+      return "Unknown location";
     }
-    // Generate pastel colors
-    const h = hash % 360;
-    return `hsl(${h}, 70%, 80%)`;
+    return getLocationName(latitude, longitude);
   };
 
   return (
     <Dialog open={chatOpen} onOpenChange={setChatOpen}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-xl border border-[#ebbd34]/20 shadow-lg">
-        <DialogHeader className="px-4 py-3 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#fef7e4] to-[#faf2d2]">
-          <DialogTitle className="text-center flex items-center justify-center">
-            {isLoadingBubbleDetails ? (
-              <div className="flex justify-center items-center">
-                <Loader2 className="h-5 w-5 animate-spin text-[#ebbd34]" />
-                <span className="ml-2 text-[#ebbd34]">Loading bubble...</span>
-              </div>
-            ) : (
-              <span className="font-semibold text-[#ebbd34] text-lg">{selectedBubble?.name || "Bubble Chat"}</span>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div 
-          className="flex-1 overflow-y-auto py-4 px-3 space-y-4 min-h-[300px] max-h-[60vh] bg-gradient-to-b from-[#fff]/80 to-[#fff]/60 backdrop-blur-sm"
-          aria-live="polite"
-          role="log"
-        >
-          {isLoadingMessages ? (
-            <div className="flex justify-center items-center h-full">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-[#ebbd34] mx-auto mb-2" />
-                <p className="text-[#ebbd34]/70 text-sm">Loading conversation...</p>
-              </div>
-            </div>
-          ) : messagesError ? (
-            <div className="text-center text-red-500 p-4 bg-red-50 rounded-lg flex flex-col items-center">
-              <AlertCircle className="h-8 w-8 mb-2" />
-              <p className="font-medium">Error loading messages</p>
-              <p className="text-sm">Please try refreshing the page</p>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="text-center text-[#ebbd34]/60 p-6 flex flex-col items-center justify-center h-full">
-              <MessageSquare className="h-10 w-10 mb-3 opacity-40" />
-              <p className="font-medium">No messages yet</p>
-              <p className="text-sm mt-1">Be the first to start a conversation!</p>
-            </div>
-          ) : (
-            <AnimatePresence>
-              {messages.map((message, index) => (
-                <motion.div 
-                  key={message.id} 
-                  className={`flex gap-2 ${index === messages.length - 1 ? 'mb-2' : ''}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
-                  <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback 
-                      style={{ backgroundColor: getUserColor(message.username) }}
-                      className="text-white text-xs font-medium"
-                    >
-                      {message.username.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <div className="flex items-baseline">
-                      <div className="text-sm font-medium text-[#ebbd34]">
-                        {message.username.split('@')[0]}
-                      </div>
-                      <div className="text-xs text-[#ebbd34]/50 ml-2">
-                        {formatMessageTime(message.created_at)}
-                      </div>
-                    </div>
-                    <div className="text-sm mt-1 bg-white px-3 py-2 rounded-xl rounded-tl-none shadow-sm">
-                      {message.content}
-                    </div>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
+        {isLoadingBubbleDetails ? (
+          <div className="flex flex-col items-center justify-center p-8 space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-[#ebbd34]" />
+            <p className="text-center text-muted-foreground">Loading bubble details...</p>
+          </div>
+        ) : selectedBubble ? (
+          <>
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-[#ebbd34] text-xl flex items-center gap-2">
+                {selectedBubble.name}
+                <span className="bg-[#ebbd34]/10 text-xs px-2 py-1 rounded-full text-[#ebbd34]">
+                  {selectedBubble.topic}
+                </span>
+              </DialogTitle>
+              
+              <DialogDescription className="text-sm">
+                {selectedBubble.description}
+              </DialogDescription>
+              
+              <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Created: {selectedBubble.created_at ? format(new Date(selectedBubble.created_at), 'PPp') : 'Unknown'}
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <ThumbsUp className="h-3 w-3" />
+                  {selectedBubble.reflect_count || 0} reflections
+                </div>
+                
+                {selectedBubble.latitude && selectedBubble.longitude && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {formatLocation(selectedBubble.latitude, selectedBubble.longitude)}
                   </div>
-                </motion.div>
-              ))}
-              <div ref={messagesEndRef} />
-            </AnimatePresence>
-          )}
-        </div>
+                )}
+              </div>
+              
+              {isBubbleExpired && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-amber-700 text-xs flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span>
+                    This bubble has expired. You can still view the conversation but cannot send new messages.
+                  </span>
+                </div>
+              )}
+            </DialogHeader>
 
-        {!isBubbleExpired && selectedBubbleId ? (
-          <div className="p-3 border-t border-[#ebbd34]/10 bg-white">
-            <Textarea
-              placeholder="Type your message..."
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-              className="resize-none focus-visible:ring-[#ebbd34]/30 border-[#ebbd34]/20 mb-2"
-              rows={2}
-              disabled={isSending}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              aria-label="Message input"
-            />
-            <div className="flex justify-between items-center">
+            <div className="flex-1 overflow-hidden flex flex-col min-h-[60vh]">
+              <ScrollArea className="flex-1 pr-4 -mr-4">
+                {isLoadingMessages ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-[#ebbd34]" />
+                  </div>
+                ) : messagesError ? (
+                  <div className="flex items-center justify-center p-4 text-destructive">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    <span>Error loading messages</span>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <p className="mb-2">No messages yet</p>
+                    <p className="text-sm">Be the first to start the conversation!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 py-4">
+                    {messages.map((message) => (
+                      <div key={message.id} className="flex gap-3">
+                        <Avatar className="h-8 w-8 mt-1">
+                          <AvatarFallback className="bg-[#ebbd34]/20 text-[#ebbd34] text-xs">
+                            {getInitials(message.username)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{message.username}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistance(new Date(message.created_at), new Date(), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <p className="text-sm mt-1 whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </ScrollArea>
+
+              {!isBubbleExpired && (
+                <div className="pt-4 border-t mt-4">
+                  <div className="flex gap-2">
+                    <Textarea
+                      ref={textareaRef}
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Write a message..."
+                      className="min-h-[60px] resize-none border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]"
+                      disabled={isSending || !user}
+                    />
+                    <Button
+                      className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                      disabled={!newMessage.trim() || isSending || !user}
+                      onClick={handleSendMessage}
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <SendHorizonal className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {!user && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Please sign in to participate in the conversation
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 flex justify-between items-center border-t">
+              <div className="text-xs text-muted-foreground">
+                Created by: <span className="font-medium">{selectedBubble.username}</span>
+              </div>
               <Button
+                onClick={() => handleReflect(selectedBubble.id)}
                 variant="outline"
                 size="sm"
-                onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
-                disabled={isLoadingBubbleDetails}
-                className="text-[#ebbd34] border-[#ebbd34]/20 hover:bg-[#ebbd34]/5 hover:text-[#ebbd34] hover:border-[#ebbd34]/30"
-                aria-label="Reflect on this bubble"
+                className="gap-1 text-[#ebbd34] border-[#ebbd34]/20 hover:bg-[#ebbd34]/5"
               >
-                <ThumbsUp className="h-4 w-4 mr-2" />
-                Reflect
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSendMessage}
-                disabled={!messageContent.trim() || isSending}
-                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-                aria-label="Send message"
-              >
-                {isSending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                )}
-                Send
+                <ThumbsUp className="h-4 w-4" />
+                <span>Reflect</span>
               </Button>
             </div>
-            <p className="text-xs text-[#ebbd34]/50 text-center mt-2">
-              Press Enter to send, Shift+Enter for a new line
-            </p>
-          </div>
+          </>
         ) : (
-          <div className="p-4 bg-amber-50 border-t border-amber-200">
-            <div className="flex items-center justify-center gap-2 text-amber-600 mb-1">
-              <Clock className="h-4 w-4" />
-              <span className="font-medium">Bubble Expired</span>
-            </div>
-            <p className="text-sm text-amber-600/80 text-center">
-              This bubble has completed its 24-hour lifecycle and cannot receive new messages.
-            </p>
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+            <p>Bubble not found or has been removed</p>
           </div>
         )}
       </DialogContent>

@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useGamification } from "@/context/GamificationContext";
+import { generateRandomGeoCoordinates, getLocationName } from "@/utils/geoCoordinates";
 
 // Form schema for bubble creation
 const BubbleSchema = z.object({
@@ -37,6 +38,7 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
   const [location, setLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationName, setLocationName] = useState<string | null>(null);
 
   // Initialize form with react-hook-form
   const form = useForm<BubbleCreationForm>({
@@ -54,10 +56,12 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       setIsGettingLocation(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
+          const coords = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
-          });
+          };
+          setLocation(coords);
+          setLocationName(getLocationName(coords.latitude, coords.longitude));
           setIsGettingLocation(false);
           setLocationError(null);
         },
@@ -100,10 +104,7 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       const expiryTime = calculateExpiryTime();
       
       // Generate random coordinates if location is not available
-      const bubbleLocation = location || {
-        latitude: (Math.random() * 180) - 90,  // Random latitude between -90 and 90
-        longitude: (Math.random() * 360) - 180  // Random longitude between -180 and 180
-      };
+      const bubbleLocation = location || generateRandomGeoCoordinates();
       
       // Insert new bubble with location data
       const { data: newBubble, error } = await supabase
@@ -172,6 +173,7 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
     onSubmit: form.handleSubmit(onSubmit),
     isGettingLocation,
     locationError,
-    hasLocation: !!location
+    hasLocation: !!location,
+    locationName
   };
 };
