@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
+import { Clock, Plus, X, Trophy, Star, Award, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
+import { GamificationContextType } from "@/types/gamification";
 
 interface BubbleWorldContentProps {
   isLoadingBubbles: boolean;
@@ -28,7 +29,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   onCreateBubble,
 }) => {
   const queryClient = useQueryClient();
-  const { profile, isLoading: isLoadingGamification } = useGamification();
+  const { profile, isLoading: isLoadingGamification } = useGamification() as GamificationContextType;
   const { user } = useAuth();
 
   // Gamification indicators
@@ -89,11 +90,15 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
           There was a problem loading the bubbles. Please check your connection and try again.
         </p>
         <Button
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+            queryClient.refetchQueries({ queryKey: ['bubbles'] });
+          }}
           variant="outline"
           size="lg"
           className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
         >
+          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
           Retry
         </Button>
       </div>

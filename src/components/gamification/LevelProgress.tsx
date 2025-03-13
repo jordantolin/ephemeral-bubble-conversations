@@ -4,13 +4,14 @@ import { motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { Progress } from "@/components/ui/progress";
 import { Sparkles } from "lucide-react";
+import { GamificationContextType } from "@/types/gamification";
 
 interface LevelProgressProps {
   minimal?: boolean;
 }
 
 const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
-  const { profile, isLoading } = useGamification();
+  const { profile, isLoading } = useGamification() as GamificationContextType;
   
   if (isLoading) {
     return (
@@ -40,7 +41,11 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
         >
           {profile.level}
         </motion.div>
-        <Progress value={progressPercentage} className="w-14 h-2 bg-[#ebbd34]/20" />
+        <Progress 
+          value={progressPercentage} 
+          className="w-14 h-2 bg-[#ebbd34]/20" 
+          indicatorClassName="bg-[#ebbd34]" 
+        />
       </div>
     );
   }
@@ -69,6 +74,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
         <Progress 
           value={progressPercentage} 
           className="h-2 bg-[#ebbd34]/20 flex-1" 
+          indicatorClassName="bg-[#ebbd34]" 
         />
         <span className="text-xs text-gray-500 whitespace-nowrap">
           {currentLevelPoints}/{pointsNeeded}
