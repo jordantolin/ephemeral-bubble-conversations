@@ -49,6 +49,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await addPoints(10, 'reflection');
 
+      // Fix: Passing 'reflection-master' to checkAchievement with proper type
       await checkAchievement('reflection-master');
 
       toast({
