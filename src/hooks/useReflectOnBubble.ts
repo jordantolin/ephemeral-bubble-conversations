@@ -59,7 +59,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
       await addPoints(10, 'reflection');
 
       // Increment Reflection Master achievement progress
-      await incrementAchievementProgress('reflection-master');
+      await incrementAchievementProgress('reflection-master', 1);
       
       // Check reflection achievements
       await checkAchievement('reflection-master');
