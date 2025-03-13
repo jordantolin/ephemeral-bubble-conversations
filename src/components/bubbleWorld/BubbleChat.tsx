@@ -64,7 +64,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
   
-  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
+  const gamification = useGamification();
   
   const reflectOnBubble = async () => {
     if (!user) return false;
@@ -101,8 +101,9 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      await addPoints(10, 'reflection');
-      await incrementAchievementProgress('reflection-master');
+      const typedGamification = gamification as GamificationContextType;
+      await typedGamification.addPoints(10, 'reflection');
+      await typedGamification.incrementAchievementProgress('reflection-master');
 
       toast({
         title: "Reflection Added!",
