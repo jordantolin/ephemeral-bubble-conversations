@@ -34,6 +34,10 @@
     --ring: 222.2 84% 4.9%;
  
     --radius: 0.5rem;
+    
+    /* Custom colors for our app */
+    --bubble-yellow: 44 84% 56%;
+    --bubble-yellow-light: 44 84% 56% / 0.2;
   }
  
   .dark {
@@ -81,6 +85,15 @@
     scroll-behavior: smooth;
     overflow-x: hidden;
   }
+}
+
+/* Level progress specific styles */
+.level-progress {
+  @apply bg-[#ebbd34]/20;
+}
+
+.level-progress-indicator {
+  @apply bg-[#ebbd34];
 }
 
 /* Global animations and transitions */
