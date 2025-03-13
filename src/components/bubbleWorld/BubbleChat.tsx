@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -65,8 +64,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
   
-  // Explicitly type the gamification context to access its methods
-  const gamification = useGamification() as GamificationContextType;
+  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
   
   const reflectOnBubble = async () => {
     if (!user) return false;
@@ -103,13 +101,9 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      // Use the properly typed gamification context
-      await gamification.addPoints(10, 'reflection');
+      await addPoints(10, 'reflection');
       
-      // This is the line causing the error
-      // Use the properly typed achievementId
-      const achievementId: string = 'reflection-master';
-      await gamification.incrementAchievementProgress(achievementId);
+      await incrementAchievementProgress('reflection-master');
 
       toast({
         title: "Reflection Added!",
