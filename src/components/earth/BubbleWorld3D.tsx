@@ -1,6 +1,6 @@
 
-import React, { useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useRef } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import Earth3D from './Earth3D';
@@ -36,11 +36,11 @@ const BubbleWorld3D: React.FC<BubbleWorld3DProps> = ({ bubbles = [] }) => {
         gl.setClearColor(new THREE.Color('#00000000'), 0);
       }}
       shadows
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onDoubleClick={handleDoubleClick}
-      onWheel={handleWheel}
+      onMouseDown={(e) => handleMouseDown(e.nativeEvent)}
+      onMouseMove={(e) => handleMouseMove(e.nativeEvent)}
+      onMouseUp={(e) => handleMouseUp()}
+      onDoubleClick={(e) => handleDoubleClick()}
+      onWheel={(e) => handleWheel(e.nativeEvent)}
     >
       {/* Ambient light and directional light for the scene */}
       <ambientLight intensity={0.5} />
@@ -97,19 +97,6 @@ const Bubble: React.FC<{
 }> = ({ position, color, size, name }) => {
   const ref = useRef<THREE.Group>(null);
   
-  // Animate bubble movement
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    
-    const t = clock.getElapsedTime() * 0.2;
-    ref.current.position.x = position[0] * Math.cos(t);
-    ref.current.position.z = position[2] * Math.sin(t);
-    ref.current.position.y = position[1] + Math.sin(t * 0.5) * 0.5;
-    
-    // Make bubble always face the camera
-    ref.current.rotation.y += 0.01;
-  });
-  
   return (
     <group ref={ref} position={position}>
       <mesh castShadow>
@@ -145,12 +132,6 @@ const Html: React.FC<{
 }> = ({ children, position, center }) => {
   const ref = useRef<THREE.Group>(null);
   
-  useFrame(({ camera }) => {
-    if (!ref.current) return;
-    // Make text always face the camera
-    ref.current.quaternion.copy(camera.quaternion);
-  });
-  
   return (
     <group ref={ref} position={position}>
       <div
@@ -167,9 +148,6 @@ const Html: React.FC<{
 
 // Helper component to update camera on each frame
 const CameraController: React.FC<{ updateCamera: (camera: THREE.Camera) => void }> = ({ updateCamera }) => {
-  useFrame(({ camera }) => {
-    updateCamera(camera);
-  });
   return null;
 };
 

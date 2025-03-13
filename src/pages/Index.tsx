@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
@@ -12,9 +13,6 @@ import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { AchievementId } from "@/types/gamification";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Globe } from "lucide-react";
 
 const Index = () => {
   const location = useLocation();
@@ -116,15 +114,6 @@ const Index = () => {
       />
       
       <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
-        <div className="container mx-auto max-w-6xl mb-4 flex justify-end">
-          <Link to="/earth">
-            <Button variant="outline" className="flex items-center gap-2">
-              <Globe size={16} />
-              <span>3D Earth View</span>
-            </Button>
-          </Link>
-        </div>
-        
         <div className="container mx-auto max-w-6xl">
           <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
           

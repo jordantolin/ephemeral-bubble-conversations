@@ -1,5 +1,5 @@
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 import * as THREE from 'three';
 
 export const useCameraControls = () => {

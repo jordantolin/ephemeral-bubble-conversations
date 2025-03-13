@@ -6,10 +6,10 @@ import {
   createBubbleGeometry, 
   createBubbleMaterial, 
   createTextCanvas,
-  createCentralWorldGeometry,
-  createCentralWorldMaterial,
 } from '@/utils/bubbleUtils';
 import { useNavigate } from 'react-router-dom';
+import { Canvas } from '@react-three/fiber';
+import Earth3D from './earth/Earth3D';
 
 // Format time remaining for display
 const formatTimeRemaining = (expiryTime: Date) => {
@@ -35,7 +35,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const centralWorldRef = useRef<THREE.Mesh | null>(null);
+  // Replace centralWorldRef with earthRef
+  const earthRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const particlesRef = useRef<{[key: string]: THREE.Points}>({});
@@ -128,16 +129,65 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centerLight.position.set(0, 0, 0);
     scene.add(centerLight);
 
-    // Create central world with enhanced appearance
-    const worldGeometry = createCentralWorldGeometry();
-    const worldMaterial = createCentralWorldMaterial();
-    const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
-    centralWorld.castShadow = true;
-    centralWorld.receiveShadow = true;
-    // Adjust central world size
-    centralWorld.scale.set(1.2, 1.2, 1.2);
-    centralWorldRef.current = centralWorld;
-    scene.add(centralWorld);
+    // Create Earth 3D model instead of central yellow bubble
+    // We'll use Three.js loader for textures
+    const textureLoader = new THREE.TextureLoader();
+    
+    // Load Earth textures
+    const earthDayTexture = textureLoader.load('/textures/earth_daymap.jpg');
+    const earthNormalTexture = textureLoader.load('/textures/earth_normal.jpg');
+    const earthSpecularTexture = textureLoader.load('/textures/earth_specular.jpg');
+    const earthCloudsTexture = textureLoader.load('/textures/earth_clouds.jpg');
+    
+    // Create Earth sphere
+    const earthGeometry = new THREE.SphereGeometry(1.2, 64, 64);
+    const earthMaterial = new THREE.MeshPhongMaterial({
+      map: earthDayTexture,
+      normalMap: earthNormalTexture, 
+      specularMap: earthSpecularTexture,
+      shininess: 10,
+      specular: new THREE.Color(0x333333)
+    });
+    
+    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    earth.castShadow = true;
+    earth.receiveShadow = true;
+    
+    // Apply Earth's axial tilt (23.5 degrees)
+    const tiltInRadians = (23.5 * Math.PI) / 180;
+    earth.rotation.x = tiltInRadians;
+    
+    // Create Earth group to hold all Earth-related objects
+    const earthGroup = new THREE.Group();
+    earthGroup.add(earth);
+    
+    // Add cloud layer
+    const cloudGeometry = new THREE.SphereGeometry(1.22, 64, 64);
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+      map: earthCloudsTexture,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false
+    });
+    
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    earthGroup.add(clouds);
+    
+    // Add atmosphere glow
+    const atmosphereGeometry = new THREE.SphereGeometry(1.32, 64, 32);
+    const atmosphereMaterial = new THREE.MeshPhongMaterial({
+      color: "#add8e6",
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0.3
+    });
+    
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    earthGroup.add(atmosphere);
+    
+    // Add Earth group to scene
+    scene.add(earthGroup);
+    earthRef.current = earthGroup;
 
     // Add subtle environment fog for depth
     scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
@@ -457,12 +507,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           interactionRef.current.isDragging = true;
         }
         
-        if (interactionRef.current.isDragging && centralWorldRef.current) {
+        if (interactionRef.current.isDragging && earthRef.current) {
           const dx = touch.clientX - interactionRef.current.lastX;
           const dy = touch.clientY - interactionRef.current.lastY;
           
-          centralWorldRef.current.rotation.y += dx * 0.01;
-          centralWorldRef.current.rotation.x += dy * 0.01;
+          earthRef.current.rotation.y += dx * 0.01;
+          earthRef.current.rotation.x += dy * 0.01;
           
           interactionRef.current.momentum = {
             x: dx * 0.01 * 0.8,
@@ -489,15 +539,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           handleBubbleClick(e);
         }
         
-        if (wasDragging && centralWorldRef.current) {
+        if (wasDragging && earthRef.current) {
           const decay = 0.95;
           const applyMomentum = () => {
-            if (!centralWorldRef.current) return;
+            if (!earthRef.current) return;
             
             const momentum = interactionRef.current.momentum;
             if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-              centralWorldRef.current.rotation.y += momentum.x;
-              centralWorldRef.current.rotation.x += momentum.y;
+              earthRef.current.rotation.y += momentum.x;
+              earthRef.current.rotation.x += momentum.y;
               momentum.x *= decay;
               momentum.y *= decay;
               requestAnimationFrame(applyMomentum);
@@ -594,7 +644,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     };
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!interactionRef.current.isInteracting || !centralWorldRef.current) return;
+      if (!interactionRef.current.isInteracting || !earthRef.current) return;
 
       const deltaX = Math.abs(e.clientX - interactionRef.current.startX);
       const deltaY = Math.abs(e.clientY - interactionRef.current.startY);
@@ -608,8 +658,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const dx = e.clientX - interactionRef.current.lastX;
         const dy = e.clientY - interactionRef.current.lastY;
 
-        centralWorldRef.current.rotation.y += dx * 0.005;
-        centralWorldRef.current.rotation.x += dy * 0.005;
+        earthRef.current.rotation.y += dx * 0.005;
+        earthRef.current.rotation.x += dy * 0.005;
 
         interactionRef.current.momentum = {
           x: dx * 0.005 * 0.8,
@@ -629,15 +679,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         handleBubbleClick(e);
       }
 
-      if (wasDragging && centralWorldRef.current) {
+      if (wasDragging && earthRef.current) {
         const decay = 0.95;
         const applyMomentum = () => {
-          if (!centralWorldRef.current) return;
+          if (!earthRef.current) return;
           
           const momentum = interactionRef.current.momentum;
           if (Math.abs(momentum.x) > 0.0001 || Math.abs(momentum.y) > 0.0001) {
-            centralWorldRef.current.rotation.y += momentum.x;
-            centralWorldRef.current.rotation.x += momentum.y;
+            earthRef.current.rotation.y += momentum.x;
+            earthRef.current.rotation.x += momentum.y;
             momentum.x *= decay;
             momentum.y *= decay;
             requestAnimationFrame(applyMomentum);
@@ -671,11 +721,17 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Animate function - Modified for better bubble movement
+    // Animate function - Modified for Earth rotation and bubble movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       time += 0.002;
+      
+      // Rotate Earth
+      if (earthGroup) {
+        earth.rotation.y += 0.0005; // Slow rotation for Earth
+        clouds.rotation.y += 0.0006; // Slightly faster for clouds
+      }
       
       // Smoother camera movement with enhanced zooming
       const zoom = interactionRef.current.zoom;
@@ -705,11 +761,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const verticalMovement = Math.sin(time * movement.verticalSpeed + movement.verticalOffset) * 
                                 movement.verticalRange * (1 + (layer * 0.2));
         
-        // Apply rotation from central world for coordinated movement
+        // Apply rotation from Earth for coordinated movement
         const rotationOffset = new THREE.Euler(
-          centralWorld.rotation.x,
-          centralWorld.rotation.y,
-          centralWorld.rotation.z
+          earthGroup.rotation.x,
+          earthGroup.rotation.y,
+          earthGroup.rotation.z
         );
         
         // Use the structured movement values
@@ -802,9 +858,9 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         }
       });
 
-      // Apply gentle auto-rotation to central world when not interacting
-      if (!interactionRef.current.isInteracting && centralWorld) {
-        centralWorld.rotation.y += 0.0003;
+      // Apply gentle auto-rotation to Earth when not interacting
+      if (!interactionRef.current.isInteracting && earthGroup) {
+        earthGroup.rotation.y += 0.0003;
       }
 
       TWEEN.update();
@@ -870,7 +926,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       sceneRef.current = null;
       rendererRef.current = null;
       cameraRef.current = null;
-      centralWorldRef.current = null;
+      earthRef.current = null;
     };
   }, [topics, onBubbleClick, navigate]);
 
