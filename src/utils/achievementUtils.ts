@@ -42,9 +42,9 @@ export const deserializeAchievements = (serialized: Json): AchievementType[] => 
   }
   
   try {
-    return serialized.map(ach => {
-      // Safely access properties with proper type checking
-      const achievement = ach as Record<string, any>;
+    return serialized.map(item => {
+      // Safe type casting with checks
+      const achievement = item as Record<string, any>;
       
       return {
         id: typeof achievement.id === 'string' ? achievement.id : 'unknown',
@@ -53,8 +53,8 @@ export const deserializeAchievements = (serialized: Json): AchievementType[] => 
         icon: getIconFromType(typeof achievement.iconType === 'string' ? achievement.iconType : 'award'),
         points: typeof achievement.points === 'number' ? achievement.points : 50,
         unlocked: Boolean(achievement.unlocked),
-        progress: typeof achievement.progress === 'number' ? achievement.progress : undefined,
-        maxProgress: typeof achievement.maxProgress === 'number' ? achievement.maxProgress : undefined
+        progress: typeof achievement.progress === 'number' ? achievement.progress : 0,
+        maxProgress: typeof achievement.maxProgress === 'number' ? achievement.maxProgress : 1
       };
     });
   } catch (error) {

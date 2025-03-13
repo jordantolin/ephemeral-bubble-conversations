@@ -14,9 +14,12 @@ const GamificationTracker: React.FC = () => {
     refreshGamificationProfile, 
     checkAchievement, 
     incrementAchievementProgress,
-    addPoints
+    addPoints,
+    profile,
+    achievements
   } = useGamification() as GamificationContextType;
   const [isMounted, setIsMounted] = useState(false);
+  const [checksRun, setChecksRun] = useState(false);
   
   // Use the login streak hook
   useLoginStreak();
@@ -29,150 +32,151 @@ const GamificationTracker: React.FC = () => {
     }
   }, [user, refreshGamificationProfile]);
 
-  // Check "First Bubble" achievement
+  // Run all achievement checks only once when profile is loaded
   useEffect(() => {
-    if (!user || !isMounted) return;
-
-    const checkFirstBubble = async () => {
+    const runChecks = async () => {
+      if (!user || !isMounted || checksRun || !achievements.length) return;
+      
       try {
-        // Get bubbles created by the user
-        const { data, error } = await supabase
-          .from("bubbles")
-          .select("id")
-          .eq("username", user.email)
-          .limit(1);
-
-        if (error) throw error;
-
-        // If the user has created at least one bubble, unlock the achievement
-        if (data && data.length > 0) {
-          await checkAchievement('first-bubble');
+        console.log("Running achievement checks");
+        
+        // Only run checks once
+        setChecksRun(true);
+        
+        // Check if any achievement is already unlocked to prevent rechecking
+        const unlockedMap = achievements.reduce((acc, ach) => {
+          acc[ach.id] = ach.unlocked;
+          return acc;
+        }, {} as Record<string, boolean>);
+        
+        // Check "First Bubble" achievement
+        if (!unlockedMap['first-bubble']) {
+          await checkFirstBubble();
         }
-      } catch (error) {
-        console.error("Error checking first bubble achievement:", error);
-      }
-    };
-
-    checkFirstBubble();
-  }, [user, isMounted, checkAchievement]);
-
-  // Track Social Butterfly achievement (message count)
-  useEffect(() => {
-    if (!user || !isMounted) return;
-
-    const trackMessages = async () => {
-      try {
-        // Get message count for the user
-        const { data, error } = await supabase
-          .from("bubble_messages")
-          .select("id")
-          .eq("username", user.email);
-
-        if (error) throw error;
-
-        // Update achievement progress for social butterfly
-        if (data) {
-          const messageCount = data.length;
-          await incrementAchievementProgress('social-butterfly', messageCount);
-          
-          // Check if the achievement should be unlocked
-          if (messageCount >= 10) {
-            await checkAchievement('social-butterfly');
-          }
+        
+        // Check "Social Butterfly" achievement (message count)
+        if (!unlockedMap['social-butterfly']) {
+          await trackMessages();
         }
-      } catch (error) {
-        console.error("Error tracking messages for Social Butterfly achievement:", error);
-      }
-    };
-
-    trackMessages();
-  }, [user, isMounted, incrementAchievementProgress, checkAchievement]);
-
-  // Track Daily Streak achievement
-  useEffect(() => {
-    if (!user || !isMounted) return;
-
-    const checkDailyStreak = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('gamification_profiles')
-          .select('daily_streak')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
-
-        if (data && data.daily_streak >= 3) {
+        
+        // Check "Reflection Master" achievement
+        if (!unlockedMap['reflection-master']) {
+          await trackReflections();
+        }
+        
+        // Check "Popular Bubble" achievement
+        if (!unlockedMap['popular-bubble']) {
+          await trackPopularBubbles();
+        }
+        
+        // Check "Daily Streak" achievement
+        if (!unlockedMap['daily-streak-3'] && profile.dailyStreak >= 3) {
           await checkAchievement('daily-streak-3');
         }
       } catch (error) {
-        console.error("Error checking daily streak achievement:", error);
+        console.error("Error in achievement checks:", error);
       }
     };
+    
+    runChecks();
+  }, [user, isMounted, achievements, profile, checkAchievement, incrementAchievementProgress]);
 
-    checkDailyStreak();
-  }, [user, isMounted, checkAchievement]);
+  // Helper functions for checking different achievements
+  const checkFirstBubble = async () => {
+    try {
+      // Get bubbles created by the user
+      const { data, error } = await supabase
+        .from("bubbles")
+        .select("id")
+        .eq("username", user?.email || "")
+        .limit(1);
 
-  // Track Reflection Master achievement
-  useEffect(() => {
-    if (!user || !isMounted) return;
+      if (error) throw error;
 
-    const trackReflections = async () => {
-      try {
-        // Get unique bubble reflections by this user
-        const { data, error } = await supabase
-          .from("reflects")
-          .select("bubble_id")
-          .eq("username", user.email);
+      // If the user has created at least one bubble, unlock the achievement
+      if (data && data.length > 0) {
+        await checkAchievement('first-bubble');
+      }
+    } catch (error) {
+      console.error("Error checking first bubble achievement:", error);
+    }
+  };
+  
+  const trackMessages = async () => {
+    try {
+      // Get message count for the user
+      const { data, error } = await supabase
+        .from("bubble_messages")
+        .select("id")
+        .eq("username", user?.email || "");
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (data) {
-          // Get unique reflection count
-          const uniqueBubbles = new Set(data.map(reflection => reflection.bubble_id));
-          const reflectionCount = uniqueBubbles.size;
-          
+      // Update achievement progress for social butterfly
+      if (data) {
+        const messageCount = data.length;
+        
+        // Find current achievement to check its progress
+        const socialButterfly = achievements.find(a => a.id === 'social-butterfly');
+        
+        // Only update if the new count is higher than existing progress
+        if (socialButterfly && (!socialButterfly.progress || messageCount > socialButterfly.progress)) {
+          await incrementAchievementProgress('social-butterfly', messageCount);
+        }
+      }
+    } catch (error) {
+      console.error("Error tracking messages for Social Butterfly achievement:", error);
+    }
+  };
+  
+  const trackReflections = async () => {
+    try {
+      // Get unique bubble reflections by this user
+      const { data, error } = await supabase
+        .from("reflects")
+        .select("bubble_id")
+        .eq("username", user?.email || "");
+
+      if (error) throw error;
+
+      if (data) {
+        // Get unique reflection count
+        const uniqueBubbles = new Set(data.map(reflection => reflection.bubble_id));
+        const reflectionCount = uniqueBubbles.size;
+        
+        // Find current achievement to check its progress
+        const reflectionMaster = achievements.find(a => a.id === 'reflection-master');
+        
+        // Only update if the new count is higher than existing progress
+        if (reflectionMaster && (!reflectionMaster.progress || reflectionCount > reflectionMaster.progress)) {
           await incrementAchievementProgress('reflection-master', reflectionCount);
-          
-          // Check if the achievement should be unlocked
-          if (reflectionCount >= 5) {
-            await checkAchievement('reflection-master');
-          }
         }
-      } catch (error) {
-        console.error("Error tracking reflections for Reflection Master achievement:", error);
       }
-    };
+    } catch (error) {
+      console.error("Error tracking reflections for Reflection Master achievement:", error);
+    }
+  };
+  
+  const trackPopularBubbles = async () => {
+    try {
+      // Get bubbles created by this user with 5+ reflections
+      const { data, error } = await supabase
+        .from("bubbles")
+        .select("id, reflect_count")
+        .eq("username", user?.email || "")
+        .gte("reflect_count", 5)
+        .limit(1);
 
-    trackReflections();
-  }, [user, isMounted, incrementAchievementProgress, checkAchievement]);
+      if (error) throw error;
 
-  // Track Popular Bubble achievement
-  useEffect(() => {
-    if (!user || !isMounted) return;
-
-    const trackPopularBubbles = async () => {
-      try {
-        // Get bubbles created by this user with 5+ reflections
-        const { data, error } = await supabase
-          .from("bubbles")
-          .select("id, reflect_count")
-          .eq("username", user.email)
-          .gte("reflect_count", 5);
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          // If any popular bubble exists, unlock the achievement
-          await checkAchievement('popular-bubble');
-        }
-      } catch (error) {
-        console.error("Error tracking popular bubbles achievement:", error);
+      if (data && data.length > 0) {
+        // If any popular bubble exists, unlock the achievement
+        await checkAchievement('popular-bubble');
       }
-    };
-
-    trackPopularBubbles();
-  }, [user, isMounted, checkAchievement]);
+    } catch (error) {
+      console.error("Error tracking popular bubbles achievement:", error);
+    }
+  };
   
   // This component doesn't render anything
   return null;

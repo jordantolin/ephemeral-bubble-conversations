@@ -55,9 +55,9 @@ export const useAchievements = ({
       let shouldUnlock = false;
       
       // Check if achievement should be unlocked based on progress
-      if (achievement.maxProgress !== undefined && progress !== undefined) {
+      if (achievement.maxProgress !== undefined && achievement.progress !== undefined) {
         // Update progress
-        const newProgress = Math.max(progress, achievement.progress || 0);
+        const newProgress = progress !== undefined ? progress : achievement.progress;
         console.log(`Setting progress for ${id}: ${newProgress}/${achievement.maxProgress}`);
         
         // Update achievement in state
@@ -149,6 +149,12 @@ export const useAchievements = ({
         return false;
       }
       
+      // Make sure maxProgress is defined
+      if (achievement.maxProgress === undefined) {
+        console.log(`Achievement ${id} has no maxProgress defined, skipping`);
+        return false;
+      }
+      
       // Update progress
       const currentProgress = achievement.progress || 0;
       const newProgress = currentProgress + amount;
@@ -164,7 +170,7 @@ export const useAchievements = ({
       setAchievements(updatedAchievements);
       
       // Check if achievement should be unlocked
-      if (achievement.maxProgress && newProgress >= achievement.maxProgress) {
+      if (newProgress >= achievement.maxProgress) {
         console.log(`Achievement ${id} ready to unlock after increment`);
         return await checkAchievement(id, newProgress);
       } else {

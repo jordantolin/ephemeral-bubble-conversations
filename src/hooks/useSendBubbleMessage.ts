@@ -37,7 +37,8 @@ export const useSendBubbleMessage = (bubbleId: string) => {
       // Add points for sending a message
       await addPoints(5, 'message');
 
-      // Track message for Social Butterfly achievement
+      // Only track the message for Social Butterfly achievement
+      // No need to check if it should be unlocked here, GamificationTracker will handle that
       await incrementAchievementProgress('social-butterfly', 1);
 
       setIsSending(false);
