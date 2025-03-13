@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
 import { Loader2, MessageSquare, ThumbsUp } from "lucide-react";
+import { GamificationContextType } from "@/types/gamification";
 
 export const useSendBubbleMessage = (bubbleId: string) => {
   const { user, profile } = useAuth();
@@ -61,7 +63,8 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  const { addPoints, incrementAchievementProgress } = useGamification() as unknown as ReflectOnBubbleType;
+  const gamification = useGamification();
+  const { addPoints, incrementAchievementProgress } = gamification as GamificationContextType;
 
   const reflectOnBubble = async () => {
     if (!user) return false;
