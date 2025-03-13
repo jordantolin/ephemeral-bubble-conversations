@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -9,13 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
 import { Loader2, MessageSquare, ThumbsUp } from "lucide-react";
 import { GamificationContextType } from "@/types/gamification";
-import { formatMessageTime } from "@/utils/feedHelpers";
 
 export const useSendBubbleMessage = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
-  const { trackMessageSent } = useGamification() as GamificationContextType;
+  const { trackMessageSent } = useGamification();
 
   const sendMessage = async (content: string) => {
     if (!user || !content.trim()) return false;
@@ -38,11 +38,6 @@ export const useSendBubbleMessage = (bubbleId: string) => {
       await trackMessageSent();
 
       setIsSending(false);
-      toast({
-        title: "Message sent",
-        description: "Your message has been posted successfully",
-        variant: "default"
-      });
       return true;
     } catch (error: any) {
       console.error("Error sending message:", error);
@@ -59,13 +54,18 @@ export const useSendBubbleMessage = (bubbleId: string) => {
   return { sendMessage, isSending };
 };
 
+type ReflectOnBubbleType = {
+  incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
+  addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
+};
+
 export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  
-  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
-  
+  const gamification = useGamification();
+  const { addPoints, incrementAchievementProgress } = gamification as GamificationContextType;
+
   const reflectOnBubble = async () => {
     if (!user) return false;
 
@@ -102,7 +102,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
       await addPoints(10, 'reflection');
-      
+
       await incrementAchievementProgress('reflection-master');
 
       toast({
@@ -141,27 +141,6 @@ interface BubbleChatProps {
   handleReflect: (bubbleId: string) => Promise<void>;
 }
 
-const ChatMessage = ({ message }: { message: any }) => {
-  return (
-    <div className="flex gap-2 animate-fadeIn">
-      <Avatar className="h-8 w-8 shrink-0">
-        <div className="bg-primary text-primary-foreground w-full h-full flex items-center justify-center text-sm font-medium">
-          {message.username.charAt(0).toUpperCase()}
-        </div>
-      </Avatar>
-      <div className="flex flex-col">
-        <div className="flex items-end gap-2">
-          <span className="text-sm font-medium">{message.username}</span>
-          <span className="text-xs text-muted-foreground">
-            {formatMessageTime(message.created_at)}
-          </span>
-        </div>
-        <div className="text-sm mt-1 bg-secondary/50 p-2 rounded-md">{message.content}</div>
-      </div>
-    </div>
-  );
-};
-
 const BubbleChat = ({
   chatOpen,
   setChatOpen,
@@ -186,13 +165,6 @@ const BubbleChat = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   return (
     <Dialog open={chatOpen} onOpenChange={setChatOpen}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] flex flex-col">
@@ -206,14 +178,9 @@ const BubbleChat = ({
               selectedBubble?.name || "Bubble Chat"
             )}
           </DialogTitle>
-          {selectedBubble && !isLoadingBubbleDetails && (
-            <p className="text-center text-sm text-muted-foreground">
-              {selectedBubble.topic} • {selectedBubble.username}
-            </p>
-          )}
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4 min-h-[300px] max-h-[50vh]">
+        <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4 min-h-[300px]">
           {isLoadingMessages ? (
             <div className="flex justify-center items-center h-full">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -223,26 +190,36 @@ const BubbleChat = ({
               Error loading messages. Please try again.
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center text-muted-foreground py-10">
+            <div className="text-center text-muted-foreground">
               No messages yet. Be the first to start a conversation!
             </div>
           ) : (
-            <>
-              {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
-              ))}
-            </>
+            messages.map((message) => (
+              <div key={message.id} className="flex gap-2">
+                <Avatar className="h-8 w-8">
+                  <div className="bg-primary text-primary-foreground w-full h-full flex items-center justify-center text-sm font-medium">
+                    {message.username.charAt(0).toUpperCase()}
+                  </div>
+                </Avatar>
+                <div className="flex flex-col">
+                  <div className="text-sm font-medium">{message.username}</div>
+                  <div className="text-sm">{message.content}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(message.created_at).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </div>
 
         {!isBubbleExpired && selectedBubbleId && (
           <div className="mt-4 space-y-2">
             <Textarea
-              placeholder="Type your message... (Press Enter to send)"
+              placeholder="Type your message..."
               value={messageContent}
               onChange={(e) => setMessageContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="resize-none min-h-[80px]"
+              className="resize-none"
               disabled={isSending}
             />
             <div className="flex justify-between">
@@ -272,9 +249,8 @@ const BubbleChat = ({
         )}
 
         {isBubbleExpired && (
-          <div className="text-center text-amber-500 p-3 border border-amber-200 rounded-md bg-amber-50 mt-3">
-            <p className="font-medium mb-1">This bubble has expired</p>
-            <p className="text-sm">Bubbles only last for 24 hours. Browse other active bubbles to continue conversations!</p>
+          <div className="text-center text-amber-500 p-2 border border-amber-200 rounded-md bg-amber-50">
+            This bubble has expired and cannot receive new messages.
           </div>
         )}
       </DialogContent>
