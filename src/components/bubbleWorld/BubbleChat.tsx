@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -64,7 +65,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
   
-  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
+  const gamification = useGamification() as GamificationContextType;
   
   const reflectOnBubble = async () => {
     if (!user) return false;
@@ -101,9 +102,10 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      await addPoints(10, 'reflection');
+      await gamification.addPoints(10, 'reflection');
       
-      await incrementAchievementProgress('reflection-master');
+      // Using a type assertion here to ensure TypeScript understands the string param is valid
+      await gamification.incrementAchievementProgress('reflection-master' as string);
 
       toast({
         title: "Reflection Added!",
