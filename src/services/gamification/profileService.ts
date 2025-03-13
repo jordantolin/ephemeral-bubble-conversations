@@ -8,6 +8,7 @@ import { Json } from "@/integrations/supabase/types";
 
 export async function fetchUserGamificationProfile(userId: string): Promise<GamificationProfile> {
   try {
+    console.log(`Fetching profile for user ${userId}`);
     const { data, error } = await supabase
       .from('gamification_profiles')
       .select('*')
@@ -15,11 +16,16 @@ export async function fetchUserGamificationProfile(userId: string): Promise<Gami
       .single();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        console.log("Profile not found, will create a new one");
+        return await createNewUserProfile(userId);
+      }
       console.error("Error fetching gamification profile:", error.message);
       throw error;
     }
 
     if (data) {
+      console.log("Profile data retrieved:", data);
       // Parse stored achievements - deserialize the achievements from the database
       let storedAchievements;
       try {
@@ -47,11 +53,7 @@ export async function fetchUserGamificationProfile(userId: string): Promise<Gami
     }
     
     // Return default profile if no data found
-    return {
-      ...defaultProfile,
-      dailyStreak: 1,
-      lastActive: new Date().toISOString()
-    };
+    return await createNewUserProfile(userId);
   } catch (e) {
     console.error("Unexpected error in fetchUserGamificationProfile:", e);
     // Return default profile on error
@@ -65,6 +67,7 @@ export async function fetchUserGamificationProfile(userId: string): Promise<Gami
 
 export async function createNewUserProfile(userId: string): Promise<GamificationProfile> {
   try {
+    console.log(`Creating new profile for user ${userId}`);
     const newProfile = {
       ...defaultProfile,
       dailyStreak: 1,
@@ -93,6 +96,7 @@ export async function createNewUserProfile(userId: string): Promise<Gamification
       throw error;
     }
     
+    console.log("New profile created successfully");
     return newProfile;
   } catch (e) {
     console.error("Unexpected error in createNewUserProfile:", e);

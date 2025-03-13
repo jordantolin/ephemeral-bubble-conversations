@@ -13,7 +13,8 @@ const GamificationTracker: React.FC = () => {
   const { 
     refreshGamificationProfile, 
     checkAchievement, 
-    incrementAchievementProgress 
+    incrementAchievementProgress,
+    addPoints
   } = useGamification() as GamificationContextType;
   const [isMounted, setIsMounted] = useState(false);
   
@@ -28,6 +29,33 @@ const GamificationTracker: React.FC = () => {
     }
   }, [user, refreshGamificationProfile]);
 
+  // Check "First Bubble" achievement
+  useEffect(() => {
+    if (!user || !isMounted) return;
+
+    const checkFirstBubble = async () => {
+      try {
+        // Get bubbles created by the user
+        const { data, error } = await supabase
+          .from("bubbles")
+          .select("id")
+          .eq("username", user.email)
+          .limit(1);
+
+        if (error) throw error;
+
+        // If the user has created at least one bubble, unlock the achievement
+        if (data && data.length > 0) {
+          await checkAchievement('first-bubble');
+        }
+      } catch (error) {
+        console.error("Error checking first bubble achievement:", error);
+      }
+    };
+
+    checkFirstBubble();
+  }, [user, isMounted, checkAchievement]);
+
   // Track Social Butterfly achievement (message count)
   useEffect(() => {
     if (!user || !isMounted) return;
@@ -38,8 +66,7 @@ const GamificationTracker: React.FC = () => {
         const { data, error } = await supabase
           .from("bubble_messages")
           .select("id")
-          .eq("username", user.email)
-          .order("created_at", { ascending: false });
+          .eq("username", user.email);
 
         if (error) throw error;
 
@@ -60,6 +87,31 @@ const GamificationTracker: React.FC = () => {
 
     trackMessages();
   }, [user, isMounted, incrementAchievementProgress, checkAchievement]);
+
+  // Track Daily Streak achievement
+  useEffect(() => {
+    if (!user || !isMounted) return;
+
+    const checkDailyStreak = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('gamification_profiles')
+          .select('daily_streak')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (data && data.daily_streak >= 3) {
+          await checkAchievement('daily-streak-3');
+        }
+      } catch (error) {
+        console.error("Error checking daily streak achievement:", error);
+      }
+    };
+
+    checkDailyStreak();
+  }, [user, isMounted, checkAchievement]);
 
   // Track Reflection Master achievement
   useEffect(() => {
@@ -106,8 +158,7 @@ const GamificationTracker: React.FC = () => {
           .from("bubbles")
           .select("id, reflect_count")
           .eq("username", user.email)
-          .gte("reflect_count", 5)
-          .order("reflect_count", { ascending: false });
+          .gte("reflect_count", 5);
 
         if (error) throw error;
 

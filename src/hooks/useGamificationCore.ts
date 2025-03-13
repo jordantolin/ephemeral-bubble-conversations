@@ -9,9 +9,7 @@ import { defaultAchievements } from "@/utils/achievementUtils";
 import { 
   fetchUserGamificationProfile, 
   createNewUserProfile,
-  updatePointsInDB,
-  updateAchievementsInDB,
-  updateProfileWithAchievementPointsInDB
+  updatePointsInDB
 } from "@/services/gamification";
 
 /**
@@ -43,12 +41,15 @@ export const useGamificationCore = (userId: string | undefined) => {
     
     setIsLoading(true);
     try {
+      console.log("Fetching gamification profile for user:", userId);
       let userProfile = await fetchUserGamificationProfile(userId);
       
       if (!userProfile) {
+        console.log("No existing profile found, creating new one");
         userProfile = await createNewUserProfile(userId);
       }
       
+      console.log("Profile fetched:", userProfile);
       setProfile(userProfile);
       setAchievements(userProfile.achievements);
     } catch (error) {
@@ -72,6 +73,8 @@ export const useGamificationCore = (userId: string | undefined) => {
     if (!userId) return false;
     
     try {
+      console.log(`Adding ${amount} points, category: ${category || 'general'}`);
+      
       const newPoints = profile.points + amount;
       const newLevel = calculateLevel(newPoints);
       
@@ -87,6 +90,8 @@ export const useGamificationCore = (userId: string | undefined) => {
       } else if (category === 'message') {
         messagePoints += amount;
       }
+      
+      console.log(`New points total: ${newPoints}, new level: ${newLevel}`);
       
       // Update profile in state
       setProfile(prev => ({
@@ -126,6 +131,7 @@ export const useGamificationCore = (userId: string | undefined) => {
     setIsLoading,
     resetRecentAchievement,
     fetchProfile,
-    addPoints
+    addPoints,
+    calculateLevel
   };
 };

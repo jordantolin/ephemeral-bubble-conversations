@@ -1,10 +1,3 @@
 
-/**
- * This file is maintained for backwards compatibility.
- * It re-exports all functionality from the new modular structure.
- * 
- * Prefer importing from the new modules directly:
- * import { fetchUserGamificationProfile } from '@/services/gamification';
- */
-
+// Re-export functions from the gamification folder for backward compatibility
 export * from './gamification';

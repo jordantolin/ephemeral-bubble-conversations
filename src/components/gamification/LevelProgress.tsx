@@ -23,8 +23,8 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
   }
   
   // Calculate points required for current level and next level
-  const pointsForCurrentLevel = Math.pow(profile.level - 1, 2) * 100;
-  const pointsForNextLevel = Math.pow(profile.level, 2) * 100;
+  const pointsForCurrentLevel = (profile.level - 1) * 100;
+  const pointsForNextLevel = profile.level * 100;
   const pointsNeeded = pointsForNextLevel - pointsForCurrentLevel;
   const currentLevelPoints = profile.points - pointsForCurrentLevel;
   const progressPercentage = Math.min(Math.round((currentLevelPoints / pointsNeeded) * 100), 100);

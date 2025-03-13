@@ -1,7 +1,7 @@
 
-// Export all services
-export * from './profileService';
-export * from './streakService';
-export * from './pointsService';
-export * from './achievementsService';
-export * from './constants';
+// Export all gamification services from a single file
+export * from "./profileService";
+export * from "./pointsService";
+export * from "./achievementsService";
+export * from "./streakService";
+export * from "./constants";

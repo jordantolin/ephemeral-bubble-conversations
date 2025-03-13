@@ -5,7 +5,7 @@ import {
 import { 
   updateAchievementsInDB,
   updateProfileWithAchievementPointsInDB
-} from "@/services/gamificationService";
+} from "@/services/gamification";
 
 type UseAchievementsParams = {
   userId: string | undefined;
@@ -35,21 +35,30 @@ export const useAchievements = ({
     if (!userId) return false;
     
     try {
+      console.log(`Checking achievement ${id} with progress ${progress}`);
+      
       // Find achievement in the list
       const achievementIndex = achievements.findIndex(a => a.id === id);
-      if (achievementIndex === -1) return false;
+      if (achievementIndex === -1) {
+        console.log(`Achievement ${id} not found`);
+        return false;
+      }
       
       const achievement = achievements[achievementIndex];
       
       // Skip if already unlocked
-      if (achievement.unlocked) return false;
+      if (achievement.unlocked) {
+        console.log(`Achievement ${id} already unlocked`);
+        return false;
+      }
       
       let shouldUnlock = false;
       
       // Check if achievement should be unlocked based on progress
-      if (achievement.maxProgress && progress) {
+      if (achievement.maxProgress !== undefined && progress !== undefined) {
         // Update progress
         const newProgress = Math.max(progress, achievement.progress || 0);
+        console.log(`Setting progress for ${id}: ${newProgress}/${achievement.maxProgress}`);
         
         // Update achievement in state
         const updatedAchievements = [...achievements];
@@ -62,6 +71,7 @@ export const useAchievements = ({
         
         // Check if achievement should be unlocked
         if (newProgress >= achievement.maxProgress) {
+          console.log(`Achievement ${id} should be unlocked based on progress`);
           shouldUnlock = true;
         } else {
           // Only update progress in DB
@@ -70,10 +80,12 @@ export const useAchievements = ({
         }
       } else {
         // Simple achievement - unlock immediately
+        console.log(`Simple achievement ${id} - unlocking`);
         shouldUnlock = true;
       }
       
       if (shouldUnlock) {
+        console.log(`Unlocking achievement ${id}`);
         // Unlock achievement
         const updatedAchievements = [...achievements];
         updatedAchievements[achievementIndex] = {
@@ -85,6 +97,7 @@ export const useAchievements = ({
         // Add points
         const newPoints = profile.points + achievement.points;
         const newLevel = calculateLevel(newPoints);
+        console.log(`Adding ${achievement.points} points. New total: ${newPoints}, new level: ${newLevel}`);
         
         // Update state
         setAchievements(updatedAchievements);
@@ -119,18 +132,27 @@ export const useAchievements = ({
     if (!userId) return false;
     
     try {
+      console.log(`Incrementing progress for ${id} by ${amount}`);
+      
       // Find achievement in the list
       const achievementIndex = achievements.findIndex(a => a.id === id);
-      if (achievementIndex === -1) return false;
+      if (achievementIndex === -1) {
+        console.log(`Achievement ${id} not found for increment`);
+        return false;
+      }
       
       const achievement = achievements[achievementIndex];
       
       // Skip if already unlocked
-      if (achievement.unlocked) return false;
+      if (achievement.unlocked) {
+        console.log(`Achievement ${id} already unlocked, skipping increment`);
+        return false;
+      }
       
       // Update progress
       const currentProgress = achievement.progress || 0;
       const newProgress = currentProgress + amount;
+      console.log(`Updating progress for ${id}: ${currentProgress} -> ${newProgress}`);
       
       // Update achievement in state
       const updatedAchievements = [...achievements];
@@ -143,9 +165,11 @@ export const useAchievements = ({
       
       // Check if achievement should be unlocked
       if (achievement.maxProgress && newProgress >= achievement.maxProgress) {
+        console.log(`Achievement ${id} ready to unlock after increment`);
         return await checkAchievement(id, newProgress);
       } else {
         // Only update progress in DB
+        console.log(`Saving updated progress to DB for ${id}`);
         await updateAchievementsInDB(userId, updatedAchievements);
       }
     } catch (error) {
