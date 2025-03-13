@@ -8,7 +8,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useGamification } from "@/context/GamificationContext";
-import { AchievementId } from "@/types/gamification";
 
 // Form schema for bubble creation
 const BubbleSchema = z.object({
@@ -103,7 +102,16 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       await addPoints(20, 'bubble');
       
       // Check achievement for first bubble created
-      await checkAchievement('first-bubble' as AchievementId);
+      await checkAchievement('first-bubble');
+      
+      // Monitor this bubble for reflections (for the "popular-bubble" achievement)
+      // We'll store the bubble ID to check for reflections later
+      localStorage.setItem(`bubble_created_${newBubble.id}`, JSON.stringify({
+        id: newBubble.id,
+        name: newBubble.name,
+        createdAt: new Date().toISOString(),
+        reflections: 0
+      }));
       
       // Clear form
       form.reset();

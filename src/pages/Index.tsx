@@ -12,7 +12,6 @@ import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
-import { AchievementId } from "@/types/gamification";
 
 const Index = () => {
   const location = useLocation();
@@ -63,7 +62,7 @@ const Index = () => {
       await addPoints(10, 'reflection');
       
       // Increment progress for the reflection master achievement
-      await incrementAchievementProgress('reflection-master' as AchievementId);
+      await incrementAchievementProgress('reflection-master');
       
       // Refresh gamification profile to ensure all achievements are up to date
       await refreshGamificationProfile();
@@ -77,12 +76,12 @@ const Index = () => {
       await addPoints(5, 'message');
       
       // Increment progress for the social butterfly achievement
-      await incrementAchievementProgress('social-butterfly' as AchievementId);
+      await incrementAchievementProgress('social-butterfly');
     }
   };
   
   // Increment achievement progress
-  const incrementAchievementProgress = async (achievementId: AchievementId) => {
+  const incrementAchievementProgress = async (achievementId: string) => {
     await checkAchievement(achievementId);
   };
   
@@ -154,7 +153,7 @@ const Index = () => {
         messages={messages}
         isLoadingMessages={isLoadingMessages}
         messagesError={messagesError}
-        isBubbleExpired={isBubbleExpired}
+        isBubbleExpired={isBubbleExpired(selectedBubble)}
         handleReflect={handleReflectWithGamification}
       />
       

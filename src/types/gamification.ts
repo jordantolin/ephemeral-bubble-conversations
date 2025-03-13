@@ -26,9 +26,6 @@ export type AchievementType = {
   maxProgress?: number;
 };
 
-// Achievement IDs type for type safety
-export type AchievementId = 'first-bubble' | 'reflection-master' | 'social-butterfly' | 'daily-streak-3' | 'popular-bubble';
-
 // Define user gamification profile
 export type GamificationProfile = {
   level: number;
@@ -47,8 +44,9 @@ export type GamificationContextType = {
   recentAchievement: AchievementType | null;
   isLoading: boolean;
   addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
-  checkAchievement: (id: AchievementId, progress?: number) => Promise<boolean>;
-  incrementAchievementProgress: (id: AchievementId, amount?: number) => Promise<boolean>;
+  checkAchievement: (id: string, progress?: number) => Promise<boolean>;
+  incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
+  trackMessageSent: () => Promise<void>;
   resetRecentAchievement: () => void;
   refreshGamificationProfile: () => Promise<void>;
 };

@@ -1,4 +1,3 @@
-
 import { useRef, useCallback } from 'react';
 import * as THREE from 'three';
 
@@ -51,7 +50,6 @@ export const useCameraControls = () => {
     mouseRef.current.startY = event.clientY;
   }, []);
 
-  // Fixed to be consistent: takes no parameters and returns a boolean
   const handleMouseUp = useCallback(() => {
     // Keep track of dragging state
     const wasDragging = mouseRef.current.isDragging;
