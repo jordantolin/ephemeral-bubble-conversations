@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -66,9 +65,6 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const [isReflecting, setIsReflecting] = useState(false);
   const gamification = useGamification() as GamificationContextType;
   
-  // Destructure from the typed gamification object
-  const { addPoints, incrementAchievementProgress } = gamification;
-
   const reflectOnBubble = async () => {
     if (!user) return false;
 
@@ -104,11 +100,9 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      // Add points with the properly typed function
-      await addPoints(10, 'reflection');
+      await gamification.addPoints(10, 'reflection');
 
-      // Pass the achievement ID with the properly typed function
-      await incrementAchievementProgress('reflection-master');
+      await gamification.incrementAchievementProgress('reflection-master');
 
       toast({
         title: "Reflection Added!",
@@ -146,7 +140,6 @@ interface BubbleChatProps {
   handleReflect: (bubbleId: string) => Promise<void>;
 }
 
-// Message component for better organization
 const ChatMessage = ({ message }: { message: any }) => {
   return (
     <div className="flex gap-2 animate-fadeIn">
@@ -192,7 +185,6 @@ const BubbleChat = ({
     }
   };
 
-  // Handle Enter key to send messages
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
