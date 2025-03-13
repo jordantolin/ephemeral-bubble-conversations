@@ -54,7 +54,7 @@ export const useSendBubbleMessage = (bubbleId: string) => {
 
 type ReflectOnBubbleType = {
   incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
-  addPoints: (amount: number, category: string) => Promise<boolean>;
+  addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
 };
 
 export const useReflectOnBubble = (bubbleId: string) => {
