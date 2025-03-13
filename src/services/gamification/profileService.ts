@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { GamificationProfile } from "@/types/gamification";
 import { defaultProfile } from "./constants";
-import { deserializeAchievements, validateAchievements } from "@/utils/achievementUtils";
+import { deserializeAchievements, validateAchievements, serializeAchievements } from "@/utils/achievementUtils";
 import { updateDailyStreak } from "@/utils/profileUtils";
 import { Json } from "@/integrations/supabase/types";
 
@@ -99,6 +99,3 @@ export async function createNewUserProfile(userId: string): Promise<Gamification
     throw e;
   }
 }
-
-// Import serializeAchievements from achievementUtils
-import { serializeAchievements } from "@/utils/achievementUtils";

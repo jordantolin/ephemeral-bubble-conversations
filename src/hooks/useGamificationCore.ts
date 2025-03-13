@@ -12,7 +12,7 @@ import {
   updatePointsInDB,
   updateAchievementsInDB,
   updateProfileWithAchievementPointsInDB
-} from "@/services/gamificationService";
+} from "@/services/gamification";
 
 /**
  * Hook that provides core gamification functionality
