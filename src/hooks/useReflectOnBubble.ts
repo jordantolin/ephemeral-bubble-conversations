@@ -10,7 +10,7 @@ import { GamificationContextType } from "@/types/gamification";
  * Hook for reflecting on a bubble.
  */
 export const useReflectOnBubble = () => {
-  const toast = useToast();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isReflecting, setIsReflecting] = useState(false);
   const { incrementAchievementProgress, addPoints, refreshGamificationProfile } = useGamification() as GamificationContextType;
