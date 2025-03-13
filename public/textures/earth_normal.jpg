@@ -1,3 +1,4 @@
-
-// This is a placeholder for the Earth normal map.
-// In a real implementation, you would add an actual image file here.
+// This file should be replaced with a normal map for Earth's terrain (2048×1024px minimum).
+// The normal map provides terrain elevation visual effects for mountains and geological features.
+// Use grayscale color mapping where lighter areas represent higher elevation.
+// Keep file size under 1MB for optimal loading performance.

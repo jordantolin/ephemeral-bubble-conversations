@@ -1,144 +1,176 @@
 
-import React, { Suspense, useRef, useEffect, useState } from 'react';
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Stars, Html } from '@react-three/drei';
-import Earth3D from './Earth3D';
+import React, { useRef, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
+import Earth3D from './Earth3D';
 import { useCameraControls } from '@/hooks/useCameraControls';
 
-interface BubbleWorld3DProps {
-  className?: string;
-  onRegionSelect?: (region: string) => void;
+interface BubbleData {
+  id: string;
+  position: [number, number, number];
+  color: string;
+  size: number;
+  name: string;
 }
 
-// Custom camera controller component
-const CameraController = () => {
-  const { camera, gl } = useThree();
+interface BubbleWorld3DProps {
+  bubbles?: BubbleData[];
+}
+
+const BubbleWorld3D: React.FC<BubbleWorld3DProps> = ({ bubbles = [] }) => {
   const {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleDoubleClick,
     handleWheel,
-    updateCamera,
-    zoomRef
+    updateCamera
   } = useCameraControls();
-  
-  const domElement = gl.domElement;
-  
-  // Set up event listeners
-  useEffect(() => {
-    domElement.addEventListener('mousedown', handleMouseDown);
-    domElement.addEventListener('mousemove', handleMouseMove);
-    domElement.addEventListener('mouseup', handleMouseUp);
-    domElement.addEventListener('wheel', handleWheel);
-
-    return () => {
-      domElement.removeEventListener('mousedown', handleMouseDown);
-      domElement.removeEventListener('mousemove', handleMouseMove);
-      domElement.removeEventListener('mouseup', handleMouseUp);
-      domElement.removeEventListener('wheel', handleWheel);
-    };
-  }, [domElement, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel]);
-
-  // Update camera position every frame
-  useFrame(() => {
-    updateCamera(camera);
-  });
-
-  return null;
-};
-
-// Helper component for loading state
-const LoadingIndicator = () => (
-  <Html center>
-    <div className="text-white text-center bg-black/50 p-3 rounded-lg backdrop-blur-sm">
-      <div className="animate-spin w-8 h-8 border-4 border-t-primary rounded-full mx-auto mb-2"></div>
-      <p>Loading Earth...</p>
-    </div>
-  </Html>
-);
-
-const BubbleWorld3D: React.FC<BubbleWorld3DProps> = ({ className, onRegionSelect }) => {
-  const [isReady, setIsReady] = useState(false);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  
-  // Handle scene ready state
-  useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   return (
-    <div className={`w-full h-full ${className || ''} relative`}>
-      <Canvas 
-        shadows
-        camera={{ position: [0, 0, 5], fov: 45, near: 0.1, far: 1000 }}
-        gl={{ antialias: true }}
-        onCreated={({ scene }) => {
-          sceneRef.current = scene;
-          scene.background = new THREE.Color(0x000515);
-        }}
-      >
-        <Suspense fallback={<LoadingIndicator />}>
-          {/* Ambient light for overall illumination */}
-          <ambientLight intensity={0.2} />
-          
-          {/* Main directional light (sun) */}
-          <directionalLight 
-            position={[5, 3, 5]} 
-            intensity={1.5} 
-            castShadow 
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-          />
-          
-          {/* Background stars */}
-          <Stars 
-            radius={100} 
-            depth={50} 
-            count={7000} 
-            factor={4} 
-            saturation={0.5}
-            fade 
-            speed={0.5} 
-          />
-          
-          {/* Earth model */}
-          <Earth3D 
-            scale={1.5} 
-            rotationSpeed={0.0005}
-            showClouds={true}
-            showAtmosphere={true}
-            axialTilt={23.5}
-          />
-          
-          {/* Camera controls */}
-          <CameraController />
-        </Suspense>
-      </Canvas>
+    <Canvas
+      className="cursor-grab active:cursor-grabbing"
+      camera={{ position: [0, 0, 16], fov: 45 }}
+      onCreated={({ gl }) => {
+        gl.setClearColor(new THREE.Color('#00000000'), 0);
+      }}
+      shadows
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onDoubleClick={handleDoubleClick}
+      onWheel={handleWheel}
+    >
+      {/* Ambient light and directional light for the scene */}
+      <ambientLight intensity={0.5} />
+      <directionalLight 
+        position={[5, 3, 5]} 
+        intensity={1.5} 
+        castShadow 
+        shadow-mapSize-width={1024} 
+        shadow-mapSize-height={1024}
+      />
       
-      {/* Optional UI overlay */}
-      {!isReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="text-white text-center">
-            <div className="animate-spin w-12 h-12 border-4 border-t-primary rounded-full mx-auto mb-4"></div>
-            <h3 className="text-xl font-bold">Preparing Earth View</h3>
-            <p className="text-sm opacity-80 mt-2">Loading high-resolution textures...</p>
-          </div>
-        </div>
-      )}
+      {/* Background stars */}
+      <Stars 
+        radius={100} 
+        depth={50} 
+        count={5000} 
+        factor={4} 
+        saturation={0} 
+        fade 
+      />
       
-      {/* Reset view button */}
-      <button 
-        className="absolute bottom-4 right-4 bg-white/10 backdrop-blur-sm text-white px-3 py-1.5 rounded-md text-sm hover:bg-white/20 transition-colors"
-        onClick={() => {
-          // Reset view logic would go here
-        }}
-      >
-        Reset View
-      </button>
-    </div>
+      {/* Earth as central element */}
+      <Earth3D 
+        position={[0, 0, 0]}
+        scale={1.5}
+        rotationSpeed={0.0005}
+        showClouds={true}
+        showAtmosphere={true}
+      />
+      
+      {/* Orbiting bubbles */}
+      {bubbles.map((bubble) => (
+        <Bubble 
+          key={bubble.id}
+          position={bubble.position}
+          color={bubble.color}
+          size={bubble.size}
+          name={bubble.name}
+        />
+      ))}
+      
+      {/* Camera controller */}
+      <CameraController updateCamera={updateCamera} />
+    </Canvas>
   );
+};
+
+// Bubble component for orbiting elements
+const Bubble: React.FC<{
+  position: [number, number, number];
+  color: string;
+  size: number;
+  name: string;
+}> = ({ position, color, size, name }) => {
+  const ref = useRef<THREE.Group>(null);
+  
+  // Animate bubble movement
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    
+    const t = clock.getElapsedTime() * 0.2;
+    ref.current.position.x = position[0] * Math.cos(t);
+    ref.current.position.z = position[2] * Math.sin(t);
+    ref.current.position.y = position[1] + Math.sin(t * 0.5) * 0.5;
+    
+    // Make bubble always face the camera
+    ref.current.rotation.y += 0.01;
+  });
+  
+  return (
+    <group ref={ref} position={position}>
+      <mesh castShadow>
+        <sphereGeometry args={[size, 32, 32]} />
+        <meshPhysicalMaterial 
+          color={color}
+          transmission={0.6}
+          thickness={1.5}
+          roughness={0.2}
+          metalness={0.1}
+          clearcoat={1}
+          clearcoatRoughness={0.2}
+          opacity={0.8}
+          transparent
+        />
+      </mesh>
+      
+      {/* Text label */}
+      <Html position={[0, size + 0.5, 0]} center>
+        <div className="text-white text-sm bg-black/50 px-2 py-1 rounded whitespace-nowrap">
+          {name}
+        </div>
+      </Html>
+    </group>
+  );
+};
+
+// Helper component for the Html elements from drei
+const Html: React.FC<{
+  children: React.ReactNode;
+  position: [number, number, number];
+  center?: boolean;
+}> = ({ children, position, center }) => {
+  const ref = useRef<THREE.Group>(null);
+  
+  useFrame(({ camera }) => {
+    if (!ref.current) return;
+    // Make text always face the camera
+    ref.current.quaternion.copy(camera.quaternion);
+  });
+  
+  return (
+    <group ref={ref} position={position}>
+      <div
+        style={{
+          transform: center ? 'translate(-50%, -50%)' : 'none',
+          pointerEvents: 'none',
+        }}
+      >
+        {children}
+      </div>
+    </group>
+  );
+};
+
+// Helper component to update camera on each frame
+const CameraController: React.FC<{ updateCamera: (camera: THREE.Camera) => void }> = ({ updateCamera }) => {
+  useFrame(({ camera }) => {
+    updateCamera(camera);
+  });
+  return null;
 };
 
 export default BubbleWorld3D;

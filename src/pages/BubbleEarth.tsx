@@ -1,11 +1,13 @@
 
 import React, { useState } from 'react';
-import BubbleWorld3D from '@/components/earth/BubbleWorld3D';
+import { Canvas } from '@react-three/fiber';
+import Earth3D from '@/components/earth/Earth3D';
 import NavigationBar from '@/components/bubbleWorld/NavigationBar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { useCameraControls } from '@/hooks/useCameraControls';
 
 const BubbleEarth: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -16,6 +18,17 @@ const BubbleEarth: React.FC = () => {
     rotationSpeed: 0.5, // Scale of 0-1 for UI, will be converted
     qualityLevel: 'high'
   });
+
+  // Camera controls for Earth interaction
+  const {
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleDoubleClick,
+    handleWheel,
+    handlePinchZoom,
+    updateCamera,
+  } = useCameraControls();
 
   // Handle settings changes
   const handleSettingChange = (key: string, value: any) => {
@@ -38,7 +51,40 @@ const BubbleEarth: React.FC = () => {
           
           {/* 3D Earth component */}
           <div className="bg-black/5 backdrop-blur-sm rounded-xl shadow-lg p-4 md:p-6 h-[500px] relative">
-            <BubbleWorld3D />
+            <Canvas
+              className="cursor-grab active:cursor-grabbing"
+              camera={{ position: [0, 0, 16], fov: 45 }}
+              onCreated={({ gl }) => {
+                gl.setClearColor(new THREE.Color('#00000000'), 0);
+              }}
+              shadows
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onDoubleClick={handleDoubleClick}
+              onWheel={handleWheel}
+              onPointerMissed={() => {}}
+            >
+              <ambientLight intensity={0.8} />
+              <directionalLight 
+                position={[5, 3, 5]} 
+                intensity={1.5} 
+                castShadow 
+                shadow-mapSize-width={1024} 
+                shadow-mapSize-height={1024}
+              />
+              
+              <Earth3D 
+                position={[0, 0, 0]}
+                rotationSpeed={settings.rotationSpeed * 0.002} // Convert 0-1 range to actual speed
+                showClouds={settings.showClouds}
+                showAtmosphere={settings.showAtmosphere}
+                axialTilt={23.5} // Earth's natural tilt
+              />
+              
+              {/* Update camera on each frame */}
+              <CameraController updateCamera={updateCamera} />
+            </Canvas>
             
             {/* Settings toggle */}
             <button
@@ -114,6 +160,14 @@ const BubbleEarth: React.FC = () => {
       </div>
     </div>
   );
+};
+
+// Helper component to update camera on each frame
+const CameraController: React.FC<{ updateCamera: (camera: THREE.Camera) => void }> = ({ updateCamera }) => {
+  useFrame(({ camera }) => {
+    updateCamera(camera);
+  });
+  return null;
 };
 
 export default BubbleEarth;
