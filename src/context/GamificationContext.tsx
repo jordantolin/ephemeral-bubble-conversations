@@ -11,7 +11,8 @@ import {
 import { 
   GamificationProfile, 
   GamificationContextType,
-  AchievementType 
+  AchievementType,
+  PointCategory
 } from '@/types/gamification';
 import { defaultAchievements } from '@/utils/achievementUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -98,7 +99,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Add points to user profile
   const addPoints = async (
     amount: number, 
-    category?: 'bubble' | 'reflection' | 'message'
+    category?: PointCategory
   ): Promise<boolean> => {
     if (!user) return false;
     
