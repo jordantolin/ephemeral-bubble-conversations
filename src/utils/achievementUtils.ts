@@ -5,7 +5,7 @@ import { AchievementType, SerializableAchievement } from "@/types/gamification";
 import { Json } from "@/integrations/supabase/types";
 
 // Helper to convert React icons to serializable format
-export const serializeAchievements = (achievements: AchievementType[]): Record<string, any>[] => {
+export const serializeAchievements = (achievements: AchievementType[]): SerializableAchievement[] => {
   return achievements.map(ach => ({
     id: ach.id,
     name: ach.name,
@@ -35,7 +35,7 @@ export const getIconTypeFromNode = (icon: React.ReactNode): string => {
 };
 
 // Helper to deserialize achievements back to React components
-export const deserializeAchievements = (serialized: any[]): AchievementType[] => {
+export const deserializeAchievements = (serialized: Json): AchievementType[] => {
   if (!Array.isArray(serialized)) {
     console.error("Invalid achievement data:", serialized);
     return defaultAchievements;

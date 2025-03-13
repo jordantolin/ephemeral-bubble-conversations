@@ -11,6 +11,7 @@ export async function updatePointsInDB(
 ): Promise<void> {
   try {
     console.log(`Updating points for user ${userId}: ${points} points, level ${level}`);
+    console.log(`Activity points - Bubble: ${bubblePoints}, Reflection: ${reflectionPoints}, Message: ${messagePoints}`);
     
     const { error } = await supabase
       .from('gamification_profiles')
@@ -20,7 +21,8 @@ export async function updatePointsInDB(
         bubble_points: bubblePoints,
         reflection_points: reflectionPoints,
         message_points: messagePoints,
-        last_active: new Date().toISOString()
+        last_active: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .eq('user_id', userId);
       
@@ -32,5 +34,6 @@ export async function updatePointsInDB(
     console.log("Points updated successfully");
   } catch (e) {
     console.error("Unexpected error in updatePointsInDB:", e);
+    throw e; // Rethrow to allow proper error handling upstream
   }
 }

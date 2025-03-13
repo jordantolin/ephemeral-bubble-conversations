@@ -25,7 +25,8 @@ const Index = () => {
     checkAchievement, 
     addPoints, 
     refreshGamificationProfile, 
-    incrementAchievementProgress 
+    incrementAchievementProgress,
+    isLoading: isGamificationLoading
   } = useGamification() as GamificationContextType;
   
   const {
@@ -47,7 +48,8 @@ const Index = () => {
     bubbleDataForComponent,
     isBubbleExpired,
     handleReflect,
-    handleBubbleClick
+    handleBubbleClick,
+    refreshBubbles
   } = useBubbleData();
   
   const searchParams = new URLSearchParams(location.search);
@@ -60,19 +62,31 @@ const Index = () => {
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       await handleReflect(bubbleId);
       
-      if (user) {
-        // Add points for the reflection
-        await addPoints(10, 'reflection');
-        
-        // Increment progress for the reflection master achievement
-        await incrementAchievementProgress('reflection-master', 1);
-        
-        // Refresh gamification profile to ensure all achievements are up to date
-        await refreshGamificationProfile();
-      }
+      // Add points for the reflection
+      await addPoints(10, 'reflection');
+      
+      // Increment progress for the reflection master achievement
+      await incrementAchievementProgress('reflection-master', 1);
+      
+      toast({
+        title: "Reflection added",
+        description: "Your reflection has been added to this bubble",
+      });
+      
+      // Refresh bubbles to update UI
+      refreshBubbles();
     } catch (error) {
       console.error("Error reflecting on bubble:", error);
       toast({
@@ -117,13 +131,13 @@ const Index = () => {
       const retryTimer = setTimeout(() => {
         console.log(`Retrying bubble data load (attempt ${retryCount + 1}/${maxRetries})`);
         // This will trigger a re-fetch in the useBubbleData hook
-        window.dispatchEvent(new Event('focus'));
+        refreshBubbles();
         retryCount++;
       }, 3000);
       
       return () => clearTimeout(retryTimer);
     }
-  }, [bubblesError]);
+  }, [bubblesError, refreshBubbles]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">

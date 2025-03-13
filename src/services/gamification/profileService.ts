@@ -30,7 +30,7 @@ export async function fetchUserGamificationProfile(userId: string): Promise<Gami
       let storedAchievements;
       try {
         storedAchievements = data.achievements ? 
-          deserializeAchievements(data.achievements as any[]) : 
+          deserializeAchievements(data.achievements as Json) : 
           defaultProfile.achievements;
       } catch (e) {
         console.error("Error deserializing achievements:", e);
@@ -88,7 +88,9 @@ export async function createNewUserProfile(userId: string): Promise<Gamification
         message_points: newProfile.messagePoints,
         achievements: serializedAchievements as unknown as Json,
         daily_streak: newProfile.dailyStreak,
-        last_active: newProfile.lastActive
+        last_active: newProfile.lastActive,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
       
     if (error) {
