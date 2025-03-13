@@ -51,7 +51,7 @@ export const useCameraControls = () => {
     mouseRef.current.startY = event.clientY;
   }, []);
 
-  // Modified to return a boolean indicating if dragging occurred and take no parameters
+  // Fixed to be consistent: takes no parameters and returns a boolean
   const handleMouseUp = useCallback(() => {
     // Keep track of dragging state
     const wasDragging = mouseRef.current.isDragging;
