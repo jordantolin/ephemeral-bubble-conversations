@@ -64,7 +64,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
       // Increment Reflection Master achievement progress
       await incrementAchievementProgress('reflection-master', 1);
       
-      // Check reflection achievements
+      // Check reflection achievements - use the string literal 'reflection-master'
       await checkAchievement('reflection-master');
 
       toast({

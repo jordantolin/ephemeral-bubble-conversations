@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useGamification } from "@/context/GamificationContext";
-import { GamificationContextType } from "@/types/gamification";
 
 /**
  * Hook for sending messages to a bubble
@@ -15,7 +14,7 @@ export const useSendBubbleMessage = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
-  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
+  const { addPoints, incrementAchievementProgress } = useGamification();
 
   const sendMessage = async (content: string) => {
     if (!user || !content.trim()) return false;
