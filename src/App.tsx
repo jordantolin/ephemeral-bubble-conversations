@@ -1,67 +1,84 @@
 
-import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
-import Auth from '@/pages/Auth';
-import Index from '@/pages/Index';
-import Feed from '@/pages/Feed';
-import BubbleChat from '@/pages/BubbleChat';
-import Achievements from '@/pages/Achievements';
-import Profile from '@/pages/Profile';
-import RequireAuth from '@/components/RequireAuth';
-import NotFound from '@/pages/NotFound';
-import MyBubbles from '@/pages/MyBubbles';
-import { GamificationProvider } from '@/context/GamificationContext';
-import AchievementPopup from '@/components/gamification/AchievementPopup';
-import GamificationTracker from '@/components/gamification/GamificationTracker';
-import DailyStreakIndicator from '@/components/gamification/DailyStreakIndicator';
-import './App.css';
+import { Routes, Route, BrowserRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { NetworkProvider } from "./context/NetworkContext";
+import { AuthProvider } from "./context/AuthContext";
+import { GamificationProvider } from "./context/GamificationContext";
+import RequireAuth from "./components/RequireAuth";
+import ErrorBoundary from "./components/errorHandling/ErrorBoundary";
+import { Toaster } from "./components/ui/toaster";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import Profile from "./pages/Profile";
+import Feed from "./pages/Feed";
+import BubbleChat from "./pages/BubbleChat";
+import MyBubbles from "./pages/MyBubbles";
+import NotFound from "./pages/NotFound";
+import Achievements from "./pages/Achievements";
+import GamificationTracker from "./components/gamification/GamificationTracker";
 
-function AppContent() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  // Clear queries when user changes
-  useEffect(() => {
-    queryClient.clear();
-  }, [user?.id, queryClient]);
-
-  return (
-    <>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth/*" element={<Auth />} />
-        <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
-        <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
-        <Route path="/bubble-chat/:id" element={<RequireAuth><BubbleChat /></RequireAuth>} />
-        <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
-        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-        <Route path="/404" element={<NotFound />} />
-        <Route path="*" element={<Navigate to="/404" replace />} />
-      </Routes>
-      
-      {/* Achievement popups and trackers */}
-      {user && (
-        <>
-          <AchievementPopup />
-          <DailyStreakIndicator />
-          <GamificationTracker />
-        </>
-      )}
-    </>
-  );
-}
+// Create a query client with default options
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <GamificationProvider>
-          <AppContent />
-        </GamificationProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <NetworkProvider>
+            <AuthProvider>
+              <GamificationProvider>
+                <GamificationTracker />
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/bubble/:id" element={<BubbleChat />} />
+                  <Route path="/bubble-chat/:id" element={<BubbleChat />} />
+                  <Route path="/feed" element={<Feed />} />
+                  
+                  <Route 
+                    path="/profile" 
+                    element={
+                      <RequireAuth>
+                        <Profile />
+                      </RequireAuth>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/my-bubbles" 
+                    element={
+                      <RequireAuth>
+                        <MyBubbles />
+                      </RequireAuth>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/achievements" 
+                    element={
+                      <RequireAuth>
+                        <Achievements />
+                      </RequireAuth>
+                    } 
+                  />
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <Toaster />
+              </GamificationProvider>
+            </AuthProvider>
+          </NetworkProvider>
+        </QueryClientProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

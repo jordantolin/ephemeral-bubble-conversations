@@ -1,91 +1,77 @@
 
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGamification } from "@/context/GamificationContext";
+import { GamificationContextType } from "@/types/gamification";
 
 /**
- * Hook for reflecting on a bubble
- * @param bubbleId The ID of the bubble to reflect on
- * @returns Object containing reflectOnBubble function and loading state
+ * Hook for reflecting on a bubble.
  */
-export const useReflectOnBubble = (bubbleId: string) => {
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
+export const useReflectOnBubble = () => {
+  const toast = useToast();
+  const queryClient = useQueryClient();
   const [isReflecting, setIsReflecting] = useState(false);
-  const { 
-    addPoints, 
-    incrementAchievementProgress, 
-    checkAchievement 
-  } = useGamification();
+  const { incrementAchievementProgress, addPoints, refreshGamificationProfile } = useGamification() as GamificationContextType;
 
-  const reflectOnBubble = async () => {
-    if (!user) return false;
-
+  /**
+   * Reflects on a bubble with the given id.
+   * @param bubbleId - The ID of the bubble to reflect on.
+   * @param username - The username of the user reflecting on the bubble.
+   */
+  const reflectOnBubble = async (bubbleId: string, username: string) => {
+    if (isReflecting) return;
+    
     setIsReflecting(true);
-
+    
     try {
-      const username = profile?.username || user.email || "";
-
-      // Check if user already reflected on this bubble
-      const { data: existingReflects } = await supabase
-        .from("reflects")
-        .select("id")
-        .eq("bubble_id", bubbleId)
-        .eq("username", username);
-
-      if (existingReflects && existingReflects.length > 0) {
-        toast({
-          title: "Already Reflected",
-          description: "You have already reflected on this bubble",
-          variant: "default"
-        });
-        setIsReflecting(false);
-        return false;
-      }
-
-      // Add the reflection
+      // Insert reflection record in Supabase
       const { error } = await supabase
-        .from("reflects")
-        .insert({
+        .from('reflects')
+        .insert({ 
           bubble_id: bubbleId,
-          username
+          username 
         });
 
-      if (error) throw error;
-
-      // Update the reflect count on the bubble
-      await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
-
-      // Add points for reflecting
-      await addPoints(10, 'reflection');
-
-      // Increment Reflection Master achievement progress
-      await incrementAchievementProgress('reflection-master', 1);
-      
-      // Check reflection achievements - use the string literal 'reflection-master'
-      await checkAchievement('reflection-master');
-
-      toast({
-        title: "Reflection Added!",
-        description: "Your reflection has been added to this bubble",
-        variant: "default"
-      });
-
-      setIsReflecting(false);
-      return true;
-    } catch (error: any) {
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Already reflected",
+            description: "You have already reflected on this bubble",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        // Award points and track achievement
+        await addPoints(10, 'reflection');
+        await incrementAchievementProgress('reflection-master', 1);
+        await refreshGamificationProfile();
+        
+        toast({
+          title: "Bubble reflected!",
+          description: "This bubble will appear in your profile",
+        });
+        
+        // Invalidate queries to update UI
+        queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+        queryClient.invalidateQueries({ queryKey: ['myBubbles'] });
+      }
+    } catch (error) {
       console.error("Error reflecting on bubble:", error);
       toast({
-        title: "Error Adding Reflection",
-        description: error.message || "Please try again",
+        title: "Error reflecting on bubble",
+        description: "Please try again later",
         variant: "destructive"
       });
+    } finally {
       setIsReflecting(false);
-      return false;
     }
   };
 
-  return { reflectOnBubble, isReflecting };
+  return {
+    reflectOnBubble,
+    isReflecting
+  };
 };
