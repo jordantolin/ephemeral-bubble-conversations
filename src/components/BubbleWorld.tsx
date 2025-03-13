@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
@@ -6,9 +6,8 @@ import {
   createBubbleGeometry, 
   createBubbleMaterial, 
   createTextCanvas,
-  createCentralWorldGeometry,
-  createCentralWorldMaterial,
 } from '@/utils/bubbleUtils';
+import { loadGLTFModel, setupModel } from '@/utils/modelLoader';
 import { useNavigate } from 'react-router-dom';
 
 // Format time remaining for display
@@ -35,10 +34,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
   const animationFrameRef = useRef<number>();
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const centralWorldRef = useRef<THREE.Mesh | null>(null);
+  const centralWorldRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const particlesRef = useRef<{[key: string]: THREE.Points}>({});
+  const [modelLoaded, setModelLoaded] = useState(false);
   const interactionRef = useRef({
     isInteracting: false,
     lastX: 0,
@@ -128,21 +128,77 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     centerLight.position.set(0, 0, 0);
     scene.add(centerLight);
 
-    // Create central world with enhanced appearance
-    const worldGeometry = createCentralWorldGeometry();
-    const worldMaterial = createCentralWorldMaterial();
-    const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
-    centralWorld.castShadow = true;
-    centralWorld.receiveShadow = true;
-    // Adjust central world size
-    centralWorld.scale.set(1.2, 1.2, 1.2);
-    centralWorldRef.current = centralWorld;
-    scene.add(centralWorld);
+    // Load the 3D model for the central world
+    const loadCentralWorld = async () => {
+      try {
+        // Replace with the actual path to your GLB file
+        const modelPath = '/models/yellow-earth.glb';
+        
+        // Show loading indicator or placeholder while model loads
+        const placeholderGeometry = new THREE.SphereGeometry(1.2, 32, 32);
+        const placeholderMaterial = new THREE.MeshBasicMaterial({ 
+          color: 0xebbd34,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.5
+        });
+        const placeholder = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
+        scene.add(placeholder);
+        
+        // Load the actual model
+        const model = await loadGLTFModel(modelPath, (event) => {
+          const percentComplete = Math.round((event.loaded / (event.total || 1)) * 100);
+          console.log(`Loading model: ${percentComplete}%`);
+        });
+        
+        // Setup the model
+        const centralWorld = setupModel(model, 1.2);
+        centralWorld.position.set(0, 0, 0);
+        
+        // Remove placeholder
+        scene.remove(placeholder);
+        
+        // Add model to scene
+        scene.add(centralWorld);
+        centralWorldRef.current = centralWorld;
+        setModelLoaded(true);
+        
+        console.log("Central world model loaded successfully");
+      } catch (error) {
+        console.error("Failed to load central world model:", error);
+        
+        // Fallback to geometric shape if model loading fails
+        const worldGeometry = new THREE.IcosahedronGeometry(0.8, 1);
+        const worldMaterial = new THREE.MeshPhysicalMaterial({
+          color: 0xebbd34,
+          metalness: 0.4,
+          roughness: 0.3,
+          transmission: 0.2,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.2,
+          emissive: 0x332200,
+          emissiveIntensity: 0.2,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.6
+        });
+        
+        const fallbackWorld = new THREE.Mesh(worldGeometry, worldMaterial);
+        fallbackWorld.scale.set(1.2, 1.2, 1.2);
+        fallbackWorld.castShadow = true;
+        fallbackWorld.receiveShadow = true;
+        scene.add(fallbackWorld);
+        centralWorldRef.current = fallbackWorld;
+      }
+    };
+
+    // Start loading the central world model
+    loadCentralWorld();
 
     // Add subtle environment fog for depth
     scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
 
-    // Create explosion particles function with more realistic effect
+    // Create explosion particles function
     const createExplosionParticles = (position: THREE.Vector3, size: number) => {
       const particleCount = 250; // More particles for richer effect
       const geometry = new THREE.BufferGeometry();
@@ -685,12 +741,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         camera.position.z = zoom.current;
       }
 
-      // Calculate zoom scaling factor with improved curve for more natural scaling
+      // Calculate zoom scaling factor
       const zoomRange = interactionRef.current.zoom.max - interactionRef.current.zoom.min;
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
 
-      // Update bubble positions with improved movement to prevent overlap
+      // Update bubbles
       Object.values(bubblesRef.current).forEach(bubble => {
         const movement = bubble.userData.movement;
         const expiryRatio = bubble.userData.expiryRatio || 1;
@@ -698,7 +754,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         
         // Calculate new position with more structured and consistent movement
         const angle = time * movement.speed + movement.angle;
-        // Reduced wobble to minimize random overlap
         const wobble = Math.sin(time * 5 * movement.wobble) * expiryRatio * 0.1;
         
         // Vertical movement depends on the layer to prevent overlap between layers
@@ -706,11 +761,12 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
                                 movement.verticalRange * (1 + (layer * 0.2));
         
         // Apply rotation from central world for coordinated movement
-        const rotationOffset = new THREE.Euler(
-          centralWorld.rotation.x,
-          centralWorld.rotation.y,
-          centralWorld.rotation.z
-        );
+        const rotationOffset = centralWorldRef.current ? 
+          new THREE.Euler(
+            centralWorldRef.current.rotation.x,
+            centralWorldRef.current.rotation.y,
+            centralWorldRef.current.rotation.z
+          ) : new THREE.Euler(0, 0, 0);
         
         // Use the structured movement values
         const x = Math.cos(angle) * movement.radius + wobble;
@@ -803,8 +859,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       });
 
       // Apply gentle auto-rotation to central world when not interacting
-      if (!interactionRef.current.isInteracting && centralWorld) {
-        centralWorld.rotation.y += 0.0003;
+      if (!interactionRef.current.isInteracting && centralWorldRef.current) {
+        centralWorldRef.current.rotation.y += 0.0003;
       }
 
       TWEEN.update();

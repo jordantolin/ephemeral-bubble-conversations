@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
@@ -170,47 +169,6 @@ export const createBubbleMaterial = () => {
     transparent: true,
     opacity: 0.6,
     side: THREE.DoubleSide,
-  });
-};
-
-// Create central world geometry
-export const createCentralWorldGeometry = () => {
-  const geometry = new THREE.IcosahedronGeometry(0.8, 1);
-  // Add some randomization to vertices for a more organic look
-  const positions = geometry.attributes.position;
-  
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i);
-    const y = positions.getY(i);
-    const z = positions.getZ(i);
-    
-    const jitter = 0.05;
-    positions.setXYZ(
-      i,
-      x + (Math.random() - 0.5) * jitter,
-      y + (Math.random() - 0.5) * jitter,
-      z + (Math.random() - 0.5) * jitter
-    );
-  }
-  
-  geometry.computeVertexNormals();
-  return geometry;
-};
-
-// Create central world material with improved appearance
-export const createCentralWorldMaterial = () => {
-  return new THREE.MeshPhysicalMaterial({
-    color: 0xebbd34,
-    metalness: 0.4,
-    roughness: 0.3,
-    transmission: 0.2,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.2,
-    emissive: 0x332200,
-    emissiveIntensity: 0.2,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.6
   });
 };
 
