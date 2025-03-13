@@ -1,4 +1,3 @@
-
 import { useRef, useCallback } from 'react';
 import * as THREE from 'three';
 
@@ -25,13 +24,13 @@ export const useCameraControls = () => {
     moveThreshold: 5 // Threshold to determine if it's a drag or tap
   });
 
-  const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+  const handleMouseDown = useCallback((event: MouseEvent) => {
     mouseRef.current.isDragging = false;
     mouseRef.current.startX = event.clientX;
     mouseRef.current.startY = event.clientY;
   }, []);
 
-  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+  const handleMouseMove = useCallback((event: MouseEvent) => {
     const deltaX = event.clientX - mouseRef.current.startX;
     const deltaY = event.clientY - mouseRef.current.startY;
 
@@ -58,7 +57,7 @@ export const useCameraControls = () => {
     return wasDragging;
   }, []);
 
-  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement> | WheelEvent) => {
+  const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
     const zoomSpeed = 0.001;
     zoomRef.current.target = Math.max(
