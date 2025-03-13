@@ -64,8 +64,8 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  const gamification = useGamification() as GamificationContextType;
-  const { addPoints, incrementAchievementProgress } = gamification;
+  // Make sure to properly type the context to match the GamificationContextType
+  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
 
   const reflectOnBubble = async () => {
     if (!user) return false;
