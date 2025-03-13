@@ -33,7 +33,6 @@ export const useSendBubbleMessage = (bubbleId: string) => {
 
       if (error) throw error;
 
-      // Track message for Social Butterfly achievement
       await trackMessageSent();
 
       setIsSending(false);
@@ -55,7 +54,7 @@ export const useSendBubbleMessage = (bubbleId: string) => {
 
 type ReflectOnBubbleType = {
   incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
-  addPoints: (amount: number, category: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
+  addPoints: (amount: number, category: string) => Promise<boolean>;
 };
 
 export const useReflectOnBubble = (bubbleId: string) => {
@@ -72,7 +71,6 @@ export const useReflectOnBubble = (bubbleId: string) => {
     try {
       const username = profile?.username || user.email || "";
 
-      // Check if user already reflected on this bubble
       const { data: existingReflects } = await supabase
         .from("reflects")
         .select("id")
@@ -89,7 +87,6 @@ export const useReflectOnBubble = (bubbleId: string) => {
         return false;
       }
 
-      // Add the reflection
       const { error } = await supabase
         .from("reflects")
         .insert({
@@ -99,13 +96,10 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       if (error) throw error;
 
-      // Update the reflect count on the bubble
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      // Add points for reflecting
       await addPoints(10, 'reflection');
 
-      // Increment Reflection Master achievement progress
       await incrementAchievementProgress('reflection-master');
 
       toast({
