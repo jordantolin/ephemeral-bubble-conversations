@@ -1,135 +1,13 @@
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { useGamification } from "@/context/GamificationContext";
+
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar } from "@/components/ui/avatar";
-import { Loader2, MessageSquare, ThumbsUp } from "lucide-react";
-
-export const useSendBubbleMessage = (bubbleId: string) => {
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  const [isSending, setIsSending] = useState(false);
-  const { trackMessageSent } = useGamification();
-
-  const sendMessage = async (content: string) => {
-    if (!user || !content.trim()) return false;
-
-    setIsSending(true);
-
-    try {
-      const username = profile?.username || user.email || "";
-
-      const { error } = await supabase
-        .from("bubble_messages")
-        .insert({
-          content: content.trim(),
-          bubble_id: bubbleId,
-          username
-        });
-
-      if (error) throw error;
-
-      // Track message for Social Butterfly achievement
-      await trackMessageSent();
-
-      setIsSending(false);
-      return true;
-    } catch (error: any) {
-      console.error("Error sending message:", error);
-      toast({
-        title: "Error sending message",
-        description: error.message || "Please try again",
-        variant: "destructive"
-      });
-      setIsSending(false);
-      return false;
-    }
-  };
-
-  return { sendMessage, isSending };
-};
-
-type ReflectOnBubbleType = {
-  incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
-  addPoints: (amount: number, category: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
-};
-
-export const useReflectOnBubble = (bubbleId: string) => {
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  const [isReflecting, setIsReflecting] = useState(false);
-  const { addPoints, incrementAchievementProgress } = useGamification() as unknown as ReflectOnBubbleType;
-
-  const reflectOnBubble = async () => {
-    if (!user) return false;
-
-    setIsReflecting(true);
-
-    try {
-      const username = profile?.username || user.email || "";
-
-      // Check if user already reflected on this bubble
-      const { data: existingReflects } = await supabase
-        .from("reflects")
-        .select("id")
-        .eq("bubble_id", bubbleId)
-        .eq("username", username);
-
-      if (existingReflects && existingReflects.length > 0) {
-        toast({
-          title: "Already Reflected",
-          description: "You have already reflected on this bubble",
-          variant: "default"
-        });
-        setIsReflecting(false);
-        return false;
-      }
-
-      // Add the reflection
-      const { error } = await supabase
-        .from("reflects")
-        .insert({
-          bubble_id: bubbleId,
-          username
-        });
-
-      if (error) throw error;
-
-      // Update the reflect count on the bubble
-      await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
-
-      // Add points for reflecting
-      await addPoints(10, 'reflection');
-
-      // Increment Reflection Master achievement progress
-      await incrementAchievementProgress('reflection-master');
-
-      toast({
-        title: "Reflection Added!",
-        description: "Your reflection has been added to this bubble",
-        variant: "default"
-      });
-
-      setIsReflecting(false);
-      return true;
-    } catch (error: any) {
-      console.error("Error reflecting on bubble:", error);
-      toast({
-        title: "Error Adding Reflection",
-        description: error.message || "Please try again",
-        variant: "destructive"
-      });
-      setIsReflecting(false);
-      return false;
-    }
-  };
-
-  return { reflectOnBubble, isReflecting };
-};
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Loader2, MessageSquare, ThumbsUp, Clock, AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSendBubbleMessage } from "@/hooks/useSendBubbleMessage";
+import { useReflectOnBubble } from "@/hooks/useReflectOnBubble";
 
 interface BubbleChatProps {
   chatOpen: boolean;
@@ -158,6 +36,14 @@ const BubbleChat = ({
 }: BubbleChatProps) => {
   const [messageContent, setMessageContent] = useState("");
   const { sendMessage, isSending } = selectedBubbleId ? useSendBubbleMessage(selectedBubbleId) : { sendMessage: async () => false, isSending: false };
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll to bottom of messages on new messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!selectedBubbleId || !messageContent.trim()) return;
@@ -168,69 +54,126 @@ const BubbleChat = ({
     }
   };
 
+  // Helper function to handle message time formatting
+  const formatMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Helper to get colors based on username
+  const getUserColor = (username: string) => {
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    // Generate pastel colors
+    const h = hash % 360;
+    return `hsl(${h}, 70%, 80%)`;
+  };
+
   return (
     <Dialog open={chatOpen} onOpenChange={setChatOpen}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-center">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-xl border border-[#ebbd34]/20 shadow-lg">
+        <DialogHeader className="px-4 py-3 border-b border-[#ebbd34]/10 bg-gradient-to-r from-[#fef7e4] to-[#faf2d2]">
+          <DialogTitle className="text-center flex items-center justify-center">
             {isLoadingBubbleDetails ? (
-              <div className="flex justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="flex justify-center items-center">
+                <Loader2 className="h-5 w-5 animate-spin text-[#ebbd34]" />
+                <span className="ml-2 text-[#ebbd34]">Loading bubble...</span>
               </div>
             ) : (
-              selectedBubble?.name || "Bubble Chat"
+              <span className="font-semibold text-[#ebbd34] text-lg">{selectedBubble?.name || "Bubble Chat"}</span>
             )}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4 min-h-[300px]">
+        <div 
+          className="flex-1 overflow-y-auto py-4 px-3 space-y-4 min-h-[300px] max-h-[60vh] bg-gradient-to-b from-[#fff]/80 to-[#fff]/60 backdrop-blur-sm"
+          aria-live="polite"
+          role="log"
+        >
           {isLoadingMessages ? (
             <div className="flex justify-center items-center h-full">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#ebbd34] mx-auto mb-2" />
+                <p className="text-[#ebbd34]/70 text-sm">Loading conversation...</p>
+              </div>
             </div>
           ) : messagesError ? (
-            <div className="text-center text-red-500">
-              Error loading messages. Please try again.
+            <div className="text-center text-red-500 p-4 bg-red-50 rounded-lg flex flex-col items-center">
+              <AlertCircle className="h-8 w-8 mb-2" />
+              <p className="font-medium">Error loading messages</p>
+              <p className="text-sm">Please try refreshing the page</p>
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center text-muted-foreground">
-              No messages yet. Be the first to start a conversation!
+            <div className="text-center text-[#ebbd34]/60 p-6 flex flex-col items-center justify-center h-full">
+              <MessageSquare className="h-10 w-10 mb-3 opacity-40" />
+              <p className="font-medium">No messages yet</p>
+              <p className="text-sm mt-1">Be the first to start a conversation!</p>
             </div>
           ) : (
-            messages.map((message) => (
-              <div key={message.id} className="flex gap-2">
-                <Avatar className="h-8 w-8">
-                  <div className="bg-primary text-primary-foreground w-full h-full flex items-center justify-center text-sm font-medium">
-                    {message.username.charAt(0).toUpperCase()}
+            <AnimatePresence>
+              {messages.map((message, index) => (
+                <motion.div 
+                  key={message.id} 
+                  className={`flex gap-2 ${index === messages.length - 1 ? 'mb-2' : ''}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                >
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback 
+                      style={{ backgroundColor: getUserColor(message.username) }}
+                      className="text-white text-xs font-medium"
+                    >
+                      {message.username.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <div className="flex items-baseline">
+                      <div className="text-sm font-medium text-[#ebbd34]">
+                        {message.username.split('@')[0]}
+                      </div>
+                      <div className="text-xs text-[#ebbd34]/50 ml-2">
+                        {formatMessageTime(message.created_at)}
+                      </div>
+                    </div>
+                    <div className="text-sm mt-1 bg-white px-3 py-2 rounded-xl rounded-tl-none shadow-sm">
+                      {message.content}
+                    </div>
                   </div>
-                </Avatar>
-                <div className="flex flex-col">
-                  <div className="text-sm font-medium">{message.username}</div>
-                  <div className="text-sm">{message.content}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(message.created_at).toLocaleString()}
-                  </div>
-                </div>
-              </div>
-            ))
+                </motion.div>
+              ))}
+              <div ref={messagesEndRef} />
+            </AnimatePresence>
           )}
         </div>
 
-        {!isBubbleExpired && selectedBubbleId && (
-          <div className="mt-4 space-y-2">
+        {!isBubbleExpired && selectedBubbleId ? (
+          <div className="p-3 border-t border-[#ebbd34]/10 bg-white">
             <Textarea
               placeholder="Type your message..."
               value={messageContent}
               onChange={(e) => setMessageContent(e.target.value)}
-              className="resize-none"
+              className="resize-none focus-visible:ring-[#ebbd34]/30 border-[#ebbd34]/20 mb-2"
+              rows={2}
               disabled={isSending}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              aria-label="Message input"
             />
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => selectedBubbleId && handleReflect(selectedBubbleId)}
                 disabled={isLoadingBubbleDetails}
+                className="text-[#ebbd34] border-[#ebbd34]/20 hover:bg-[#ebbd34]/5 hover:text-[#ebbd34] hover:border-[#ebbd34]/30"
+                aria-label="Reflect on this bubble"
               >
                 <ThumbsUp className="h-4 w-4 mr-2" />
                 Reflect
@@ -239,6 +182,8 @@ const BubbleChat = ({
                 size="sm"
                 onClick={handleSendMessage}
                 disabled={!messageContent.trim() || isSending}
+                className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+                aria-label="Send message"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -248,12 +193,19 @@ const BubbleChat = ({
                 Send
               </Button>
             </div>
+            <p className="text-xs text-[#ebbd34]/50 text-center mt-2">
+              Press Enter to send, Shift+Enter for a new line
+            </p>
           </div>
-        )}
-
-        {isBubbleExpired && (
-          <div className="text-center text-amber-500 p-2 border border-amber-200 rounded-md bg-amber-50">
-            This bubble has expired and cannot receive new messages.
+        ) : (
+          <div className="p-4 bg-amber-50 border-t border-amber-200">
+            <div className="flex items-center justify-center gap-2 text-amber-600 mb-1">
+              <Clock className="h-4 w-4" />
+              <span className="font-medium">Bubble Expired</span>
+            </div>
+            <p className="text-sm text-amber-600/80 text-center">
+              This bubble has completed its 24-hour lifecycle and cannot receive new messages.
+            </p>
           </div>
         )}
       </DialogContent>
