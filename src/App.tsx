@@ -9,6 +9,7 @@ import Profile from "./pages/Profile";
 import Achievements from "./pages/Achievements";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import BubbleEarth from "./pages/BubbleEarth";
 import { AuthProvider } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -76,6 +77,7 @@ function App() {
                         <Achievements />
                       </RequireAuth>
                     } />
+                    <Route path="/earth" element={<BubbleEarth />} />
                     <Route path="/404" element={<NotFound />} />
                     <Route path="*" element={<Navigate to="/404" replace />} />
                   </Routes>
