@@ -64,8 +64,10 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  // Make sure to properly type the context to match the GamificationContextType
-  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationContextType;
+  const gamification = useGamification() as GamificationContextType;
+  
+  // Destructure from the typed gamification object
+  const { addPoints, incrementAchievementProgress } = gamification;
 
   const reflectOnBubble = async () => {
     if (!user) return false;
@@ -102,10 +104,10 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      // Fix the type error by ensuring we pass the correct type to addPoints
+      // Add points with the properly typed function
       await addPoints(10, 'reflection');
 
-      // Fix the type error by ensuring we pass the correct type to incrementAchievementProgress
+      // Pass the achievement ID with the properly typed function
       await incrementAchievementProgress('reflection-master');
 
       toast({
