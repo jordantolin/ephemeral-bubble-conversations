@@ -65,7 +65,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
   
-  // Explicitly type the entire object returned from useGamification
+  // Explicitly type the gamification context to ensure correct typing of methods
   const gamification = useGamification() as GamificationContextType;
   
   const reflectOnBubble = async () => {
@@ -103,9 +103,12 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
-      // Call methods from the fully typed gamification object
+      // Access methods directly from the typed gamification object
       await gamification.addPoints(10, 'reflection');
-      await gamification.incrementAchievementProgress('reflection-master');
+      
+      // Fix: Ensure we're using the correctly typed method
+      const achievementId: string = 'reflection-master';
+      await gamification.incrementAchievementProgress(achievementId);
 
       toast({
         title: "Reflection Added!",
