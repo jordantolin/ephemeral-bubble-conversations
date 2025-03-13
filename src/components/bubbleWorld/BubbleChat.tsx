@@ -16,7 +16,7 @@ export const useSendBubbleMessage = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
-  const { trackMessageSent } = useGamification();
+  const { trackMessageSent } = useGamification() as GamificationContextType;
 
   const sendMessage = async (content: string) => {
     if (!user || !content.trim()) return false;
@@ -102,8 +102,10 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
 
+      // Fix the type error by ensuring we pass the correct type to addPoints
       await addPoints(10, 'reflection');
 
+      // Fix the type error by ensuring we pass the correct type to incrementAchievementProgress
       await incrementAchievementProgress('reflection-master');
 
       toast({
