@@ -104,8 +104,10 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await gamification.addPoints(10, 'reflection');
       
-      // Using a type assertion here to ensure TypeScript understands the string param is valid
-      await gamification.incrementAchievementProgress('reflection-master' as string);
+      // Fix: TypeScript expects a specific type for the achievement ID
+      // Use type assertion to match the expected type in the GamificationContextType
+      const achievementId: string = 'reflection-master';
+      await gamification.incrementAchievementProgress(achievementId);
 
       toast({
         title: "Reflection Added!",
