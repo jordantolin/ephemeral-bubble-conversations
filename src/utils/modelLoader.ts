@@ -21,13 +21,22 @@ export const loadGLTFModel = (
     dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
     loader.setDRACOLoader(dracoLoader);
     
+    console.log(`Loading model: ${path}`);
+    
     loader.load(
       path,
       (gltf) => {
         console.log('Model loaded successfully:', path);
         resolve(gltf.scene);
       },
-      onProgress,
+      (xhr) => {
+        if (onProgress) {
+          onProgress(xhr);
+        } else {
+          const percentComplete = (xhr.loaded / xhr.total) * 100;
+          console.log(`Loading model: ${Math.round(percentComplete)}%`);
+        }
+      },
       (error) => {
         console.error('Error loading model:', error);
         reject(error);
@@ -59,5 +68,6 @@ export const setupModel = (model: THREE.Group, scale: number = 1): THREE.Group =
     }
   });
   
+  console.log('Central world model loaded successfully');
   return model;
 };

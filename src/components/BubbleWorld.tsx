@@ -117,7 +117,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     controlsRef.current = controls;
 
     if (showEarth) {
-      // Load yellow-earth.glb model instead of simplified Earth
+      // Always try to load yellow-earth.glb model first
       loadYellowEarth();
     }
 
