@@ -69,8 +69,189 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     };
   }, []);
 
+  const formatExpiryTime = (expiresAt?: string): string => {
+    if (!expiresAt) return "No expiry";
+    
+    try {
+      const expiryTime = new Date(expiresAt);
+      const now = new Date();
+      
+      if (expiryTime > now) {
+        // Not expired yet - calculate remaining time
+        const diffMs = expiryTime.getTime() - now.getTime();
+        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (diffHrs === 0) {
+          return `${diffMins}m left`;
+        } else {
+          return `${diffHrs}h ${diffMins}m left`;
+        }
+      } else {
+        // Already expired
+        return "Expired";
+      }
+    } catch (e) {
+      console.error("Error formatting expiry time:", e);
+      return "Unknown";
+    }
+  };
+
+  const addBubbleLabel = (bubble: THREE.Mesh, topic: BubbleData, size: "sm" | "md" | "lg", totalBubbles: number) => {
+    if (!topic) return;
+    
+    const nameText = topic.name || "Unnamed";
+    const topicText = topic.topic || "";
+    const reflectCount = `Reflections: ${topic.reflect_count}`;
+    const expiryText = formatExpiryTime(topic.expires_at);
+    
+    const fullText = `${nameText}\n${topicText}\n${reflectCount}\n${expiryText}`;
+    
+    let fontSize: number;
+    
+    if (totalBubbles <= 10) {
+      fontSize = size === "sm" ? 24 : size === "md" ? 28 : 32;
+    } else if (totalBubbles <= 30) {
+      fontSize = size === "sm" ? 20 : size === "md" ? 24 : 28;
+    } else {
+      fontSize = size === "sm" ? 16 : size === "md" ? 20 : 24;
+    }
+    
+    const canvas = document.createElement('canvas');
+    const size2d = Math.max(256, fontSize * 8);
+    canvas.width = size2d;
+    canvas.height = size2d;
+    
+    const context = canvas.getContext('2d');
+    if (!context) {
+      console.error('Could not get canvas context');
+      return;
+    }
+    
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    context.font = `bold ${fontSize}px Arial, sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    
+    context.shadowColor = 'rgba(255, 255, 255, 0.8)';
+    context.shadowBlur = 4;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+    
+    const lines = fullText.split('\n');
+    const lineHeight = fontSize * 1.2;
+    const totalHeight = lines.length * lineHeight;
+    const startY = (canvas.height - totalHeight) / 2;
+    
+    context.fillStyle = 'rgba(50, 50, 50, 0.85)';
+    
+    lines.forEach((line, index) => {
+      context.fillText(line, canvas.width / 2, startY + index * lineHeight);
+    });
+    
+    let texture: THREE.Texture;
+    const cacheKey = `${fullText}-${fontSize}`;
+    
+    if (textureCache.has(cacheKey)) {
+      texture = textureCache.get(cacheKey)!;
+    } else {
+      texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      textureCache.set(cacheKey, texture);
+    }
+    
+    const spriteMaterial = new THREE.SpriteMaterial({ 
+      map: texture,
+      transparent: true,
+      sizeAttenuation: true
+    });
+    
+    const sprite = new THREE.Sprite(spriteMaterial);
+    
+    let scaleFactor: number;
+    
+    if (totalBubbles <= 10) {
+      scaleFactor = size === "sm" ? 1.8 : size === "md" ? 2.0 : 2.2;
+    } else if (totalBubbles <= 30) {
+      scaleFactor = size === "sm" ? 1.6 : size === "md" ? 1.8 : 2.0;
+    } else {
+      scaleFactor = size === "sm" ? 1.4 : size === "md" ? 1.6 : 1.8;
+    }
+    
+    const dynamicSize = calculateDynamicBubbleSize(totalBubbles, size);
+    sprite.scale.set(scaleFactor, scaleFactor, 1);
+    
+    sprite.position.set(0, 0, 0);
+    
+    bubble.add(sprite);
+  };
+
+  const loadYellowEarth = () => {
+    try {
+      console.log('Loading yellow-earth.glb model');
+      const loader = new GLTFLoader();
+      
+      loader.load(
+        '/models/yellow-earth.glb',
+        (gltf) => {
+          const earthModel = gltf.scene;
+          
+          earthModel.scale.set(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
+          
+          const earthGroup = new THREE.Group();
+          earthGroup.add(earthModel);
+          
+          scene.add(earthGroup);
+          earthRef.current = earthGroup;
+          
+          console.log('Yellow Earth model loaded successfully');
+          setIsEarthLoaded(true);
+        },
+        (xhr) => {
+          console.log(`${(xhr.loaded / xhr.total) * 100}% loaded`);
+        },
+        (error) => {
+          console.error('Error loading Yellow Earth model:', error);
+          addSimplifiedEarth();
+        }
+      );
+    } catch (error) {
+      console.error('Failed to load Yellow Earth model:', error);
+      addSimplifiedEarth();
+    }
+  };
+
+  const addSimplifiedEarth = () => {
+    try {
+      console.log('Adding fallback simplified Earth model');
+      
+      const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 32, 32);
+      
+      const material = new THREE.MeshPhongMaterial({
+        color: 0xebbd34,
+        specular: 0x333333,
+        shininess: 5,
+        emissive: 0x664400,
+        emissiveIntensity: 0.2
+      });
+      
+      const earthMesh = new THREE.Mesh(geometry, material);
+      const earthGroup = new THREE.Group();
+      earthGroup.add(earthMesh);
+      
+      scene.add(earthGroup);
+      earthRef.current = earthGroup;
+      setIsEarthLoaded(true);
+      
+      console.log('Fallback Earth model added successfully');
+    } catch (error) {
+      console.error('Failed to create fallback Earth model:', error);
+    }
+  };
+
   useEffect(() => {
-    if (!mountRef.current || isInitialized.current) return;
+    if (!isInitialized.current) return;
     
     console.log("Setting up BubbleWorld scene");
     isInitialized.current = true;
@@ -154,7 +335,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
 
   useEffect(() => {
     if (!isInitialized.current) return;
-
+    
     console.log("Starting animation loop");
     
     let frameId: number;
@@ -181,121 +362,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       cancelAnimationFrame(frameId);
     };
   }, [scene, renderer, camera]);
-
-  const loadYellowEarth = () => {
-    try {
-      console.log('Loading yellow-earth.glb model');
-      const loader = new GLTFLoader();
-      
-      loader.load(
-        '/models/yellow-earth.glb',
-        (gltf) => {
-          const earthModel = gltf.scene;
-          
-          earthModel.scale.set(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
-          
-          const earthGroup = new THREE.Group();
-          earthGroup.add(earthModel);
-          
-          scene.add(earthGroup);
-          earthRef.current = earthGroup;
-          
-          console.log('Yellow Earth model loaded successfully');
-          setIsEarthLoaded(true);
-        },
-        (xhr) => {
-          console.log(`${(xhr.loaded / xhr.total) * 100}% loaded`);
-        },
-        (error) => {
-          console.error('Error loading Yellow Earth model:', error);
-          addSimplifiedEarth();
-        }
-      );
-    } catch (error) {
-      console.error('Failed to load Yellow Earth model:', error);
-      addSimplifiedEarth();
-    }
-  };
-
-  const addSimplifiedEarth = () => {
-    try {
-      console.log('Adding fallback simplified Earth model');
-      
-      const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 32, 32);
-      
-      const material = new THREE.MeshPhongMaterial({
-        color: 0xebbd34,
-        specular: 0x333333,
-        shininess: 5,
-        emissive: 0x664400,
-        emissiveIntensity: 0.2
-      });
-      
-      const earthMesh = new THREE.Mesh(geometry, material);
-      const earthGroup = new THREE.Group();
-      earthGroup.add(earthMesh);
-      
-      scene.add(earthGroup);
-      earthRef.current = earthGroup;
-      setIsEarthLoaded(true);
-      
-      console.log('Fallback Earth model added successfully');
-    } catch (error) {
-      console.error('Failed to create fallback Earth model:', error);
-    }
-  };
-
-  const addBubbleLabel = (bubble: THREE.Mesh, text: string, size: "sm" | "md" | "lg", totalBubbles: number) => {
-    if (!text) return;
-    
-    let fontSize: number;
-    
-    if (totalBubbles <= 10) {
-      fontSize = size === "sm" ? 40 : size === "md" ? 52 : 64;
-    } else if (totalBubbles <= 30) {
-      fontSize = size === "sm" ? 34 : size === "md" ? 46 : 58;
-    } else {
-      fontSize = size === "sm" ? 28 : size === "md" ? 40 : 52;
-    }
-    
-    const canvas = createTextCanvas(text, fontSize);
-    
-    let texture: THREE.Texture;
-    const cacheKey = `${text}-${fontSize}`;
-    
-    if (textureCache.has(cacheKey)) {
-      texture = textureCache.get(cacheKey)!;
-    } else {
-      texture = new THREE.CanvasTexture(canvas);
-      texture.needsUpdate = true;
-      textureCache.set(cacheKey, texture);
-    }
-    
-    const spriteMaterial = new THREE.SpriteMaterial({ 
-      map: texture,
-      transparent: true,
-      sizeAttenuation: true
-    });
-    
-    const sprite = new THREE.Sprite(spriteMaterial);
-    
-    let scaleFactor: number;
-    
-    if (totalBubbles <= 10) {
-      scaleFactor = size === "sm" ? 1.2 : size === "md" ? 1.4 : 1.6;
-    } else if (totalBubbles <= 30) {
-      scaleFactor = size === "sm" ? 1.0 : size === "md" ? 1.2 : 1.4;
-    } else {
-      scaleFactor = size === "sm" ? 0.8 : size === "md" ? 1.0 : 1.2;
-    }
-    
-    sprite.scale.set(scaleFactor, scaleFactor * 0.5, 1);
-    
-    const dynamicSize = calculateDynamicBubbleSize(totalBubbles, size);
-    sprite.position.set(0, 0, 0);
-    
-    bubble.add(sprite);
-  };
 
   useEffect(() => {
     if (!isInitialized.current || !topics || topics.length === 0) {
@@ -347,8 +413,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         bubble.position.z = radius * Math.cos(phi);
       }
       
-      const displayText = topic.text || topic.name || topic.topic;
-      addBubbleLabel(bubble, displayText, topic.size, totalBubbles);
+      addBubbleLabel(bubble, topic, topic.size, totalBubbles);
       
       scene.add(bubble);
       bubbleRefs.current.push(bubble);
