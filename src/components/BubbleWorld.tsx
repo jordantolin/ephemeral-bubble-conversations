@@ -46,21 +46,21 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
 
   // Create materials with different colors
   const bubbleMaterials = useMemo(() => {
-    const brightYellow = new THREE.Color(0xebbd34);
+    const lightYellow = new THREE.Color(0xFEF7CD);
     
     const createMaterial = () => {
       return new THREE.MeshPhysicalMaterial({
-        color: brightYellow,
-        emissive: 0x664400,
-        emissiveIntensity: 0.3,
-        metalness: 0.1,
+        color: lightYellow,
+        emissive: 0xF5DD6C,
+        emissiveIntensity: 0.2,
+        metalness: 0.05,
         roughness: 0.1,
-        transmission: 0.5,
-        reflectivity: 0.7,
-        clearcoat: 1.0,
+        transmission: 0.8,
+        reflectivity: 0.5,
+        clearcoat: 0.8,
         clearcoatRoughness: 0.1,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.9,
         side: THREE.DoubleSide,
       });
     };
@@ -314,18 +314,18 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     let scaleFactor: number;
     
     if (totalBubbles <= 10) {
-      scaleFactor = size === "sm" ? 1.0 : size === "md" ? 1.2 : 1.4; // Larger for few bubbles
+      scaleFactor = size === "sm" ? 1.2 : size === "md" ? 1.4 : 1.6; // Larger for few bubbles
     } else if (totalBubbles <= 30) {
-      scaleFactor = size === "sm" ? 0.8 : size === "md" ? 1.0 : 1.2; // Medium
+      scaleFactor = size === "sm" ? 1.0 : size === "md" ? 1.2 : 1.4; // Medium
     } else {
-      scaleFactor = size === "sm" ? 0.6 : size === "md" ? 0.8 : 1.0; // Smaller for many bubbles
+      scaleFactor = size === "sm" ? 0.8 : size === "md" ? 1.0 : 1.2; // Smaller for many bubbles
     }
     
     sprite.scale.set(scaleFactor, scaleFactor * 0.5, 1);
     
-    // Position the sprite above the bubble
+    // Position the sprite as overlay or inside the bubble
     const dynamicSize = calculateDynamicBubbleSize(totalBubbles, size);
-    sprite.position.y = dynamicSize * 1.8;
+    sprite.position.set(0, 0, 0); // Position in center of bubble
     
     // Add sprite to bubble
     bubble.add(sprite);
@@ -366,10 +366,10 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       const geometry = createBubbleGeometry(dynamicSize);
       const material = bubbleMaterials[topic.size].clone(); // Clone to avoid shared materials
       
-      // Make the material brighter and more yellow
-      material.color.set(0xebbd34);
-      material.emissive.set(0x664400);
-      material.emissiveIntensity = 0.3;
+      // Make the material brighter and more light yellow
+      material.color.set(0xFEF7CD);
+      material.emissive.set(0xF5DD6C);
+      material.emissiveIntensity = 0.2;
       
       const bubble = new THREE.Mesh(geometry, material);
       

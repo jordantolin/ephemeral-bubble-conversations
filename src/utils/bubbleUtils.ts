@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 
 /**
@@ -16,19 +15,19 @@ export const createBubbleGeometry = (size: number): THREE.BufferGeometry => {
  * @param color Color of the bubble
  * @returns THREE material for the bubble
  */
-export const createBubbleMaterial = (color: THREE.ColorRepresentation = 0xebbd34): THREE.Material => {
+export const createBubbleMaterial = (color: THREE.ColorRepresentation = 0xFEF7CD): THREE.Material => {
   return new THREE.MeshPhysicalMaterial({
     color: color,
-    emissive: 0x664400,
-    emissiveIntensity: 0.3,
-    metalness: 0.1,
+    emissive: 0xF5DD6C,
+    emissiveIntensity: 0.2,
+    metalness: 0.05,
     roughness: 0.1,
-    transmission: 0.5,
-    reflectivity: 0.7,
-    clearcoat: 1.0,
+    transmission: 0.8,
+    reflectivity: 0.5,
+    clearcoat: 0.8,
     clearcoatRoughness: 0.1,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.9,
     side: THREE.DoubleSide,
   });
 };
@@ -56,28 +55,13 @@ export const createTextCanvas = (text: string, fontSize: number = 40): HTMLCanva
   // Clear canvas
   context.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Configure text style
+  // Configure text style - no background, just clean text
   context.font = `bold ${fontSize}px Arial, sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   
-  // Add light background for better readability
-  context.fillStyle = 'rgba(255, 255, 255, 0.3)';
-  const textWidth = context.measureText(text).width;
-  const backgroundWidth = textWidth + fontSize * 0.5;
-  const backgroundHeight = fontSize * 1.2;
-  const backgroundX = (canvas.width - backgroundWidth) / 2;
-  const backgroundY = (canvas.height - backgroundHeight) / 2;
-  context.beginPath();
-  context.roundRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight, 10);
-  context.fill();
-  
-  // Add shadow for readability
-  context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-  context.fillText(text, canvas.width / 2 + 2, canvas.height / 2 + 2);
-  
-  // Draw text
-  context.fillStyle = 'white';
+  // Draw text directly, no background
+  context.fillStyle = 'rgba(50, 50, 50, 0.9)';
   context.fillText(text, canvas.width / 2, canvas.height / 2);
   
   return canvas;
