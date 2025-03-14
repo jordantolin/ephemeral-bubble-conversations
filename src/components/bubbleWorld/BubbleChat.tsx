@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -54,8 +55,8 @@ export const useSendBubbleMessage = (bubbleId: string) => {
 };
 
 // Fix the type definition to match GamificationContext
-type ReflectOnBubbleType = {
-  incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
+type GamificationType = {
+  incrementAchievementProgress: (achievementId: string, amount?: number) => Promise<boolean>;
   addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
 };
 
@@ -63,7 +64,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  const { addPoints, incrementAchievementProgress } = useGamification() as unknown as ReflectOnBubbleType;
+  const { addPoints, incrementAchievementProgress } = useGamification() as unknown as GamificationType;
 
   const reflectOnBubble = async () => {
     if (!user) return false;
