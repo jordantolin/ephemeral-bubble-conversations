@@ -1,18 +1,16 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import NavigationBar from "@/components/bubbleWorld/NavigationBar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
+import BubbleCircle from "@/components/myBubbles/BubbleCircle";
+import { BubbleData } from "@/types/bubble";
 
 interface Bubble {
   id: string;
@@ -23,6 +21,7 @@ interface Bubble {
   expires_at: string;
   created_at: string;
   username: string;
+  size: "sm" | "md" | "lg";
 }
 
 const MyBubbles = () => {
@@ -31,6 +30,7 @@ const MyBubbles = () => {
   const { toast } = useToast();
   const [isClientSide, setIsClientSide] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Set isClientSide to true after mount to avoid hydration issues
   useEffect(() => {
@@ -221,6 +221,26 @@ const MyBubbles = () => {
     });
   }, [user, profile, myBubbles, isLoadingBubbles, filteredBubbles.length]);
 
+  // Convert Bubble to BubbleData for the BubbleCircle component
+  const bubbleDataForCircle: BubbleData[] = filteredBubbles
+    .filter((bubble: Bubble) => !isBubbleExpired(bubble))
+    .map((bubble: Bubble) => ({
+      id: bubble.id,
+      topic: bubble.topic,
+      username: bubble.username,
+      name: bubble.name,
+      size: bubble.size,
+      reflect_count: bubble.reflect_count,
+      created_at: bubble.created_at,
+      description: bubble.description || undefined,
+      expires_at: bubble.expires_at
+    }));
+
+  // Handle bubble click to navigate to the bubble
+  const handleBubbleClick = (bubbleId: string) => {
+    navigate(`/bubble/${bubbleId}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
       {/* Navigation */}
@@ -231,7 +251,7 @@ const MyBubbles = () => {
       
       <div className="pt-28 pb-16 px-4 sm:px-6 relative z-10">
         <div className="container mx-auto max-w-6xl">
-          {/* Header - Using the updated BubbleWorldHeader component with customized props */}
+          {/* Header */}
           <BubbleWorldHeader 
             onCreateBubble={() => {}} 
             showDescription={false}
@@ -270,70 +290,48 @@ const MyBubbles = () => {
               <Loader2 className="w-10 h-10 text-[#ebbd34] animate-spin mb-4" />
               <p className="text-[#ebbd34]">Loading your bubbles...</p>
             </div>
-          ) : !Array.isArray(myBubbles) || myBubbles.length === 0 || filteredBubbles.length === 0 ? (
-            <div className="text-center py-16 bg-white/60 rounded-3xl shadow-sm backdrop-blur-sm">
-              {searchQuery ? (
-                <>
-                  <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
-                    <Search className="w-8 h-8 text-[#ebbd34]" />
-                  </div>
-                  <h3 className="text-lg font-medium text-[#ebbd34]">No matches found</h3>
-                  <p className="text-gray-500 mt-2">Try a different search term</p>
-                </>
-              ) : (
-                <>
-                  <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
-                    <Sparkles className="w-8 h-8 text-[#ebbd34]" />
-                  </div>
-                  <h3 className="text-lg font-medium text-[#ebbd34]">No bubbles yet</h3>
-                  <p className="text-gray-500 mt-2">Create a new bubble or reflect on existing ones!</p>
-                  <Link to="/">
-                    <Button className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white">
-                      Explore Bubbles
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredBubbles.map((bubble: Bubble) => (
-                <Link key={bubble.id} to={`/bubble/${bubble.id}`}>
-                  <Card className={`hover:shadow-md transition-shadow cursor-pointer h-full bg-white/80 backdrop-blur-sm border-[#ebbd34]/10 ${
-                    isBubbleExpired(bubble) ? 'opacity-70' : ''
-                  }`}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg text-[#ebbd34]">{bubble.name}</CardTitle>
-                      <CardDescription>{bubble.topic}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {bubble.description || "No description"}
-                      </p>
-                    </CardContent>
-                    <CardFooter className="pt-0">
-                      <div className="w-full flex justify-between items-center">
-                        <Badge className="text-xs bg-[#ebbd34]/10 text-[#ebbd34]">
-                          {bubble.reflect_count} reflects
-                        </Badge>
-                        <div className="flex items-center">
-                          {isBubbleExpired(bubble) && (
-                            <Badge className="mr-2 text-xs bg-red-100 text-red-600">
-                              Expired
-                            </Badge>
-                          )}
-                          <span className="text-xs text-gray-400">
-                            {isBubbleExpired(bubble) ? "Expired on " : "Expires "} 
-                            {formatDate(bubble.expires_at)}
-                          </span>
-                        </div>
-                      </div>
-                    </CardFooter>
-                  </Card>
-                </Link>
-              ))}
+            <div className="h-[600px] mt-8 mb-12">
+              {/* Circular bubble display */}
+              <BubbleCircle 
+                bubbles={bubbleDataForCircle} 
+                onBubbleClick={handleBubbleClick}
+              />
             </div>
           )}
+
+          {/* Expired bubbles section */}
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold text-[#ebbd34] mb-4">Expired Bubbles</h2>
+            {filteredBubbles.filter((bubble: Bubble) => isBubbleExpired(bubble)).length === 0 ? (
+              <div className="text-center py-8 bg-white/60 rounded-xl backdrop-blur-sm">
+                <p className="text-gray-500">No expired bubbles found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredBubbles
+                  .filter((bubble: Bubble) => isBubbleExpired(bubble))
+                  .map((bubble: Bubble) => (
+                    <Link key={bubble.id} to={`/bubble/${bubble.id}`}>
+                      <div className="p-4 bg-white/80 rounded-xl border border-[#ebbd34]/10 hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-[#ebbd34]">{bubble.name}</h3>
+                          <Badge className="bg-red-100 text-red-600 text-xs">Expired</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{bubble.topic}</p>
+                        <div className="flex justify-between items-center text-xs text-gray-500">
+                          <span>{formatDate(bubble.expires_at)}</span>
+                          <div className="flex items-center">
+                            <Star className="w-3 h-3 mr-1 text-[#ebbd34]" />
+                            <span>{bubble.reflect_count} reflects</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -10,6 +10,8 @@ export interface BubbleData {
   description?: string;
   expires_at?: string;
   isExploding?: boolean;
+  x?: number;
+  y?: number;
 }
 
 export interface BubbleWorldProps {

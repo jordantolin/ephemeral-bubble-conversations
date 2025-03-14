@@ -47,6 +47,8 @@ export type Database = {
           description: string | null
           expires_at: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
           reflect_count: number | null
           size: string
@@ -58,6 +60,8 @@ export type Database = {
           description?: string | null
           expires_at?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           reflect_count?: number | null
           size: string
@@ -69,6 +73,8 @@ export type Database = {
           description?: string | null
           expires_at?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           reflect_count?: number | null
           size?: string
