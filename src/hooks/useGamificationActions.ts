@@ -19,6 +19,7 @@ interface UseGamificationActionsProps {
   setProfile: React.Dispatch<React.SetStateAction<GamificationProfile>>;
   setAchievements: React.Dispatch<React.SetStateAction<AchievementType[]>>;
   setRecentAchievement: React.Dispatch<React.SetStateAction<AchievementType | null>>;
+  toast?: any; // Optional toast function
 }
 
 export const useGamificationActions = ({
@@ -27,7 +28,8 @@ export const useGamificationActions = ({
   achievements,
   setProfile,
   setAchievements,
-  setRecentAchievement
+  setRecentAchievement,
+  toast
 }: UseGamificationActionsProps) => {
   
   // Add points to user profile
@@ -40,6 +42,7 @@ export const useGamificationActions = ({
     try {
       const newPoints = profile.points + amount;
       const newLevel = calculateLevel(newPoints);
+      const oldLevel = profile.level;
       
       // Update category points
       let bubblePoints = profile.bubblePoints;
@@ -63,6 +66,18 @@ export const useGamificationActions = ({
         reflectionPoints,
         messagePoints
       }));
+      
+      // Check if leveled up
+      if (newLevel > oldLevel) {
+        // Show level up notification
+        if (toast) {
+          toast({
+            title: "Level Up!",
+            description: `Congratulations! You've reached level ${newLevel}!`,
+            duration: 5000,
+          });
+        }
+      }
       
       // Save to database
       await updatePointsInDB(
@@ -98,7 +113,7 @@ export const useGamificationActions = ({
       let shouldUnlock = false;
       
       // Check if achievement should be unlocked based on progress
-      if (achievement.maxProgress && progress) {
+      if (achievement.maxProgress && progress !== undefined) {
         // Update progress
         const newProgress = Math.max(progress, achievement.progress || 0);
         
@@ -145,7 +160,7 @@ export const useGamificationActions = ({
           level: newLevel
         }));
         
-        // Set recent achievement
+        // Set recent achievement to trigger popup
         setRecentAchievement(updatedAchievements[achievementIndex]);
         
         // Save to database
@@ -181,7 +196,7 @@ export const useGamificationActions = ({
       
       // Update progress
       const currentProgress = achievement.progress || 0;
-      const newProgress = Math.max(amount, currentProgress);
+      const newProgress = currentProgress + amount;
       
       // Update achievement in state
       const updatedAchievements = [...achievements];
@@ -211,6 +226,9 @@ export const useGamificationActions = ({
     if (!user) return;
     
     try {
+      // Add message points
+      await addPoints(5, 'message');
+      
       // Increment progress for social butterfly achievement
       await incrementAchievementProgress('social-butterfly');
     } catch (error) {

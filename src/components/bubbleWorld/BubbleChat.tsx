@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -61,7 +62,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [isReflecting, setIsReflecting] = useState(false);
-  const { addPoints, incrementAchievementProgress } = useGamification() as GamificationType;
+  const { addPoints, incrementAchievementProgress } = useGamification();
 
   const reflectOnBubble = async () => {
     if (!user) return false;
@@ -100,7 +101,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
 
       await addPoints(10, 'reflection');
 
-      await incrementAchievementProgress('reflection-master');
+      await incrementAchievementProgress('reflection-master', 1);
 
       toast({
         title: "Reflection Added!",

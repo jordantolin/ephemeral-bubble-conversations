@@ -12,6 +12,7 @@ import {
   createNewUserProfile 
 } from '@/services/gamificationService';
 import { useGamificationActions } from '@/hooks/useGamificationActions';
+import { useToast } from '@/hooks/use-toast';
 
 // Create context with default value
 const GamificationContext = createContext<GamificationContextType>({
@@ -39,6 +40,7 @@ const GamificationContext = createContext<GamificationContextType>({
 // Provider component
 export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<GamificationProfile>({
     level: 1,
     points: 0,
@@ -58,7 +60,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setRecentAchievement(null);
   };
   
-  // Use the gamification actions hook
+  // Use the gamification actions hook with extra parameters
   const { 
     addPoints, 
     checkAchievement, 
@@ -70,7 +72,8 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     achievements,
     setProfile,
     setAchievements,
-    setRecentAchievement
+    setRecentAchievement,
+    toast
   });
   
   // Fetch or create user profile
@@ -83,12 +86,22 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       
       if (!userProfile) {
         userProfile = await createNewUserProfile(user.id);
+        toast({
+          title: "Welcome!",
+          description: "Your gamification profile has been created. Earn points by participating!",
+          duration: 5000,
+        });
       }
       
       setProfile(userProfile);
       setAchievements(userProfile.achievements);
     } catch (error) {
       console.error("Error fetching gamification profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load your gamification profile. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

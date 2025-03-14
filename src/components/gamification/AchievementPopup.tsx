@@ -4,14 +4,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { Award, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const AchievementPopup: React.FC = () => {
   const { recentAchievement, resetRecentAchievement } = useGamification();
   const [visible, setVisible] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (recentAchievement) {
       setVisible(true);
+      
+      // Also show a toast to ensure the user sees the notification
+      toast({
+        title: "Achievement Unlocked!",
+        description: recentAchievement.name,
+        variant: "default",
+        duration: 5000,
+      });
       
       // Auto-hide after 5 seconds
       const timer = setTimeout(() => {
@@ -20,7 +30,7 @@ const AchievementPopup: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [recentAchievement]);
+  }, [recentAchievement, toast]);
 
   // Handle close
   const handleClose = () => {
@@ -46,7 +56,7 @@ const AchievementPopup: React.FC = () => {
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
-          <div className="bg-gradient-to-br from-[#ebbd34]/20 to-[#ebbd34]/40 backdrop-blur-md rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
+          <div className="bg-gradient-to-br from-yellow-100 to-amber-200 rounded-lg shadow-lg p-4 border border-[#ebbd34]/30">
             <div className="flex items-start">
               <div className="bg-[#ebbd34] rounded-full p-3 mr-4 flex-shrink-0">
                 {recentAchievement.icon || <Award className="h-6 w-6 text-white" />}
