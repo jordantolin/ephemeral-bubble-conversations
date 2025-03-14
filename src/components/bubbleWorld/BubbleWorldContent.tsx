@@ -103,7 +103,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   }
 
   // No bubbles found state
-  if (filteredBubbles.length === 0) {
+  if (!filteredBubbles || filteredBubbles.length === 0) {
     return (
       <div className="text-center py-16 md:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm">
         <div className="mx-auto w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-6 bg-[#ebbd34]/10">
@@ -134,10 +134,25 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   return (
     <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
       {renderGamificationStatus()}
-      <BubbleWorld 
-        topics={bubbleDataForComponent}
-        onBubbleClick={onBubbleClick}
-      />
+      {bubbleDataForComponent && bubbleDataForComponent.length > 0 ? (
+        <BubbleWorld 
+          topics={bubbleDataForComponent}
+          onBubbleClick={onBubbleClick}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-[#ebbd34] font-medium mb-4">No bubbles to display</p>
+            <Button
+              onClick={onCreateBubble}
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create a Bubble
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

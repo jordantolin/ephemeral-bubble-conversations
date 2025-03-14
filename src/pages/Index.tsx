@@ -12,6 +12,8 @@ import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
+import { useNetworkReconnection } from "@/hooks/useNetworkReconnection";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const location = useLocation();
@@ -19,6 +21,8 @@ const Index = () => {
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
+  const { isReconnecting } = useNetworkReconnection();
+  const { toast } = useToast();
   
   const {
     searchQuery,
@@ -32,7 +36,6 @@ const Index = () => {
     messagesError,
     chatOpen,
     setChatOpen,
-    isReconnecting,
     filteredBubbles,
     isLoadingBubbles,
     bubblesError,
@@ -48,41 +51,31 @@ const Index = () => {
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
-    
-    // We'll check the achievement when the bubble is actually created
-    // in the CreateBubbleDialog component
   };
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
-    await handleReflect(bubbleId);
-    
-    if (user) {
-      // Add points for the reflection
-      await addPoints(10, 'reflection');
+    try {
+      await handleReflect(bubbleId);
       
-      // Increment progress for the reflection master achievement
-      await incrementAchievementProgress('reflection-master');
-      
-      // Refresh gamification profile to ensure all achievements are up to date
-      await refreshGamificationProfile();
+      if (user) {
+        // Add points for the reflection
+        await addPoints(10, 'reflection');
+        
+        // Increment progress for the reflection master achievement
+        await checkAchievement('reflection-master');
+        
+        // Refresh gamification profile to ensure all achievements are up to date
+        await refreshGamificationProfile();
+      }
+    } catch (error) {
+      console.error("Error in reflection with gamification:", error);
+      toast({
+        title: "Problem with reflection",
+        description: "Your reflection was processed but points may not have been awarded.",
+        variant: "destructive"
+      });
     }
-  };
-  
-  // Handle sending messages with gamification
-  const handleSendMessage = async () => {
-    if (user) {
-      // Add points for sending a message
-      await addPoints(5, 'message');
-      
-      // Increment progress for the social butterfly achievement
-      await incrementAchievementProgress('social-butterfly');
-    }
-  };
-  
-  // Increment achievement progress
-  const incrementAchievementProgress = async (achievementId: string) => {
-    await checkAchievement(achievementId);
   };
   
   // Check URL params for bubble to open
@@ -106,9 +99,12 @@ const Index = () => {
   // Refresh gamification profile when the component mounts
   useEffect(() => {
     if (user) {
-      refreshGamificationProfile();
+      refreshGamificationProfile().catch(err => {
+        console.error("Error refreshing gamification profile:", err);
+        // We don't show this error to the user since it's not critical
+      });
     }
-  }, [user]);
+  }, [user, refreshGamificationProfile]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
