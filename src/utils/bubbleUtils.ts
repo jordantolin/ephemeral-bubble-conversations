@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { geoToCartesian } from './geoCoordinates';
@@ -7,22 +6,18 @@ import { geoToCartesian } from './geoCoordinates';
 export const getInitials = (name: string): string => {
   if (!name) return '';
   
-  // If the name contains an email address, extract the part before @
   if (name.includes('@')) {
     name = name.split('@')[0];
   }
   
-  // Split the name into parts
   const parts = name.split(/[\s.-_]+/).filter(Boolean);
   
   if (parts.length === 0) return '';
   
   if (parts.length === 1) {
-    // If only one part, return first two letters
     return parts[0].substring(0, 2).toUpperCase();
   }
   
-  // Return first letter of first and last parts
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
@@ -31,7 +26,6 @@ const activeChannels: { [key: string]: RealtimeChannel } = {};
 
 // Connection manager to handle Supabase realtime subscriptions
 export const connectionManager = {
-  // Create a new realtime subscription channel
   createChannel: async (
     supabase: SupabaseClient,
     channelName: string,
@@ -39,15 +33,12 @@ export const connectionManager = {
     onChangeCallback: (payload: any) => void
   ): Promise<void> => {
     try {
-      // Clean up existing channel with the same name if it exists
       if (activeChannels[channelName]) {
         await connectionManager.removeChannel(supabase, channelName);
       }
       
-      // Create a new channel
       const channel = supabase.channel(channelName);
       
-      // Add the postgres_changes event to the channel
       filters.forEach(filter => {
         channel.on(
           'postgres_changes', 
@@ -56,23 +47,19 @@ export const connectionManager = {
         );
       });
       
-      // Subscribe to the channel
       channel.subscribe((status) => {
         if (status !== 'SUBSCRIBED') {
           console.error(`Channel ${channelName} subscription status: ${status}`);
         }
       });
       
-      // Store the channel reference
       activeChannels[channelName] = channel;
-      
     } catch (error) {
       console.error(`Error creating channel ${channelName}:`, error);
       throw error;
     }
   },
   
-  // Remove a single channel by name
   removeChannel: async (
     supabase: SupabaseClient,
     channelName: string
@@ -87,7 +74,6 @@ export const connectionManager = {
     }
   },
   
-  // Remove all active channels
   removeAllChannels: async (
     supabase: SupabaseClient
   ): Promise<void> => {
@@ -114,7 +100,6 @@ export const createRateLimiter = (
     canMakeRequest: (): boolean => {
       const now = Date.now();
       
-      // Remove timestamps outside the window
       while (
         requestTimestamps.length > 0 &&
         requestTimestamps[0] < now - timeWindow
@@ -122,7 +107,6 @@ export const createRateLimiter = (
         requestTimestamps.shift();
       }
       
-      // Check if we can make more requests
       if (requestTimestamps.length < maxRequests) {
         requestTimestamps.push(now);
         return true;
@@ -163,7 +147,6 @@ export const createRetryHandler = (
       } catch (error) {
         lastError = error;
         
-        // Exponential backoff with jitter
         const delay = baseDelay * Math.pow(1.5, attempt) * (0.9 + Math.random() * 0.2);
         
         console.log(`Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms`);
@@ -177,13 +160,13 @@ export const createRetryHandler = (
 
 // Create bubble geometry with improved quality
 export const createBubbleGeometry = (size: number) => {
-  const segments = Math.max(16, Math.floor(size * 24)); // Higher detail for larger bubbles
+  const segments = Math.max(24, Math.floor(size * 32));
   return new THREE.SphereGeometry(size, segments, segments);
 };
 
 // Create Earth geometry
 export const createEarthGeometry = (radius: number) => {
-  const segments = 64; // Higher detail for the Earth
+  const segments = 64;
   return new THREE.SphereGeometry(radius, segments, segments);
 };
 
@@ -193,7 +176,6 @@ export const createEarthMaterial = () => {
     const textureLoader = new THREE.TextureLoader();
     textureLoader.setCrossOrigin('anonymous');
     
-    // Try to load the texture
     const earthTexture = textureLoader.load('/lovable-uploads/earth-texture.jpg', 
       () => console.log("Earth texture loaded successfully"),
       undefined,
@@ -212,7 +194,6 @@ export const createEarthMaterial = () => {
   } catch (error) {
     console.warn("Error creating Earth material, using fallback", error);
     
-    // Fallback material if texture loading fails
     return new THREE.MeshPhysicalMaterial({
       color: 0x2233ff,
       metalness: 0.1,
@@ -223,25 +204,26 @@ export const createEarthMaterial = () => {
   }
 };
 
-// Create bubble material with improved appearance and the correct yellow color
+// Create bubble material with improved appearance and the correct bright yellow color
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
-    color: 0xebbd34, // Ensure we use the correct yellow color (hex: #ebbd34)
-    metalness: 0,
+    color: 0xebbd34,
+    emissive: 0x664400,
+    emissiveIntensity: 0.2,
+    metalness: 0.1,
     roughness: 0.1,
     transmission: 0.6,
-    reflectivity: 0.5,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.2,
+    reflectivity: 0.7,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.85,
     side: THREE.DoubleSide,
   });
 };
 
 // Calculate bubble position based on geographic coordinates
 export const calculateBubblePosition = (latitude: number, longitude: number, radius: number, bubbleSize: number) => {
-  // Convert from geographic to Cartesian coordinates
   const position = geoToCartesian(latitude, longitude, radius + bubbleSize * 0.5);
   return position;
 };
@@ -253,38 +235,44 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   
   if (!ctx) return canvas;
   
-  // Set canvas size
-  canvas.width = 512;
-  canvas.height = 256;
+  canvas.width = 1024;
+  canvas.height = 512;
   
-  // Clear canvas
   ctx.fillStyle = 'rgba(0,0,0,0)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  // Configure text style
   const scaleFactor = fontSize / 24;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
-  // Text shadow for better readability
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 4 * scaleFactor;
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 6 * scaleFactor;
   ctx.shadowOffsetX = 2 * scaleFactor;
   ctx.shadowOffsetY = 2 * scaleFactor;
   
-  // Text styling
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.fillStyle = '#ebbd34';
+  ctx.font = `bold ${fontSize * 1.2}px Arial, sans-serif`;
+  ctx.fillStyle = '#FFFFFF';
   
-  // Center text and ensure all text is visible
-  const maxWidth = canvas.width * 0.9; // Limit width to avoid cutoff
+  const maxWidth = canvas.width * 0.85;
   const words = text.split(' ');
   
-  // Single line approach for shorter text
   if (words.length <= 3 || text.length <= 20) {
+    const metrics = ctx.measureText(text);
+    const textWidth = metrics.width;
+    const padding = 20 * scaleFactor;
+    const backgroundWidth = Math.min(textWidth + padding * 2, maxWidth);
+    const backgroundHeight = fontSize * 1.5;
+    
+    roundRect(ctx, 
+      canvas.width / 2 - backgroundWidth / 2, 
+      canvas.height / 2 - backgroundHeight / 2,
+      backgroundWidth, 
+      backgroundHeight, 
+      10 * scaleFactor);
+      
+    ctx.restore();
     ctx.fillText(text, canvas.width / 2, canvas.height / 2, maxWidth);
   } else {
-    // Multi-line approach for longer text
     const lines = [];
     let currentLine = words[0];
     
@@ -299,18 +287,87 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
         currentLine = testLine;
       }
     }
-    lines.push(currentLine); // Add the last line
+    lines.push(currentLine);
     
-    // Calculate total height of text block
-    const lineHeight = fontSize * 1.2;
+    const lineHeight = fontSize * 1.4;
     const totalHeight = lines.length * lineHeight;
     const startY = (canvas.height - totalHeight) / 2 + lineHeight / 2;
     
-    // Render each line
+    const padding = 15 * scaleFactor;
+    const cornerRadius = 10 * scaleFactor;
+    
+    lines.forEach((line, index) => {
+      const metrics = ctx.measureText(line);
+      const textWidth = metrics.width;
+      const backgroundWidth = Math.min(textWidth + padding * 2, maxWidth);
+      const backgroundHeight = fontSize * 1.5;
+      const y = startY + index * lineHeight;
+      
+      roundRect(ctx,
+        canvas.width / 2 - backgroundWidth / 2,
+        y - backgroundHeight / 2,
+        backgroundWidth,
+        backgroundHeight,
+        cornerRadius);
+    });
+    
+    ctx.restore();
+    
     lines.forEach((line, index) => {
       ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, maxWidth);
     });
   }
   
   return canvas;
+};
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+export const calculateDynamicBubbleSize = (
+  totalBubbles: number,
+  size: "sm" | "md" | "lg"
+): number => {
+  const baseSizeMap = {
+    "sm": 0.15,
+    "md": 0.225,
+    "lg": 0.3
+  };
+  
+  let scaleFactor = 1;
+  
+  if (totalBubbles <= 5) {
+    scaleFactor = 1.5;
+  } else if (totalBubbles <= 10) {
+    scaleFactor = 1.3;
+  } else if (totalBubbles <= 20) {
+    scaleFactor = 1.1;
+  } else if (totalBubbles <= 40) {
+    scaleFactor = 0.9;
+  } else if (totalBubbles <= 60) {
+    scaleFactor = 0.7;
+  } else {
+    scaleFactor = 0.5;
+  }
+  
+  return baseSizeMap[size] * scaleFactor;
 };
