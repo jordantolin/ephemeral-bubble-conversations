@@ -6,7 +6,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, MapPin, AlertTriangle } from "lucide-react";
-import { useBubbleCreation } from "@/hooks/useBubbleCreation";
+import { useBubbleCreation, AVAILABLE_TOPICS } from "@/hooks/useBubbleCreation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CreateBubbleDialogProps {
   open: boolean;
@@ -21,7 +22,8 @@ const CreateBubbleDialog = ({ open, onOpenChange }: CreateBubbleDialogProps) => 
     isGettingLocation, 
     locationError, 
     hasLocation,
-    locationName
+    locationName,
+    availableTopics
   } = useBubbleCreation(() => {
     onOpenChange(false);
   });
@@ -62,13 +64,23 @@ const CreateBubbleDialog = ({ open, onOpenChange }: CreateBubbleDialogProps) => 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[#ebbd34]">Topic</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="What is this bubble about?" 
-                      {...field} 
-                      className="border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]"
-                    />
-                  </FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="border-[#ebbd34]/20 focus-visible:ring-[#ebbd34]">
+                        <SelectValue placeholder="Select a topic" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableTopics.map((topic) => (
+                        <SelectItem key={topic} value={topic}>
+                          {topic}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
