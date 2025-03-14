@@ -5,7 +5,6 @@ import { BubbleData, BubbleWorldProps } from "@/types/bubble";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import TWEEN from "@tweenjs/tween.js";
 import { geoToCartesian } from "@/utils/geoCoordinates";
-import { getLocationName } from "@/utils/geoCoordinates";
 import { 
   createBubbleGeometry, 
   createBubbleMaterial,

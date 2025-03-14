@@ -4,6 +4,14 @@ import { Loader2, AlertCircle } from "lucide-react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useState } from "react";
 
 interface BubbleWorldContentProps {
   isLoadingBubbles: boolean;
@@ -24,6 +32,8 @@ const BubbleWorldContent = ({
   onCreateBubble,
   showEarth = true,
 }: BubbleWorldContentProps) => {
+  const [selectedTopic, setSelectedTopic] = useState<string>("all");
+
   if (isLoadingBubbles) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center">
@@ -65,22 +75,55 @@ const BubbleWorldContent = ({
     );
   }
 
+  // Get unique topics for dropdown
+  const topics = ["all", ...Array.from(new Set(bubbleDataForComponent.map(bubble => bubble.topic)))];
+  
+  // Filter bubbles by selected topic if not "all"
+  const displayBubbles = selectedTopic === "all" 
+    ? bubbleDataForComponent 
+    : bubbleDataForComponent.filter(bubble => bubble.topic === selectedTopic);
+
   // Prepare bubble data with text displayed on bubbles
-  const bubblesWithText = bubbleDataForComponent.map(bubble => ({
+  const bubblesWithText = displayBubbles.map(bubble => ({
     ...bubble,
     text: bubble.name // Use name as the text to display on the bubble
   }));
 
   return (
-    <div className="mb-8 relative overflow-hidden" style={{ height: "70vh" }}>
-      <BubbleWorld 
-        topics={bubblesWithText} 
-        onBubbleClick={onBubbleClick} 
-        showEarth={showEarth}
-      />
-      
-      <div className="absolute bottom-4 right-4 bg-black/50 text-white p-2 rounded text-xs">
-        {showEarth ? "Bubbles are placed based on their geographic origin" : "3D visualization of bubbles"}
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <Select
+            value={selectedTopic}
+            onValueChange={setSelectedTopic}
+          >
+            <SelectTrigger className="w-[180px] bg-white">
+              <SelectValue placeholder="Select Topic" />
+            </SelectTrigger>
+            <SelectContent>
+              {topics.map((topic) => (
+                <SelectItem key={topic} value={topic}>
+                  {topic === "all" ? "All Topics" : topic}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {displayBubbles.length} {displayBubbles.length === 1 ? 'bubble' : 'bubbles'} found
+        </div>
+      </div>
+
+      <div className="mb-8 relative overflow-hidden" style={{ height: "70vh" }}>
+        <BubbleWorld 
+          topics={bubblesWithText} 
+          onBubbleClick={onBubbleClick} 
+          showEarth={showEarth}
+        />
+        
+        <div className="absolute bottom-4 right-4 bg-black/50 text-white p-2 rounded text-xs">
+          {showEarth ? "Bubbles are placed based on their geographic origin" : "3D visualization of bubbles"}
+        </div>
       </div>
     </div>
   );
