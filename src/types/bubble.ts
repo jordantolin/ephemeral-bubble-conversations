@@ -13,6 +13,7 @@ export interface BubbleData {
   latitude?: number;
   longitude?: number;
   location?: string;
+  text?: string; // Text to display on the bubble
 }
 
 export interface BubbleWorldProps {

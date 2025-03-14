@@ -65,10 +65,16 @@ const BubbleWorldContent = ({
     );
   }
 
+  // Prepare bubble data with text displayed on bubbles
+  const bubblesWithText = bubbleDataForComponent.map(bubble => ({
+    ...bubble,
+    text: bubble.name // Use name as the text to display on the bubble
+  }));
+
   return (
     <div className="mb-8 relative overflow-hidden" style={{ height: "70vh" }}>
       <BubbleWorld 
-        topics={bubbleDataForComponent} 
+        topics={bubblesWithText} 
         onBubbleClick={onBubbleClick} 
         showEarth={showEarth}
       />

@@ -10,6 +10,26 @@ import { useToast } from "@/hooks/use-toast";
 import { useGamification } from "@/context/GamificationContext";
 import { generateRandomGeoCoordinates, getLocationName } from "@/utils/geoCoordinates";
 
+// Predefined list of available topics
+export const AVAILABLE_TOPICS = [
+  "Technology",
+  "Science",
+  "Art",
+  "Music",
+  "Sports",
+  "Food",
+  "Travel",
+  "Health",
+  "Education",
+  "Gaming",
+  "Business",
+  "Politics",
+  "Environment",
+  "Fashion",
+  "Movies",
+  "Books"
+];
+
 // Form schema for bubble creation
 const BubbleSchema = z.object({
   name: z.string().min(3, {
@@ -17,10 +37,8 @@ const BubbleSchema = z.object({
   }).max(50, {
     message: "Bubble name must be less than 50 characters",
   }),
-  topic: z.string().min(2, {
-    message: "Topic must be at least 2 characters",
-  }).max(30, {
-    message: "Topic must be less than 30 characters",
+  topic: z.enum(AVAILABLE_TOPICS as [string, ...string[]], {
+    message: "Please select a valid topic from the list",
   }),
   description: z.string().max(200, {
     message: "Description must be less than 200 characters",
@@ -45,7 +63,7 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
     resolver: zodResolver(BubbleSchema),
     defaultValues: {
       name: "",
-      topic: "",
+      topic: AVAILABLE_TOPICS[0],
       description: "",
     },
   });
@@ -174,6 +192,7 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
     isGettingLocation,
     locationError,
     hasLocation: !!location,
-    locationName
+    locationName,
+    availableTopics: AVAILABLE_TOPICS
   };
 };

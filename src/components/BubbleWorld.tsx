@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
@@ -7,7 +8,8 @@ import { geoToCartesian } from "@/utils/geoCoordinates";
 import { getLocationName } from "@/utils/geoCoordinates";
 import { 
   createBubbleGeometry, 
-  createBubbleMaterial 
+  createBubbleMaterial,
+  createTextCanvas
 } from "@/utils/bubbleUtils";
 import { loadGLTFModel, setupModel } from "@/utils/modelLoader";
 
@@ -30,6 +32,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   const BUBBLE_BASE_SIZE = 0.15;
   const EARTH_MODEL_PATH = '/models/yellow-earth.glb';
   
+  // Debug log for initialization
+  useEffect(() => {
+    console.log("BubbleWorld initialization with topics:", topics);
+  }, [topics]);
+
   // Create materials with different colors
   const bubbleMaterials = useMemo(() => {
     return {
@@ -111,6 +118,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
 
     // Clean up
     return () => {
+      console.log("Cleaning up BubbleWorld resources");
       window.removeEventListener("resize", handleResize);
       
       if (mountRef.current) {
@@ -157,7 +165,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       scene.add(model);
       earthRef.current = model;
       
-      console.log('Earth model loaded successfully');
+      console.log('Central world model loaded successfully');
     } catch (error) {
       console.error('Failed to load Earth model:', error);
       
@@ -180,6 +188,40 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       scene.add(earthGroup);
       earthRef.current = earthGroup;
     }
+  };
+
+  // Add labels to bubbles
+  const addBubbleLabel = (bubble: THREE.Mesh, text: string, size: "sm" | "md" | "lg") => {
+    if (!text) return;
+    
+    // Size mapping for label size
+    const fontSize = size === "sm" ? 24 : size === "md" ? 36 : 48;
+    
+    // Create canvas with text
+    const canvas = createTextCanvas(text, fontSize);
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    
+    // Create sprite material with texture
+    const spriteMaterial = new THREE.SpriteMaterial({ 
+      map: texture,
+      transparent: true,
+      sizeAttenuation: false,
+    });
+    
+    // Create and position sprite
+    const sprite = new THREE.Sprite(spriteMaterial);
+    const scaleFactor = size === "sm" ? 0.03 : size === "md" ? 0.05 : 0.07;
+    sprite.scale.set(scaleFactor, scaleFactor * 0.5, 1);
+    
+    // Position the sprite slightly above the bubble
+    const sizeMultiplier = size === "sm" ? 1 : size === "md" ? 1.5 : 2;
+    sprite.position.y = (BUBBLE_BASE_SIZE * sizeMultiplier) * 1.5;
+    
+    // Add sprite to bubble
+    bubble.add(sprite);
   };
 
   // Update bubbles when topics change
@@ -218,6 +260,10 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         bubble.position.y = radius * Math.sin(phi) * Math.sin(theta);
         bubble.position.z = radius * Math.cos(phi);
       }
+      
+      // Add the bubble text (use name or topic)
+      const displayText = topic.text || topic.name || topic.topic;
+      addBubbleLabel(bubble, displayText, topic.size);
       
       scene.add(bubble);
       bubbleRefs.current.push(bubble);
