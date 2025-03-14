@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Search, Loader2, Sparkles, Star } from "lucide-react";
+import { Search, Loader2, Star } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";

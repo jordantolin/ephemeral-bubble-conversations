@@ -34,6 +34,7 @@ function AppContent() {
         <Route path="/auth/*" element={<Auth />} />
         <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
         <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
+        <Route path="/bubble/:id" element={<RequireAuth><BubbleChat /></RequireAuth>} />
         <Route path="/bubble-chat/:id" element={<RequireAuth><BubbleChat /></RequireAuth>} />
         <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />

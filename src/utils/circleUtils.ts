@@ -1,109 +1,122 @@
 
 import { BubbleData } from "@/types/bubble";
 
-/**
- * Calculates positions for bubbles in a circular layout
- * @param bubbles - Array of bubbles to position
- * @param containerWidth - Width of the container
- * @param containerHeight - Height of the container
- */
-export const calculateCircularPositions = (
-  bubbles: BubbleData[],
-  containerWidth: number,
-  containerHeight: number
-): BubbleData[] => {
-  if (!bubbles.length) return [];
+// Function to calculate and assign circular positions for each bubble
+export const calculateCircularPositions = (bubbles: BubbleData[], containerWidth: number, containerHeight: number): BubbleData[] => {
+  if (!bubbles || bubbles.length === 0) {
+    console.log("No bubbles to position");
+    return [];
+  }
   
+  console.log(`Calculating positions for ${bubbles.length} bubbles in a container of ${containerWidth}×${containerHeight}`);
+  
+  // Calculate the radius of the circle (80% of the smallest dimension to leave space around edges)
+  const radius = Math.min(containerWidth, containerHeight) * 0.35;
+  
+  // Calculate the center of the container
   const centerX = containerWidth / 2;
   const centerY = containerHeight / 2;
-  const radius = Math.min(containerWidth, containerHeight) * 0.4;
   
+  // Position each bubble around the circle
   return bubbles.map((bubble, index) => {
+    // Calculate the angle for this bubble (evenly distributed)
     const angle = (index / bubbles.length) * 2 * Math.PI;
+    
+    // Calculate x and y coordinates
     const x = centerX + radius * Math.cos(angle);
     const y = centerY + radius * Math.sin(angle);
     
+    // Return the bubble with position data
     return {
       ...bubble,
-      x,
-      y
+      x, 
+      y,
+      angle, // Store the angle for animation
+      radius, // Store the original radius for animation
     };
   });
 };
 
-/**
- * Calculates animated floating positions for bubbles based on time
- * @param bubbles - Array of bubbles with initial positions
- * @param time - Current time for animation (milliseconds)
- * @param floatRadius - Maximum radius of floating movement
- */
+// Function to create floating effect by slightly adjusting positions
 export const calculateFloatingPositions = (
-  bubbles: BubbleData[],
-  time: number,
-  floatRadius: number = 20
+  initialPositions: BubbleData[], 
+  time: number, 
+  floatingRadius: number = 10
 ): BubbleData[] => {
-  if (!bubbles.length) return [];
-  
-  return bubbles.map((bubble, index) => {
-    if (bubble.x === undefined || bubble.y === undefined) return bubble;
-    
-    // Create unique but consistent animation pattern for each bubble
-    const seed = index * 1000;
-    const offset1 = Math.sin((time + seed) / 2000) * floatRadius;
-    const offset2 = Math.cos((time + seed) / 3000) * floatRadius;
-    
-    return {
-      ...bubble,
-      x: bubble.x + offset1,
-      y: bubble.y + offset2
-    };
-  });
-};
-
-/**
- * Get a color for a bubble based on its topic
- * @param topic - The bubble topic
- */
-export const getBubbleColor = (topic: string): string => {
-  // Generate a consistent color based on the topic string
-  let hash = 0;
-  for (let i = 0; i < topic.length; i++) {
-    hash = topic.charCodeAt(i) + ((hash << 5) - hash);
+  if (!initialPositions || initialPositions.length === 0) {
+    return [];
   }
   
-  // Convert to a golden-yellow range color (variations of #ebbd34)
-  const h = 45 + (hash % 15); // Golden hue with slight variations
-  const s = 70 + (hash % 20); // Saturation variations
-  const l = 55 + (hash % 10); // Lightness variations
-  
-  return `hsl(${h}, ${s}%, ${l}%)`;
+  return initialPositions.map((bubble, index) => {
+    if (typeof bubble.angle !== 'number' || typeof bubble.radius !== 'number' || 
+        typeof bubble.x !== 'number' || typeof bubble.y !== 'number') {
+      return bubble;
+    }
+    
+    // Create a floating effect with sine and cosine
+    const floatX = Math.sin(time / 2000 + index * 0.5) * floatingRadius;
+    const floatY = Math.cos(time / 2000 + index * 0.7) * floatingRadius;
+    
+    return {
+      ...bubble,
+      x: bubble.x + floatX,
+      y: bubble.y + floatY,
+    };
+  });
 };
 
-/**
- * Format bubble expiration time to a readable string
- * @param expiresAt - Expiration timestamp
- */
-export const formatExpiryTime = (expiresAt: string | undefined): string => {
-  if (!expiresAt) return "Unknown";
+// Function to get bubble color based on topic
+export const getBubbleColor = (topic: string): string => {
+  // Simple hash function to convert string to a number
+  const hash = Array.from(topic).reduce(
+    (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0
+  );
   
+  // List of vibrant colors
+  const colors = [
+    '#FF5A5F', // Coral
+    '#00A699', // Turquoise
+    '#FC642D', // Orange
+    '#8F7DFF', // Purple
+    '#00C8B0', // Teal
+    '#FF9A5A', // Light Orange
+    '#7B61FF', // Blue-Purple
+    '#FF7675', // Salmon
+    '#6C5CE7', // Blue
+    '#FF6B6B', // Red
+  ];
+  
+  // Use the hash to pick a color
+  const colorIndex = Math.abs(hash) % colors.length;
+  return colors[colorIndex];
+};
+
+// Format the time until bubble expiry
+export const formatExpiryTime = (expiryTime: string): string => {
   try {
-    const expiryTime = new Date(expiresAt);
+    const expiry = new Date(expiryTime);
     const now = new Date();
     
-    if (expiryTime < now) {
+    // Get time difference in milliseconds
+    const diff = expiry.getTime() - now.getTime();
+    
+    // If the bubble has expired
+    if (diff <= 0) {
       return "Expired";
     }
     
-    const diffMs = expiryTime.getTime() - now.getTime();
-    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    // Convert to days, hours
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     
-    if (diffHrs === 0) {
-      return `${diffMins}m left`;
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else {
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${minutes}m`;
     }
-    
-    return `${diffHrs}h ${diffMins}m left`;
   } catch (e) {
+    console.error("Error formatting expiry time:", e);
     return "Unknown";
   }
 };

@@ -31,6 +31,13 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       const { width, height } = containerRef.current.getBoundingClientRect();
       console.log("Container dimensions:", width, height);
       
+      if (bubbles.length === 0) {
+        console.log("No bubbles to position");
+        setPositionedBubbles([]);
+        initialPositionsRef.current = [];
+        return;
+      }
+      
       const positioned = calculateCircularPositions(bubbles, width, height);
       initialPositionsRef.current = positioned;
       
@@ -56,7 +63,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
         const floatingBubbles = calculateFloatingPositions(
           initialPositionsRef.current,
           time,
-          10 // Adjust floating radius here (smaller for subtler movement)
+          8 // Adjust floating radius for smoother movement
         );
         setPositionedBubbles(floatingBubbles);
       }
@@ -103,8 +110,8 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
           className={`absolute rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110 ${getBubbleSize(bubble.size)}`}
           style={{ 
             backgroundColor: getBubbleColor(bubble.topic),
-            left: bubble.x ? bubble.x - (parseInt(getBubbleSize(bubble.size).split(" ")[0].replace("w-", "")) / 2) : 0,
-            top: bubble.y ? bubble.y - (parseInt(getBubbleSize(bubble.size).split(" ")[1].replace("h-", "")) / 2) : 0,
+            left: `${bubble.x ? (bubble.x - (parseInt(getBubbleSize(bubble.size).split(" ")[0].replace("w-", "")) / 2)) : 0}px`,
+            top: `${bubble.y ? (bubble.y - (parseInt(getBubbleSize(bubble.size).split(" ")[1].replace("h-", "")) / 2)) : 0}px`,
             transition: 'transform 0.2s ease-in-out',
           }}
           onClick={() => onBubbleClick(bubble.id)}
