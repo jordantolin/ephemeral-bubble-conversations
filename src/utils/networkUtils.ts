@@ -46,9 +46,36 @@ export function isNetworkError(error: any): boolean {
     'abort',
     'fetch failed',
     'failed to fetch',
+    'net::ERR',
+    'NetworkError',
   ];
   
   return networkErrorPatterns.some(pattern => 
     errorString.toLowerCase().includes(pattern)
   );
+}
+
+/**
+ * Checks connection to a specific resource
+ * @param url - URL to check connectivity against
+ * @returns Promise resolving to a boolean indicating if the resource is reachable
+ */
+export async function checkResourceConnectivity(url: string = 'https://www.google.com'): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(url, {
+      method: 'HEAD',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return true;
+  } catch (error) {
+    console.warn('Resource connectivity check failed:', error);
+    return false;
+  }
 }

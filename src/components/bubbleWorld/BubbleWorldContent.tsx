@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
 
 interface BubbleWorldContentProps {
   isLoadingBubbles: boolean;
@@ -33,6 +32,20 @@ const BubbleWorldContent = ({
   showEarth = true,
 }: BubbleWorldContentProps) => {
   const [selectedTopic, setSelectedTopic] = useState<string>("all");
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Retry loading if there was an error
+  useEffect(() => {
+    if (bubblesError && retryCount < 3) {
+      const timer = setTimeout(() => {
+        console.log(`Auto-retrying bubble load (${retryCount + 1}/3)`);
+        setRetryCount(prev => prev + 1);
+        window.location.reload();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [bubblesError, retryCount]);
 
   if (isLoadingBubbles) {
     return (
@@ -88,6 +101,8 @@ const BubbleWorldContent = ({
     ...bubble,
     text: bubble.name // Use name as the text to display on the bubble
   }));
+
+  console.log(`Rendering BubbleWorldContent with ${bubblesWithText.length} bubbles`);
 
   return (
     <div className="space-y-4">

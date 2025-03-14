@@ -160,59 +160,46 @@ export const createRetryHandler = (
 
 // Create bubble geometry with improved quality
 export const createBubbleGeometry = (size: number) => {
-  const segments = Math.max(24, Math.floor(size * 32));
+  const segments = Math.max(16, Math.floor(size * 24));
   return new THREE.SphereGeometry(size, segments, segments);
 };
 
 // Create Earth geometry
 export const createEarthGeometry = (radius: number) => {
-  const segments = 64;
+  const segments = 32;
   return new THREE.SphereGeometry(radius, segments, segments);
 };
 
 // Create Earth material with texture and fallback
 export const createEarthMaterial = () => {
   try {
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.setCrossOrigin('anonymous');
-    
-    const earthTexture = textureLoader.load('/lovable-uploads/earth-texture.jpg', 
-      () => console.log("Earth texture loaded successfully"),
-      undefined,
-      (err) => {
-        console.warn("Earth texture failed to load, using fallback", err);
-      }
-    );
-    
-    return new THREE.MeshPhysicalMaterial({
-      map: earthTexture,
-      metalness: 0.1,
-      roughness: 0.8,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.2,
+    return new THREE.MeshPhongMaterial({
+      color: 0x2233ff,
+      specular: 0x333333,
+      shininess: 5,
+      emissive: 0x112244,
+      emissiveIntensity: 0.2
     });
   } catch (error) {
     console.warn("Error creating Earth material, using fallback", error);
     
-    return new THREE.MeshPhysicalMaterial({
+    return new THREE.MeshPhongMaterial({
       color: 0x2233ff,
-      metalness: 0.1,
-      roughness: 0.8,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.2,
+      specular: 0x333333,
+      shininess: 5,
     });
   }
 };
 
-// Create bubble material with improved appearance and the correct bright yellow color
+// Create bubble material with improved appearance and the bright yellow color
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
     color: 0xebbd34,
     emissive: 0x664400,
-    emissiveIntensity: 0.2,
+    emissiveIntensity: 0.3,
     metalness: 0.1,
     roughness: 0.1,
-    transmission: 0.6,
+    transmission: 0.5,
     reflectivity: 0.7,
     clearcoat: 1.0,
     clearcoatRoughness: 0.1,
@@ -246,7 +233,7 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   ctx.textBaseline = 'middle';
   
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
-  ctx.shadowBlur = 6 * scaleFactor;
+  ctx.shadowBlur = 8 * scaleFactor;
   ctx.shadowOffsetX = 2 * scaleFactor;
   ctx.shadowOffsetY = 2 * scaleFactor;
   
@@ -261,16 +248,24 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
     const textWidth = metrics.width;
     const padding = 20 * scaleFactor;
     const backgroundWidth = Math.min(textWidth + padding * 2, maxWidth);
-    const backgroundHeight = fontSize * 1.5;
+    const backgroundHeight = fontSize * 1.8;
+    
+    ctx.save();
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
     
     roundRect(ctx, 
       canvas.width / 2 - backgroundWidth / 2, 
       canvas.height / 2 - backgroundHeight / 2,
       backgroundWidth, 
       backgroundHeight, 
-      10 * scaleFactor);
+      12 * scaleFactor);
       
     ctx.restore();
+    
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(text, canvas.width / 2, canvas.height / 2, maxWidth);
   } else {
     const lines = [];
@@ -289,18 +284,18 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
     }
     lines.push(currentLine);
     
-    const lineHeight = fontSize * 1.4;
+    const lineHeight = fontSize * 1.5;
     const totalHeight = lines.length * lineHeight;
     const startY = (canvas.height - totalHeight) / 2 + lineHeight / 2;
     
-    const padding = 15 * scaleFactor;
-    const cornerRadius = 10 * scaleFactor;
+    const padding = 20 * scaleFactor;
+    const cornerRadius = 12 * scaleFactor;
     
     lines.forEach((line, index) => {
       const metrics = ctx.measureText(line);
       const textWidth = metrics.width;
       const backgroundWidth = Math.min(textWidth + padding * 2, maxWidth);
-      const backgroundHeight = fontSize * 1.5;
+      const backgroundHeight = fontSize * 1.8;
       const y = startY + index * lineHeight;
       
       roundRect(ctx,
@@ -348,19 +343,19 @@ export const calculateDynamicBubbleSize = (
   size: "sm" | "md" | "lg"
 ): number => {
   const baseSizeMap = {
-    "sm": 0.15,
-    "md": 0.225,
-    "lg": 0.3
+    "sm": 0.2,
+    "md": 0.275,
+    "lg": 0.35
   };
   
   let scaleFactor = 1;
   
   if (totalBubbles <= 5) {
-    scaleFactor = 1.5;
+    scaleFactor = 1.6;
   } else if (totalBubbles <= 10) {
-    scaleFactor = 1.3;
+    scaleFactor = 1.4;
   } else if (totalBubbles <= 20) {
-    scaleFactor = 1.1;
+    scaleFactor = 1.2;
   } else if (totalBubbles <= 40) {
     scaleFactor = 0.9;
   } else if (totalBubbles <= 60) {
