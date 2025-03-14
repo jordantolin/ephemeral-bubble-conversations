@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
@@ -39,25 +38,23 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   const isInitialized = useRef(false);
   const [isEarthLoaded, setIsEarthLoaded] = useState(false);
   
-  // Debug log for initialization
   useEffect(() => {
     console.log("BubbleWorld initialization with topics:", topics?.length);
   }, [topics]);
 
-  // Create materials with different colors
   const bubbleMaterials = useMemo(() => {
-    const lightYellow = new THREE.Color(0xFEF7CD);
+    const brightYellow = new THREE.Color(0xFFD700);
     
     const createMaterial = () => {
       return new THREE.MeshPhysicalMaterial({
-        color: lightYellow,
-        emissive: 0xF5DD6C,
-        emissiveIntensity: 0.2,
-        metalness: 0.05,
+        color: brightYellow,
+        emissive: 0xFFA500,
+        emissiveIntensity: 0.3,
+        metalness: 0.1,
         roughness: 0.1,
-        transmission: 0.8,
-        reflectivity: 0.5,
-        clearcoat: 0.8,
+        transmission: 0.7,
+        reflectivity: 0.6,
+        clearcoat: 0.9,
         clearcoatRoughness: 0.1,
         transparent: true,
         opacity: 0.9,
@@ -72,7 +69,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     };
   }, []);
 
-  // Set up scene
   useEffect(() => {
     if (!mountRef.current || isInitialized.current) return;
     
@@ -82,46 +78,38 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
-    // Setup renderer
     renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio to improve performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
 
-    // Setup camera
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     camera.position.z = 15;
 
-    // Add ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
 
-    // Add directional light
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
 
-    // Add point light to enhance bubble visibility
     const pointLight = new THREE.PointLight(0xffffff, 0.8);
     pointLight.position.set(-5, 5, 5);
     scene.add(pointLight);
 
-    // Add orbit controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.rotateSpeed = 0.5;
-    controls.minDistance = 7; // Prevent zooming in too close
-    controls.maxDistance = 25; // Prevent zooming out too far
+    controls.minDistance = 7;
+    controls.maxDistance = 25;
     controlsRef.current = controls;
 
     if (showEarth) {
-      // Always try to load yellow-earth.glb model first
       loadYellowEarth();
     }
 
-    // Resize handler
     const handleResize = () => {
       if (!mountRef.current) return;
       
@@ -145,7 +133,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         mountRef.current.removeChild(renderer.domElement);
       }
       
-      // Clean up bubbles
       bubbleRefs.current.forEach((bubble) => {
         scene.remove(bubble);
         if (bubble.geometry) bubble.geometry.dispose();
@@ -156,18 +143,15 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         }
       });
       
-      // Clean up Earth
       if (earthRef.current) {
         scene.remove(earthRef.current);
       }
       
-      // Clear texture cache
       textureCache.forEach(texture => texture.dispose());
       textureCache.clear();
     };
   }, [scene, renderer, camera, bubbleMaterials, showEarth]);
 
-  // Animation loop
   useEffect(() => {
     if (!isInitialized.current) return;
 
@@ -198,7 +182,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     };
   }, [scene, renderer, camera]);
 
-  // Load yellow-earth.glb model
   const loadYellowEarth = () => {
     try {
       console.log('Loading yellow-earth.glb model');
@@ -209,10 +192,8 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         (gltf) => {
           const earthModel = gltf.scene;
           
-          // Scale and position the model
           earthModel.scale.set(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
           
-          // Create a group for the earth model to allow rotation
           const earthGroup = new THREE.Group();
           earthGroup.add(earthModel);
           
@@ -227,35 +208,29 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         },
         (error) => {
           console.error('Error loading Yellow Earth model:', error);
-          // Fallback to simplified Earth if model loading fails
           addSimplifiedEarth();
         }
       );
     } catch (error) {
       console.error('Failed to load Yellow Earth model:', error);
-      // Fallback to simplified Earth
       addSimplifiedEarth();
     }
   };
 
-  // Add simplified Earth for better performance (fallback)
   const addSimplifiedEarth = () => {
     try {
       console.log('Adding fallback simplified Earth model');
       
-      // Create a simple sphere for Earth with yellow color
       const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 32, 32);
       
-      // Create a yellow material
       const material = new THREE.MeshPhongMaterial({
-        color: 0xebbd34, // Yellow color matching bubbles
+        color: 0xebbd34,
         specular: 0x333333,
         shininess: 5,
         emissive: 0x664400,
         emissiveIntensity: 0.2
       });
       
-      // Create mesh and group
       const earthMesh = new THREE.Mesh(geometry, material);
       const earthGroup = new THREE.Group();
       earthGroup.add(earthMesh);
@@ -270,25 +245,21 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     }
   };
 
-  // Add labels to bubbles
   const addBubbleLabel = (bubble: THREE.Mesh, text: string, size: "sm" | "md" | "lg", totalBubbles: number) => {
     if (!text) return;
     
-    // Size mapping for label size - adjust based on total bubbles
     let fontSize: number;
     
     if (totalBubbles <= 10) {
-      fontSize = size === "sm" ? 40 : size === "md" ? 52 : 64; // Larger text for few bubbles
+      fontSize = size === "sm" ? 40 : size === "md" ? 52 : 64;
     } else if (totalBubbles <= 30) {
-      fontSize = size === "sm" ? 34 : size === "md" ? 46 : 58; // Medium text
+      fontSize = size === "sm" ? 34 : size === "md" ? 46 : 58;
     } else {
-      fontSize = size === "sm" ? 28 : size === "md" ? 40 : 52; // Smaller text for many bubbles
+      fontSize = size === "sm" ? 28 : size === "md" ? 40 : 52;
     }
     
-    // Create canvas with text
     const canvas = createTextCanvas(text, fontSize);
     
-    // Create texture from canvas
     let texture: THREE.Texture;
     const cacheKey = `${text}-${fontSize}`;
     
@@ -300,38 +271,32 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       textureCache.set(cacheKey, texture);
     }
     
-    // Create sprite material with texture
     const spriteMaterial = new THREE.SpriteMaterial({ 
       map: texture,
       transparent: true,
-      sizeAttenuation: true, // Enable size attenuation for better visibility
+      sizeAttenuation: true
     });
     
-    // Create and position sprite
     const sprite = new THREE.Sprite(spriteMaterial);
     
-    // Scale sprite based on bubble size and total bubbles
     let scaleFactor: number;
     
     if (totalBubbles <= 10) {
-      scaleFactor = size === "sm" ? 1.2 : size === "md" ? 1.4 : 1.6; // Larger for few bubbles
+      scaleFactor = size === "sm" ? 1.2 : size === "md" ? 1.4 : 1.6;
     } else if (totalBubbles <= 30) {
-      scaleFactor = size === "sm" ? 1.0 : size === "md" ? 1.2 : 1.4; // Medium
+      scaleFactor = size === "sm" ? 1.0 : size === "md" ? 1.2 : 1.4;
     } else {
-      scaleFactor = size === "sm" ? 0.8 : size === "md" ? 1.0 : 1.2; // Smaller for many bubbles
+      scaleFactor = size === "sm" ? 0.8 : size === "md" ? 1.0 : 1.2;
     }
     
     sprite.scale.set(scaleFactor, scaleFactor * 0.5, 1);
     
-    // Position the sprite as overlay or inside the bubble
     const dynamicSize = calculateDynamicBubbleSize(totalBubbles, size);
-    sprite.position.set(0, 0, 0); // Position in center of bubble
+    sprite.position.set(0, 0, 0);
     
-    // Add sprite to bubble
     bubble.add(sprite);
   };
 
-  // Update bubbles when topics change or earth is loaded
   useEffect(() => {
     if (!isInitialized.current || !topics || topics.length === 0) {
       console.log("Not updating bubbles - initialization or topics missing");
@@ -345,7 +310,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     
     console.log(`Updating bubbles: ${topics.length} bubbles to display`);
     
-    // Clear existing bubbles
     bubbleRefs.current.forEach((bubble) => {
       scene.remove(bubble);
       if (bubble.geometry) bubble.geometry.dispose();
@@ -359,26 +323,21 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
 
     const totalBubbles = topics.length;
 
-    // Add new bubbles
     topics.forEach((topic) => {
-      // Calculate dynamic bubble size based on total number of bubbles
       const dynamicSize = calculateDynamicBubbleSize(totalBubbles, topic.size);
       const geometry = createBubbleGeometry(dynamicSize);
-      const material = bubbleMaterials[topic.size].clone(); // Clone to avoid shared materials
+      const material = bubbleMaterials[topic.size].clone();
       
-      // Make the material brighter and more light yellow
-      material.color.set(0xFEF7CD);
-      material.emissive.set(0xF5DD6C);
-      material.emissiveIntensity = 0.2;
+      material.color.set(0xFFD700);
+      material.emissive.set(0xFFA500);
+      material.emissiveIntensity = 0.3;
       
       const bubble = new THREE.Mesh(geometry, material);
       
-      // Position bubble based on latitude and longitude if available, or random position
       if (showEarth && topic.latitude !== undefined && topic.longitude !== undefined) {
         const coords = geoToCartesian(topic.latitude, topic.longitude, EARTH_RADIUS + 0.2 + dynamicSize);
         bubble.position.set(coords.x, coords.y, coords.z);
       } else {
-        // Random positioning for non-geo bubbles
         const radius = 7;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
@@ -388,7 +347,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         bubble.position.z = radius * Math.cos(phi);
       }
       
-      // Add the bubble text (use text, name or topic)
       const displayText = topic.text || topic.name || topic.topic;
       addBubbleLabel(bubble, displayText, topic.size, totalBubbles);
       
@@ -396,14 +354,12 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       bubbleRefs.current.push(bubble);
       bubbleIds.current.push(topic.id);
 
-      // Add pulse effect
       animateBubble(bubble, dynamicSize);
     });
     
     console.log(`Added ${bubbleRefs.current.length} bubbles to scene`);
   }, [topics, scene, bubbleMaterials, showEarth, isEarthLoaded]);
 
-  // Add click event listener
   useEffect(() => {
     if (!isInitialized.current) return;
     
@@ -413,19 +369,15 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     const handleClick = (event: MouseEvent) => {
       if (!mountRef.current) return;
 
-      // Calculate mouse position in normalized device coordinates
       const rect = mountRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      // Update the picking ray with the camera and mouse position
       raycaster.setFromCamera(mouse, camera);
 
-      // Calculate objects intersecting the picking ray
       const intersects = raycaster.intersectObjects(bubbleRefs.current);
 
       if (intersects.length > 0) {
-        // Find the index of the clicked bubble
         const clickedBubble = intersects[0].object as THREE.Mesh;
         const index = bubbleRefs.current.indexOf(clickedBubble);
         
@@ -444,12 +396,10 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     };
   }, [camera, onBubbleClick]);
 
-  // Animate bubble with improved pulsing effect
   const animateBubble = (bubble: THREE.Mesh, baseSize: number) => {
-    const scaleFactor = 1.08; // Slightly larger pulsing
+    const scaleFactor = 1.08;
     const duration = 1500 + Math.random() * 1000;
     
-    // Create initial tween (scale up)
     const tweenUp = new TWEEN.Tween(bubble.scale)
       .to({ 
         x: scaleFactor, 
@@ -458,7 +408,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       }, duration)
       .easing(TWEEN.Easing.Sinusoidal.InOut);
     
-    // Create second tween (scale down)
     const tweenDown = new TWEEN.Tween(bubble.scale)
       .to({ 
         x: 1, 
@@ -467,11 +416,9 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       }, duration)
       .easing(TWEEN.Easing.Sinusoidal.InOut);
     
-    // Chain the tweens to create a continuous loop
     tweenUp.chain(tweenDown);
     tweenDown.chain(tweenUp);
     
-    // Start the animation
     tweenUp.start();
   };
 

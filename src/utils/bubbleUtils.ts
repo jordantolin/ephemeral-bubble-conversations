@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 
 /**
@@ -15,16 +16,16 @@ export const createBubbleGeometry = (size: number): THREE.BufferGeometry => {
  * @param color Color of the bubble
  * @returns THREE material for the bubble
  */
-export const createBubbleMaterial = (color: THREE.ColorRepresentation = 0xFEF7CD): THREE.Material => {
+export const createBubbleMaterial = (color: THREE.ColorRepresentation = 0xFFD700): THREE.Material => {
   return new THREE.MeshPhysicalMaterial({
     color: color,
-    emissive: 0xF5DD6C,
-    emissiveIntensity: 0.2,
-    metalness: 0.05,
+    emissive: 0xFFA500,
+    emissiveIntensity: 0.3,
+    metalness: 0.1,
     roughness: 0.1,
-    transmission: 0.8,
-    reflectivity: 0.5,
-    clearcoat: 0.8,
+    transmission: 0.7,
+    reflectivity: 0.6,
+    clearcoat: 0.9,
     clearcoatRoughness: 0.1,
     transparent: true,
     opacity: 0.9,
@@ -55,13 +56,19 @@ export const createTextCanvas = (text: string, fontSize: number = 40): HTMLCanva
   // Clear canvas
   context.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Configure text style - no background, just clean text
+  // Configure text style - semi-transparent text with subtle shadow
   context.font = `bold ${fontSize}px Arial, sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   
-  // Draw text directly, no background
-  context.fillStyle = 'rgba(50, 50, 50, 0.9)';
+  // Add subtle shadow for readability
+  context.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  context.shadowBlur = 4;
+  context.shadowOffsetX = 0;
+  context.shadowOffsetY = 0;
+  
+  // Draw text
+  context.fillStyle = 'rgba(60, 60, 60, 0.8)';
   context.fillText(text, canvas.width / 2, canvas.height / 2);
   
   return canvas;
