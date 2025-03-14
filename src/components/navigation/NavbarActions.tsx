@@ -16,7 +16,7 @@ import LevelProgress from "@/components/gamification/LevelProgress";
 import NotificationCenter from "@/components/gamification/NotificationCenter";
 
 const NavbarActions: React.FC = () => {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, signOut } = useAuth();
   
   if (!user) return null;
   
@@ -67,7 +67,7 @@ const NavbarActions: React.FC = () => {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600">
+          <DropdownMenuItem onClick={signOut} className="cursor-pointer text-red-600">
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </DropdownMenuItem>

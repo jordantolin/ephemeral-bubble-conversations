@@ -2,11 +2,21 @@
 import React from "react";
 import { useNetwork } from "@/context/NetworkContext";
 import { RefreshCw } from "lucide-react";
+import { useNetworkReconnection } from "@/hooks/useNetworkReconnection";
 
-const ReconnectionIndicator: React.FC<{ isReconnecting: boolean }> = ({ 
-  isReconnecting 
+interface ReconnectionIndicatorProps {
+  isReconnecting?: boolean;
+}
+
+const ReconnectionIndicator: React.FC<ReconnectionIndicatorProps> = ({ 
+  isReconnecting: forcedReconnectingState 
 }) => {
   const { isOnline } = useNetwork();
+  const { isReconnecting: autoReconnectingState } = useNetworkReconnection();
+  
+  // Use the forced state (from props) if provided, otherwise use the auto state
+  const isReconnecting = forcedReconnectingState !== undefined ? 
+    forcedReconnectingState : autoReconnectingState;
   
   if (!isReconnecting || !isOnline) return null;
   
