@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
@@ -5,7 +6,11 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import TWEEN from "@tweenjs/tween.js";
 import { geoToCartesian } from "@/utils/geoCoordinates";
 import { getLocationName } from "@/utils/geoCoordinates";
-import { createEarthGeometry, createEarthMaterial, createBubbleGeometry, createBubbleMaterial } from "@/utils/bubbleUtils";
+import { 
+  createBubbleGeometry, 
+  createBubbleMaterial 
+} from "@/utils/bubbleUtils";
+import { loadGLTFModel, setupModel } from "@/utils/modelLoader";
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ 
   topics, 
@@ -20,10 +25,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   
   const bubbleRefs = useRef<THREE.Mesh[]>([]);
   const bubbleIds = useRef<string[]>([]);
-  const earthRef = useRef<THREE.Mesh | null>(null);
+  const earthRef = useRef<THREE.Group | null>(null);
   
   const EARTH_RADIUS = 5;
   const BUBBLE_BASE_SIZE = 0.15;
+  const EARTH_MODEL_PATH = '/models/yellow-earth.glb';
   
   // Create materials with different colors
   const bubbleMaterials = useMemo(() => {
@@ -68,7 +74,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     controlsRef.current = controls;
 
     if (showEarth) {
-      // Add Earth sphere
+      // Add Earth model
       addEarth();
     }
 
@@ -126,27 +132,39 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       // Clean up Earth
       if (earthRef.current) {
         scene.remove(earthRef.current);
-        earthRef.current.geometry.dispose();
-        if (earthRef.current.material instanceof THREE.Material) {
-          earthRef.current.material.dispose();
-        }
       }
     };
   }, [scene, renderer, camera, bubbleMaterials, showEarth]);
 
-  // Add Earth sphere
-  const addEarth = () => {
-    const geometry = createEarthGeometry(EARTH_RADIUS);
-    const material = createEarthMaterial();
-    
-    const earth = new THREE.Mesh(geometry, material);
-    scene.add(earth);
-    earthRef.current = earth;
-    
-    // Handle texture loading error with standard event listeners
-    const handleTextureError = () => {
-      console.log('Using fallback Earth appearance');
-      const fallbackMaterial = new THREE.MeshPhysicalMaterial({
+  // Add Earth model
+  const addEarth = async () => {
+    try {
+      // Show loading progress
+      console.log('Loading Earth model...');
+      
+      // Load the GLB model
+      const earthModel = await loadGLTFModel(
+        EARTH_MODEL_PATH,
+        (event) => {
+          const progress = Math.floor((event.loaded / event.total) * 100);
+          console.log(`Loading progress: ${progress}%`);
+        }
+      );
+      
+      // Set up the model with appropriate scale and properties
+      const model = setupModel(earthModel, 5);
+      
+      // Add model to the scene
+      scene.add(model);
+      earthRef.current = model;
+      
+      console.log('Earth model loaded successfully');
+    } catch (error) {
+      console.error('Failed to load Earth model:', error);
+      
+      // Fallback to simple sphere if model fails to load
+      const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
+      const material = new THREE.MeshPhysicalMaterial({
         color: 0x2233ff,
         emissive: 0x112244,
         metalness: 0.1,
@@ -155,17 +173,10 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         clearcoatRoughness: 0.2,
       });
       
-      if (earthRef.current) {
-        earthRef.current.material = fallbackMaterial;
-      }
-    };
-    
-    // Check if texture failed to load and apply fallback (using a timeout)
-    setTimeout(() => {
-      if (material.map && !material.map.image) {
-        handleTextureError();
-      }
-    }, 2000);
+      const earth = new THREE.Mesh(geometry, material);
+      scene.add(earth);
+      earthRef.current = earth;
+    }
   };
 
   // Update bubbles when topics change
