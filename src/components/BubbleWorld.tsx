@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
@@ -25,7 +24,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   
   const bubbleRefs = useRef<THREE.Mesh[]>([]);
   const bubbleIds = useRef<string[]>([]);
-  const earthRef = useRef<THREE.Group | null>(null);
+  const earthRef = useRef<THREE.Object3D | null>(null);
   
   const EARTH_RADIUS = 5;
   const BUBBLE_BASE_SIZE = 0.15;
@@ -173,9 +172,13 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
         clearcoatRoughness: 0.2,
       });
       
-      const earth = new THREE.Mesh(geometry, material);
-      scene.add(earth);
-      earthRef.current = earth;
+      // Create a mesh and wrap it in a Group to match the type
+      const earthMesh = new THREE.Mesh(geometry, material);
+      const earthGroup = new THREE.Group();
+      earthGroup.add(earthMesh);
+      
+      scene.add(earthGroup);
+      earthRef.current = earthGroup;
     }
   };
 
