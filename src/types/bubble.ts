@@ -12,6 +12,8 @@ export interface BubbleData {
   isExploding?: boolean;
   x?: number;
   y?: number;
+  angle?: number;  // Added for circle positioning
+  radius?: number; // Added for circle positioning
 }
 
 export interface BubbleWorldProps {

@@ -10,8 +10,8 @@ export const calculateCircularPositions = (bubbles: BubbleData[], containerWidth
   
   console.log(`Calculating positions for ${bubbles.length} bubbles in a container of ${containerWidth}×${containerHeight}`);
   
-  // Calculate the radius of the circle (80% of the smallest dimension to leave space around edges)
-  const radius = Math.min(containerWidth, containerHeight) * 0.35;
+  // Calculate the radius of the circle (35% of the smallest dimension to leave space around edges)
+  const circleRadius = Math.min(containerWidth, containerHeight) * 0.35;
   
   // Calculate the center of the container
   const centerX = containerWidth / 2;
@@ -23,8 +23,8 @@ export const calculateCircularPositions = (bubbles: BubbleData[], containerWidth
     const angle = (index / bubbles.length) * 2 * Math.PI;
     
     // Calculate x and y coordinates
-    const x = centerX + radius * Math.cos(angle);
-    const y = centerY + radius * Math.sin(angle);
+    const x = centerX + circleRadius * Math.cos(angle);
+    const y = centerY + circleRadius * Math.sin(angle);
     
     // Return the bubble with position data
     return {
@@ -32,7 +32,7 @@ export const calculateCircularPositions = (bubbles: BubbleData[], containerWidth
       x, 
       y,
       angle, // Store the angle for animation
-      radius, // Store the original radius for animation
+      radius: circleRadius, // Store the original radius for animation
     };
   });
 };
@@ -47,15 +47,19 @@ export const calculateFloatingPositions = (
     return [];
   }
   
-  return initialPositions.map((bubble, index) => {
-    if (typeof bubble.angle !== 'number' || typeof bubble.radius !== 'number' || 
-        typeof bubble.x !== 'number' || typeof bubble.y !== 'number') {
+  return initialPositions.map((bubble) => {
+    // Check if the required properties exist before using them
+    if (typeof bubble.x !== 'number' || typeof bubble.y !== 'number') {
       return bubble;
     }
     
+    // Safe access angle and radius with defaults if they don't exist
+    const angle = bubble.angle || 0;
+    const baseRadius = bubble.radius || 0;
+    
     // Create a floating effect with sine and cosine
-    const floatX = Math.sin(time / 2000 + index * 0.5) * floatingRadius;
-    const floatY = Math.cos(time / 2000 + index * 0.7) * floatingRadius;
+    const floatX = Math.sin(time / 2000 + (angle || 0) * 0.5) * floatingRadius;
+    const floatY = Math.cos(time / 2000 + (angle || 0) * 0.7) * floatingRadius;
     
     return {
       ...bubble,
