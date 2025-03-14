@@ -118,7 +118,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     }
     
     const canvas = document.createElement('canvas');
-    const size2d = Math.max(256, fontSize * 8);
+    const size2d = Math.max(256, fontSize * 10);
     canvas.width = size2d;
     canvas.height = size2d;
     
@@ -129,6 +129,9 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     }
     
     context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
     
     context.font = `bold ${fontSize}px Arial, sans-serif`;
     context.textAlign = 'center';
@@ -144,7 +147,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     const totalHeight = lines.length * lineHeight;
     const startY = (canvas.height - totalHeight) / 2;
     
-    context.fillStyle = 'rgba(50, 50, 50, 0.85)';
+    context.fillStyle = 'rgba(255, 255, 255, 0.95)';
     
     lines.forEach((line, index) => {
       context.fillText(line, canvas.width / 2, startY + index * lineHeight);
@@ -172,11 +175,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     let scaleFactor: number;
     
     if (totalBubbles <= 10) {
-      scaleFactor = size === "sm" ? 1.8 : size === "md" ? 2.0 : 2.2;
+      scaleFactor = size === "sm" ? 2.0 : size === "md" ? 2.2 : 2.4;
     } else if (totalBubbles <= 30) {
-      scaleFactor = size === "sm" ? 1.6 : size === "md" ? 1.8 : 2.0;
+      scaleFactor = size === "sm" ? 1.8 : size === "md" ? 2.0 : 2.2;
     } else {
-      scaleFactor = size === "sm" ? 1.4 : size === "md" ? 1.6 : 1.8;
+      scaleFactor = size === "sm" ? 1.6 : size === "md" ? 1.8 : 2.0;
     }
     
     const dynamicSize = calculateDynamicBubbleSize(totalBubbles, size);
