@@ -1,6 +1,30 @@
+
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { geoToCartesian } from './geoCoordinates';
+
+// Get initials from a name or username
+export const getInitials = (name: string): string => {
+  if (!name) return '';
+  
+  // If the name contains an email address, extract the part before @
+  if (name.includes('@')) {
+    name = name.split('@')[0];
+  }
+  
+  // Split the name into parts
+  const parts = name.split(/[\s.-_]+/).filter(Boolean);
+  
+  if (parts.length === 0) return '';
+  
+  if (parts.length === 1) {
+    // If only one part, return first two letters
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  
+  // Return first letter of first and last parts
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 // Collection of active channels for better management
 const activeChannels: { [key: string]: RealtimeChannel } = {};

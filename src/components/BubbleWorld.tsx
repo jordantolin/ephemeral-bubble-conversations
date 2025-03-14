@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; // Added .js extension
 import TWEEN from "@tweenjs/tween.js";
 import { geoToCartesian } from "@/utils/geoCoordinates";
 import { getLocationName } from "@/utils/geoCoordinates";
