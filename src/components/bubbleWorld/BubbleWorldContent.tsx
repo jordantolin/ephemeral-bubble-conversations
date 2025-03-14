@@ -68,6 +68,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   };
 
+  // Loading state with improved animation and messaging
   if (isLoadingBubbles) {
     return (
       <div className="text-center py-16 md:py-24 bg-white/30 rounded-xl backdrop-blur-sm shadow-sm">
@@ -78,6 +79,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   }
 
+  // Enhanced error state with retry functionality
   if (bubblesError) {
     return (
       <div className="text-center py-16 md:py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm">
@@ -100,6 +102,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   }
 
+  // No bubbles found state
   if (filteredBubbles.length === 0) {
     return (
       <div className="text-center py-16 md:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm">
@@ -127,6 +130,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   }
 
+  // Normal state with bubbles
   return (
     <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
       {renderGamificationStatus()}

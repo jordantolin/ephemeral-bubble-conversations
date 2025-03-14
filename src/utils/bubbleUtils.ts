@@ -32,10 +32,14 @@ export const connectionManager = {
         );
       });
       
-      // Subscribe to the channel
+      // Subscribe to the channel with error handling
       channel.subscribe((status) => {
-        if (status !== 'SUBSCRIBED') {
-          console.error(`Channel ${channelName} subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log(`Channel ${channelName} successfully subscribed`);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.warn(`Channel ${channelName} subscription status: ${status} - This is not critical and app will continue to function`);
+        } else {
+          console.info(`Channel ${channelName} status: ${status}`);
         }
       });
       
@@ -43,8 +47,8 @@ export const connectionManager = {
       activeChannels[channelName] = channel;
       
     } catch (error) {
-      console.error(`Error creating channel ${channelName}:`, error);
-      throw error;
+      console.warn(`Error creating channel ${channelName}, but app will continue:`, error);
+      // We don't throw the error here to prevent cascading failures
     }
   },
   
@@ -59,7 +63,7 @@ export const connectionManager = {
         delete activeChannels[channelName];
       }
     } catch (error) {
-      console.error(`Error removing channel ${channelName}:`, error);
+      console.warn(`Error removing channel ${channelName}, but app will continue:`, error);
     }
   },
   
@@ -74,7 +78,7 @@ export const connectionManager = {
         )
       );
     } catch (error) {
-      console.error("Error removing all channels:", error);
+      console.warn("Error removing channels, but app will continue:", error);
     }
   }
 };
