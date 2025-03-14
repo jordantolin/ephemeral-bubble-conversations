@@ -1,4 +1,3 @@
-
 import { BubbleData } from "@/types/bubble";
 
 // Function to calculate and assign circular positions for each bubble
@@ -29,10 +28,10 @@ export const calculateCircularPositions = (bubbles: BubbleData[], containerWidth
     // Return the bubble with position data
     return {
       ...bubble,
-      x, 
+      x,
       y,
-      angle, // Store the angle for animation
-      radius: circleRadius, // Store the original radius for animation
+      angle,
+      radius: circleRadius,
     };
   });
 };
@@ -48,18 +47,14 @@ export const calculateFloatingPositions = (
   }
   
   return initialPositions.map((bubble) => {
-    // Check if the required properties exist before using them
     if (typeof bubble.x !== 'number' || typeof bubble.y !== 'number') {
       return bubble;
     }
     
-    // Safe access angle and radius with defaults if they don't exist
-    const angle = bubble.angle || 0;
-    const baseRadius = bubble.radius || 0;
-    
     // Create a floating effect with sine and cosine
-    const floatX = Math.sin(time / 2000 + (angle || 0) * 0.5) * floatingRadius;
-    const floatY = Math.cos(time / 2000 + (angle || 0) * 0.7) * floatingRadius;
+    const angle = bubble.angle || 0;
+    const floatX = Math.sin(time / 2000 + angle * 0.5) * floatingRadius;
+    const floatY = Math.cos(time / 2000 + angle * 0.7) * floatingRadius;
     
     return {
       ...bubble,

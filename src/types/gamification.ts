@@ -1,4 +1,3 @@
-
 import { ReactNode } from "react";
 import { Json } from "@/integrations/supabase/types";
 
@@ -38,7 +37,7 @@ export type GamificationProfile = {
   lastActive: string;
 };
 
-export type GamificationContextType = {
+export interface GamificationContextType {
   profile: GamificationProfile;
   achievements: AchievementType[];
   recentAchievement: AchievementType | null;

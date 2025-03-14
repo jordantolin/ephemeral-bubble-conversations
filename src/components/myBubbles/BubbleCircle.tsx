@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
 import { BubbleData } from "@/types/bubble";
 import { Link } from "react-router-dom";
 import { calculateCircularPositions, calculateFloatingPositions, getBubbleColor, formatExpiryTime } from "@/utils/circleUtils";
@@ -20,7 +19,9 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
   // Debug bubbles data on mount and when bubbles change
   useEffect(() => {
     console.log("BubbleCircle received bubbles:", bubbles.length);
-    console.log("Bubble data in BubbleCircle:", JSON.stringify(bubbles));
+    if (bubbles.length > 0) {
+      console.log("First bubble:", bubbles[0]);
+    }
   }, [bubbles]);
 
   // Set up initial positions in a circle
@@ -31,7 +32,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       const { width, height } = containerRef.current.getBoundingClientRect();
       console.log("Container dimensions:", width, height);
       
-      if (bubbles.length === 0) {
+      if (!bubbles || bubbles.length === 0) {
         console.log("No bubbles to position");
         setPositionedBubbles([]);
         initialPositionsRef.current = [];
@@ -42,12 +43,17 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       initialPositionsRef.current = positioned;
       
       console.log("Initial positioned bubbles:", positioned.length);
+      if (positioned.length > 0) {
+        console.log("First positioned bubble:", positioned[0]);
+      }
       
       // Initialize positions
       setPositionedBubbles(positioned);
     };
     
     updateInitialPositions();
+    
+    // Add resize listener
     window.addEventListener("resize", updateInitialPositions);
     
     return () => {
@@ -58,7 +64,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
   // Animation loop for floating motion
   useEffect(() => {
     const animate = () => {
-      if (initialPositionsRef.current.length > 0) {
+      if (initialPositionsRef.current && initialPositionsRef.current.length > 0) {
         const time = Date.now();
         const floatingBubbles = calculateFloatingPositions(
           initialPositionsRef.current,
@@ -125,16 +131,18 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
               <span className="text-white text-[10px] drop-shadow-md">{bubble.reflect_count}</span>
             </div>
             
-            <div className="flex items-center justify-center">
-              <Clock className="w-3 h-3 text-white drop-shadow-md mr-1" />
-              <span className="text-white text-[10px] drop-shadow-md">{formatExpiryTime(bubble.expires_at)}</span>
-            </div>
+            {bubble.expires_at && (
+              <div className="flex items-center justify-center">
+                <Clock className="w-3 h-3 text-white drop-shadow-md mr-1" />
+                <span className="text-white text-[10px] drop-shadow-md">{formatExpiryTime(bubble.expires_at)}</span>
+              </div>
+            )}
           </div>
         </div>
       ))}
       
       {/* Empty state */}
-      {bubbles.length === 0 && (
+      {(!bubbles || bubbles.length === 0) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <p className="text-[#ebbd34] text-lg font-medium mb-2">No active bubbles</p>
           <p className="text-gray-600 text-sm">Your reflected and created bubbles will appear here</p>
