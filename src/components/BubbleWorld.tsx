@@ -143,17 +143,29 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     scene.add(earth);
     earthRef.current = earth;
     
-    // Fallback in case of texture loading error
-    earth.addEventListener('error', () => {
+    // Handle texture loading error with standard event listeners
+    const handleTextureError = () => {
       console.log('Using fallback Earth appearance');
-      const fallbackMaterial = new THREE.MeshPhongMaterial({
+      const fallbackMaterial = new THREE.MeshPhysicalMaterial({
         color: 0x2233ff,
         emissive: 0x112244,
-        specular: 0x333333,
-        shininess: 5,
+        metalness: 0.1,
+        roughness: 0.8,
+        clearcoat: 0.2,
+        clearcoatRoughness: 0.2,
       });
-      earth.material = fallbackMaterial;
-    });
+      
+      if (earthRef.current) {
+        earthRef.current.material = fallbackMaterial;
+      }
+    };
+    
+    // Check if texture failed to load and apply fallback (using a timeout)
+    setTimeout(() => {
+      if (material.map && !material.map.image) {
+        handleTextureError();
+      }
+    }, 2000);
   };
 
   // Update bubbles when topics change
