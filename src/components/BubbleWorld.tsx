@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import TWEEN from "@tweenjs/tween.js";
 import { geoToCartesian } from "@/utils/geoCoordinates";
 import { 
@@ -36,6 +37,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   
   const EARTH_RADIUS = 5;
   const isInitialized = useRef(false);
+  const [isEarthLoaded, setIsEarthLoaded] = useState(false);
   
   // Debug log for initialization
   useEffect(() => {
@@ -115,8 +117,8 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     controlsRef.current = controls;
 
     if (showEarth) {
-      // Add simplified Earth 
-      addSimplifiedEarth();
+      // Load yellow-earth.glb model instead of simplified Earth
+      loadYellowEarth();
     }
 
     // Resize handler
@@ -196,20 +198,60 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     };
   }, [scene, renderer, camera]);
 
-  // Add simplified Earth for better performance
+  // Load yellow-earth.glb model
+  const loadYellowEarth = () => {
+    try {
+      console.log('Loading yellow-earth.glb model');
+      const loader = new GLTFLoader();
+      
+      loader.load(
+        '/models/yellow-earth.glb',
+        (gltf) => {
+          const earthModel = gltf.scene;
+          
+          // Scale and position the model
+          earthModel.scale.set(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
+          
+          // Create a group for the earth model to allow rotation
+          const earthGroup = new THREE.Group();
+          earthGroup.add(earthModel);
+          
+          scene.add(earthGroup);
+          earthRef.current = earthGroup;
+          
+          console.log('Yellow Earth model loaded successfully');
+          setIsEarthLoaded(true);
+        },
+        (xhr) => {
+          console.log(`${(xhr.loaded / xhr.total) * 100}% loaded`);
+        },
+        (error) => {
+          console.error('Error loading Yellow Earth model:', error);
+          // Fallback to simplified Earth if model loading fails
+          addSimplifiedEarth();
+        }
+      );
+    } catch (error) {
+      console.error('Failed to load Yellow Earth model:', error);
+      // Fallback to simplified Earth
+      addSimplifiedEarth();
+    }
+  };
+
+  // Add simplified Earth for better performance (fallback)
   const addSimplifiedEarth = () => {
     try {
-      console.log('Adding simplified Earth model');
+      console.log('Adding fallback simplified Earth model');
       
-      // Create a simple sphere for Earth
+      // Create a simple sphere for Earth with yellow color
       const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 32, 32);
       
-      // Create a simple blue material with some shading
+      // Create a yellow material
       const material = new THREE.MeshPhongMaterial({
-        color: 0x2233ff,
+        color: 0xebbd34, // Yellow color matching bubbles
         specular: 0x333333,
         shininess: 5,
-        emissive: 0x112244,
+        emissive: 0x664400,
         emissiveIntensity: 0.2
       });
       
@@ -220,10 +262,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
       
       scene.add(earthGroup);
       earthRef.current = earthGroup;
+      setIsEarthLoaded(true);
       
-      console.log('Earth model added successfully');
+      console.log('Fallback Earth model added successfully');
     } catch (error) {
-      console.error('Failed to create Earth model:', error);
+      console.error('Failed to create fallback Earth model:', error);
     }
   };
 
@@ -288,10 +331,15 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     bubble.add(sprite);
   };
 
-  // Update bubbles when topics change
+  // Update bubbles when topics change or earth is loaded
   useEffect(() => {
     if (!isInitialized.current || !topics || topics.length === 0) {
       console.log("Not updating bubbles - initialization or topics missing");
+      return;
+    }
+    
+    if (showEarth && !isEarthLoaded) {
+      console.log("Earth not loaded yet, waiting before adding bubbles");
       return;
     }
     
@@ -353,7 +401,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     });
     
     console.log(`Added ${bubbleRefs.current.length} bubbles to scene`);
-  }, [topics, scene, bubbleMaterials, showEarth]);
+  }, [topics, scene, bubbleMaterials, showEarth, isEarthLoaded]);
 
   // Add click event listener
   useEffect(() => {

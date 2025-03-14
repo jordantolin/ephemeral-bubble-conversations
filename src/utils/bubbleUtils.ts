@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { geoToCartesian } from './geoCoordinates';
@@ -174,17 +175,17 @@ export const createEarthGeometry = (radius: number) => {
 export const createEarthMaterial = () => {
   try {
     return new THREE.MeshPhongMaterial({
-      color: 0x2233ff,
+      color: 0xebbd34, // Yellow color matching bubbles
       specular: 0x333333,
       shininess: 5,
-      emissive: 0x112244,
+      emissive: 0x664400,
       emissiveIntensity: 0.2
     });
   } catch (error) {
     console.warn("Error creating Earth material, using fallback", error);
     
     return new THREE.MeshPhongMaterial({
-      color: 0x2233ff,
+      color: 0xebbd34, // Yellow color matching bubbles
       specular: 0x333333,
       shininess: 5,
     });
@@ -194,7 +195,7 @@ export const createEarthMaterial = () => {
 // Create bubble material with improved appearance and the bright yellow color
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
-    color: 0xebbd34,
+    color: 0xebbd34, // Bright yellow color
     emissive: 0x664400,
     emissiveIntensity: 0.3,
     metalness: 0.1,
@@ -222,9 +223,11 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   
   if (!ctx) return canvas;
   
+  // Increase canvas resolution for better text quality
   canvas.width = 1024;
   canvas.height = 512;
   
+  // Clear the canvas with transparent background
   ctx.fillStyle = 'rgba(0,0,0,0)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
@@ -232,11 +235,13 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
+  // Enhanced shadow for better visibility against any background
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
   ctx.shadowBlur = 8 * scaleFactor;
   ctx.shadowOffsetX = 2 * scaleFactor;
   ctx.shadowOffsetY = 2 * scaleFactor;
   
+  // Use bold font for better visibility
   ctx.font = `bold ${fontSize * 1.2}px Arial, sans-serif`;
   ctx.fillStyle = '#FFFFFF';
   
@@ -244,12 +249,14 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
   const words = text.split(' ');
   
   if (words.length <= 3 || text.length <= 20) {
+    // For short text, use a single line with background
     const metrics = ctx.measureText(text);
     const textWidth = metrics.width;
     const padding = 20 * scaleFactor;
     const backgroundWidth = Math.min(textWidth + padding * 2, maxWidth);
     const backgroundHeight = fontSize * 1.8;
     
+    // Draw text background
     ctx.save();
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
@@ -265,9 +272,11 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
       
     ctx.restore();
     
+    // Draw text
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(text, canvas.width / 2, canvas.height / 2, maxWidth);
   } else {
+    // For longer text, split into multiple lines
     const lines = [];
     let currentLine = words[0];
     
@@ -291,6 +300,13 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
     const padding = 20 * scaleFactor;
     const cornerRadius = 12 * scaleFactor;
     
+    // Draw background for each line of text
+    ctx.save();
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    
     lines.forEach((line, index) => {
       const metrics = ctx.measureText(line);
       const textWidth = metrics.width;
@@ -308,6 +324,8 @@ export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElem
     
     ctx.restore();
     
+    // Draw text for each line
+    ctx.fillStyle = '#FFFFFF';
     lines.forEach((line, index) => {
       ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, maxWidth);
     });
