@@ -73,11 +73,9 @@ const BubbleWorldContent = ({
         showEarth={showEarth}
       />
       
-      {showEarth && (
-        <div className="absolute bottom-4 right-4 bg-black/50 text-white p-2 rounded text-xs">
-          Bubbles are placed based on their geographic origin
-        </div>
-      )}
+      <div className="absolute bottom-4 right-4 bg-black/50 text-white p-2 rounded text-xs">
+        {showEarth ? "Bubbles are placed based on their geographic origin" : "3D visualization of bubbles"}
+      </div>
     </div>
   );
 };

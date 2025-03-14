@@ -187,18 +187,40 @@ export const createEarthGeometry = (radius: number) => {
   return new THREE.SphereGeometry(radius, segments, segments);
 };
 
-// Create Earth material with texture
+// Create Earth material with texture and fallback
 export const createEarthMaterial = () => {
-  const textureLoader = new THREE.TextureLoader();
-  const earthTexture = textureLoader.load('/lovable-uploads/earth-texture.jpg');
-  
-  return new THREE.MeshPhysicalMaterial({
-    map: earthTexture,
-    metalness: 0.1,
-    roughness: 0.8,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.2,
-  });
+  try {
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.setCrossOrigin('anonymous');
+    
+    // Try to load the texture
+    const earthTexture = textureLoader.load('/lovable-uploads/earth-texture.jpg', 
+      () => console.log("Earth texture loaded successfully"),
+      undefined,
+      (err) => {
+        console.warn("Earth texture failed to load, using fallback", err);
+      }
+    );
+    
+    return new THREE.MeshPhysicalMaterial({
+      map: earthTexture,
+      metalness: 0.1,
+      roughness: 0.8,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.2,
+    });
+  } catch (error) {
+    console.warn("Error creating Earth material, using fallback", error);
+    
+    // Fallback material if texture loading fails
+    return new THREE.MeshPhysicalMaterial({
+      color: 0x2233ff,
+      metalness: 0.1,
+      roughness: 0.8,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.2,
+    });
+  }
 };
 
 // Create bubble material with improved appearance

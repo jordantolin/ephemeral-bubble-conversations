@@ -1,11 +1,11 @@
-
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; // Added .js extension
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import TWEEN from "@tweenjs/tween.js";
 import { geoToCartesian } from "@/utils/geoCoordinates";
 import { getLocationName } from "@/utils/geoCoordinates";
+import { createEarthGeometry, createEarthMaterial, createBubbleGeometry, createBubbleMaterial } from "@/utils/bubbleUtils";
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ 
   topics, 
@@ -28,24 +28,9 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   // Create materials with different colors
   const bubbleMaterials = useMemo(() => {
     return {
-      sm: new THREE.MeshPhongMaterial({
-        color: 0xebbd34,
-        transparent: true,
-        opacity: 0.7,
-        shininess: 100
-      }),
-      md: new THREE.MeshPhongMaterial({
-        color: 0xebbd34,
-        transparent: true,
-        opacity: 0.8,
-        shininess: 100
-      }),
-      lg: new THREE.MeshPhongMaterial({
-        color: 0xebbd34,
-        transparent: true,
-        opacity: 0.9,
-        shininess: 100
-      })
+      sm: createBubbleMaterial(),
+      md: createBubbleMaterial(),
+      lg: createBubbleMaterial()
     };
   }, []);
 
@@ -151,25 +136,24 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
 
   // Add Earth sphere
   const addEarth = () => {
-    const geometry = new THREE.SphereGeometry(EARTH_RADIUS, 64, 64);
-    
-    // Create Earth texture loader
-    const textureLoader = new THREE.TextureLoader();
-    const earthTexture = textureLoader.load('/lovable-uploads/earth-texture.jpg', () => {
-      console.log("Earth texture loaded");
-    }, undefined, (err) => {
-      console.error("Error loading Earth texture:", err);
-    });
-    
-    const material = new THREE.MeshPhongMaterial({
-      map: earthTexture,
-      specular: new THREE.Color(0x333333),
-      shininess: 5,
-    });
+    const geometry = createEarthGeometry(EARTH_RADIUS);
+    const material = createEarthMaterial();
     
     const earth = new THREE.Mesh(geometry, material);
     scene.add(earth);
     earthRef.current = earth;
+    
+    // Fallback in case of texture loading error
+    earth.addEventListener('error', () => {
+      console.log('Using fallback Earth appearance');
+      const fallbackMaterial = new THREE.MeshPhongMaterial({
+        color: 0x2233ff,
+        emissive: 0x112244,
+        specular: 0x333333,
+        shininess: 5,
+      });
+      earth.material = fallbackMaterial;
+    });
   };
 
   // Update bubbles when topics change
@@ -189,14 +173,14 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
     // Add new bubbles
     topics.forEach((topic) => {
       const sizeMultiplier = topic.size === "sm" ? 1 : topic.size === "md" ? 1.5 : 2;
-      const geometry = new THREE.SphereGeometry(BUBBLE_BASE_SIZE * sizeMultiplier, 32, 32);
+      const geometry = createBubbleGeometry(BUBBLE_BASE_SIZE * sizeMultiplier);
       const material = bubbleMaterials[topic.size];
       
       const bubble = new THREE.Mesh(geometry, material);
       
       // Position bubble based on latitude and longitude if available, or random position
       if (showEarth && topic.latitude !== undefined && topic.longitude !== undefined) {
-        const coords = geoToCartesian(topic.latitude, topic.longitude, EARTH_RADIUS + 0.2);
+        const coords = geoToCartesian(topic.latitude, topic.longitude, EARTH_RADIUS + 0.2 + (BUBBLE_BASE_SIZE * sizeMultiplier));
         bubble.position.set(coords.x, coords.y, coords.z);
       } else {
         // Random positioning for non-geo bubbles
