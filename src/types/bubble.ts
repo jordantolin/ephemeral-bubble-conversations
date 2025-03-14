@@ -10,14 +10,9 @@ export interface BubbleData {
   description?: string;
   expires_at?: string;
   isExploding?: boolean;
-  latitude?: number;
-  longitude?: number;
-  location?: string;
-  text?: string; // Text to display on the bubble
 }
 
 export interface BubbleWorldProps {
   topics: BubbleData[];
   onBubbleClick: (id: string) => void;
-  showEarth?: boolean;
 }

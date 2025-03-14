@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -8,27 +8,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useGamification } from "@/context/GamificationContext";
-import { generateRandomGeoCoordinates, getLocationName } from "@/utils/geoCoordinates";
-
-// Predefined list of available topics
-export const AVAILABLE_TOPICS = [
-  "Technology",
-  "Science",
-  "Art",
-  "Music",
-  "Sports",
-  "Food",
-  "Travel",
-  "Health",
-  "Education",
-  "Gaming",
-  "Business",
-  "Politics",
-  "Environment",
-  "Fashion",
-  "Movies",
-  "Books"
-];
 
 // Form schema for bubble creation
 const BubbleSchema = z.object({
@@ -37,8 +16,10 @@ const BubbleSchema = z.object({
   }).max(50, {
     message: "Bubble name must be less than 50 characters",
   }),
-  topic: z.enum(AVAILABLE_TOPICS as [string, ...string[]], {
-    message: "Please select a valid topic from the list",
+  topic: z.string().min(2, {
+    message: "Topic must be at least 2 characters",
+  }).max(30, {
+    message: "Topic must be less than 30 characters",
   }),
   description: z.string().max(200, {
     message: "Description must be less than 200 characters",
@@ -53,47 +34,16 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addPoints, checkAchievement } = useGamification();
-  const [location, setLocation] = useState<{latitude: number, longitude: number} | null>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState<string | null>(null);
 
   // Initialize form with react-hook-form
   const form = useForm<BubbleCreationForm>({
     resolver: zodResolver(BubbleSchema),
     defaultValues: {
       name: "",
-      topic: AVAILABLE_TOPICS[0],
+      topic: "",
       description: "",
     },
   });
-
-  // Get user's geolocation
-  useEffect(() => {
-    if (navigator.geolocation) {
-      setIsGettingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-          setLocation(coords);
-          setLocationName(getLocationName(coords.latitude, coords.longitude));
-          setIsGettingLocation(false);
-          setLocationError(null);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setLocationError("Unable to get your location. Bubbles will be placed randomly.");
-          setIsGettingLocation(false);
-        },
-        { timeout: 10000, enableHighAccuracy: true }
-      );
-    } else {
-      setLocationError("Geolocation is not supported by your browser. Bubbles will be placed randomly.");
-    }
-  }, []);
 
   // Function to calculate expiry time (24 hours from now)
   const calculateExpiryTime = () => {
@@ -121,10 +71,7 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
       // Calculate expiry time (24 hours from now)
       const expiryTime = calculateExpiryTime();
       
-      // Generate random coordinates if location is not available
-      const bubbleLocation = location || generateRandomGeoCoordinates();
-      
-      // Insert new bubble with location data
+      // Insert new bubble
       const { data: newBubble, error } = await supabase
         .from("bubbles")
         .insert({
@@ -134,8 +81,6 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
           username,
           size: "sm", // Default size for new bubbles
           expires_at: expiryTime,
-          latitude: bubbleLocation.latitude,
-          longitude: bubbleLocation.longitude
         })
         .select()
         .single();
@@ -189,10 +134,5 @@ export const useBubbleCreation = (onSuccess?: () => void) => {
     form,
     isSubmitting,
     onSubmit: form.handleSubmit(onSubmit),
-    isGettingLocation,
-    locationError,
-    hasLocation: !!location,
-    locationName,
-    availableTopics: AVAILABLE_TOPICS
   };
 };

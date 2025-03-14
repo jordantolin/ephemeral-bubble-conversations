@@ -4,14 +4,13 @@ import { motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { Progress } from "@/components/ui/progress";
 import { Sparkles } from "lucide-react";
-import { GamificationContextType } from "@/types/gamification";
 
 interface LevelProgressProps {
   minimal?: boolean;
 }
 
 const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
-  const { profile, isLoading } = useGamification() as GamificationContextType;
+  const { profile, isLoading } = useGamification();
   
   if (isLoading) {
     return (
@@ -23,8 +22,8 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
   }
   
   // Calculate points required for current level and next level
-  const pointsForCurrentLevel = (profile.level - 1) * 100;
-  const pointsForNextLevel = profile.level * 100;
+  const pointsForCurrentLevel = Math.pow(profile.level - 1, 2) * 100;
+  const pointsForNextLevel = Math.pow(profile.level, 2) * 100;
   const pointsNeeded = pointsForNextLevel - pointsForCurrentLevel;
   const currentLevelPoints = profile.points - pointsForCurrentLevel;
   const progressPercentage = Math.min(Math.round((currentLevelPoints / pointsNeeded) * 100), 100);
@@ -41,11 +40,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
         >
           {profile.level}
         </motion.div>
-        <Progress 
-          value={progressPercentage} 
-          className="w-14 h-2 bg-[#ebbd34]/20" 
-          indicatorClassName="bg-[#ebbd34]" 
-        />
+        <Progress value={progressPercentage} className="w-14 h-2 bg-[#ebbd34]/20" />
       </div>
     );
   }
@@ -74,7 +69,6 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
         <Progress 
           value={progressPercentage} 
           className="h-2 bg-[#ebbd34]/20 flex-1" 
-          indicatorClassName="bg-[#ebbd34]" 
         />
         <span className="text-xs text-gray-500 whitespace-nowrap">
           {currentLevelPoints}/{pointsNeeded}

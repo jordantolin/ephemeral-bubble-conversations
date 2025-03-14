@@ -38,15 +38,12 @@ export type GamificationProfile = {
   lastActive: string;
 };
 
-// Extended point categories to include streak-related and first-login categories
-export type PointCategory = 'bubble' | 'reflection' | 'message' | 'streak' | 'streak-milestone' | 'first-login';
-
 export type GamificationContextType = {
   profile: GamificationProfile;
   achievements: AchievementType[];
   recentAchievement: AchievementType | null;
   isLoading: boolean;
-  addPoints: (amount: number, category?: PointCategory) => Promise<boolean>;
+  addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
   checkAchievement: (id: string, progress?: number) => Promise<boolean>;
   incrementAchievementProgress: (id: string, amount?: number) => Promise<boolean>;
   trackMessageSent: () => Promise<void>;

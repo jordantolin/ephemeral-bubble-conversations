@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -7,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BubbleData } from "@/types/bubble";
 import { connectionManager } from "@/utils/bubbleUtils";
 
+// Match the actual database schema for bubbles
 interface Bubble {
   id: string;
   name: string;
@@ -17,14 +19,14 @@ interface Bubble {
   created_at: string;
   reflect_count: number;
   username: string;
-  latitude: number;
-  longitude: number;
 }
 
+// Helper function to ensure size is one of the allowed values
 const validateBubbleSize = (size: string): 'sm' | 'md' | 'lg' => {
   if (size === 'sm' || size === 'md' || size === 'lg') {
     return size;
   }
+  // Default to 'sm' if size is not valid
   return 'sm';
 };
 
@@ -39,8 +41,10 @@ const useBubbleData = () => {
   const [explodingBubbleId, setExplodingBubbleId] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
   
+  // Track channel subscriptions for cleanup
   const activeChannels = useState<string[]>([]);
 
+  // Function to check if a bubble is expired (more than 24 hours old)
   const isBubbleExpired = useCallback((bubble: Bubble) => {
     if (!bubble || !bubble.expires_at) return true;
     
@@ -50,10 +54,12 @@ const useBubbleData = () => {
       return expiryTime < now;
     } catch (error) {
       console.error("Error checking bubble expiry:", error);
-      return true;
+      return true; // Consider expired on error to prevent issues
     }
   }, []);
 
+  // Function to check if a bubble should be displayed in the feed
+  // Shows non-expired bubbles and bubbles that expired less than 24 hours ago
   const shouldShowInFeed = useCallback((bubble: Bubble) => {
     if (!bubble || !bubble.expires_at) return false;
     
@@ -61,8 +67,10 @@ const useBubbleData = () => {
       const expiryTime = new Date(bubble.expires_at);
       const now = new Date();
       
+      // If not expired, show it
       if (expiryTime > now) return true;
       
+      // If expired, check if it's within 24h after expiration
       const cutoffTime = new Date(expiryTime);
       cutoffTime.setHours(cutoffTime.getHours() + 24);
       
@@ -73,17 +81,19 @@ const useBubbleData = () => {
     }
   }, []);
 
+  // Fetch all bubbles with optimized caching
   const { data: allBubbles = [], isLoading: isLoadingBubbles, error: bubblesError } = useQuery({
     queryKey: ['bubbles'],
     queryFn: async () => {
       try {
+        // Calculate the cutoff date (24 hours after expiration)
         const cutoffDate = new Date();
-        cutoffDate.setHours(cutoffDate.getHours() - 48);
+        cutoffDate.setHours(cutoffDate.getHours() - 48); // Current time minus 48 hours (24h bubble lifetime + 24h after)
         
         const { data, error } = await supabase
           .from('bubbles')
           .select('*')
-          .gte('expires_at', cutoffDate.toISOString())
+          .gte('expires_at', cutoffDate.toISOString()) // Only fetch bubbles that aren't more than 24h past expiration
           .order('created_at', { ascending: false });
         
         if (error) {
@@ -95,11 +105,10 @@ const useBubbleData = () => {
           return [];
         }
         
+        // Ensure size is a valid type
         return data.map(bubble => ({
           ...bubble,
-          size: validateBubbleSize(bubble.size),
-          latitude: bubble.latitude ?? (Math.random() * 180) - 90,
-          longitude: bubble.longitude ?? (Math.random() * 360) - 180
+          size: validateBubbleSize(bubble.size)
         }));
       } catch (error) {
         console.error("Error fetching bubbles:", error);
@@ -111,17 +120,19 @@ const useBubbleData = () => {
         return [];
       }
     },
-    staleTime: 10000,
-    refetchInterval: 30000,
+    staleTime: 10000, // Cache data for 10 seconds
+    refetchInterval: 30000, // Periodically refresh every 30 seconds
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
+  // Filter bubbles based on visibility criteria
   const bubbles = useMemo(() => {
     if (!allBubbles || !Array.isArray(allBubbles)) return [];
     return allBubbles.filter(bubble => shouldShowInFeed(bubble));
   }, [allBubbles, shouldShowInFeed]);
 
+  // Handle bubble explosion animation and removal
   useEffect(() => {
     const checkForExpiringBubbles = () => {
       bubbles.forEach(bubble => {
@@ -132,9 +143,11 @@ const useBubbleData = () => {
           const now = new Date();
           const timeLeft = expiryTime.getTime() - now.getTime();
           
+          // If bubble is about to expire in the next minute, trigger animation
           if (timeLeft > 0 && timeLeft < 60000 && explodingBubbleId !== bubble.id) {
             setExplodingBubbleId(bubble.id);
             
+            // After 5 seconds, refresh the bubble list to update the UI
             setTimeout(() => {
               setExplodingBubbleId(null);
               queryClient.invalidateQueries({ queryKey: ['bubbles'] });
@@ -146,11 +159,13 @@ const useBubbleData = () => {
       });
     };
     
+    // Check for expiring bubbles every 10 seconds
     const interval = setInterval(checkForExpiringBubbles, 10000);
     
     return () => clearInterval(interval);
   }, [bubbles, explodingBubbleId, queryClient]);
 
+  // Fetch selected bubble details with optimized caching
   const { data: selectedBubble, isLoading: isLoadingBubbleDetails, error: bubbleDetailsError } = useQuery({
     queryKey: ['bubble', selectedBubbleId],
     queryFn: async () => {
@@ -171,6 +186,7 @@ const useBubbleData = () => {
           return null;
         }
         
+        // Ensure size is a valid type
         return {
           ...data,
           size: validateBubbleSize(data.size)
@@ -186,11 +202,12 @@ const useBubbleData = () => {
       }
     },
     enabled: !!selectedBubbleId,
-    staleTime: 10000,
+    staleTime: 10000, // Cache data for 10 seconds
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
+  // Close chat dialog if selected bubble is expired
   useEffect(() => {
     if (selectedBubble && isBubbleExpired(selectedBubble) && chatOpen) {
       setChatOpen(false);
@@ -202,6 +219,7 @@ const useBubbleData = () => {
     }
   }, [selectedBubble, chatOpen, toast, isBubbleExpired]);
 
+  // Fetch messages for selected bubble with optimized pagination
   const { data: messages = [], isLoading: isLoadingMessages, error: messagesError } = useQuery({
     queryKey: ['messages', selectedBubbleId],
     queryFn: async () => {
@@ -213,7 +231,7 @@ const useBubbleData = () => {
           .select('*')
           .eq('bubble_id', selectedBubbleId)
           .order('created_at', { ascending: true })
-          .limit(100);
+          .limit(100); // Limit to last 100 messages for performance
         
         if (error) {
           throw error;
@@ -236,11 +254,12 @@ const useBubbleData = () => {
       }
     },
     enabled: !!selectedBubbleId && chatOpen,
-    staleTime: 5000,
+    staleTime: 5000, // Cache data for 5 seconds
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
+  // Enhanced real-time bubble updates with reconnection logic
   useEffect(() => {
     const setupBubbleChannel = async () => {
       try {
@@ -256,8 +275,10 @@ const useBubbleData = () => {
           channelName,
           filters,
           (payload) => {
+            // Invalidate bubbles query
             queryClient.invalidateQueries({ queryKey: ['bubbles'] });
             
+            // If the current bubble was updated, refresh its details
             if (selectedBubbleId && 
                 payload.new && 
                 typeof payload.new === 'object' && 
@@ -268,6 +289,7 @@ const useBubbleData = () => {
           }
         );
         
+        // Track this channel for cleanup
         activeChannels[0] = [...activeChannels[0], channelName];
         setIsReconnecting(false);
       } catch (err) {
@@ -280,26 +302,31 @@ const useBubbleData = () => {
           variant: "destructive"
         });
         
+        // Try reconnecting after a delay
         setTimeout(setupBubbleChannel, 5000);
       }
     };
 
     setupBubbleChannel();
     
+    // Global cleanup on unmount
     return () => {
       connectionManager.removeAllChannels(supabase);
       activeChannels[0] = [];
     };
   }, [queryClient, selectedBubbleId, toast, activeChannels]);
 
+  // Handle online/offline status for better user experience
   useEffect(() => {
     const handleOnline = () => {
+      // Refresh data when coming back online
       queryClient.invalidateQueries({ queryKey: ['bubbles'] });
       if (selectedBubbleId) {
         queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
         queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
       }
       
+      // Show toast notification
       toast({
         title: "You're back online!",
         description: "Reconnected to Bubble Trouble",
@@ -328,11 +355,13 @@ const useBubbleData = () => {
     };
   }, [queryClient, selectedBubbleId, toast]);
 
+  // Improved real-time message updates
   useEffect(() => {
     if (!selectedBubbleId) return;
 
     const setupMessageChannel = async () => {
       try {
+        // Create a more robust channel name to avoid conflicts
         const channelName = `chat-room-${selectedBubbleId}-${Date.now()}`;
         
         const filters = [
@@ -357,6 +386,7 @@ const useBubbleData = () => {
           () => queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] })
         );
         
+        // Track this channel for cleanup
         activeChannels[0] = [...activeChannels[0], channelName];
         setIsReconnecting(false);
       } catch (err) {
@@ -369,6 +399,7 @@ const useBubbleData = () => {
           variant: "destructive"
         });
         
+        // Try reconnecting after a delay
         setTimeout(() => {
           if (selectedBubbleId) {
             setupMessageChannel();
@@ -380,6 +411,7 @@ const useBubbleData = () => {
     setupMessageChannel();
 
     return () => {
+      // Clean up only the relevant channels
       const channelsToRemove = activeChannels[0].filter(
         name => name.startsWith(`chat-room-${selectedBubbleId}`)
       );
@@ -391,6 +423,7 @@ const useBubbleData = () => {
     };
   }, [selectedBubbleId, queryClient, toast, activeChannels]);
 
+  // Filter bubbles based on search query
   const filteredBubbles = useMemo(() => {
     if (!bubbles || !Array.isArray(bubbles)) return [];
     if (!searchQuery.trim()) return bubbles;
@@ -403,16 +436,20 @@ const useBubbleData = () => {
     );
   }, [bubbles, searchQuery]);
 
+  // Get top bubbles by reflection count for the Feed page
   const topBubblesByReflections = useMemo(() => {
     if (!bubbles || !Array.isArray(bubbles)) return [];
     
+    // Filter to show only non-expired bubbles or those that expired less than 24h ago
     const visibleBubbles = bubbles.filter(bubble => shouldShowInFeed(bubble));
     
+    // Sort by reflection count (descending)
     return [...visibleBubbles].sort((a, b) => {
       return (b.reflect_count || 0) - (a.reflect_count || 0);
     });
   }, [bubbles, shouldShowInFeed]);
 
+  // Map to BubbleData needed for BubbleWorld component
   const bubbleDataForComponent = useMemo(() => {
     if (!filteredBubbles || !Array.isArray(filteredBubbles)) return [];
     
@@ -421,17 +458,16 @@ const useBubbleData = () => {
       topic: bubble.topic,
       username: bubble.username,
       name: bubble.name,
-      size: bubble.size,
+      size: bubble.size, // Already validated as "sm" | "md" | "lg"
       reflect_count: bubble.reflect_count,
       created_at: bubble.created_at,
       description: bubble.description || undefined,
       expires_at: bubble.expires_at,
-      isExploding: explodingBubbleId === bubble.id,
-      latitude: bubble.latitude,
-      longitude: bubble.longitude
+      isExploding: explodingBubbleId === bubble.id
     }));
   }, [filteredBubbles, explodingBubbleId]);
 
+  // Optimized bubble reflection with retry logic
   const handleReflect = useCallback(async (bubbleId: string) => {
     if (!user) {
       toast({
@@ -442,6 +478,7 @@ const useBubbleData = () => {
       return;
     }
     
+    // Find the bubble to check if it's expired
     const bubble = bubbles.find(b => b.id === bubbleId);
     
     if (!bubble || (bubble && isBubbleExpired(bubble))) {
@@ -483,7 +520,7 @@ const useBubbleData = () => {
           });
 
         if (error) {
-          if (error.code === '23505') {
+          if (error.code === '23505') { // Unique violation
             toast({
               title: "Already reflected",
               description: "You have already reflected this bubble",
@@ -498,6 +535,7 @@ const useBubbleData = () => {
           description: "This bubble will appear in your profile",
         });
         
+        // Invalidate My Bubbles query to show the newly reflected bubble
         queryClient.invalidateQueries({ queryKey: ['myBubbles', profile?.username] });
       });
     } catch (error: any) {
@@ -510,7 +548,9 @@ const useBubbleData = () => {
     }
   }, [user, profile, bubbles, toast, isBubbleExpired, queryClient]);
 
+  // Handle bubble click to navigate to bubble chat page
   const handleBubbleClick = useCallback((bubbleId: string) => {
+    // Find bubble to check if it's expired
     const bubble = bubbles.find(b => b.id === bubbleId);
     
     if (!bubble) {
@@ -522,16 +562,9 @@ const useBubbleData = () => {
       return;
     }
     
+    // Navigate to the bubble's chat page (even if expired, as we still want to show it)
     navigate(`/bubble/${bubbleId}`);
   }, [bubbles, navigate, toast]);
-
-  const refreshBubbles = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-    if (selectedBubbleId) {
-      queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
-      queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
-    }
-  }, [queryClient, selectedBubbleId]);
 
   return {
     bubbles,
@@ -557,8 +590,7 @@ const useBubbleData = () => {
     isBubbleExpired,
     shouldShowInFeed,
     handleReflect,
-    handleBubbleClick,
-    refreshBubbles
+    handleBubbleClick
   };
 };
 

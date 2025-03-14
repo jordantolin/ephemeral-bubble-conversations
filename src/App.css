@@ -1,4 +1,3 @@
-
 #root {
   max-width: 100%;
   margin: 0 auto;
@@ -20,12 +19,6 @@ body, html {
   padding: 0;
   min-height: 100vh;
   width: 100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-}
-
-/* Smooth scrolling */
-* {
-  scroll-behavior: smooth;
 }
 
 .logo {
@@ -77,63 +70,6 @@ body, html {
   h2 {
     font-size: 1.25rem;
   }
-  
-  /* Improve touch targets */
-  button, a {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  /* Prevent zoom on iOS */
-  input, select, textarea {
-    font-size: 16px;
-  }
-}
-
-/* Glassmorphism Effects */
-.glass {
-  background-color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(235, 189, 52, 0.1);
-  border-radius: 1rem;
-}
-
-.glass-dark {
-  background-color: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(235, 189, 52, 0.1);
-  border-radius: 1rem;
-}
-
-/* Enhanced animation classes */
-.fade-in {
-  animation: fade-in 0.3s ease-out forwards;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.scale-in {
-  animation: scale-in 0.2s ease-out forwards;
-}
-
-@keyframes scale-in {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
 }
 
 /* Error State Styling */
@@ -166,41 +102,23 @@ body, html {
 }
 
 .bubble-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease-in-out;
   border-radius: 1rem;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .bubble-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 25px rgba(235, 189, 52, 0.15);
+  box-shadow: 0 10px 25px rgba(235, 189, 52, 0.1);
 }
 
 .bubble-expired {
   opacity: 0.7;
 }
 
-/* Improved focus states for accessibility */
-:focus-visible {
-  outline: 2px solid #ebbd34;
-  outline-offset: 2px;
-}
-
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .feed-container, .my-bubbles-container {
     padding-top: 110px;
-  }
-  
-  /* Fix bottom spacing for fixed elements */
-  .fixed.bottom-4 {
-    bottom: 4.5rem;
-  }
-  
-  /* Improve mobile padding */
-  .container {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
   }
 }

@@ -1,244 +1,284 @@
 
 import * as THREE from 'three';
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
-/**
- * Creates a bubble geometry based on size
- * @param size Size of the bubble (radius)
- * @returns THREE geometry for the bubble
- */
-export const createBubbleGeometry = (size: number): THREE.BufferGeometry => {
-  // Use higher segment count for better-looking bubbles
-  return new THREE.SphereGeometry(size, 32, 32);
-};
+// Collection of active channels for better management
+const activeChannels: { [key: string]: RealtimeChannel } = {};
 
-/**
- * Creates a bubble material with proper transparency and reflectivity
- * @param color Color of the bubble
- * @returns THREE material for the bubble
- */
-export const createBubbleMaterial = (color: THREE.ColorRepresentation = 0xFFD700): THREE.Material => {
-  return new THREE.MeshPhysicalMaterial({
-    color: color,
-    emissive: 0xFFA500,
-    emissiveIntensity: 0.3,
-    metalness: 0.1,
-    roughness: 0.1,
-    transmission: 0.7,
-    reflectivity: 0.6,
-    clearcoat: 0.9,
-    clearcoatRoughness: 0.1,
-    transparent: true,
-    opacity: 0.9,
-    side: THREE.DoubleSide,
-  });
-};
-
-/**
- * Creates a canvas with centered text for bubble labels
- * @param text Text to display on the bubble
- * @param fontSize Size of the font
- * @returns Canvas element with rendered text
- */
-export const createTextCanvas = (text: string, fontSize: number = 40): HTMLCanvasElement => {
-  // Create canvas
-  const canvas = document.createElement('canvas');
-  const size = Math.max(256, fontSize * 3.5); // Adjust canvas size based on font size
-  canvas.width = size;
-  canvas.height = size / 2;
-  
-  // Get context
-  const context = canvas.getContext('2d');
-  if (!context) {
-    console.error('Could not get canvas context');
-    return canvas;
-  }
-  
-  // Clear canvas
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  
-  // Configure text style - semi-transparent text with subtle shadow
-  context.font = `bold ${fontSize}px Arial, sans-serif`;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  
-  // Add subtle shadow for readability
-  context.shadowColor = 'rgba(255, 255, 255, 0.8)';
-  context.shadowBlur = 4;
-  context.shadowOffsetX = 0;
-  context.shadowOffsetY = 0;
-  
-  // Draw text
-  context.fillStyle = 'rgba(60, 60, 60, 0.8)';
-  context.fillText(text, canvas.width / 2, canvas.height / 2);
-  
-  return canvas;
-};
-
-/**
- * Calculates dynamic bubble size based on number of bubbles and size category
- * @param totalBubbles Total number of bubbles in the scene
- * @param sizeCategory Size category (sm, md, lg)
- * @returns Calculated size for the bubble
- */
-export const calculateDynamicBubbleSize = (totalBubbles: number, sizeCategory: "sm" | "md" | "lg"): number => {
-  // Base sizes
-  const baseSizes = {
-    sm: 0.7,
-    md: 1.0,
-    lg: 1.3
-  };
-  
-  // Size adjustment based on total bubbles count
-  let sizeMultiplier = 1.0;
-  
-  if (totalBubbles <= 5) {
-    // Few bubbles - make them larger
-    sizeMultiplier = 1.4;
-  } else if (totalBubbles <= 15) {
-    // Medium number of bubbles
-    sizeMultiplier = 1.2;
-  } else if (totalBubbles <= 30) {
-    // Many bubbles
-    sizeMultiplier = 1.0;
-  } else {
-    // Lots of bubbles - make them smaller
-    sizeMultiplier = 0.8;
-  }
-  
-  return baseSizes[sizeCategory] * sizeMultiplier;
-};
-
-/**
- * Get initials from a username or email
- * @param username The username or email to extract initials from
- * @returns String containing the initials (up to 2 characters)
- */
-export const getInitials = (username: string): string => {
-  if (!username) return '?';
-  
-  // If it's an email, use the part before @ symbol
-  const cleanName = username.includes('@') ? username.split('@')[0] : username;
-  
-  // For single names, return the first character
-  if (!cleanName.includes(' ')) {
-    return cleanName.charAt(0).toUpperCase();
-  }
-  
-  // For multiple names, take first char of first and last name
-  const parts = cleanName.split(' ').filter(Boolean);
-  const first = parts[0].charAt(0).toUpperCase();
-  const last = parts[parts.length - 1].charAt(0).toUpperCase();
-  
-  return `${first}${last}`;
-};
-
-/**
- * Connection manager for Supabase realtime channels
- */
+// Connection manager to handle Supabase realtime subscriptions
 export const connectionManager = {
-  // Store active channels
-  channels: new Map<string, any>(),
-  
-  /**
-   * Create a new realtime channel
-   * @param supabase Supabase client instance
-   * @param channelName Unique name for the channel
-   * @param filters Array of filters for the channel
-   * @param callback Function to call when events are received
-   */
+  // Create a new realtime subscription channel
   createChannel: async (
-    supabase: any, 
-    channelName: string, 
-    filters: Array<{
-      event: string;
-      schema: string;
-      table: string;
-      filter?: string;
-    }>,
-    callback: (payload: any) => void
-  ) => {
+    supabase: SupabaseClient,
+    channelName: string,
+    filters: any[],
+    onChangeCallback: (payload: any) => void
+  ): Promise<void> => {
     try {
-      if (connectionManager.channels.has(channelName)) {
-        console.log(`Channel ${channelName} already exists, removing first`);
+      // Clean up existing channel with the same name if it exists
+      if (activeChannels[channelName]) {
         await connectionManager.removeChannel(supabase, channelName);
       }
       
-      let channel = supabase.channel(channelName);
+      // Create a new channel
+      const channel = supabase.channel(channelName);
       
-      // Add all filters
+      // Add the postgres_changes event to the channel
       filters.forEach(filter => {
-        channel = channel.on(
-          'postgres_changes',
-          filter,
-          (payload: any) => {
-            callback(payload);
-          }
+        channel.on(
+          'postgres_changes', 
+          filter, 
+          onChangeCallback
         );
       });
       
       // Subscribe to the channel
-      channel = channel.subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to channel: ${channelName}`);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`Channel error for ${channelName}`);
-          // Could implement auto-reconnection logic here
+      channel.subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.error(`Channel ${channelName} subscription status: ${status}`);
         }
       });
       
-      // Store in our map
-      connectionManager.channels.set(channelName, channel);
+      // Store the channel reference
+      activeChannels[channelName] = channel;
       
-      return true;
     } catch (error) {
       console.error(`Error creating channel ${channelName}:`, error);
-      return false;
+      throw error;
     }
   },
   
-  /**
-   * Remove a specific channel
-   * @param supabase Supabase client instance 
-   * @param channelName Name of the channel to remove
-   */
-  removeChannel: async (supabase: any, channelName: string) => {
+  // Remove a single channel by name
+  removeChannel: async (
+    supabase: SupabaseClient,
+    channelName: string
+  ): Promise<void> => {
     try {
-      const channel = connectionManager.channels.get(channelName);
-      if (channel) {
-        await supabase.removeChannel(channel);
-        connectionManager.channels.delete(channelName);
-        console.log(`Removed channel: ${channelName}`);
+      if (activeChannels[channelName]) {
+        await supabase.removeChannel(activeChannels[channelName]);
+        delete activeChannels[channelName];
       }
-      return true;
     } catch (error) {
       console.error(`Error removing channel ${channelName}:`, error);
-      return false;
     }
   },
   
-  /**
-   * Remove all active channels
-   * @param supabase Supabase client instance
-   */
-  removeAllChannels: async (supabase: any) => {
+  // Remove all active channels
+  removeAllChannels: async (
+    supabase: SupabaseClient
+  ): Promise<void> => {
     try {
-      const promises = Array.from(connectionManager.channels.entries()).map(
-        async ([name, channel]) => {
-          await supabase.removeChannel(channel);
-          console.log(`Removed channel: ${name}`);
-          return name;
-        }
+      await Promise.all(
+        Object.keys(activeChannels).map((channelName) => 
+          connectionManager.removeChannel(supabase, channelName)
+        )
       );
-      
-      const removedChannels = await Promise.all(promises);
-      removedChannels.forEach(name => {
-        connectionManager.channels.delete(name);
-      });
-      
-      return true;
     } catch (error) {
       console.error("Error removing all channels:", error);
-      return false;
     }
   }
+};
+
+// Rate limiter for message sending
+export const createRateLimiter = (
+  maxRequests: number,
+  timeWindow: number
+) => {
+  const requestTimestamps: number[] = [];
+  
+  return {
+    canMakeRequest: (): boolean => {
+      const now = Date.now();
+      
+      // Remove timestamps outside the window
+      while (
+        requestTimestamps.length > 0 &&
+        requestTimestamps[0] < now - timeWindow
+      ) {
+        requestTimestamps.shift();
+      }
+      
+      // Check if we can make more requests
+      if (requestTimestamps.length < maxRequests) {
+        requestTimestamps.push(now);
+        return true;
+      }
+      
+      return false;
+    },
+    
+    getWaitTime: (): number => {
+      if (requestTimestamps.length === 0) return 0;
+      
+      const now = Date.now();
+      const oldestTimestamp = requestTimestamps[0];
+      const timeToWait = (oldestTimestamp + timeWindow) - now;
+      
+      return Math.max(0, timeToWait);
+    },
+    
+    reset: () => {
+      requestTimestamps.length = 0;
+    }
+  };
+};
+
+// Retry handler for network operations
+export const createRetryHandler = (
+  maxRetries: number,
+  baseDelay: number
+) => {
+  return async (
+    operation: () => Promise<any>
+  ): Promise<any> => {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        
+        // Exponential backoff with jitter
+        const delay = baseDelay * Math.pow(1.5, attempt) * (0.9 + Math.random() * 0.2);
+        
+        console.log(`Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError;
+  };
+};
+
+// Create bubble geometry with improved quality
+export const createBubbleGeometry = (size: number) => {
+  const segments = Math.max(16, Math.floor(size * 24)); // Higher detail for larger bubbles
+  return new THREE.SphereGeometry(size, segments, segments);
+};
+
+// Create bubble material with improved appearance
+export const createBubbleMaterial = () => {
+  return new THREE.MeshPhysicalMaterial({
+    color: 0xebbd34,
+    metalness: 0,
+    roughness: 0.1,
+    transmission: 0.6,
+    reflectivity: 0.5,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.2,
+    transparent: true,
+    opacity: 0.6,
+    side: THREE.DoubleSide,
+  });
+};
+
+// Create central world geometry
+export const createCentralWorldGeometry = () => {
+  const geometry = new THREE.IcosahedronGeometry(0.8, 1);
+  // Add some randomization to vertices for a more organic look
+  const positions = geometry.attributes.position;
+  
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i);
+    const y = positions.getY(i);
+    const z = positions.getZ(i);
+    
+    const jitter = 0.05;
+    positions.setXYZ(
+      i,
+      x + (Math.random() - 0.5) * jitter,
+      y + (Math.random() - 0.5) * jitter,
+      z + (Math.random() - 0.5) * jitter
+    );
+  }
+  
+  geometry.computeVertexNormals();
+  return geometry;
+};
+
+// Create central world material with improved appearance
+export const createCentralWorldMaterial = () => {
+  return new THREE.MeshPhysicalMaterial({
+    color: 0xebbd34,
+    metalness: 0.4,
+    roughness: 0.3,
+    transmission: 0.2,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.2,
+    emissive: 0x332200,
+    emissiveIntensity: 0.2,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.6
+  });
+};
+
+// Create text canvas with improved readability
+export const createTextCanvas = (text: string, fontSize: number): HTMLCanvasElement => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) return canvas;
+  
+  // Set canvas size
+  canvas.width = 512;
+  canvas.height = 256;
+  
+  // Clear canvas
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Configure text style
+  const scaleFactor = fontSize / 24;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Text shadow for better readability
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 4 * scaleFactor;
+  ctx.shadowOffsetX = 2 * scaleFactor;
+  ctx.shadowOffsetY = 2 * scaleFactor;
+  
+  // Text styling
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.fillStyle = '#ebbd34';
+  
+  // Center text and ensure all text is visible
+  const maxWidth = canvas.width * 0.9; // Limit width to avoid cutoff
+  const words = text.split(' ');
+  
+  // Single line approach for shorter text
+  if (words.length <= 3 || text.length <= 20) {
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2, maxWidth);
+  } else {
+    // Multi-line approach for longer text
+    const lines = [];
+    let currentLine = words[0];
+    
+    for (let i = 1; i < words.length; i++) {
+      const testLine = currentLine + ' ' + words[i];
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > maxWidth) {
+        lines.push(currentLine);
+        currentLine = words[i];
+      } else {
+        currentLine = testLine;
+      }
+    }
+    lines.push(currentLine); // Add the last line
+    
+    // Calculate total height of text block
+    const lineHeight = fontSize * 1.2;
+    const totalHeight = lines.length * lineHeight;
+    const startY = (canvas.height - totalHeight) / 2 + lineHeight / 2;
+    
+    // Render each line
+    lines.forEach((line, index) => {
+      ctx.fillText(line, canvas.width / 2, startY + index * lineHeight, maxWidth);
+    });
+  }
+  
+  return canvas;
 };
