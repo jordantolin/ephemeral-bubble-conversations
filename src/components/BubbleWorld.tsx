@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { BubbleData, BubbleWorldProps } from "@/types/bubble";
@@ -254,120 +255,108 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({
   };
 
   useEffect(() => {
-    if (!isInitialized.current) return;
-    
-    console.log("Setting up BubbleWorld scene");
-    isInitialized.current = true;
+    if (mountRef.current && !isInitialized.current) {
+      console.log("Setting up BubbleWorld scene");
+      isInitialized.current = true;
 
-    const width = mountRef.current.clientWidth;
-    const height = mountRef.current.clientHeight;
-
-    renderer.setSize(width, height);
-    renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mountRef.current.appendChild(renderer.domElement);
-
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    camera.position.z = 15;
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    directionalLight.position.set(5, 5, 5);
-    scene.add(directionalLight);
-
-    const pointLight = new THREE.PointLight(0xffffff, 0.8);
-    pointLight.position.set(-5, 5, 5);
-    scene.add(pointLight);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.rotateSpeed = 0.5;
-    controls.minDistance = 7;
-    controls.maxDistance = 25;
-    controlsRef.current = controls;
-
-    if (showEarth) {
-      loadYellowEarth();
-    }
-
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      
       const width = mountRef.current.clientWidth;
       const height = mountRef.current.clientHeight;
-      
+
+      renderer.setSize(width, height);
+      renderer.setClearColor(0x000000, 0);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      mountRef.current.appendChild(renderer.domElement);
+
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    };
+      camera.position.z = 15;
 
-    window.addEventListener("resize", handleResize);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
 
-    return () => {
-      console.log("Cleaning up BubbleWorld resources");
-      isInitialized.current = false;
-      window.removeEventListener("resize", handleResize);
-      
-      if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
-        mountRef.current.removeChild(renderer.domElement);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      directionalLight.position.set(5, 5, 5);
+      scene.add(directionalLight);
+
+      const pointLight = new THREE.PointLight(0xffffff, 0.8);
+      pointLight.position.set(-5, 5, 5);
+      scene.add(pointLight);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.rotateSpeed = 0.5;
+      controls.minDistance = 7;
+      controls.maxDistance = 25;
+      controlsRef.current = controls;
+
+      if (showEarth) {
+        loadYellowEarth();
       }
-      
-      bubbleRefs.current.forEach((bubble) => {
-        scene.remove(bubble);
-        if (bubble.geometry) bubble.geometry.dispose();
-        if (bubble.material instanceof THREE.Material) {
-          bubble.material.dispose();
-        } else if (Array.isArray(bubble.material)) {
-          bubble.material.forEach((material) => material.dispose());
+
+      const handleResize = () => {
+        if (!mountRef.current) return;
+        
+        const width = mountRef.current.clientWidth;
+        const height = mountRef.current.clientHeight;
+        
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      // Start animation loop
+      const animate = () => {
+        requestAnimationFrame(animate);
+        TWEEN.update();
+        
+        if (controlsRef.current) {
+          controlsRef.current.update();
         }
-      });
+        
+        if (earthRef.current) {
+          earthRef.current.rotation.y += 0.0005;
+        }
+        
+        renderer.render(scene, camera);
+      };
       
-      if (earthRef.current) {
-        scene.remove(earthRef.current);
-      }
-      
-      textureCache.forEach(texture => texture.dispose());
-      textureCache.clear();
-    };
+      animate();
+
+      return () => {
+        console.log("Cleaning up BubbleWorld resources");
+        isInitialized.current = false;
+        window.removeEventListener("resize", handleResize);
+        
+        if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
+          mountRef.current.removeChild(renderer.domElement);
+        }
+        
+        bubbleRefs.current.forEach((bubble) => {
+          scene.remove(bubble);
+          if (bubble.geometry) bubble.geometry.dispose();
+          if (bubble.material instanceof THREE.Material) {
+            bubble.material.dispose();
+          } else if (Array.isArray(bubble.material)) {
+            bubble.material.forEach((material) => material.dispose());
+          }
+        });
+        
+        if (earthRef.current) {
+          scene.remove(earthRef.current);
+        }
+        
+        textureCache.forEach(texture => texture.dispose());
+        textureCache.clear();
+      };
+    }
   }, [scene, renderer, camera, bubbleMaterials, showEarth]);
 
   useEffect(() => {
-    if (!isInitialized.current) return;
-    
-    console.log("Starting animation loop");
-    
-    let frameId: number;
-    
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      TWEEN.update();
-      
-      if (controlsRef.current) {
-        controlsRef.current.update();
-      }
-      
-      if (earthRef.current) {
-        earthRef.current.rotation.y += 0.0005;
-      }
-      
-      renderer.render(scene, camera);
-    };
-    
-    animate();
-    
-    return () => {
-      console.log("Stopping animation loop");
-      cancelAnimationFrame(frameId);
-    };
-  }, [scene, renderer, camera]);
-
-  useEffect(() => {
-    if (!isInitialized.current || !topics || topics.length === 0) {
+    if (!mountRef.current || !isInitialized.current || !topics || topics.length === 0) {
       console.log("Not updating bubbles - initialization or topics missing");
       return;
     }
