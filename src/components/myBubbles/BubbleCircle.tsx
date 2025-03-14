@@ -17,14 +17,24 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
   const animationRef = useRef<number>();
   const initialPositionsRef = useRef<BubbleData[]>([]);
   
+  // Debug bubbles data on mount and when bubbles change
+  useEffect(() => {
+    console.log("BubbleCircle received bubbles:", bubbles.length);
+    console.log("Bubble data in BubbleCircle:", JSON.stringify(bubbles));
+  }, [bubbles]);
+
   // Set up initial positions in a circle
   useEffect(() => {
     const updateInitialPositions = () => {
       if (!containerRef.current) return;
       
       const { width, height } = containerRef.current.getBoundingClientRect();
+      console.log("Container dimensions:", width, height);
+      
       const positioned = calculateCircularPositions(bubbles, width, height);
       initialPositionsRef.current = positioned;
+      
+      console.log("Initial positioned bubbles:", positioned.length);
       
       // Initialize positions
       setPositionedBubbles(positioned);

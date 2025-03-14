@@ -131,7 +131,7 @@ const MyBubbles = () => {
           });
         }
         
-        // Log all bubbles with their details (for debugging)
+        // Add some debugging to see the actual bubbles data
         console.log("All bubbles to display:", allBubbles.length);
         console.log("All bubbles data:", JSON.stringify(allBubbles));
         
@@ -223,19 +223,27 @@ const MyBubbles = () => {
   }, [user, profile, myBubbles, isLoadingBubbles, filteredBubbles.length]);
 
   // Convert Bubble to BubbleData for the BubbleCircle component
-  const bubbleDataForCircle: BubbleData[] = filteredBubbles
-    .filter((bubble: Bubble) => !isBubbleExpired(bubble))
-    .map((bubble: Bubble) => ({
-      id: bubble.id,
-      topic: bubble.topic,
-      username: bubble.username,
-      name: bubble.name,
-      size: bubble.size,
-      reflect_count: bubble.reflect_count,
-      created_at: bubble.created_at,
-      description: bubble.description || undefined,
-      expires_at: bubble.expires_at
-    }));
+  const bubbleDataForCircle: BubbleData[] = Array.isArray(filteredBubbles)
+    ? filteredBubbles
+      .filter((bubble: Bubble) => !isBubbleExpired(bubble))
+      .map((bubble: Bubble) => ({
+        id: bubble.id,
+        topic: bubble.topic,
+        username: bubble.username,
+        name: bubble.name,
+        size: bubble.size,
+        reflect_count: bubble.reflect_count,
+        created_at: bubble.created_at,
+        description: bubble.description || undefined,
+        expires_at: bubble.expires_at
+      }))
+    : [];
+
+  // Add debugging for bubble circle data
+  useEffect(() => {
+    console.log("Bubbles for circle:", bubbleDataForCircle.length);
+    console.log("Bubble circle data:", JSON.stringify(bubbleDataForCircle));
+  }, [bubbleDataForCircle]);
 
   // Handle bubble click to navigate to the bubble
   const handleBubbleClick = (bubbleId: string) => {
