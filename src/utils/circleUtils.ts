@@ -32,6 +32,35 @@ export const calculateCircularPositions = (
 };
 
 /**
+ * Calculates animated floating positions for bubbles based on time
+ * @param bubbles - Array of bubbles with initial positions
+ * @param time - Current time for animation (milliseconds)
+ * @param floatRadius - Maximum radius of floating movement
+ */
+export const calculateFloatingPositions = (
+  bubbles: BubbleData[],
+  time: number,
+  floatRadius: number = 20
+): BubbleData[] => {
+  if (!bubbles.length) return [];
+  
+  return bubbles.map((bubble, index) => {
+    if (bubble.x === undefined || bubble.y === undefined) return bubble;
+    
+    // Create unique but consistent animation pattern for each bubble
+    const seed = index * 1000;
+    const offset1 = Math.sin((time + seed) / 2000) * floatRadius;
+    const offset2 = Math.cos((time + seed) / 3000) * floatRadius;
+    
+    return {
+      ...bubble,
+      x: bubble.x + offset1,
+      y: bubble.y + offset2
+    };
+  });
+};
+
+/**
  * Get a color for a bubble based on its topic
  * @param topic - The bubble topic
  */

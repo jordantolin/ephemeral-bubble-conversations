@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { BubbleData } from "@/types/bubble";
 import { Link } from "react-router-dom";
-import { calculateCircularPositions, getBubbleColor, formatExpiryTime } from "@/utils/circleUtils";
+import { calculateCircularPositions, calculateFloatingPositions, getBubbleColor, formatExpiryTime } from "@/utils/circleUtils";
 import { Clock, MessageCircle, Star } from "lucide-react";
 
 interface BubbleCircleProps {
@@ -14,23 +14,53 @@ interface BubbleCircleProps {
 const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) => {
   const [positionedBubbles, setPositionedBubbles] = useState<BubbleData[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<number>();
+  const initialPositionsRef = useRef<BubbleData[]>([]);
   
+  // Set up initial positions in a circle
   useEffect(() => {
-    const updatePositions = () => {
+    const updateInitialPositions = () => {
       if (!containerRef.current) return;
       
       const { width, height } = containerRef.current.getBoundingClientRect();
       const positioned = calculateCircularPositions(bubbles, width, height);
+      initialPositionsRef.current = positioned;
+      
+      // Initialize positions
       setPositionedBubbles(positioned);
     };
     
-    updatePositions();
-    window.addEventListener("resize", updatePositions);
+    updateInitialPositions();
+    window.addEventListener("resize", updateInitialPositions);
     
     return () => {
-      window.removeEventListener("resize", updatePositions);
+      window.removeEventListener("resize", updateInitialPositions);
     };
   }, [bubbles]);
+  
+  // Animation loop for floating motion
+  useEffect(() => {
+    const animate = () => {
+      if (initialPositionsRef.current.length > 0) {
+        const time = Date.now();
+        const floatingBubbles = calculateFloatingPositions(
+          initialPositionsRef.current,
+          time,
+          10 // Adjust floating radius here (smaller for subtler movement)
+        );
+        setPositionedBubbles(floatingBubbles);
+      }
+      animationRef.current = requestAnimationFrame(animate);
+    };
+    
+    animationRef.current = requestAnimationFrame(animate);
+    
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
   
   // Function to determine bubble display size
   const getBubbleSize = (size: "sm" | "md" | "lg") => {
@@ -58,18 +88,15 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       
       {/* Bubbles positioned in a circle */}
       {positionedBubbles.map((bubble) => (
-        <motion.div
+        <div
           key={bubble.id}
-          className={`absolute rounded-full shadow-lg cursor-pointer ${getBubbleSize(bubble.size)}`}
+          className={`absolute rounded-full shadow-lg cursor-pointer transition-transform hover:scale-110 ${getBubbleSize(bubble.size)}`}
           style={{ 
             backgroundColor: getBubbleColor(bubble.topic),
             left: bubble.x ? bubble.x - (parseInt(getBubbleSize(bubble.size).split(" ")[0].replace("w-", "")) / 2) : 0,
             top: bubble.y ? bubble.y - (parseInt(getBubbleSize(bubble.size).split(" ")[1].replace("h-", "")) / 2) : 0,
+            transition: 'transform 0.2s ease-in-out',
           }}
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          whileHover={{ scale: 1.1 }}
           onClick={() => onBubbleClick(bubble.id)}
         >
           <div className="absolute inset-0 rounded-full flex flex-col items-center justify-center p-2 text-center">
@@ -86,7 +113,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
               <span className="text-white text-[10px] drop-shadow-md">{formatExpiryTime(bubble.expires_at)}</span>
             </div>
           </div>
-        </motion.div>
+        </div>
       ))}
       
       {/* Empty state */}
