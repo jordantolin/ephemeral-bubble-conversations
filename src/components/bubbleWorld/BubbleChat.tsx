@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -54,7 +53,6 @@ export const useSendBubbleMessage = (bubbleId: string) => {
   return { sendMessage, isSending };
 };
 
-// Fix the type definition to match GamificationContext
 type GamificationType = {
   incrementAchievementProgress: (achievementId: string, amount?: number) => Promise<boolean>;
   addPoints: (amount: number, category?: 'bubble' | 'reflection' | 'message') => Promise<boolean>;
@@ -133,7 +131,6 @@ export const useReflectOnBubble = (bubbleId: string) => {
   return { reflectOnBubble, isReflecting };
 };
 
-// Create the actual BubbleChat component that uses the hooks
 interface BubbleChatProps {
   chatOpen: boolean;
   setChatOpen: (open: boolean) => void;
@@ -186,7 +183,6 @@ const BubbleChat = ({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Message Container */}
         <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4 min-h-[300px]">
           {isLoadingMessages ? (
             <div className="flex justify-center items-center h-full">
@@ -220,7 +216,6 @@ const BubbleChat = ({
           )}
         </div>
 
-        {/* Input Area */}
         {!isBubbleExpired && selectedBubbleId && (
           <div className="mt-4 space-y-2">
             <Textarea
