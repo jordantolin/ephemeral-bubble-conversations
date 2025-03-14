@@ -223,10 +223,10 @@ export const createEarthMaterial = () => {
   }
 };
 
-// Create bubble material with improved appearance
+// Create bubble material with improved appearance and the correct yellow color
 export const createBubbleMaterial = () => {
   return new THREE.MeshPhysicalMaterial({
-    color: 0xebbd34,
+    color: 0xebbd34, // Ensure we use the correct yellow color (hex: #ebbd34)
     metalness: 0,
     roughness: 0.1,
     transmission: 0.6,
