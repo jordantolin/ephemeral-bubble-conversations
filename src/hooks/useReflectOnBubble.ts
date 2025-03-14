@@ -11,49 +11,54 @@ export const useReflectOnBubble = (bubbleId: string) => {
   const [isReflecting, setIsReflecting] = useState(false);
   const { addPoints, incrementAchievementProgress } = useGamification();
 
-  const reflectOnBubble = async () => {
-    if (!user) return false;
+  const reflectOnBubble = async (reflection: string) => {
+    if (!user || !reflection.trim()) return false;
 
     setIsReflecting(true);
 
     try {
       const username = profile?.username || user.email || "";
 
-      const { data: existingReflects } = await supabase
+      // Check if user has already reflected on this bubble
+      const { data: existingReflection, error: checkError } = await supabase
         .from("reflects")
         .select("id")
         .eq("bubble_id", bubbleId)
-        .eq("username", username);
+        .eq("username", username)
+        .maybeSingle();
 
-      if (existingReflects && existingReflects.length > 0) {
+      if (checkError) throw checkError;
+
+      if (existingReflection) {
         toast({
-          title: "Already Reflected",
+          title: "Already reflected",
           description: "You have already reflected on this bubble",
-          variant: "default"
+          variant: "destructive"
         });
         setIsReflecting(false);
         return false;
       }
 
+      // Insert new reflection
       const { error } = await supabase
         .from("reflects")
         .insert({
+          content: reflection.trim(),
           bubble_id: bubbleId,
           username
         });
 
       if (error) throw error;
 
-      await supabase.rpc('increment_reflect_count', { bubble_id: bubbleId });
-
+      // Add points for reflection
       await addPoints(10, 'reflection');
-
+      
+      // Increment progress for reflection master achievement
       await incrementAchievementProgress('reflection-master');
 
       toast({
-        title: "Reflection Added!",
-        description: "Your reflection has been added to this bubble",
-        variant: "default"
+        title: "Reflection added",
+        description: "Your reflection has been added to the bubble",
       });
 
       setIsReflecting(false);
@@ -61,7 +66,7 @@ export const useReflectOnBubble = (bubbleId: string) => {
     } catch (error: any) {
       console.error("Error reflecting on bubble:", error);
       toast({
-        title: "Error Adding Reflection",
+        title: "Error reflecting on bubble",
         description: error.message || "Please try again",
         variant: "destructive"
       });
