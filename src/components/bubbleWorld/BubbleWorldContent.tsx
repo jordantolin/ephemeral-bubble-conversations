@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
+import { Clock, Plus, X, Trophy, Star, Award, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
@@ -17,6 +17,7 @@ interface BubbleWorldContentProps {
   bubbleDataForComponent: BubbleData[];
   onBubbleClick: (bubbleId: string) => void;
   onCreateBubble: () => void;
+  isReconnecting?: boolean;
 }
 
 const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
@@ -26,6 +27,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   bubbleDataForComponent,
   onBubbleClick,
   onCreateBubble,
+  isReconnecting = false
 }) => {
   const queryClient = useQueryClient();
   const { profile, isLoading: isLoadingGamification } = useGamification();
@@ -68,10 +70,30 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   };
 
+  // Connection status indicator
+  const renderConnectionStatus = () => {
+    if (!isReconnecting) return null;
+    
+    return (
+      <motion.div 
+        className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-red-200"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="flex items-center text-red-500">
+          <WifiOff className="h-4 w-4 mr-1" />
+          <span className="text-xs font-medium">Reconnecting...</span>
+        </div>
+      </motion.div>
+    );
+  };
+
   // Loading state with improved animation and messaging
   if (isLoadingBubbles) {
     return (
-      <div className="text-center py-16 md:py-24 bg-white/30 rounded-xl backdrop-blur-sm shadow-sm">
+      <div className="text-center py-16 md:py-24 bg-white/30 rounded-xl backdrop-blur-sm shadow-sm relative h-[70vh] flex flex-col justify-center items-center">
+        {renderConnectionStatus()}
         <div className="animate-spin rounded-full h-12 w-12 md:h-16 md:w-16 border-4 border-t-4 border-[#ebbd34] mx-auto"></div>
         <p className="mt-6 text-[#ebbd34] text-lg md:text-xl font-medium">Loading bubbles...</p>
         <p className="text-[#ebbd34]/60 mt-2 px-4">Please wait while we gather the latest conversations</p>
@@ -82,7 +104,8 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   // Enhanced error state with retry functionality
   if (bubblesError) {
     return (
-      <div className="text-center py-16 md:py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm">
+      <div className="text-center py-16 md:py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm relative h-[70vh] flex flex-col justify-center items-center">
+        {renderConnectionStatus()}
         <div className="mx-auto w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-4 bg-red-100">
           <X className="w-8 h-8 md:w-10 md:h-10 text-red-500" />
         </div>
@@ -96,7 +119,8 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
           size="lg"
           className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
         >
-          Retry
+          <Wifi className="mr-2 h-5 w-5" />
+          Retry Connection
         </Button>
       </div>
     );
@@ -105,7 +129,8 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   // No bubbles found state
   if (!filteredBubbles || filteredBubbles.length === 0) {
     return (
-      <div className="text-center py-16 md:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm">
+      <div className="text-center py-16 md:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm relative h-[70vh] flex flex-col justify-center items-center">
+        {renderConnectionStatus()}
         <div className="mx-auto w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-6 bg-[#ebbd34]/10">
           <Clock className="w-8 h-8 md:w-10 md:h-10 text-[#ebbd34]" />
         </div>
@@ -130,29 +155,45 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     );
   }
 
-  // Normal state with bubbles - ensure we have valid data
-  return (
-    <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
-      {renderGamificationStatus()}
-      {bubbleDataForComponent && bubbleDataForComponent.length > 0 ? (
-        <BubbleWorld 
-          topics={bubbleDataForComponent}
-          onBubbleClick={onBubbleClick}
-        />
-      ) : (
+  // Ensure we're actually getting valid bubble data
+  if (!Array.isArray(bubbleDataForComponent) || bubbleDataForComponent.length === 0) {
+    return (
+      <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
+        {renderConnectionStatus()}
+        {renderGamificationStatus()}
         <div className="w-full h-full flex items-center justify-center">
           <div className="text-center">
-            <p className="text-[#ebbd34] font-medium mb-4">No bubbles to display</p>
+            <p className="text-[#ebbd34] font-medium mb-4">No bubbles available right now</p>
+            <Button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
+              className="mb-4 border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+              variant="outline"
+            >
+              <Wifi className="mr-2 h-4 w-4" />
+              Refresh Data
+            </Button>
             <Button
               onClick={onCreateBubble}
-              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+              className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white mt-2"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create a Bubble
             </Button>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  // Normal state with bubbles
+  return (
+    <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
+      {renderConnectionStatus()}
+      {renderGamificationStatus()}
+      <BubbleWorld 
+        topics={bubbleDataForComponent}
+        onBubbleClick={onBubbleClick}
+      />
     </div>
   );
 };

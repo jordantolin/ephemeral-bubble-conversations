@@ -67,6 +67,12 @@ const Index = () => {
     setTimeout(() => {
       setIsManuallyRefreshing(false);
     }, 2000);
+
+    // Show toast notification
+    toast({
+      title: "Refreshing Bubbles",
+      description: "Fetching the latest bubbles from the server...",
+    });
   };
   
   // Enhanced reflection with gamification
@@ -117,7 +123,7 @@ const Index = () => {
     if (user) {
       refreshGamificationProfile().catch(err => {
         console.error("Error refreshing gamification profile:", err);
-        // We don't show this error to the user since it's not critical
+        // Don't show this error to the user since it's not critical
       });
     }
   }, [user, refreshGamificationProfile]);
@@ -127,8 +133,21 @@ const Index = () => {
     if (isReconnecting === false) {
       // Only refresh when transitioning from reconnecting to connected
       queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+      
+      // Show toast notification
+      toast({
+        title: "Connection Restored",
+        description: "Your connection has been restored. Data is being refreshed.",
+      });
+    } else if (isReconnecting === true) {
+      // Let the user know we're working on reconnecting
+      toast({
+        title: "Connection Lost",
+        description: "Trying to reconnect. Please wait...",
+        variant: "destructive",
+      });
     }
-  }, [isReconnecting, queryClient]);
+  }, [isReconnecting, queryClient, toast]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
@@ -157,6 +176,7 @@ const Index = () => {
             bubbleDataForComponent={bubbleDataForComponent}
             onBubbleClick={handleBubbleClick}
             onCreateBubble={handleCreateBubble}
+            isReconnecting={isReconnecting}
           />
         </div>
       </div>

@@ -3,7 +3,7 @@ import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
-import { Award, Trophy, Target, Crown, ArrowLeft, Star, Clock } from "lucide-react";
+import { Award, Trophy, Target, Crown, ArrowLeft, Star, Clock, Medal, Sparkles, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
@@ -28,12 +28,28 @@ const Achievements: React.FC = () => {
     })
   };
   
+  // Get achievement icon based on status
+  const getAchievementIcon = (achievement: any) => {
+    if (!achievement.icon) {
+      if (achievement.id.includes('bubble')) return <Gift className="h-5 w-5 text-white" />;
+      if (achievement.id.includes('social')) return <Medal className="h-5 w-5 text-white" />;
+      if (achievement.id.includes('streak')) return <Clock className="h-5 w-5 text-white" />;
+      if (achievement.id.includes('reflection')) return <Sparkles className="h-5 w-5 text-white" />;
+      if (achievement.id.includes('popular')) return <Target className="h-5 w-5 text-white" />;
+      return <Trophy className="h-5 w-5 text-white" />;
+    }
+    return achievement.icon;
+  };
+  
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 pt-24 pb-16 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-white to-yellow-50/60 pt-24 pb-16 px-4">
         <div className="container mx-auto max-w-4xl">
           <div className="animate-pulse flex flex-col gap-8">
-            <div className="h-10 w-40 bg-gray-200 rounded"></div>
+            <div className="flex items-center mb-4">
+              <div className="h-8 w-8 bg-gray-200 rounded-full mr-2"></div>
+              <div className="h-8 w-40 bg-gray-200 rounded"></div>
+            </div>
             <div className="h-40 w-full bg-gray-200 rounded-lg"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
@@ -47,9 +63,14 @@ const Achievements: React.FC = () => {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 pt-20 pb-20 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-white to-yellow-50/60 pt-20 pb-20 px-4">
       <div className="container mx-auto max-w-4xl">
-        <div className="flex items-center mb-6">
+        <motion.div 
+          className="flex items-center mb-6"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <Button 
             variant="ghost" 
             size="icon" 
@@ -61,11 +82,11 @@ const Achievements: React.FC = () => {
           <h1 className="text-2xl md:text-4xl font-bold text-[#ebbd34]">
             Your Achievements
           </h1>
-        </div>
+        </motion.div>
         
         {/* Profile Stats Card */}
         <motion.div 
-          className="bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-4 md:p-6 mb-8"
+          className="bg-white/80 backdrop-blur-sm rounded-xl shadow-md p-4 md:p-6 mb-8 border border-[#ebbd34]/10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -80,12 +101,12 @@ const Achievements: React.FC = () => {
               </p>
               
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <div className="bg-[#ebbd34] rounded-xl px-3 py-1 flex items-center">
+                <div className="bg-gradient-to-r from-[#ebbd34] to-amber-500 rounded-xl px-3 py-1 flex items-center shadow-sm">
                   <Crown className="h-4 w-4 text-white mr-1" />
                   <span className="text-white font-semibold text-sm">Level {profile.level}</span>
                 </div>
                 
-                <Badge variant="outline" className="border-[#ebbd34]/30 text-[#ebbd34]/80">
+                <Badge variant="outline" className="border-[#ebbd34]/30 text-[#ebbd34] bg-[#ebbd34]/5">
                   <Clock className="h-3 w-3 mr-1" />
                   {profile.dailyStreak} day streak
                 </Badge>
@@ -94,19 +115,19 @@ const Achievements: React.FC = () => {
             
             <div className="flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4">
-                <div className="bg-[#ebbd34]/10 rounded-lg p-3 text-center">
+                <div className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm">
                   <p className="text-xs text-gray-600 mb-1">Total Points</p>
                   <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">{profile.points}</p>
                 </div>
                 
-                <div className="bg-[#ebbd34]/10 rounded-lg p-3 text-center">
+                <div className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm">
                   <p className="text-xs text-gray-600 mb-1">Achievements</p>
                   <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">
                     {achievements.filter(a => a.unlocked).length}/{achievements.length}
                   </p>
                 </div>
                 
-                <div className="bg-[#ebbd34]/10 rounded-lg p-3 text-center">
+                <div className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm">
                   <p className="text-xs text-gray-600 mb-1">Daily Streak</p>
                   <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">{profile.dailyStreak} days</p>
                 </div>
@@ -125,11 +146,11 @@ const Achievements: React.FC = () => {
             {achievements.map((achievement, index) => (
               <motion.div
                 key={achievement.id}
-                className={`bg-white/70 backdrop-blur-sm rounded-lg shadow-sm p-4 border ${
+                className={`bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-4 border ${
                   achievement.unlocked 
                     ? 'border-[#ebbd34]/30' 
-                    : 'border-gray-200 opacity-70'
-                }`}
+                    : 'border-gray-200'
+                } ${achievement.unlocked ? '' : 'opacity-75'}`}
                 custom={index}
                 initial="hidden"
                 animate="visible"
@@ -139,11 +160,11 @@ const Achievements: React.FC = () => {
               >
                 <div className="flex items-start">
                   <div className={`rounded-full p-3 mr-3 flex-shrink-0 ${
-                    achievement.unlocked ? 'bg-[#ebbd34]' : 'bg-gray-200'
-                  }`}>
-                    {achievement.icon || <Trophy className={`h-5 w-5 ${
-                      achievement.unlocked ? 'text-white' : 'text-gray-400'
-                    }`} />}
+                    achievement.unlocked 
+                      ? 'bg-gradient-to-br from-[#ebbd34] to-amber-500' 
+                      : 'bg-gray-200'
+                  } shadow-sm`}>
+                    {getAchievementIcon(achievement)}
                   </div>
                   
                   <div className="flex-1">
@@ -180,8 +201,15 @@ const Achievements: React.FC = () => {
                         <Progress 
                           value={(achievement.progress / achievement.maxProgress) * 100} 
                           className={`h-1.5 ${
-                            achievement.unlocked ? 'bg-[#ebbd34]/20' : 'bg-gray-200'
-                          }`} 
+                            achievement.unlocked 
+                              ? 'bg-[#ebbd34]/20' 
+                              : 'bg-gray-200'
+                          }`}
+                          indicatorClassName={
+                            achievement.unlocked
+                              ? "bg-gradient-to-r from-[#ebbd34] to-amber-400"
+                              : "bg-gray-400"
+                          }
                         />
                       </div>
                     )}
