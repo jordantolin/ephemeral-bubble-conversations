@@ -113,6 +113,11 @@ const MyBubbles = () => {
     navigate(`/bubble/${bubbleId}`);
   };
 
+  const handleCreateBubble = () => {
+    // Navigate to create bubble page or open create bubble dialog
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-[#FEF7E4]">
       {/* Navigation */}
@@ -125,10 +130,10 @@ const MyBubbles = () => {
         <div className="container mx-auto max-w-6xl">
           {/* Header */}
           <BubbleWorldHeader 
-            onCreateBubble={() => {}} 
-            showDescription={false}
-            showCreateButton={false}
+            onCreateBubble={handleCreateBubble}
             title="My Reflected & Created Bubbles"
+            showDescription={false}
+            showCreateButton={true}
           />
         
           <div className="md:flex justify-between items-center mb-6 mt-8">
