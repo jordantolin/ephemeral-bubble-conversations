@@ -14,6 +14,7 @@ import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNetworkReconnection } from "@/hooks/useNetworkReconnection";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Index = () => {
   const location = useLocation();
@@ -23,6 +24,10 @@ const Index = () => {
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
   const { isReconnecting } = useNetworkReconnection();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Add state to track manual refresh attempts
+  const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   
   const {
     searchQuery,
@@ -51,6 +56,17 @@ const Index = () => {
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
+  };
+
+  // Manual refresh function for error cases
+  const handleManualRefresh = () => {
+    setIsManuallyRefreshing(true);
+    // Force refetch bubbles data
+    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    // After 2 seconds, reset the manual refreshing state
+    setTimeout(() => {
+      setIsManuallyRefreshing(false);
+    }, 2000);
   };
   
   // Enhanced reflection with gamification
@@ -106,6 +122,14 @@ const Index = () => {
     }
   }, [user, refreshGamificationProfile]);
 
+  // If we detect a reconnection, refresh the bubbles data
+  useEffect(() => {
+    if (isReconnecting === false) {
+      // Only refresh when transitioning from reconnecting to connected
+      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+    }
+  }, [isReconnecting, queryClient]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
       {/* Reconnection indicator */}
@@ -120,10 +144,14 @@ const Index = () => {
       <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
-          <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
+          <BubbleWorldHeader 
+            onCreateBubble={handleCreateBubble} 
+            onRefresh={handleManualRefresh}
+            isRefreshing={isManuallyRefreshing}
+          />
           
           <BubbleWorldContent
-            isLoadingBubbles={isLoadingBubbles}
+            isLoadingBubbles={isLoadingBubbles || isManuallyRefreshing}
             bubblesError={bubblesError}
             filteredBubbles={filteredBubbles}
             bubbleDataForComponent={bubbleDataForComponent}

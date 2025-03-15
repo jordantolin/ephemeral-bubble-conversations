@@ -1,44 +1,52 @@
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 interface BubbleWorldHeaderProps {
   onCreateBubble: () => void;
-  showDescription?: boolean;
-  showCreateButton?: boolean;
-  title?: string;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ 
-  onCreateBubble, 
-  showDescription = true,
-  showCreateButton = true,
-  title = "Bubble World"
+  onCreateBubble,
+  onRefresh,
+  isRefreshing = false 
 }) => {
   return (
-    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-      <div className="text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2">
-          <span>{title}</span>
-        </h1>
-        {showDescription && (
-          <p className="text-[#ebbd34]/80 text-lg max-w-xl">
-            Explore ephemeral bubbles that last for just 24 hours. Join conversations and reflect on ideas before they disappear!
-          </p>
-        )}
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+      <div className="mb-4 md:mb-0">
+        <h1 className="text-2xl md:text-3xl font-bold text-[#ebbd34]">Bubble World</h1>
+        <p className="text-gray-600 mt-1">Explore conversations that are bubbling right now</p>
       </div>
-      
-      {showCreateButton && (
-        <Button
-          onClick={onCreateBubble}
-          className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white shadow-md transform hover:scale-105 transition-all duration-200"
-          size="lg"
+      <div className="flex items-center space-x-3">
+        {onRefresh && (
+          <Button
+            onClick={onRefresh}
+            variant="outline"
+            size="sm"
+            className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        )}
+        <motion.div
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
         >
-          <Plus className="mr-2 h-5 w-5" />
-          New 24h Bubble
-        </Button>
-      )}
+          <Button 
+            onClick={onCreateBubble}
+            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Bubble
+          </Button>
+        </motion.div>
+      </div>
     </div>
   );
 };
