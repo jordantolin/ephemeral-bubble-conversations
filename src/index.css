@@ -156,3 +156,24 @@ button, a {
 .glass {
   @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
 }
+
+/* Achievement Card Styling */
+.achievement-card {
+  @apply relative overflow-hidden bg-white rounded-lg shadow-sm transition-all duration-300 border border-amber-100;
+}
+
+.achievement-card:hover {
+  @apply shadow-md transform -translate-y-1;
+}
+
+.achievement-icon {
+  @apply rounded-full flex items-center justify-center;
+}
+
+.achievement-unlocked .achievement-icon {
+  @apply bg-gradient-to-br from-amber-400 to-amber-500 text-white;
+}
+
+.achievement-locked .achievement-icon {
+  @apply bg-gray-200 text-gray-400;
+}

@@ -19,6 +19,7 @@ import NotFound from "@/pages/NotFound";
 import GamificationTracker from "@/components/gamification/GamificationTracker";
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
+import ErrorBoundary from "@/components/errorHandling/ErrorBoundary";
 
 function App() {
   return (
@@ -26,27 +27,29 @@ function App() {
       <NetworkProvider>
         <AuthProvider>
           <GamificationProvider>
-            <div className="min-h-screen bg-white">
-              <Navbar />
-              <OfflineIndicator />
-              <ReconnectionIndicator />
-              <GamificationTracker />
-              <AchievementPopup />
-              <DailyStreakIndicator />
+            <ErrorBoundary>
+              <div className="min-h-screen bg-[#FEF7E4]">
+                <Navbar />
+                <OfflineIndicator />
+                <ReconnectionIndicator />
+                <GamificationTracker />
+                <AchievementPopup />
+                <DailyStreakIndicator />
+                
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/bubble-chat/:id" element={<BubbleChat />} />
+                  <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
+                  <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
+                  <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+                  <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </div>
               
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/bubble-chat/:id" element={<BubbleChat />} />
-                <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
-                <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
-                <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-                <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-            
-            <Toaster />
+              <Toaster />
+            </ErrorBoundary>
           </GamificationProvider>
         </AuthProvider>
       </NetworkProvider>
