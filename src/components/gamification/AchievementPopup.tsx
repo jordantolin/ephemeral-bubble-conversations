@@ -1,173 +1,129 @@
 
-import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useGamification } from "@/context/GamificationContext";
-import { Award, Star, X, Sparkles, Trophy, Gift } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
-import { Link } from "react-router-dom";
-import ComponentErrorBoundary from "../errorHandling/ComponentErrorBoundary";
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, X } from 'lucide-react';
+import { useGamification } from '@/context/GamificationContext';
+import { cn } from '@/lib/utils';
+import confetti from 'canvas-confetti';
 
 const AchievementPopup: React.FC = () => {
-  const { recentAchievement, resetRecentAchievement } = useGamification();
+  const { 
+    lastUnlockedAchievement, 
+    clearLastUnlockedAchievement 
+  } = useGamification();
   const [visible, setVisible] = useState(false);
-  const { toast } = useToast();
-
+  
   useEffect(() => {
-    if (recentAchievement) {
+    if (lastUnlockedAchievement) {
       setVisible(true);
       
-      // Also show a toast to ensure the user sees the notification
-      toast({
-        title: "🏆 Achievement Unlocked!",
-        description: recentAchievement.name,
-        variant: "default",
-        duration: 5000,
-      });
+      // Trigger confetti effect
+      const end = Date.now() + 2000;
+      const colors = ['#ebbd34', '#ffd166', '#ffb20f', '#ffdc7c'];
       
-      // Auto-hide after 8 seconds
+      const confettiEffect = () => {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: colors
+        });
+        
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: colors
+        });
+  
+        if (Date.now() < end) {
+          requestAnimationFrame(confettiEffect);
+        }
+      };
+      
+      confettiEffect();
+      
+      // Auto-hide after 5 seconds
       const timer = setTimeout(() => {
         setVisible(false);
-      }, 8000);
+      }, 5000);
       
       return () => clearTimeout(timer);
     }
-  }, [recentAchievement, toast]);
-
+  }, [lastUnlockedAchievement]);
+  
   // Handle close
   const handleClose = () => {
     setVisible(false);
+    setTimeout(() => {
+      clearLastUnlockedAchievement();
+    }, 300); // Wait for exit animation
   };
-
-  // Handle animation complete
+  
+  // After animation completes and popup is hidden, clear the achievement
   const handleAnimationComplete = () => {
     if (!visible) {
-      resetRecentAchievement();
+      clearLastUnlockedAchievement();
     }
   };
-
-  if (!recentAchievement) return null;
-
-  // Helper to get appropriate icon
-  const getAchievementIcon = () => {
-    if (!recentAchievement.icon) {
-      if (recentAchievement.id.includes('bubble')) return <Gift className="h-6 w-6 text-white" />;
-      if (recentAchievement.id.includes('social')) return <Star className="h-6 w-6 text-white" />;
-      if (recentAchievement.id.includes('streak')) return <Trophy className="h-6 w-6 text-white" />;
-      if (recentAchievement.id.includes('reflection')) return <Award className="h-6 w-6 text-white" />;
-      if (recentAchievement.id.includes('popular')) return <Trophy className="h-6 w-6 text-white" />;
-      return <Award className="h-6 w-6 text-white" />;
-    }
-    return recentAchievement.icon;
-  };
-
+  
   return (
-    <ComponentErrorBoundary name="Achievement Popup">
-      <AnimatePresence onExitComplete={handleAnimationComplete}>
-        {visible && (
-          <motion.div
-            className="fixed bottom-16 md:bottom-6 right-6 z-50 max-w-sm w-[calc(100%-2rem)] md:w-full"
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          >
-            <div className="bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/40 rounded-lg shadow-xl p-5 border border-[#ebbd34]/30 relative overflow-hidden backdrop-blur-sm">
-              {/* Animated sparkles in background */}
-              <div className="absolute -right-2 -top-2 opacity-30 animate-pulse">
-                <Sparkles className="h-14 w-14 text-amber-500" />
-              </div>
-              <div className="absolute -left-2 -bottom-2 opacity-20 animate-pulse">
-                <Sparkles className="h-10 w-10 text-amber-400" />
+    <AnimatePresence>
+      {visible && lastUnlockedAchievement && (
+        <motion.div
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          transition={{ duration: 0.3 }}
+          onAnimationComplete={handleAnimationComplete}
+          className="fixed top-24 right-4 z-50 max-w-sm w-full"
+        >
+          <div className={cn(
+            "p-4 rounded-lg shadow-lg bg-white border border-amber-200",
+            "bg-gradient-to-r from-amber-50 to-white"
+          )}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0 bg-amber-100 p-2 rounded-full mr-3">
+                <Trophy className="h-6 w-6 text-amber-500" />
               </div>
               
-              <div className="flex items-start relative z-10">
-                <div className="bg-gradient-to-br from-[#ebbd34] to-amber-500 rounded-full p-3 mr-4 flex-shrink-0 shadow-lg ring-2 ring-amber-200 dark:ring-amber-700">
-                  {getAchievementIcon()}
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      Achievement Unlocked!
+                    </p>
+                    <h3 className="text-base font-bold text-amber-600 mt-1">
+                      {lastUnlockedAchievement.name}
+                    </h3>
+                  </div>
+                  
+                  <button
+                    onClick={handleClose}
+                    className="flex-shrink-0 bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <span className="sr-only">Close</span>
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
                 
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-bold text-lg text-amber-700 dark:text-amber-300">Achievement Unlocked!</h3>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-6 w-6 rounded-full hover:bg-amber-300/20" 
-                      onClick={handleClose}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <h4 className="font-semibold text-gray-800 dark:text-amber-100 mt-1">{recentAchievement.name}</h4>
-                  <p className="text-sm text-gray-600 dark:text-amber-200/80 mt-1">{recentAchievement.description}</p>
-                  
-                  {recentAchievement.progress !== undefined && recentAchievement.maxProgress !== undefined && (
-                    <div className="mt-2">
-                      <Progress 
-                        value={100} 
-                        className="h-1.5 bg-amber-100/50 dark:bg-amber-900/50"
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Star className="h-4 w-4 text-amber-500 mr-1" />
-                      <span className="text-sm font-medium text-amber-600 dark:text-amber-300">
-                        +{recentAchievement.points} points
-                      </span>
-                    </div>
-                    
-                    <Link to="/achievements">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-100/50 dark:text-amber-300 dark:hover:bg-amber-800/50"
-                      >
-                        View All
-                      </Button>
-                    </Link>
-                  </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  {lastUnlockedAchievement.description}
+                </p>
+                
+                <div className="mt-2 flex items-center">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    +{lastUnlockedAchievement.points} Points
+                  </span>
                 </div>
               </div>
-              
-              {/* Particle effects */}
-              <motion.div 
-                className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-2 h-2 rounded-full bg-amber-400/30"
-                    initial={{ 
-                      x: '50%', 
-                      y: '60%',
-                      scale: 0 
-                    }}
-                    animate={{ 
-                      x: `${Math.random() * 100}%`, 
-                      y: `${Math.random() * 100}%`,
-                      scale: Math.random() * 1.5
-                    }}
-                    transition={{ 
-                      duration: 2 + Math.random() * 2,
-                      delay: Math.random(),
-                      repeat: Infinity,
-                      repeatType: 'reverse'
-                    }}
-                  />
-                ))}
-              </motion.div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </ComponentErrorBoundary>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
