@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,11 +9,27 @@ import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import LevelProgress from "@/components/gamification/LevelProgress";
+import { useToast } from "@/hooks/use-toast";
 
 const Achievements: React.FC = () => {
-  const { profile, achievements, isLoading } = useGamification();
-  const { profile: userProfile } = useAuth();
+  const { profile, achievements, isLoading, refreshGamificationProfile } = useGamification();
+  const { profile: userProfile, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // Refresh profile on mount
+  useEffect(() => {
+    if (user) {
+      refreshGamificationProfile().catch(err => {
+        console.error("Error refreshing achievements:", err);
+        toast({
+          title: "Couldn't refresh achievements",
+          description: "Please try again later",
+          variant: "destructive",
+        });
+      });
+    }
+  }, [user, refreshGamificationProfile, toast]);
   
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -101,10 +117,14 @@ const Achievements: React.FC = () => {
               </p>
               
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <div className="bg-gradient-to-r from-[#ebbd34] to-amber-500 rounded-xl px-3 py-1 flex items-center shadow-sm">
+                <motion.div 
+                  className="bg-gradient-to-r from-[#ebbd34] to-amber-500 rounded-xl px-3 py-1 flex items-center shadow-sm"
+                  whileHover={{ y: -2 }}
+                  transition={{ type: "spring", stiffness: 700, damping: 15 }}
+                >
                   <Crown className="h-4 w-4 text-white mr-1" />
                   <span className="text-white font-semibold text-sm">Level {profile.level}</span>
-                </div>
+                </motion.div>
                 
                 <Badge variant="outline" className="border-[#ebbd34]/30 text-[#ebbd34] bg-[#ebbd34]/5">
                   <Clock className="h-3 w-3 mr-1" />
@@ -115,22 +135,34 @@ const Achievements: React.FC = () => {
             
             <div className="flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4">
-                <div className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm">
+                <motion.div 
+                  className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm"
+                  whileHover={{ y: -5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                >
                   <p className="text-xs text-gray-600 mb-1">Total Points</p>
                   <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">{profile.points}</p>
-                </div>
+                </motion.div>
                 
-                <div className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm">
+                <motion.div 
+                  className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm"
+                  whileHover={{ y: -5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                >
                   <p className="text-xs text-gray-600 mb-1">Achievements</p>
                   <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">
                     {achievements.filter(a => a.unlocked).length}/{achievements.length}
                   </p>
-                </div>
+                </motion.div>
                 
-                <div className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm">
+                <motion.div 
+                  className="bg-gradient-to-br from-[#ebbd34]/10 to-amber-50 rounded-lg p-3 text-center border border-[#ebbd34]/10 shadow-sm"
+                  whileHover={{ y: -5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                >
                   <p className="text-xs text-gray-600 mb-1">Daily Streak</p>
                   <p className="text-xl md:text-2xl font-bold text-[#ebbd34]">{profile.dailyStreak} days</p>
-                </div>
+                </motion.div>
               </div>
               
               <div className="mt-4">
@@ -156,16 +188,21 @@ const Achievements: React.FC = () => {
                 animate="visible"
                 variants={cardVariants}
                 layout
-                whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                whileHover={{ y: -3, boxShadow: "0 10px 25px -5px rgba(235, 189, 52, 0.1), 0 8px 10px -6px rgba(235, 189, 52, 0.1)" }}
+                transition={{ duration: 0.2 }}
               >
                 <div className="flex items-start">
-                  <div className={`rounded-full p-3 mr-3 flex-shrink-0 ${
-                    achievement.unlocked 
-                      ? 'bg-gradient-to-br from-[#ebbd34] to-amber-500' 
-                      : 'bg-gray-200'
-                  } shadow-sm`}>
+                  <motion.div 
+                    className={`rounded-full p-3 mr-3 flex-shrink-0 ${
+                      achievement.unlocked 
+                        ? 'bg-gradient-to-br from-[#ebbd34] to-amber-500' 
+                        : 'bg-gray-200'
+                    } shadow-sm`}
+                    whileHover={{ rotate: achievement.unlocked ? 10 : 0, scale: achievement.unlocked ? 1.1 : 1 }}
+                    transition={{ type: "spring", stiffness: 700, damping: 15 }}
+                  >
                     {getAchievementIcon(achievement)}
-                  </div>
+                  </motion.div>
                   
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
@@ -212,6 +249,20 @@ const Achievements: React.FC = () => {
                           }
                         />
                       </div>
+                    )}
+                    
+                    {achievement.unlocked && (
+                      <motion.div 
+                        className="mt-2 pt-2 border-t border-[#ebbd34]/10 flex justify-end"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 }}
+                      >
+                        <Badge variant="outline" className="text-xs bg-[#ebbd34]/5 text-[#ebbd34]">
+                          <Trophy className="h-3 w-3 mr-1" />
+                          Unlocked
+                        </Badge>
+                      </motion.div>
                     )}
                   </div>
                 </div>
