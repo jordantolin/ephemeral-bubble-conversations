@@ -38,7 +38,7 @@ export type GamificationProfile = {
   lastActive: string;
 };
 
-export interface GamificationContextType {
+export type GamificationContextType = {
   profile: GamificationProfile;
   achievements: AchievementType[];
   recentAchievement: AchievementType | null;

@@ -78,17 +78,8 @@
   html, body, #root {
     min-height: 100vh;
     background-color: #FEF7E4;
-    color: #333333;
     scroll-behavior: smooth;
     overflow-x: hidden;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    color: #333333;
-  }
-  
-  p {
-    color: #4b5563;
   }
 }
 
@@ -164,75 +155,4 @@ button, a {
 /* Glassmorphism utility */
 .glass {
   @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
-}
-
-/* Achievement Card Styling */
-.achievement-card {
-  @apply relative overflow-hidden bg-white rounded-lg shadow-sm transition-all duration-300 border border-amber-100;
-}
-
-.achievement-card:hover {
-  @apply shadow-md transform -translate-y-1;
-}
-
-.achievement-icon {
-  @apply rounded-full flex items-center justify-center;
-}
-
-.achievement-unlocked .achievement-icon {
-  @apply bg-gradient-to-br from-amber-400 to-amber-500 text-white;
-}
-
-.achievement-locked .achievement-icon {
-  @apply bg-gray-200 text-gray-400;
-}
-
-/* Improved visibility for text */
-.text-contrast {
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.1);
-}
-
-/* Confetti animation */
-@keyframes confetti-slow {
-  0% { transform: translate3d(0, 0, 0) rotateX(0) rotateY(0); }
-  100% { transform: translate3d(25px, 105vh, 0) rotateX(360deg) rotateY(180deg); }
-}
-
-@keyframes confetti-medium {
-  0% { transform: translate3d(0, 0, 0) rotateX(0) rotateY(0); }
-  100% { transform: translate3d(100px, 105vh, 0) rotateX(100deg) rotateY(360deg); }
-}
-
-@keyframes confetti-fast {
-  0% { transform: translate3d(0, 0, 0) rotateX(0) rotateY(0); }
-  100% { transform: translate3d(-50px, 105vh, 0) rotateX(10deg) rotateY(250deg); }
-}
-
-.confetti-container {
-  perspective: 700px;
-  position: absolute;
-  overflow: hidden;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-}
-
-.confetti {
-  position: absolute;
-  z-index: 1;
-  top: -10px;
-  border-radius: 0%;
-}
-
-.confetti--animation-slow {
-  animation: confetti-slow 2.5s linear 1 forwards;
-}
-
-.confetti--animation-medium {
-  animation: confetti-medium 2s linear 1 forwards;
-}
-
-.confetti--animation-fast {
-  animation: confetti-fast 1.5s linear 1 forwards;
 }

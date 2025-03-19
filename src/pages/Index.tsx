@@ -12,9 +12,6 @@ import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
-import { useNetworkReconnection } from "@/hooks/useNetworkReconnection";
-import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 
 const Index = () => {
   const location = useLocation();
@@ -22,12 +19,6 @@ const Index = () => {
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
-  const { isReconnecting } = useNetworkReconnection();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  // Add state to track manual refresh attempts
-  const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   
   const {
     searchQuery,
@@ -41,6 +32,7 @@ const Index = () => {
     messagesError,
     chatOpen,
     setChatOpen,
+    isReconnecting,
     filteredBubbles,
     isLoadingBubbles,
     bubblesError,
@@ -56,48 +48,41 @@ const Index = () => {
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
-  };
-
-  // Manual refresh function for error cases
-  const handleManualRefresh = () => {
-    setIsManuallyRefreshing(true);
-    // Force refetch bubbles data
-    queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-    // After 2 seconds, reset the manual refreshing state
-    setTimeout(() => {
-      setIsManuallyRefreshing(false);
-    }, 2000);
-
-    // Show toast notification
-    toast({
-      title: "Refreshing Bubbles",
-      description: "Fetching the latest bubbles from the server...",
-    });
+    
+    // We'll check the achievement when the bubble is actually created
+    // in the CreateBubbleDialog component
   };
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
-    try {
-      await handleReflect(bubbleId);
+    await handleReflect(bubbleId);
+    
+    if (user) {
+      // Add points for the reflection
+      await addPoints(10, 'reflection');
       
-      if (user) {
-        // Add points for the reflection
-        await addPoints(10, 'reflection');
-        
-        // Increment progress for the reflection master achievement
-        await checkAchievement('reflection-master');
-        
-        // Refresh gamification profile to ensure all achievements are up to date
-        await refreshGamificationProfile();
-      }
-    } catch (error) {
-      console.error("Error in reflection with gamification:", error);
-      toast({
-        title: "Problem with reflection",
-        description: "Your reflection was processed but points may not have been awarded.",
-        variant: "destructive"
-      });
+      // Increment progress for the reflection master achievement
+      await incrementAchievementProgress('reflection-master');
+      
+      // Refresh gamification profile to ensure all achievements are up to date
+      await refreshGamificationProfile();
     }
+  };
+  
+  // Handle sending messages with gamification
+  const handleSendMessage = async () => {
+    if (user) {
+      // Add points for sending a message
+      await addPoints(5, 'message');
+      
+      // Increment progress for the social butterfly achievement
+      await incrementAchievementProgress('social-butterfly');
+    }
+  };
+  
+  // Increment achievement progress
+  const incrementAchievementProgress = async (achievementId: string) => {
+    await checkAchievement(achievementId);
   };
   
   // Check URL params for bubble to open
@@ -121,33 +106,9 @@ const Index = () => {
   // Refresh gamification profile when the component mounts
   useEffect(() => {
     if (user) {
-      refreshGamificationProfile().catch(err => {
-        console.error("Error refreshing gamification profile:", err);
-        // Don't show this error to the user since it's not critical
-      });
+      refreshGamificationProfile();
     }
-  }, [user, refreshGamificationProfile]);
-
-  // If we detect a reconnection, refresh the bubbles data
-  useEffect(() => {
-    if (isReconnecting === false) {
-      // Only refresh when transitioning from reconnecting to connected
-      queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-      
-      // Show toast notification
-      toast({
-        title: "Connection Restored",
-        description: "Your connection has been restored. Data is being refreshed.",
-      });
-    } else if (isReconnecting === true) {
-      // Let the user know we're working on reconnecting
-      toast({
-        title: "Connection Lost",
-        description: "Trying to reconnect. Please wait...",
-        variant: "destructive",
-      });
-    }
-  }, [isReconnecting, queryClient, toast]);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
@@ -163,20 +124,15 @@ const Index = () => {
       <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
-          <BubbleWorldHeader 
-            onCreateBubble={handleCreateBubble} 
-            onRefresh={handleManualRefresh}
-            isRefreshing={isManuallyRefreshing}
-          />
+          <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
           
           <BubbleWorldContent
-            isLoadingBubbles={isLoadingBubbles || isManuallyRefreshing}
+            isLoadingBubbles={isLoadingBubbles}
             bubblesError={bubblesError}
             filteredBubbles={filteredBubbles}
             bubbleDataForComponent={bubbleDataForComponent}
             onBubbleClick={handleBubbleClick}
             onCreateBubble={handleCreateBubble}
-            isReconnecting={isReconnecting}
           />
         </div>
       </div>

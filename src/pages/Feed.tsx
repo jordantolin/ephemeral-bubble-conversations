@@ -1,129 +1,327 @@
-
-import React, { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useNetwork } from "@/context/NetworkContext";
-import useBubbleData from "@/hooks/useBubbleData";
-import { createBubbleHelpers } from "@/utils/feedHelpers";
-import BubbleWorld from "@/components/BubbleWorld";
-import NavigationBar from "@/components/bubbleWorld/NavigationBar";
-import BubbleChat from "@/components/bubbleWorld/BubbleChat";
-import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { BubbleData } from "@/types/bubble";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const Feed: React.FC = () => {
-  const { user } = useAuth();
-  const { isOnline } = useNetwork();
+// Custom components
+import Navbar from "@/components/bubbleWorld/NavigationBar";
+import BubbleCarousel from "@/components/feed/BubbleCarousel";
+
+// Utility functions
+import { 
+  formatMessageTime, 
+  formatDate, 
+  getMessagePreview, 
+  getUserColor, 
+  isBubbleExpired 
+} from "@/utils/feedHelpers";
+
+const Feed = () => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
-  const [createBubbleOpen, setCreateBubbleOpen] = useState(false);
+  const { user, profile } = useAuth();
   
-  const {
-    bubbleDataForComponent,
-    selectedBubbleId,
-    setSelectedBubbleId,
-    chatOpen,
-    setChatOpen,
-    handleReflect,
-    isLoadingBubbles,
-    searchQuery,
-    setSearchQuery,
-    isReconnecting
-  } = useBubbleData();
+  // Log to help with debugging
+  console.log("Feed component rendering");
   
-  const { selectBubble } = createBubbleHelpers({
-    setSelectedBubbleId,
-    setChatOpen
+  const { data: bubbles = [], isLoading } = useQuery({
+    queryKey: ['bubbles', 'top-reflected'],
+    queryFn: async () => {
+      console.log("Fetching bubbles data for feed");
+      
+      // Calculate the cutoff date (24 hours after expiration)
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - 48); // Current time minus 48 hours (24h bubble lifetime + 24h showing expired)
+      
+      // Query for bubbles that aren't more than 24 hours past expiration
+      const { data, error } = await supabase
+        .from('bubbles')
+        .select('*')
+        .gte('expires_at', cutoffDate.toISOString()) // Only show bubbles that expired less than 24h ago or not expired yet
+        .order('reflect_count', { ascending: false })
+        .limit(20);
+      
+      if (error) {
+        console.error("Error fetching bubbles:", error);
+        throw error;
+      }
+      
+      console.log("Bubbles data received for feed:", data?.length || 0);
+      return data.map(bubble => ({
+        ...bubble,
+        size: bubble.size as "sm" | "md" | "lg"
+      })) as BubbleData[];
+    },
+    refetchInterval: 5000 // Refetch every 5 seconds for real-time updates
   });
 
-  // Notify user when they're offline
-  useEffect(() => {
-    if (!isOnline) {
+  // Fetch recent messages for each bubble to show previews
+  const { data: bubbleMessages = {}, isLoading: messagesLoading } = useQuery({
+    queryKey: ['bubble-preview-messages'],
+    queryFn: async () => {
+      if (bubbles.length === 0) return {};
+      
+      const bubbleIds = bubbles.map(bubble => bubble.id);
+      
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('*')
+        .in('bubble_id', bubbleIds)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Group messages by bubble_id
+      const messagesByBubble: Record<string, any[]> = {};
+      data.forEach(message => {
+        if (!messagesByBubble[message.bubble_id]) {
+          messagesByBubble[message.bubble_id] = [];
+        }
+        // Keep up to 5 most recent messages per bubble
+        if (messagesByBubble[message.bubble_id].length < 5) {
+          messagesByBubble[message.bubble_id].push(message);
+        }
+      });
+      
+      return messagesByBubble;
+    },
+    enabled: bubbles.length > 0,
+    refetchInterval: 3000 // Refetch chat messages more frequently
+  });
+
+  // Fetch participant count for each bubble
+  const { data: bubbleParticipants = {} } = useQuery({
+    queryKey: ['bubble-participants'],
+    queryFn: async () => {
+      if (bubbles.length === 0) return {};
+      
+      const bubbleIds = bubbles.map(bubble => bubble.id);
+      
+      // Get unique usernames for each bubble
+      const { data, error } = await supabase
+        .from('bubble_messages')
+        .select('bubble_id, username')
+        .in('bubble_id', bubbleIds);
+      
+      if (error) throw error;
+      
+      // Count unique usernames per bubble
+      const participantsByBubble: Record<string, Set<string>> = {};
+      data.forEach(message => {
+        if (!participantsByBubble[message.bubble_id]) {
+          participantsByBubble[message.bubble_id] = new Set();
+        }
+        participantsByBubble[message.bubble_id].add(message.username);
+      });
+      
+      // Convert Sets to counts
+      const countsByBubble: Record<string, number> = {};
+      Object.entries(participantsByBubble).forEach(([bubbleId, participants]) => {
+        countsByBubble[bubbleId] = participants.size;
+      });
+      
+      return countsByBubble;
+    },
+    enabled: bubbles.length > 0,
+    refetchInterval: 5000 // Refetch participant counts for real-time updates
+  });
+
+  // Filter bubbles based on search and ensure proper handling of expired bubbles
+  const filteredBubbles = searchQuery.trim() 
+    ? bubbles.filter(bubble => 
+        bubble.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bubble.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (bubble.description && bubble.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : bubbles;
+    
+  // Function to check if a bubble is expired but should still be shown (within 24h after expiration)
+  const shouldShowExpiredBubble = (bubble: BubbleData) => {
+    try {
+      if (!bubble.expires_at) return false;
+      
+      const expiryTime = new Date(bubble.expires_at);
+      const now = new Date();
+      
+      // If bubble is not expired, show it
+      if (expiryTime > now) return true;
+      
+      // If bubble is expired, check if it's within 24h after expiration
+      const cutoffTime = new Date(expiryTime);
+      cutoffTime.setHours(cutoffTime.getHours() + 24);
+      
+      return now < cutoffTime;
+    } catch (e) {
+      console.error("Error checking bubble visibility:", e);
+      return false;
+    }
+  };
+
+  // Filter out bubbles that shouldn't be shown anymore
+  const visibleBubbles = filteredBubbles.filter(bubble => shouldShowExpiredBubble(bubble));
+
+  // Handle reflecting a bubble
+  const handleReflect = async (bubbleId: string, event: React.MouseEvent) => {
+    event.preventDefault(); // Prevent navigation
+    event.stopPropagation(); // Prevent event bubbling
+    
+    if (!user) {
       toast({
-        title: "You're offline",
-        description: "Some features may be limited until you reconnect",
+        title: "Please sign in",
+        description: "You need to be signed in to reflect bubbles",
         variant: "destructive"
       });
+      return;
     }
-  }, [isOnline, toast]);
 
-  // Render a loading state while bubbles are being fetched
-  if (isLoadingBubbles) {
-    return (
-      <div className="min-h-screen bg-[#FEF7E4]">
-        <NavigationBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-        <div className="pt-24 pb-16 px-4 container mx-auto max-w-7xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#333]">Loading Bubble Feed</h1>
-            <p className="text-gray-600 mt-2">Please wait while we load the latest bubbles...</p>
-          </div>
-          <div className="flex flex-col gap-4">
-            <Skeleton className="h-[300px] w-full rounded-lg" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-[150px] rounded-lg" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    const username = profile?.username || user?.email || "";
+    
+    // Add a quick visual feedback before the API call
+    const button = event.currentTarget as HTMLButtonElement;
+    const originalText = button.innerHTML;
+    button.innerHTML = `<div class="animate-pulse">Reflecting...</div>`;
+    
+    try {
+      const { error } = await supabase
+        .from('reflects')
+        .insert({ 
+          bubble_id: bubbleId,
+          username
+        });
+
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Already reflected",
+            description: "You have already reflected this bubble",
+          });
+        } else {
+          toast({
+            title: "Error reflecting bubble",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+        return;
+      }
+
+      toast({
+        title: "Bubble reflected!",
+        description: "This bubble will appear in your My Bubbles page",
+      });
+    } catch (error) {
+      toast({
+        title: "Error reflecting bubble",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      button.innerHTML = originalText;
+    }
+  };
+
+  // Add global style to ensure page has the correct background
+  useEffect(() => {
+    // Create a style element
+    const styleElement = document.createElement('style');
+    
+    // Set its content to include our global styles
+    styleElement.textContent = `
+      body {
+        background-color: #FEF7E4;
+        margin: 0;
+        padding: 0;
+      }
+      
+      #root {
+        background-color: #FEF7E4;
+        min-height: 100vh;
+        width: 100%;
+      }
+      
+      * {
+        -webkit-transform-style: preserve-3d;
+        transform-style: preserve-3d;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+      
+      @keyframes pulse-glow {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+      
+      .bg-glow {
+        animation: pulse-glow 3s infinite ease-in-out;
+      }
+    `;
+    
+    // Add it to the document head
+    document.head.appendChild(styleElement);
+    
+    // Clean up function
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#FEF7E4]">
-      <NavigationBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+    <div className="min-h-screen bg-[#FEF7E4] w-full">
+      {/* Header */}
+      <Navbar 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
       
-      <div className="pt-24 pb-16 container mx-auto max-w-7xl">
-        <div className="relative h-[500px] sm:h-[600px] md:h-[700px] rounded-xl overflow-hidden bg-white/40 backdrop-blur-sm border border-amber-100/40 shadow-sm">
-          {bubbleDataForComponent.length === 0 && !isLoadingBubbles ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">No Bubbles Found</h2>
-              <p className="text-gray-600 mb-6">Create a new bubble or try a different search term.</p>
-              <Button 
-                onClick={() => setCreateBubbleOpen(true)}
-                className="bg-[#ebbd34] hover:bg-amber-500 text-white font-semibold"
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                Create a New Bubble
-              </Button>
-            </div>
-          ) : (
-            <BubbleWorld 
-              bubbles={bubbleDataForComponent}
-              onBubbleClick={selectBubble}
-              onBubbleReflect={handleReflect}
-              isReconnecting={isReconnecting}
-            />
-          )}
+      <main className="container mx-auto px-4 pt-28 sm:pt-24 pb-8 bg-[#FEF7E4]">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-light text-[#ebbd34] mb-2">
+            Top Bubbles
+          </h1>
+          <div className="h-px w-24 bg-[#ebbd34]/20 mx-auto" />
         </div>
-        
-        {user && (
-          <div className="mt-6 flex justify-center">
-            <Button 
-              onClick={() => setCreateBubbleOpen(true)}
-              className="bg-[#ebbd34] hover:bg-amber-500 text-white font-semibold"
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Create a New Bubble
-            </Button>
+
+        {/* Display message if no bubbles are available */}
+        {!isLoading && visibleBubbles.length === 0 && (
+          <div className="text-center py-16 bg-white/60 rounded-3xl shadow-sm backdrop-blur-sm">
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-[#ebbd34]/10">
+              <Sparkles className="w-8 h-8 text-[#ebbd34]" />
+            </div>
+            <h3 className="text-lg font-medium text-[#ebbd34]">No bubbles found</h3>
+            <p className="text-gray-500 mt-2">
+              {searchQuery ? "Try a different search term" : "Create a new bubble to get started!"}
+            </p>
+            <Link to="/">
+              <Button className="mt-4 bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white">
+                Create a Bubble
+              </Button>
+            </Link>
           </div>
         )}
-      </div>
-      
-      {selectedBubbleId && (
-        <BubbleChat
-          bubbleId={selectedBubbleId}
-          isOpen={chatOpen}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
-      
-      <CreateBubbleDialog
-        isOpen={createBubbleOpen}
-        onClose={() => setCreateBubbleOpen(false)}
-      />
+
+        {/* TikTok-Style Vertical Scrolling Bubbles Container */}
+        {visibleBubbles.length > 0 && (
+          <BubbleCarousel 
+            bubbles={visibleBubbles}
+            isLoading={isLoading}
+            bubbleMessages={bubbleMessages}
+            bubbleParticipants={bubbleParticipants}
+            messagesLoading={messagesLoading}
+            handleReflect={handleReflect}
+            formatDate={formatDate}
+            getUserColor={getUserColor}
+            formatMessageTime={formatMessageTime}
+            getMessagePreview={getMessagePreview}
+            isBubbleExpired={isBubbleExpired}
+          />
+        )}
+      </main>
     </div>
   );
 };
