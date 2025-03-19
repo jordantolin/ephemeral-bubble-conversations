@@ -1,0 +1,23 @@
+# GitHub Integration Rules for Ephemeral Bubble Conversations
+
+## Project Context
+- **Description**: This project is an ephemeral bubble conversations application.
+- **Structure**: Follow the existing architecture patterns when generating new code.
+
+## Code Generation Rules
+- Generate code that follows the existing style and patterns in the project
+- Prefer functional components for React
+- Follow clean code principles with proper comments
+- Ensure proper error handling in all async operations
+
+## GitHub Workflow
+- **Commit Messages**: Use conventional commit format (feat, fix, docs, style, refactor, test, chore)
+- **PR Format**: Include detailed description of changes and reference related issues
+
+## Testing Guidelines
+- Write unit tests for all new functionality
+- Ensure tests are meaningful and not just for coverage
+
+## Documentation
+- Update documentation when changing APIs or adding features
+- Include JSDoc comments for functions and components
