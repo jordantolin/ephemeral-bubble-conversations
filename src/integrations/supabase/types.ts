@@ -9,265 +9,197 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      bubble_messages: {
+      achievements: {
         Row: {
-          bubble_id: string | null
-          content: string
-          created_at: string
+          created_at: string | null
+          description: string
+          icon: string | null
           id: string
-          username: string
+          name: string
+          points: number
         }
         Insert: {
-          bubble_id?: string | null
-          content: string
-          created_at?: string
+          created_at?: string | null
+          description: string
+          icon?: string | null
           id?: string
-          username: string
+          name: string
+          points: number
         }
         Update: {
-          bubble_id?: string | null
-          content?: string
-          created_at?: string
+          created_at?: string | null
+          description?: string
+          icon?: string | null
           id?: string
-          username?: string
+          name?: string
+          points?: number
+        }
+        Relationships: []
+      }
+      likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "bubble_messages_bubble_id_fkey"
-            columns: ["bubble_id"]
+            foreignKeyName: "likes_post_id_fkey"
+            columns: ["post_id"]
             isOneToOne: false
-            referencedRelation: "bubbles"
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      bubbles: {
+      posts: {
         Row: {
-          created_at: string
-          description: string | null
-          expires_at: string | null
-          id: string
-          name: string
-          reflect_count: number | null
-          size: string
-          topic: string
-          username: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          expires_at?: string | null
-          id?: string
-          name: string
-          reflect_count?: number | null
-          size: string
-          topic: string
-          username: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          expires_at?: string | null
-          id?: string
-          name?: string
-          reflect_count?: number | null
-          size?: string
-          topic?: string
-          username?: string
-        }
-        Relationships: []
-      }
-      gamification_profiles: {
-        Row: {
-          achievements: Json
-          bubble_points: number
+          comments_count: number | null
+          content: string
           created_at: string | null
-          daily_streak: number
           id: string
-          last_active: string | null
-          level: number
-          message_points: number
-          points: number
-          reflection_points: number
+          likes_count: number | null
+          shares_count: number | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
-          achievements?: Json
-          bubble_points?: number
+          comments_count?: number | null
+          content: string
           created_at?: string | null
-          daily_streak?: number
           id?: string
-          last_active?: string | null
-          level?: number
-          message_points?: number
-          points?: number
-          reflection_points?: number
+          likes_count?: number | null
+          shares_count?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
-          achievements?: Json
-          bubble_points?: number
+          comments_count?: number | null
+          content?: string
           created_at?: string | null
-          daily_streak?: number
           id?: string
-          last_active?: string | null
-          level?: number
-          message_points?: number
-          points?: number
-          reflection_points?: number
+          likes_count?: number | null
+          shares_count?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
-      }
-      messages: {
-        Row: {
-          created_at: string
-          email: string
-          id: number
-          message: string
-          name: string
-        }
-        Insert: {
-          created_at: string
-          email: string
-          id?: number
-          message: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: number
-          message?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      notifications: {
-        Row: {
-          created_at: string
-          icon_type: string | null
-          id: string
-          message: string
-          points: number | null
-          read: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          icon_type?: string | null
-          id?: string
-          message: string
-          points?: number | null
-          read?: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          icon_type?: string | null
-          id?: string
-          message?: string
-          points?: number | null
-          read?: boolean
-          title?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           avatar_url: string | null
-          created_at: string
-          display_name: string | null
+          created_at: string | null
+          daily_streak: number | null
+          experience: number | null
           id: string
+          last_streak_date: string | null
+          level: number | null
+          total_points: number | null
           updated_at: string | null
           username: string
         }
         Insert: {
           avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
+          created_at?: string | null
+          daily_streak?: number | null
+          experience?: number | null
           id: string
+          last_streak_date?: string | null
+          level?: number | null
+          total_points?: number | null
           updated_at?: string | null
           username: string
         }
         Update: {
           avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
+          created_at?: string | null
+          daily_streak?: number | null
+          experience?: number | null
           id?: string
+          last_streak_date?: string | null
+          level?: number | null
+          total_points?: number | null
           updated_at?: string | null
           username?: string
         }
         Relationships: []
       }
-      reflects: {
+      user_achievements: {
         Row: {
-          bubble_id: string
-          created_at: string
+          achievement_id: string | null
+          completed_at: string | null
           id: string
-          username: string
+          user_id: string | null
         }
         Insert: {
-          bubble_id: string
-          created_at?: string
+          achievement_id?: string | null
+          completed_at?: string | null
           id?: string
-          username: string
+          user_id?: string | null
         }
         Update: {
-          bubble_id?: string
-          created_at?: string
+          achievement_id?: string | null
+          completed_at?: string | null
           id?: string
-          username?: string
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "reflects_bubble_id_fkey"
-            columns: ["bubble_id"]
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
             isOneToOne: false
-            referencedRelation: "bubbles"
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
-      }
-      waitlist: {
-        Row: {
-          created_at: string
-          email: string
-          id: number
-          name: string
-          reason: string | null
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: number
-          name: string
-          reason?: string | null
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: number
-          name?: string
-          reason?: string | null
-        }
-        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      toggle_post_like: {
+        Args: {
+          post_id: string
+          user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

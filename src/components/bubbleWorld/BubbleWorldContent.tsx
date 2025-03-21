@@ -131,7 +131,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
       {renderGamificationStatus()}
       <BubbleWorld 
-        topics={bubbleDataForComponent}
+        bubbles={bubbleDataForComponent}
         onBubbleClick={onBubbleClick}
       />
     </div>
