@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";

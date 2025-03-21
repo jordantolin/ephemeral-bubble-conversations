@@ -4,6 +4,7 @@ import { useLoginStreak } from "@/hooks/useLoginStreak";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { BubbleMessage, Reflect, Bubble } from "@/types/bubble";
 
 // This component should be included in a main layout component 
 // to track achievements without adding any visual elements

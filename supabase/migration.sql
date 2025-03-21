@@ -1,5 +1,4 @@
 
-
 -- Create a bucket for bubble assets
 CREATE BUCKET IF NOT EXISTS bubble_assets;
 
@@ -39,3 +38,25 @@ ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'avatars');
 
+-- Add bubble assets policies
+CREATE POLICY "Public Read Access for Bubble Assets"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'bubble_assets');
+
+-- Policy for authenticated users to upload bubble assets
+CREATE POLICY "Authenticated Users Can Upload Bubble Assets"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'bubble_assets');
+
+-- Policy for users to update their own bubble assets
+CREATE POLICY "Users Can Update Their Own Bubble Assets"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'bubble_assets');
+
+-- Policy for users to delete their own bubble assets
+CREATE POLICY "Users Can Delete Their Own Bubble Assets"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'bubble_assets');

@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useGamification } from "@/context/GamificationContext";
+import { Bubble } from "@/types/bubble";
 
 // Form schema for bubble creation
 const BubbleSchema = z.object({

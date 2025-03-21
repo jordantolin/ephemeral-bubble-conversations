@@ -36,6 +36,119 @@ export type Database = {
         }
         Relationships: []
       }
+      bubble_messages: {
+        Row: {
+          bubble_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          username: string
+        }
+        Insert: {
+          bubble_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          username: string
+        }
+        Update: {
+          bubble_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bubble_messages_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bubbles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          expires_at: string
+          id: string
+          name: string
+          reflect_count: number | null
+          size: string
+          topic: string
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          expires_at: string
+          id?: string
+          name: string
+          reflect_count?: number | null
+          size: string
+          topic: string
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string
+          id?: string
+          name?: string
+          reflect_count?: number | null
+          size?: string
+          topic?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      gamification_profiles: {
+        Row: {
+          achievements: Json
+          bubble_points: number
+          created_at: string | null
+          daily_streak: number
+          id: string
+          last_active: string | null
+          level: number
+          message_points: number
+          points: number
+          reflection_points: number
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          achievements?: Json
+          bubble_points?: number
+          created_at?: string | null
+          daily_streak?: number
+          id?: string
+          last_active?: string | null
+          level?: number
+          message_points?: number
+          points?: number
+          reflection_points?: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          achievements?: Json
+          bubble_points?: number
+          created_at?: string | null
+          daily_streak?: number
+          id?: string
+          last_active?: string | null
+          level?: number
+          message_points?: number
+          points?: number
+          reflection_points?: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string | null
@@ -152,6 +265,35 @@ export type Database = {
         }
         Relationships: []
       }
+      reflects: {
+        Row: {
+          bubble_id: string | null
+          created_at: string | null
+          id: string
+          username: string
+        }
+        Insert: {
+          bubble_id?: string | null
+          created_at?: string | null
+          id?: string
+          username: string
+        }
+        Update: {
+          bubble_id?: string | null
+          created_at?: string | null
+          id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reflects_bubble_id_fkey"
+            columns: ["bubble_id"]
+            isOneToOne: false
+            referencedRelation: "bubbles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_achievements: {
         Row: {
           achievement_id: string | null
@@ -193,6 +335,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      increment_reflect_count: {
+        Args: {
+          bubble_id: string
+        }
+        Returns: undefined
+      }
       toggle_post_like: {
         Args: {
           post_id: string
