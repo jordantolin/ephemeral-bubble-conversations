@@ -54,11 +54,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
         >
           <Bubble
             id={bubble.id}
-            topic={bubble.topic}
-            username={bubble.username}
-            name={bubble.name}
-            size={bubble.size}
-            reflectCount={bubble.reflect_count}
+            title={bubble.topic}
+            description={bubble.description || ''}
+            timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
+            participants={0}
+            reflects={bubble.reflect_count}
             isExploding={explodingBubble === bubble.id}
             onClick={() => handleClick(bubble.id)}
           />
