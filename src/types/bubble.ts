@@ -14,14 +14,13 @@ export interface BubbleData {
 
 export interface BubbleProps {
   id: string;
-  topic: string;
-  username: string;
-  name: string;
-  size: "sm" | "md" | "lg";
-  reflectCount: number;
+  title: string;
+  description: string;
+  timeLeft: string;
+  participants: number;
+  reflects: number;
   isExploding?: boolean;
-  onClick: () => void;
-  onReflect?: (e: React.MouseEvent) => void;
+  onClick?: () => void;
 }
 
 export interface BubbleWorldProps {
