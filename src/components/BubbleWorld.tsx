@@ -54,7 +54,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
         >
           <Bubble
             id={bubble.id}
-            title={bubble.topic}
+            title={bubble.topic} // Use topic from bubble data as title
             description={bubble.description || ''}
             timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
             participants={0}
