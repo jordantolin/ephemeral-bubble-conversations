@@ -1,14 +1,14 @@
 
 import * as React from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Profile } from '@/types/profile';
 
 // Define the User type
 type User = {
   id: string;
   email: string;
 };
+
+// Define the Profile type
+import { Profile } from '@/types/profile';
 
 // Define the Auth context type
 type AuthContextType = {
@@ -25,16 +25,19 @@ type AuthContextType = {
   resendVerificationEmail: (email: string) => Promise<{ error: any } | undefined>;
 };
 
+// Import Supabase client
+import { supabase } from '@/integrations/supabase/client';
+
 // Create the Auth context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 // Create the Auth provider component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // State for user, profile, loading state, and reset state
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [resetEmail, setResetEmail] = useState<string | null>(null);
+  const [user, setUser] = React.useState<User | null>(null);
+  const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const [resetEmail, setResetEmail] = React.useState<string | null>(null);
 
   // Function to fetch user profile
   const fetchProfile = async (userId: string) => {
@@ -64,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Effect to listen for auth state changes
-  useEffect(() => {
+  React.useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session && session.user) {
@@ -242,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 // Custom hook to use the Auth context
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context = React.useContext(AuthContext);
   
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
