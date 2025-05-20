@@ -69,7 +69,7 @@ export const useAuthOperations = () => {
     }
   };
 
-  // Function to sign out user
+  // Function to sign out user - fixed to return Promise<void>
   const signOut = async (): Promise<void> => {
     try {
       const { error } = await supabase.auth.signOut();

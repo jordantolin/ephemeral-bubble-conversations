@@ -29,7 +29,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Handle case where bubbles is undefined
+  // Handle case where bubbles is undefined or empty
   const validBubbles = Array.isArray(bubbles) ? bubbles : [];
   
   // Debug output to help troubleshoot
@@ -47,6 +47,15 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
     }, 500);
   };
 
+  // If no valid bubbles, render placeholder content
+  if (validBubbles.length === 0) {
+    return (
+      <div className="w-full h-full flex justify-center items-center">
+        <p className="text-gray-500">No bubbles available to display</p>
+      </div>
+    );
+  }
+
   return (
     <motion.div 
       className="w-full h-full flex flex-wrap justify-center items-center gap-4 p-4 overflow-hidden"
@@ -62,11 +71,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
         >
           <Bubble
             id={bubble.id}
-            title={bubble.topic || 'Untitled'} // Add fallback
-            description={bubble.description || ''}
+            title={bubble.topic || 'Untitled'} // Add fallback for topic
+            description={bubble.description || ''} // Add fallback for description
             timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
             participants={0}
-            reflects={bubble.reflect_count || 0} // Add fallback
+            reflects={bubble.reflect_count || 0} // Add fallback for reflect_count
             isExploding={explodingBubble === bubble.id}
             onClick={() => handleClick(bubble.id)}
           />

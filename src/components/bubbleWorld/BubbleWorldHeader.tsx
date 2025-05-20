@@ -1,44 +1,75 @@
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { connectionUtils } from "@/integrations/supabase/client";
 
 interface BubbleWorldHeaderProps {
   onCreateBubble: () => void;
-  showDescription?: boolean;
-  showCreateButton?: boolean;
-  title?: string;
 }
 
-const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ 
-  onCreateBubble, 
-  showDescription = true,
-  showCreateButton = true,
-  title = "Bubble World"
-}) => {
+const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const handleCreateClick = async () => {
+    if (connectionUtils.isOffline()) {
+      toast({
+        title: "You're offline",
+        description: "Please check your internet connection and try again",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to create a bubble",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await connectionUtils.retryOperation(async () => {
+        onCreateBubble();
+      });
+    } catch (error) {
+      toast({
+        title: "Connection issue",
+        description: "Unable to create a bubble. Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
-    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-      <div className="text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#ebbd34] tracking-tight mb-2">
-          <span>{title}</span>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#ebbd34]">
+          Bubble World
         </h1>
-        {showDescription && (
-          <p className="text-[#ebbd34]/80 text-lg max-w-xl">
-            Explore ephemeral bubbles that last for just 24 hours. Join conversations and reflect on ideas before they disappear!
-          </p>
-        )}
+        <p className="text-gray-600 mt-1">
+          Join conversations that only last 24 hours
+        </p>
       </div>
-      
-      {showCreateButton && (
-        <Button
-          onClick={onCreateBubble}
-          className="bg-[#ebbd34] hover:bg-[#ebbd34]/80 text-white shadow-md transform hover:scale-105 transition-all duration-200"
-          size="lg"
+
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <Button 
+          onClick={handleCreateClick}
+          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
         >
-          <Plus className="mr-2 h-5 w-5" />
-          New 24h Bubble
+          <Sparkles className="h-4 w-4 mr-2" />
+          Create New Bubble
         </Button>
-      )}
+      </motion.div>
     </div>
   );
 };
