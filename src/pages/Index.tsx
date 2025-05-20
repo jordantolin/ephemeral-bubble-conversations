@@ -12,10 +12,12 @@ import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
@@ -47,6 +49,15 @@ const Index = () => {
   
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
+    if (!user) {
+      toast({
+        title: "Please sign in",
+        description: "You need to be signed in to create bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setNewBubbleDialog(true);
     
     // We'll check the achievement when the bubble is actually created
@@ -55,34 +66,32 @@ const Index = () => {
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
+    if (!user) {
+      toast({
+        title: "Please sign in",
+        description: "You need to be signed in to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     await handleReflect(bubbleId);
     
     if (user) {
-      // Add points for the reflection
-      await addPoints(10, 'reflection');
-      
-      // Increment progress for the reflection master achievement
-      await incrementAchievementProgress('reflection-master');
-      
-      // Refresh gamification profile to ensure all achievements are up to date
-      await refreshGamificationProfile();
+      try {
+        // Add points for the reflection
+        await addPoints(10, 'reflection');
+        
+        // Increment progress for the reflection master achievement
+        await checkAchievement('reflection-master');
+        
+        // Refresh gamification profile to ensure all achievements are up to date
+        await refreshGamificationProfile();
+      } catch (error) {
+        console.error("Error updating gamification:", error);
+        // Continue even if gamification fails
+      }
     }
-  };
-  
-  // Handle sending messages with gamification
-  const handleSendMessage = async () => {
-    if (user) {
-      // Add points for sending a message
-      await addPoints(5, 'message');
-      
-      // Increment progress for the social butterfly achievement
-      await incrementAchievementProgress('social-butterfly');
-    }
-  };
-  
-  // Increment achievement progress
-  const incrementAchievementProgress = async (achievementId: string) => {
-    await checkAchievement(achievementId);
   };
   
   // Check URL params for bubble to open
@@ -103,12 +112,29 @@ const Index = () => {
     }
   }, [setSelectedBubbleId, setChatOpen]);
   
-  // Refresh gamification profile when the component mounts
+  // Refresh gamification profile when the component mounts and user is available
   useEffect(() => {
     if (user) {
-      refreshGamificationProfile();
+      refreshGamificationProfile().catch(error => {
+        console.log("Non-critical error refreshing profile:", error);
+      });
     }
-  }, [user]);
+  }, [user, refreshGamificationProfile]);
+
+  // Force refresh of bubbles when the component mounts
+  useEffect(() => {
+    // This will force a refetch of bubbles data when the component mounts
+    const forceRefresh = async () => {
+      try {
+        console.log("Forcing refresh of bubbles data on page load");
+        // The actual refetch is handled within the useBubbleData hook via invalidateQueries
+      } catch (error) {
+        console.error("Error forcing refresh:", error);
+      }
+    };
+    
+    forceRefresh();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">

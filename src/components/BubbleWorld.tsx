@@ -29,6 +29,14 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Handle case where bubbles is undefined
+  const validBubbles = Array.isArray(bubbles) ? bubbles : [];
+  
+  // Debug output to help troubleshoot
+  useEffect(() => {
+    console.log('BubbleWorld component received bubbles:', validBubbles.length);
+  }, [validBubbles]);
+
   const handleClick = (id: string) => {
     setExplodingBubble(id);
     
@@ -41,12 +49,12 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
 
   return (
     <motion.div 
-      className="w-full h-full flex flex-wrap justify-center items-center gap-4 p-4"
+      className="w-full h-full flex flex-wrap justify-center items-center gap-4 p-4 overflow-hidden"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {bubbles.map((bubble) => (
+      {validBubbles.map((bubble) => (
         <motion.div
           key={bubble.id}
           className="flex flex-col items-center mx-2 my-2"
@@ -54,11 +62,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
         >
           <Bubble
             id={bubble.id}
-            title={bubble.topic} // Use topic from bubble data as title
+            title={bubble.topic || 'Untitled'} // Add fallback
             description={bubble.description || ''}
             timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
             participants={0}
-            reflects={bubble.reflect_count}
+            reflects={bubble.reflect_count || 0} // Add fallback
             isExploding={explodingBubble === bubble.id}
             onClick={() => handleClick(bubble.id)}
           />

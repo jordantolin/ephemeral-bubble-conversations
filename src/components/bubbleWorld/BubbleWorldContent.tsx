@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,9 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   const renderGamificationStatus = () => {
     if (isLoadingGamification || !user) return null;
     
+    // Prevent errors by ensuring profile exists
+    if (!profile) return null;
+    
     return (
       <motion.div 
         className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-[#ebbd34]/20"
@@ -49,7 +53,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
           
           <div className="flex items-center">
             <Star className="h-4 w-4 text-[#ebbd34] mr-1" />
-            <span className="text-xs font-medium text-gray-700">{profile.points} pts</span>
+            <span className="text-xs font-medium text-gray-700">{profile.total_points || 0} pts</span>
           </div>
           
           <Link to="/achievements">
@@ -85,7 +89,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
         </div>
         <h3 className="text-xl md:text-2xl font-medium text-gray-800 mb-2">Error Loading Bubbles</h3>
         <p className="text-gray-600 mt-2 max-w-md mx-auto mb-6">
-          There was a problem loading the bubbles. Please check your connection and try again.
+          There was a problem connecting to the database. Please check your connection and try again.
         </p>
         <Button
           onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
