@@ -1,6 +1,6 @@
 
-import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Custom hook for password recovery operations
@@ -23,13 +23,13 @@ export const usePasswordRecovery = () => {
     }
   };
 
-  // Function to verify OTP (one-time password) for email verification or recovery
-  const verifyOTP = async (email: string, token: string, type: 'email' | 'recovery') => {
+  // Function to verify OTP (one-time password)
+  const verifyOTP = async (email: string, token: string) => {
     try {
       const { error } = await supabase.auth.verifyOtp({
         email,
         token,
-        type,
+        type: 'recovery',
       });
       
       return { error };
