@@ -35,10 +35,21 @@ export const useProfileManagement = (setProfile: (profile: Profile | null) => vo
       }
 
       if (data) {
-        // Make sure data conforms to the Profile interface by adding display_name if missing
+        // Make sure data conforms to the Profile interface
         const profileData: Profile = {
           ...data,
-          display_name: data.display_name || data.username || 'User' // Provide fallbacks
+          // Ensure all required Profile properties are present
+          id: data.id,
+          username: data.username,
+          display_name: data.username || 'User', // Use username as fallback for display_name
+          avatar_url: data.avatar_url,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          daily_streak: data.daily_streak || 0,
+          experience: data.experience || 0,
+          level: data.level || 1,
+          total_points: data.total_points || 0,
+          last_streak_date: data.last_streak_date
         };
         setProfile(profileData);
       } else {

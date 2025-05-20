@@ -70,7 +70,7 @@ export const useAuthOperations = () => {
   };
 
   // Function to sign out user
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
     try {
       const { error } = await supabase.auth.signOut();
       
@@ -81,8 +81,6 @@ export const useAuthOperations = () => {
           variant: 'destructive'
         });
       }
-      
-      return { error };
     } catch (error: any) {
       console.error('Error in signOut:', error);
       toast({
@@ -90,7 +88,6 @@ export const useAuthOperations = () => {
         description: error.message || 'Please try again later',
         variant: 'destructive'
       });
-      return { error: error };
     }
   };
 
