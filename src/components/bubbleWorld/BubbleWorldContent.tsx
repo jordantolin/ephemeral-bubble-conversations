@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,7 +52,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
           
           <div className="flex items-center">
             <Star className="h-4 w-4 text-[#ebbd34] mr-1" />
-            <span className="text-xs font-medium text-gray-700">{profile.total_points || 0} pts</span>
+            <span className="text-xs font-medium text-gray-700">{profile.points || 0} pts</span>
           </div>
           
           <Link to="/achievements">
