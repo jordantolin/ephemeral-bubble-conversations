@@ -13,6 +13,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => {
+  // State variables for handling UI state
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
   const [use3DMode, setUse3DMode] = useState<boolean>(true);
   const [renderAttempted, setRenderAttempted] = useState<boolean>(false);
@@ -20,6 +21,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null);
   const [hasErrorOccurred, setHasErrorOccurred] = useState<boolean>(false);
   const [shouldShowEmptyState, setShouldShowEmptyState] = useState<boolean>(false);
+  const [initialCheckComplete, setInitialCheckComplete] = useState<boolean>(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -53,16 +55,32 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   useEffect(() => {
     const checkWebGLSupport = async () => {
       try {
-        const isSupported = WebGLDetector.isWebGLAvailable();
-        console.log('WebGL support detected:', isSupported);
-        setWebGLSupported(isSupported);
+        // Basic WebGL check
+        const isBasicSupported = WebGLDetector.isWebGLAvailable();
         
-        // Only auto-enable 3D mode if WebGL is supported
-        setUse3DMode(isSupported);
+        if (!isBasicSupported) {
+          console.log('Basic WebGL not supported, falling back to 2D mode');
+          setWebGLSupported(false);
+          setUse3DMode(false);
+          setInitialCheckComplete(true);
+          return;
+        }
+        
+        // Perform more thorough Three.js capability test
+        console.log('Testing full Three.js capabilities...');
+        const isFullySupported = await WebGLDetector.testThreeCapabilities();
+        
+        console.log('WebGL support detected:', isFullySupported);
+        setWebGLSupported(isFullySupported);
+        
+        // Only auto-enable 3D mode if WebGL is fully supported
+        setUse3DMode(isFullySupported);
+        setInitialCheckComplete(true);
       } catch (error) {
         console.error('Error during WebGL detection:', error);
         setWebGLSupported(false);
         setUse3DMode(false);
+        setInitialCheckComplete(true);
       }
     };
     
@@ -71,10 +89,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
 
   // Handle 3D rendering and potential errors
   useEffect(() => {
-    if (use3DMode && validBubbles.length > 0 && !renderAttempted) {
+    if (use3DMode && validBubbles.length > 0 && !renderAttempted && initialCheckComplete) {
       try {
         setRenderAttempted(true);
         setRenderError(null);
+        console.log('Attempting to render 3D world with WebGL support:', webGLSupported);
         // The actual rendering happens in Bubble3DWorld component
       } catch (error) {
         console.error('Error while attempting to render 3D world:', error);
@@ -83,7 +102,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
         setUse3DMode(false);
       }
     }
-  }, [use3DMode, validBubbles.length, renderAttempted]);
+  }, [use3DMode, validBubbles.length, renderAttempted, initialCheckComplete, webGLSupported]);
 
   // Show toast if 3D rendering fails
   useEffect(() => {
@@ -141,6 +160,18 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
     );
   }
 
+  // Wait for WebGL detection to complete before rendering the 3D/2D world
+  if (!initialCheckComplete) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full border-4 border-[#ebbd34]/10 border-t-[#ebbd34] animate-spin"></div>
+          <p className="text-[#ebbd34] mt-4">Initializing bubble world...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full relative">
       {use3DMode ? (
@@ -162,6 +193,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
           use3DMode={use3DMode}
           setUse3DMode={setUse3DMode}
           setRenderAttempted={setRenderAttempted}
+          webGLSupported={webGLSupported}
         />
       )}
     </div>

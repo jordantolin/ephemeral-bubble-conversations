@@ -7,14 +7,21 @@ interface BubbleWorldModeSwitcherProps {
   use3DMode: boolean;
   setUse3DMode: (use3D: boolean) => void;
   setRenderAttempted: (attempted: boolean) => void;
+  webGLSupported?: boolean | null;
 }
 
 const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
   use3DMode,
   setUse3DMode,
-  setRenderAttempted
+  setRenderAttempted,
+  webGLSupported = true
 }) => {
   const handleSwitchTo3D = () => {
+    if (!webGLSupported) {
+      console.warn('WebGL not supported, but user attempted to switch to 3D mode');
+      return; // Prevent switching if WebGL is not supported
+    }
+    
     // Reset render attempt flag before switching to 3D
     setRenderAttempted(false);
     // Then switch mode
@@ -38,8 +45,9 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
           use3DMode 
             ? 'bg-yellow-500 text-white' 
             : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
-        } transition-colors`}
+        } transition-colors ${!webGLSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
         aria-label="3D Mode"
+        disabled={!webGLSupported}
       >
         <Axis3D className="h-4 w-4" />
         <span className="text-sm font-medium">3D</span>
