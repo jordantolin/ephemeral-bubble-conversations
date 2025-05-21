@@ -19,8 +19,12 @@ import NotFound from "@/pages/NotFound";
 import GamificationTracker from "@/components/gamification/GamificationTracker";
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
+import { useNetwork } from "@/context/NetworkContext";
 
 function App() {
+  // Get the isReconnecting state from the NetworkContext
+  const { isReconnecting } = useNetwork();
+
   return (
     <Router>
       <NetworkProvider>
@@ -29,7 +33,7 @@ function App() {
             <div className="min-h-screen bg-white">
               <Navbar />
               <OfflineIndicator />
-              <ReconnectionIndicator />
+              <ReconnectionIndicator isReconnecting={isReconnecting} />
               <GamificationTracker />
               <AchievementPopup />
               <DailyStreakIndicator />
