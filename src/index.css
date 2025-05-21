@@ -164,3 +164,17 @@ button, a {
 .progress::-moz-progress-bar {
   background-color: #f59e0b;
 }
+
+@keyframes gentleFloat {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0); }
+}
+
+.gentle-float {
+  animation: gentleFloat 12s ease-in-out infinite;
+}
+
+.delay-1 { animation-delay: 0s; }
+.delay-2 { animation-delay: 2s; }
+.delay-3 { animation-delay: 4s; }

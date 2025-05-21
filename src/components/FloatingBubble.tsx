@@ -30,7 +30,7 @@ const FloatingBubble = ({ topic, size = "md", delay, position }: FloatingBubbleP
   return (
     <>
       <button
-        className={`bubble float-bubble-${delay} ${sizeClasses[size]} flex items-center justify-center cursor-pointer overflow-hidden`}
+        className={`bubble gentle-float ${sizeClasses[size]} flex items-center justify-center cursor-pointer overflow-hidden`}
         style={{
           position: "absolute",
           left: `${position?.x ?? Math.random() * 60}%`,
