@@ -2,31 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import Bubble from './Bubble';
-import Bubble3DWorld from './bubbleWorld/Bubble3DWorld';
-import { BubbleData, BubbleWorldProps } from '@/types/bubble';
 import { useToast } from "@/hooks/use-toast";
-import * as THREE from 'three';
-
-// Create a staggered animation for bubbles
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const bubbleVariants = {
-  hidden: { opacity: 0, scale: 0 },
-  visible: { 
-    opacity: 1, 
-    scale: 1,
-    transition: { type: "spring", stiffness: 300, damping: 20 }
-  }
-};
+import { BubbleData, BubbleWorldProps } from '@/types/bubble';
+import WebGLDetector from './bubbleWorld/WebGLDetector';
+import Bubble3DWorld from './bubbleWorld/Bubble3DWorld';
+import BubbleWorld2D from './bubbleWorld/BubbleWorld2D';
+import BubbleWorldModeSwitcher from './bubbleWorld/BubbleWorldModeSwitcher';
+import BubbleWorldEmptyState from './bubbleWorld/BubbleWorldEmptyState';
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => {
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
@@ -44,69 +26,11 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
     console.log('BubbleWorld component received bubbles:', validBubbles.length);
   }, [validBubbles]);
 
-  const handleClick = (id: string) => {
-    setExplodingBubble(id);
-    
-    // Navigate after bubble animation completes
-    setTimeout(() => {
-      onBubbleClick(id);
-      setExplodingBubble(null);
-    }, 500);
-  };
-  
   // Improved WebGL detection logic
   useEffect(() => {
-    const detectWebGL = () => {
-      try {
-        // Create temporary canvas for WebGL detection
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || 
-                 canvas.getContext('experimental-webgl') || 
-                 canvas.getContext('webgl2');
-        
-        // Check if context creation was successful
-        if (!gl) {
-          console.log('WebGL not supported, falling back to 2D mode');
-          setUse3DMode(false);
-          return false;
-        }
-        
-        // Additional capability check - fixed TypeScript error by adding type guard
-        if (gl && 'getSupportedExtensions' in gl) {
-          const extensionsSupported = gl.getSupportedExtensions();
-          if (!extensionsSupported || extensionsSupported.length < 5) {
-            console.log('WebGL supported but with limited extensions, using 2D mode');
-            setUse3DMode(false);
-            return false;
-          }
-        }
-        
-        // Check for Three.js specific requirements - removed window.THREE reference
-        try {
-          // Basic Three.js initialization test - using imported THREE instead
-          const testRenderer = new THREE.WebGLRenderer();
-          if (!testRenderer) {
-            throw new Error('THREE renderer initialization failed');
-          }
-          
-          console.log('WebGL supported with Three.js, using 3D mode');
-          setUse3DMode(true);
-          return true;
-        } catch (e) {
-          console.error('Three.js initialization test failed:', e);
-          setUse3DMode(false);
-          return false;
-        }
-      } catch (e) {
-        console.error('WebGL detection error:', e);
-        setUse3DMode(false);
-        return false;
-      }
-    };
-    
     // Force 3D mode with fallback
     setUse3DMode(true);
-    detectWebGL();
+    WebGLDetector.isWebGLAvailable();
   }, []);
 
   // Force 3D rendering and handle potential errors
@@ -142,15 +66,9 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   // If no valid bubbles, render placeholder content
   if (validBubbles.length === 0) {
     return (
-      <div className="w-full h-full flex flex-col justify-center items-center">
-        <p className="text-gray-500 mb-4">No bubbles available to display</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-yellow-500/70 text-white rounded-md hover:bg-yellow-600/70 transition-colors"
-        >
-          Reload Bubbles
-        </button>
-      </div>
+      <BubbleWorldEmptyState 
+        onReload={() => window.location.reload()} 
+      />
     );
   }
 
@@ -160,57 +78,29 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
         <>
           <Bubble3DWorld 
             bubbles={validBubbles} 
-            onBubbleClick={handleClick}
+            onBubbleClick={onBubbleClick}
           />
           {renderAttempted && validBubbles.length > 0 && (
-            <div className="absolute bottom-4 right-4 z-10">
-              <button 
-                onClick={() => setUse3DMode(false)}
-                className="px-3 py-1.5 bg-gray-800/70 text-white text-xs rounded-md hover:bg-gray-700/70 transition-colors backdrop-blur-sm"
-              >
-                Switch to 2D Mode
-              </button>
-            </div>
+            <BubbleWorldModeSwitcher 
+              use3DMode={use3DMode}
+              setUse3DMode={setUse3DMode}
+              setRenderAttempted={setRenderAttempted}
+            />
           )}
         </>
       ) : (
         <>
-          <motion.div 
-            className="w-full h-full flex flex-wrap justify-center items-center gap-4 p-4 overflow-hidden"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {validBubbles.map((bubble) => (
-              <motion.div
-                key={bubble.id}
-                className="flex flex-col items-center mx-2 my-2"
-                variants={bubbleVariants}
-              >
-                <Bubble
-                  id={bubble.id}
-                  title={bubble.topic || 'Untitled'}
-                  description={bubble.description || ''}
-                  timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
-                  participants={0}
-                  reflects={bubble.reflect_count || 0}
-                  isExploding={explodingBubble === bubble.id}
-                  onClick={() => handleClick(bubble.id)}
-                />
-              </motion.div>
-            ))}
-          </motion.div>
-          <div className="absolute bottom-4 right-4 z-10">
-            <button 
-              onClick={() => {
-                setUse3DMode(true);
-                setRenderAttempted(false);
-              }}
-              className="px-3 py-1.5 bg-yellow-500/70 text-white text-xs rounded-md hover:bg-yellow-600/70 transition-colors backdrop-blur-sm"
-            >
-              Try 3D Mode
-            </button>
-          </div>
+          <BubbleWorld2D
+            bubbles={validBubbles}
+            onBubbleClick={onBubbleClick}
+            explodingBubble={explodingBubble}
+            setExplodingBubble={setExplodingBubble}
+          />
+          <BubbleWorldModeSwitcher 
+            use3DMode={use3DMode}
+            setUse3DMode={setUse3DMode}
+            setRenderAttempted={setRenderAttempted}
+          />
         </>
       )}
     </div>
