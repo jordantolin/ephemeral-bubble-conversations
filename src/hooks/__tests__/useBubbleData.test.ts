@@ -1,140 +1,94 @@
 
 import { renderHook, act } from '@testing-library/react-hooks';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import useBubbleData from '@/hooks/useBubbleData';
-import { supabase } from '@/integrations/supabase/client';
-import { ReactNode } from 'react';
+import { useBubbleData } from '../useBubbleData';
 
-// Mock dependencies
-jest.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        gte: jest.fn(() => ({
-          order: jest.fn(() => ({
-            data: [
-              { 
-                id: 'bubble-1',
-                name: 'Test Bubble',
-                topic: 'Testing',
-                description: 'A test bubble',
-                size: 'md',
-                expires_at: new Date(Date.now() + 3600000).toISOString(),
-                created_at: new Date().toISOString(),
-                reflect_count: 5,
-                username: 'testuser'
-              }
-            ],
-            error: null
-          }))
-        }))
-      })),
-      eq: jest.fn(() => ({
-        single: jest.fn(() => ({
-          data: { id: 'bubble-1', name: 'Test Bubble' },
-          error: null
-        }))
-      })),
-      insert: jest.fn(() => ({ error: null }))
-    })
+// Mock data for testing
+const mockData = [
+  {
+    id: '1',
+    name: 'First Bubble',
+    description: 'Test description 1',
+    username: 'user1',
+    created_at: '2023-01-01T00:00:00Z',
+    reflect_count: 2,
+    size: 'sm',
+    color: 'blue',
+    position: { x: 0, y: 0, z: 0 }
+  },
+  {
+    id: '2',
+    name: 'Second Bubble',
+    description: 'Test description 2',
+    username: 'user2',
+    created_at: '2023-01-02T00:00:00Z',
+    reflect_count: 5,
+    size: 'md',
+    color: 'red',
+    position: { x: 1, y: 1, z: 1 }
   }
-}));
+];
 
-jest.mock('react-router-dom', () => ({
-  useNavigate: () => jest.fn(),
-  useLocation: () => ({ search: '' })
+// Mock the bubbleService
+jest.mock('@/services/bubbleService', () => ({
+  getBubbles: jest.fn(() => Promise.resolve(mockData)),
+  searchBubbles: jest.fn((searchTerm) => 
+    Promise.resolve(
+      mockData.filter(bubble => 
+        bubble.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        bubble.description.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    )
+  )
 }));
-
-jest.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({
-    toast: jest.fn()
-  })
-}));
-
-jest.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 'user-1' },
-    profile: { username: 'testuser' }
-  })
-}));
-
-// Setup wrapper with required providers
-const createWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  });
-  
-  return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
-};
 
 describe('useBubbleData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
-
-  it('should initialize with default values', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useBubbleData(), {
-      wrapper: createWrapper(),
-    });
+  
+  it('should initialize with the correct default values', () => {
+    const { result } = renderHook(() => useBubbleData());
     
-    // Initial state before data loading
-    expect(result.current.isLoadingBubbles).toBe(true);
     expect(result.current.bubbles).toEqual([]);
-    expect(result.current.searchQuery).toBe('');
-    
-    await waitForNextUpdate();
-    
-    // After data is loaded
-    expect(result.current.isLoadingBubbles).toBe(false);
-    expect(result.current.bubbles.length).toBeGreaterThan(0);
-    expect(result.current.bubbles[0].name).toBe('Test Bubble');
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBe(null);
+    expect(result.current.searchTerm).toBe('');
+    expect(result.current.selectedBubble).toBe(null);
   });
-
-  it('should filter bubbles when search query changes', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useBubbleData(), {
-      wrapper: createWrapper(),
-    });
+  
+  it('should load bubbles on mount', async () => {
+    const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
     
     await waitForNextUpdate();
     
-    // Change search query to match
-    act(() => {
-      result.current.setSearchQuery('Test');
-    });
-    
-    expect(result.current.filteredBubbles.length).toBe(1);
-    
-    // Change search query to not match
-    act(() => {
-      result.current.setSearchQuery('Nonexistent');
-    });
-    
-    expect(result.current.filteredBubbles.length).toBe(0);
+    expect(result.current.bubbles).toEqual(mockData);
+    expect(result.current.loading).toBe(false);
   });
-
-  it('should handle bubble selection', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useBubbleData(), {
-      wrapper: createWrapper(),
+  
+  it('should filter bubbles when search term changes', async () => {
+    const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
+    
+    await waitForNextUpdate();
+    
+    act(() => {
+      result.current.setSearchTerm('First');
     });
     
     await waitForNextUpdate();
     
-    expect(result.current.selectedBubbleId).toBeNull();
-    expect(result.current.chatOpen).toBe(false);
+    expect(result.current.bubbles.length).toBe(1);
+    expect(result.current.bubbles[0].name).toBe('First Bubble');
+  });
+  
+  it('should set selected bubble', async () => {
+    const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
     
-    // Select a bubble
+    await waitForNextUpdate();
+    
     act(() => {
-      result.current.setSelectedBubbleId('bubble-1');
-      result.current.setChatOpen(true);
+      result.current.selectBubble(mockData[0]);
     });
     
-    expect(result.current.selectedBubbleId).toBe('bubble-1');
-    expect(result.current.chatOpen).toBe(true);
+    expect(result.current.selectedBubble).toEqual(mockData[0]);
   });
 });

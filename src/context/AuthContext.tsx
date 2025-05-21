@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect } from "react";
+
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -33,11 +34,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Moving all hooks to the component body top level
-  const [session, setSession] = React.useState<Session | null>(null);
-  const [user, setUser] = React.useState<User | null>(null);
-  const [profile, setProfile] = React.useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  // State hooks must be at the top level of the component function
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Get toast outside of any hooks or conditions
   const { toast } = useToast();
