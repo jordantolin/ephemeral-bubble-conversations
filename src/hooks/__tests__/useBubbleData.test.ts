@@ -64,7 +64,7 @@ jest.mock('@/integrations/supabase/client', () => ({
       })),
       insert: jest.fn(() => Promise.resolve({ data: null, error: null }))
     })
-  }
+  },
 }));
 
 describe('useBubbleData', () => {
