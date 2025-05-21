@@ -25,6 +25,9 @@ const Navbar: React.FC = () => {
               <Link to="/my-bubbles" className="text-sm font-medium text-gray-500 hover:text-[#ebbd34]">
                 My Bubbles
               </Link>
+              <Link to="/achievements" className="text-sm font-medium text-gray-500 hover:text-[#ebbd34]">
+                Achievements
+              </Link>
             </nav>
           </div>
           

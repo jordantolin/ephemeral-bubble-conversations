@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { Award, LogOut, Settings, User } from "lucide-react";
+import { Award, LogOut, User } from "lucide-react";
 import LevelProgress from "@/components/gamification/LevelProgress";
 import NotificationCenter from "@/components/gamification/NotificationCenter";
 
