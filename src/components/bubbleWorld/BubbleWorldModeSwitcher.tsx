@@ -24,6 +24,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
         <button 
           onClick={() => setUse3DMode(false)}
           className="px-3 py-1.5 bg-gray-800/70 text-white text-xs rounded-md hover:bg-gray-700/70 transition-colors backdrop-blur-sm"
+          aria-label="Switch to 2D Mode"
         >
           Switch to 2D Mode
         </button>
@@ -34,6 +35,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
             setRenderAttempted(false);
           }}
           className="px-3 py-1.5 bg-yellow-500/70 text-white text-xs rounded-md hover:bg-yellow-600/70 transition-colors backdrop-blur-sm"
+          aria-label="Try 3D Mode"
         >
           Try 3D Mode
         </button>

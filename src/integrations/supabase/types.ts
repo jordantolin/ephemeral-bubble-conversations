@@ -231,6 +231,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           daily_streak: number | null
+          display_name: string | null
           experience: number | null
           id: string
           last_streak_date: string | null
@@ -243,6 +244,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           daily_streak?: number | null
+          display_name?: string | null
           experience?: number | null
           id: string
           last_streak_date?: string | null
@@ -255,6 +257,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           daily_streak?: number | null
+          display_name?: string | null
           experience?: number | null
           id?: string
           last_streak_date?: string | null

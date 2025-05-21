@@ -37,6 +37,38 @@ ON public.gamification_profiles
 FOR INSERT 
 WITH CHECK (auth.uid() = user_id);
 
+-- Policy for admins to manage all profiles
+CREATE POLICY "Admins can manage all profiles"
+ON public.gamification_profiles
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND username = 'admin'
+  )
+);
+
+-- Add missing trigger to update calculated bubble sizes based on reflect_count
+CREATE OR REPLACE FUNCTION public.update_bubble_size()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.reflect_count >= 10 THEN
+    NEW.size := 'lg';
+  ELSIF NEW.reflect_count >= 5 THEN
+    NEW.size := 'md';
+  ELSE
+    NEW.size := 'sm';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_bubble_size_trigger ON public.bubbles;
+CREATE TRIGGER update_bubble_size_trigger
+  BEFORE UPDATE OF reflect_count ON public.bubbles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_bubble_size();
+
 -- Grant permissions
 GRANT SELECT, INSERT, UPDATE ON public.gamification_profiles TO authenticated;
 GRANT SELECT ON public.gamification_profiles TO anon;

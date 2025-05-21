@@ -12,7 +12,7 @@ import BubbleWorldEmptyState from './bubbleWorld/BubbleWorldEmptyState';
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => {
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
-  const [use3DMode, setUse3DMode] = useState<boolean>(false);
+  const [use3DMode, setUse3DMode] = useState<boolean>(true);
   const [renderAttempted, setRenderAttempted] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null);
@@ -47,26 +47,23 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
     checkWebGLSupport();
   }, []);
 
-  // Force 3D rendering and handle potential errors
+  // Handle 3D rendering and potential errors
   useEffect(() => {
-    const render3DWorld = () => {
+    if (use3DMode && validBubbles.length > 0 && !renderAttempted) {
       try {
         setRenderAttempted(true);
-        // This just marks that we've tried to render
-        // The actual rendering happens in the JSX via Bubble3DWorld
+        setRenderError(null);
+        // The actual rendering happens in Bubble3DWorld component
       } catch (error) {
         console.error('Error while attempting to render 3D world:', error);
         setRenderError('Failed to initialize 3D world');
+        // Fallback to 2D mode if 3D fails
         setUse3DMode(false);
       }
-    };
-
-    if (use3DMode && validBubbles.length > 0 && !renderAttempted) {
-      render3DWorld();
     }
   }, [use3DMode, validBubbles.length, renderAttempted]);
 
-  // If there's an error in 3D rendering, show a toast once
+  // Show toast if 3D rendering fails
   useEffect(() => {
     if (renderError && !use3DMode) {
       toast({
@@ -87,37 +84,27 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       {use3DMode ? (
-        <>
-          <Bubble3DWorld 
-            bubbles={validBubbles} 
-            onBubbleClick={onBubbleClick}
-          />
-          {webGLSupported !== null && (
-            <BubbleWorldModeSwitcher 
-              use3DMode={use3DMode}
-              setUse3DMode={setUse3DMode}
-              setRenderAttempted={setRenderAttempted}
-            />
-          )}
-        </>
+        <Bubble3DWorld 
+          bubbles={validBubbles} 
+          onBubbleClick={onBubbleClick}
+        />
       ) : (
-        <>
-          <BubbleWorld2D
-            bubbles={validBubbles}
-            onBubbleClick={onBubbleClick}
-            explodingBubble={explodingBubble}
-            setExplodingBubble={setExplodingBubble}
-          />
-          {webGLSupported !== null && (
-            <BubbleWorldModeSwitcher 
-              use3DMode={use3DMode}
-              setUse3DMode={setUse3DMode}
-              setRenderAttempted={setRenderAttempted}
-            />
-          )}
-        </>
+        <BubbleWorld2D
+          bubbles={validBubbles}
+          onBubbleClick={onBubbleClick}
+          explodingBubble={explodingBubble}
+          setExplodingBubble={setExplodingBubble}
+        />
+      )}
+      
+      {webGLSupported !== null && (
+        <BubbleWorldModeSwitcher 
+          use3DMode={use3DMode}
+          setUse3DMode={setUse3DMode}
+          setRenderAttempted={setRenderAttempted}
+        />
       )}
     </div>
   );
