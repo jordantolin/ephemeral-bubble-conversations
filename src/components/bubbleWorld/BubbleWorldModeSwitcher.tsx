@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Axis3D, CircleDashed } from 'lucide-react';
+import { Axis3D, CircleDashed, Info } from 'lucide-react';
 
 interface BubbleWorldModeSwitcherProps {
   use3DMode: boolean;
@@ -16,6 +16,8 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
   setRenderAttempted,
   webGLSupported = true
 }) => {
+  console.log('BubbleWorldModeSwitcher render:', { use3DMode, webGLSupported });
+
   const handleSwitchTo3D = () => {
     if (!webGLSupported) {
       console.warn('WebGL non supportato, impossibile passare alla modalità 3D');
@@ -37,38 +39,47 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
   
   return (
     <motion.div 
-      className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 flex items-center shadow-lg rounded-full bg-white/20 backdrop-blur-sm p-1 border border-white/30"
+      className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex flex-col items-center shadow-lg rounded-lg bg-white/80 backdrop-blur-md p-2 border-2 border-white/70"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <button 
-        onClick={handleSwitchTo3D}
-        className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full ${
-          use3DMode 
-            ? 'bg-yellow-500 text-white' 
-            : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
-        } transition-colors ${!webGLSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
-        aria-label="3D Mode"
-        disabled={!webGLSupported}
-        title={!webGLSupported ? 'WebGL non supportato su questo dispositivo' : 'Passa alla modalità 3D'}
-      >
-        <Axis3D className="h-4 w-4" />
-        <span className="text-sm font-medium">3D</span>
-      </button>
-      <button 
-        onClick={handleSwitchTo2D}
-        className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full ${
-          !use3DMode 
-            ? 'bg-gray-700 text-white' 
-            : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
-        } transition-colors`}
-        aria-label="2D Mode"
-        title="Passa alla modalità 2D"
-      >
-        <CircleDashed className="h-4 w-4" />
-        <span className="text-sm font-medium">2D</span>
-      </button>
+      {webGLSupported === false && (
+        <div className="mb-2 px-3 py-1 bg-yellow-100 rounded-md text-xs text-yellow-800 flex items-center gap-1">
+          <Info size={12} />
+          <span>WebGL non supportato</span>
+        </div>
+      )}
+      
+      <div className="flex items-center rounded-full bg-gray-100 p-1">
+        <button 
+          onClick={handleSwitchTo3D}
+          className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full transition-all ${
+            use3DMode 
+              ? 'bg-yellow-500 text-white shadow-md scale-105' 
+              : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
+          } ${!webGLSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
+          aria-label="3D Mode"
+          disabled={!webGLSupported}
+          title={!webGLSupported ? 'WebGL non supportato su questo dispositivo' : 'Passa alla modalità 3D'}
+        >
+          <Axis3D className="h-4 w-4" />
+          <span className="text-sm font-medium">3D</span>
+        </button>
+        <button 
+          onClick={handleSwitchTo2D}
+          className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full transition-all ${
+            !use3DMode 
+              ? 'bg-gray-700 text-white shadow-md scale-105' 
+              : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
+          }`}
+          aria-label="2D Mode"
+          title="Passa alla modalità 2D"
+        >
+          <CircleDashed className="h-4 w-4" />
+          <span className="text-sm font-medium">2D</span>
+        </button>
+      </div>
     </motion.div>
   );
 };

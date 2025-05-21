@@ -12,12 +12,13 @@ export const WebGLDetector = {
     try {
       // Create temporary canvas for WebGL detection
       const canvas = document.createElement('canvas');
+      console.log('DEBUG WebGLDetector: Canvas created for detection');
       
       // Try to get WebGL context - first try WebGL2, then fall back to WebGL1
       const gl = 
-        (canvas.getContext('webgl2') as WebGLRenderingContext) || 
-        (canvas.getContext('webgl') as WebGLRenderingContext) || 
-        (canvas.getContext('experimental-webgl') as WebGLRenderingContext);
+        (canvas.getContext('webgl2') as WebGLRenderingContext | null) || 
+        (canvas.getContext('webgl') as WebGLRenderingContext | null) || 
+        (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
       
       // Check if context creation was successful
       if (!gl) {
@@ -26,10 +27,11 @@ export const WebGLDetector = {
       }
       
       // Make sure we're dealing with a WebGL context
-      if ('viewport' in gl) {
+      if (gl && 'viewport' in gl) {
         // Try to use some WebGL features to ensure it's working
         try {
           gl.viewport(0, 0, canvas.width, canvas.height);
+          console.log('DEBUG WebGLDetector: WebGL supportato e funzionante');
           return true;
         } catch (e) {
           console.error('Errore durante il test WebGL:', e);
@@ -51,6 +53,7 @@ export const WebGLDetector = {
   testThreeCapabilities: (): Promise<boolean> => {
     return new Promise((resolve) => {
       try {
+        console.log('DEBUG WebGLDetector: Inizio test capacità Three.js');
         // Creazione di un canvas di test
         const testCanvas = document.createElement('canvas');
         testCanvas.width = 1;
@@ -85,7 +88,7 @@ export const WebGLDetector = {
           material.dispose();
           renderer.dispose();
           
-          console.log('Test Three.js passato con successo');
+          console.log('DEBUG WebGLDetector: Test Three.js passato con successo');
           resolve(true);
         } catch (e) {
           console.error('Errore durante il test del renderer Three.js:', e);
@@ -103,6 +106,7 @@ export const WebGLDetector = {
    */
   checkWebGLCompatibility: async (): Promise<{supported: boolean, reason?: string}> => {
     // Step 1: Basic WebGL availability
+    console.log('DEBUG WebGLDetector: Inizio verifica compatibilità WebGL');
     const isBasicWebGLAvailable = WebGLDetector.isWebGLAvailable();
     if (!isBasicWebGLAvailable) {
       return { 
@@ -128,12 +132,14 @@ export const WebGLDetector = {
     if ('deviceMemory' in navigator) {
       const memory = (navigator as any).deviceMemory;
       isLowEndDevice = memory < 4;
+      console.log('DEBUG WebGLDetector: Memoria dispositivo rilevata:', memory);
     }
     
     if (isMobile && isLowEndDevice) {
       console.warn("Dispositivo mobile con memoria limitata - potrebbe funzionare ma con prestazioni ridotte");
     }
     
+    console.log('DEBUG WebGLDetector: Compatibilità WebGL verificata con successo');
     return { supported: true };
   }
 };

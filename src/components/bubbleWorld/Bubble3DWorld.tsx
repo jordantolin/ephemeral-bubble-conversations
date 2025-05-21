@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { useCameraControls } from '@/hooks/useCameraControls';
@@ -96,21 +97,53 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     }, 100);
   }, [toast]);
   
+  // Ensure container visibility on mount
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    console.log('DEBUG CONTAINER: Forcing container visibility on mount');
+    const container = containerRef.current;
+    
+    // Force container to be visible with explicit inline styles
+    container.style.display = 'block';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    container.style.minHeight = '300px';
+    container.style.minWidth = '300px';
+    container.style.position = 'relative';
+    
+    // Force layout recalculation
+    void container.offsetHeight;
+  }, []);
+  
   // Set up the 3D scene
   useEffect(() => {
     if (!containerRef.current || isInitialized) return;
     
     try {
       console.log(`Bubble3DWorld: Inizializzazione mondo bolle 3D con ${bubbles.length} bolle (tentativo: ${retryCount + 1})`);
-      console.log('Bubble3DWorld: Dimensioni container:', {
+      console.log('DEBUG CONTAINER: Container reference:', containerRef.current);
+      console.log('DEBUG CONTAINER: Dimensioni container:', {
         width: containerRef.current.clientWidth,
         height: containerRef.current.clientHeight,
         offsetWidth: containerRef.current.offsetWidth,
-        offsetHeight: containerRef.current.offsetHeight
+        offsetHeight: containerRef.current.offsetHeight,
+        scrollWidth: containerRef.current.scrollWidth,
+        scrollHeight: containerRef.current.scrollHeight
       });
       
+      // Force container to be visible with explicit inline styles again
+      containerRef.current.style.display = 'block';
+      containerRef.current.style.visibility = 'visible';
+      containerRef.current.style.opacity = '1';
+      containerRef.current.style.position = 'relative';
+      containerRef.current.style.overflow = 'hidden';
+      containerRef.current.style.minHeight = '300px';
+      containerRef.current.style.minWidth = '300px';
+      containerRef.current.style.border = '1px solid red'; // DEBUG: Visible border
+      
       // Force container layout calculation
-      containerRef.current.getBoundingClientRect();
+      void containerRef.current.getBoundingClientRect();
       
       // Check container dimensions
       if (containerRef.current.clientWidth <= 0 || containerRef.current.clientHeight <= 0) {
@@ -121,15 +154,22 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       
       // Check container visibility
       const style = window.getComputedStyle(containerRef.current);
-      console.log('Bubble3DWorld: Stile container:', {
+      console.log('DEBUG CONTAINER: Stile container:', {
         display: style.display,
         visibility: style.visibility,
         opacity: style.opacity,
-        overflow: style.overflow
+        overflow: style.overflow,
+        position: style.position,
+        width: style.width,
+        height: style.height
       });
       
       if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-        console.warn('Bubble3DWorld: Container non è visibile!');
+        console.warn('DEBUG CONTAINER: Container non è visibile!');
+        // Try to force visibility
+        containerRef.current.style.display = 'block';
+        containerRef.current.style.visibility = 'visible';
+        containerRef.current.style.opacity = '1';
       }
       
       // Initialize scene, camera, and renderer
@@ -186,6 +226,16 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
           // Don't throw here - just log the error to avoid crashing the loop
         }
       };
+      
+      // Render at least once immediately to see if it works
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        try {
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+          console.log('DEBUG RENDERING: First render completed successfully');
+        } catch (e) {
+          console.error('DEBUG RENDERING: First render failed:', e);
+        }
+      }
       
       // Start animation
       animate();
@@ -314,14 +364,18 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     <ComponentErrorBoundary name="3D Bubble World">
       <motion.div 
         ref={containerRef} 
-        className="w-full h-full relative overflow-hidden rounded-xl"
+        className="w-full h-full relative overflow-hidden rounded-xl bg-black/5" // Added bg color for visibility
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
         style={{
           minHeight: '300px',  // Garantire un'altezza minima
+          minWidth: '300px',   // Garantire una larghezza minima
           display: 'block',    // Forzare display block
-          visibility: 'visible' // Forzare visibilità
+          visibility: 'visible', // Forzare visibilità
+          position: 'relative', // Ensure proper positioning
+          overflow: 'hidden',  // Prevent overflow
+          border: process.env.NODE_ENV === 'development' ? '1px dashed rgba(255,0,0,0.3)' : undefined // Debug border
         }}
       >
         <BubbleWorldStatus 
