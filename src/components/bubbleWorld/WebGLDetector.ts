@@ -22,8 +22,8 @@ export const WebGLDetector = {
         return false;
       }
       
-      // Additional capability check - with type guard
-      if (gl && 'getSupportedExtensions' in gl) {
+      // Additional capability check with proper type narrowing
+      if (gl instanceof WebGLRenderingContext || gl instanceof WebGL2RenderingContext) {
         const extensionsSupported = gl.getSupportedExtensions();
         if (!extensionsSupported || extensionsSupported.length < 5) {
           console.log('WebGL supported but with limited extensions, using 2D mode');

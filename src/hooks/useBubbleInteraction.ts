@@ -181,9 +181,12 @@ export const useBubbleInteraction = () => {
           const scale = particle.userData.life * 0.5;
           particle.scale.set(scale, scale, scale);
           
-          // Fix TypeScript error by adding type guard
-          if (particle instanceof THREE.Mesh && particle.material instanceof THREE.Material) {
-            particle.material.opacity = particle.userData.life * 0.6;
+          // Fix TypeScript error by ensuring particle is a Mesh with Material
+          if (particle instanceof THREE.Mesh) {
+            const material = particle.material;
+            if (material instanceof THREE.Material) {
+              material.opacity = particle.userData.life * 0.6;
+            }
           }
         });
         

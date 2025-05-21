@@ -12,9 +12,10 @@ import BubbleWorldEmptyState from './bubbleWorld/BubbleWorldEmptyState';
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => {
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
-  const [use3DMode, setUse3DMode] = useState<boolean>(true);
+  const [use3DMode, setUse3DMode] = useState<boolean>(false);
   const [renderAttempted, setRenderAttempted] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -28,9 +29,22 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
 
   // Improved WebGL detection logic
   useEffect(() => {
-    // Force 3D mode with fallback
-    setUse3DMode(true);
-    WebGLDetector.isWebGLAvailable();
+    const checkWebGLSupport = async () => {
+      try {
+        const isSupported = WebGLDetector.isWebGLAvailable();
+        console.log('WebGL support detected:', isSupported);
+        setWebGLSupported(isSupported);
+        
+        // Only auto-enable 3D mode if WebGL is supported
+        setUse3DMode(isSupported);
+      } catch (error) {
+        console.error('Error during WebGL detection:', error);
+        setWebGLSupported(false);
+        setUse3DMode(false);
+      }
+    };
+    
+    checkWebGLSupport();
   }, []);
 
   // Force 3D rendering and handle potential errors
@@ -80,7 +94,7 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
             bubbles={validBubbles} 
             onBubbleClick={onBubbleClick}
           />
-          {renderAttempted && validBubbles.length > 0 && (
+          {webGLSupported !== null && (
             <BubbleWorldModeSwitcher 
               use3DMode={use3DMode}
               setUse3DMode={setUse3DMode}
@@ -96,11 +110,13 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
             explodingBubble={explodingBubble}
             setExplodingBubble={setExplodingBubble}
           />
-          <BubbleWorldModeSwitcher 
-            use3DMode={use3DMode}
-            setUse3DMode={setUse3DMode}
-            setRenderAttempted={setRenderAttempted}
-          />
+          {webGLSupported !== null && (
+            <BubbleWorldModeSwitcher 
+              use3DMode={use3DMode}
+              setUse3DMode={setUse3DMode}
+              setRenderAttempted={setRenderAttempted}
+            />
+          )}
         </>
       )}
     </div>
