@@ -47,7 +47,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-white">
       <OfflineIndicator />
-      <ReconnectionIndicator />
+      <ReconnectionIndicator isReconnecting={false} />
       <GamificationTracker />
       <AchievementPopup />
       <DailyStreakIndicator />

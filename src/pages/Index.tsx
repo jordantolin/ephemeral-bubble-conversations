@@ -7,6 +7,7 @@ import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
 import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
+import ReconnectionIndicator from "@/components/network/ReconnectionIndicator"; // Added import for ReconnectionIndicator
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
