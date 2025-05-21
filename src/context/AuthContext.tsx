@@ -29,18 +29,16 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: any }>;
 }
 
-// Create context with undefined as default value
+// Create context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // State hooks must be at the top level of the component function
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Get toast outside of any hooks or conditions
   const { toast } = useToast();
 
   // Define the fetchProfile function outside of useEffect
