@@ -120,7 +120,7 @@
 
 /* Better focus states for accessibility */
 :focus-visible {
-  outline: 2px solid #ebbd34;
+  outline: 2px solid #fbbf24;
   outline-offset: 2px;
 }
 
@@ -155,4 +155,12 @@ button, a {
 /* Glassmorphism utility */
 .glass {
   @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
+}
+
+/* Progress bar styling */
+.progress::-webkit-progress-value {
+  background-color: #fbbf24;
+}
+.progress::-moz-progress-bar {
+  background-color: #fbbf24;
 }

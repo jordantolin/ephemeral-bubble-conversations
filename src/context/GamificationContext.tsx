@@ -54,7 +54,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   });
   const [achievements, setAchievements] = useState<AchievementType[]>(defaultAchievements);
   const [recentAchievement, setRecentAchievement] = useState<AchievementType | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   
   // Reset recent achievement
   const resetRecentAchievement = () => {
@@ -79,7 +79,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   
   // Fetch or create user profile
   const fetchProfile = async () => {
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -102,38 +105,42 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.error("Error fetching gamification profile:", error);
       
       // Check if the profile exists at all
-      const { data } = await supabase
-        .from('gamification_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (!data) {
-        // Create a new profile if it doesn't exist
-        try {
-          const newProfile = await createNewUserProfile(user.id);
-          setProfile(newProfile);
-          setAchievements(newProfile.achievements);
-          
-          toast({
-            title: "Welcome!",
-            description: "Your gamification profile has been created. Earn points by participating!",
-            duration: 5000,
-          });
-        } catch (createError) {
-          console.error("Error creating new profile:", createError);
+      try {
+        const { data } = await supabase
+          .from('gamification_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (!data) {
+          // Create a new profile if it doesn't exist
+          try {
+            const newProfile = await createNewUserProfile(user.id);
+            setProfile(newProfile);
+            setAchievements(newProfile.achievements);
+            
+            toast({
+              title: "Welcome!",
+              description: "Your gamification profile has been created. Earn points by participating!",
+              duration: 5000,
+            });
+          } catch (createError) {
+            console.error("Error creating new profile:", createError);
+            toast({
+              title: "Error",
+              description: "Failed to create your gamification profile. Please try again.",
+              variant: "destructive",
+            });
+          }
+        } else {
           toast({
             title: "Error",
-            description: "Failed to create your gamification profile. Please try again.",
+            description: "Failed to load your gamification profile. Please try again.",
             variant: "destructive",
           });
         }
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to load your gamification profile. Please try again.",
-          variant: "destructive",
-        });
+      } catch (err) {
+        console.error("Error checking profile existence:", err);
       }
     } finally {
       setIsLoading(false);
@@ -144,6 +151,8 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     if (user) {
       fetchProfile();
+    } else {
+      setIsLoading(false); // Not loading if no user
     }
   }, [user]);
   

@@ -1,21 +1,17 @@
 
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
-import NavigationBar from "@/components/bubbleWorld/NavigationBar";
+import Navbar from "@/components/navigation/Navbar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
 import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
-import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicator";
-import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
-import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
@@ -39,7 +35,6 @@ const Index = () => {
     bubbleDataForComponent,
     isBubbleExpired,
     handleReflect,
-    handleBubbleClick
   } = useBubbleData();
   
   const searchParams = new URLSearchParams(location.search);
@@ -48,9 +43,6 @@ const Index = () => {
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
     setNewBubbleDialog(true);
-    
-    // We'll check the achievement when the bubble is actually created
-    // in the CreateBubbleDialog component
   };
   
   // Enhanced reflection with gamification
@@ -69,20 +61,15 @@ const Index = () => {
     }
   };
   
-  // Handle sending messages with gamification
-  const handleSendMessage = async () => {
-    if (user) {
-      // Add points for sending a message
-      await addPoints(5, 'message');
-      
-      // Increment progress for the social butterfly achievement
-      await incrementAchievementProgress('social-butterfly');
-    }
-  };
-  
   // Increment achievement progress
   const incrementAchievementProgress = async (achievementId: string) => {
     await checkAchievement(achievementId);
+  };
+
+  // Open bubble chat when a bubble is clicked
+  const handleBubbleClick = (bubbleId: string) => {
+    setSelectedBubbleId(bubbleId);
+    setChatOpen(true);
   };
   
   // Check URL params for bubble to open
@@ -112,11 +99,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
-      {/* Reconnection indicator */}
-      <ReconnectionIndicator isReconnecting={isReconnecting} />
-      
       {/* Navigation */}
-      <NavigationBar 
+      <Navbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
@@ -153,13 +137,9 @@ const Index = () => {
         messages={messages}
         isLoadingMessages={isLoadingMessages}
         messagesError={messagesError}
-        isBubbleExpired={isBubbleExpired(selectedBubble)}
+        isBubbleExpired={selectedBubble ? isBubbleExpired(selectedBubble) : false}
         handleReflect={handleReflectWithGamification}
       />
-      
-      {/* Gamification Components */}
-      <DailyStreakIndicator />
-      <AchievementPopup />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import BubbleChatMessages from "./BubbleChatMessages";
 import BubbleChatInput from "./BubbleChatInput";
 
@@ -34,13 +34,17 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
     <Dialog open={chatOpen} onOpenChange={setChatOpen}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-center">
+          <DialogTitle className="text-center flex items-center justify-center gap-2">
             {isLoadingBubbleDetails ? (
-              <div className="flex justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="flex justify-center items-center">
+                <Loader2 className="h-6 w-6 animate-spin text-yellow-500" />
+                <span className="ml-2 text-yellow-500">Loading bubble...</span>
               </div>
             ) : (
-              selectedBubble?.name || "Bubble Chat"
+              <>
+                <MessageCircle className="h-5 w-5 text-yellow-500" />
+                <span className="text-yellow-500">{selectedBubble?.name || "Bubble Chat"}</span>
+              </>
             )}
           </DialogTitle>
         </DialogHeader>

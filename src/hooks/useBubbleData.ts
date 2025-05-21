@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -548,7 +547,7 @@ const useBubbleData = () => {
     }
   }, [user, profile, bubbles, toast, isBubbleExpired, queryClient]);
 
-  // Handle bubble click to navigate to bubble chat page
+  // Handle bubble click to open the chat dialog
   const handleBubbleClick = useCallback((bubbleId: string) => {
     // Find bubble to check if it's expired
     const bubble = bubbles.find(b => b.id === bubbleId);
@@ -562,9 +561,10 @@ const useBubbleData = () => {
       return;
     }
     
-    // Navigate to the bubble's chat page (even if expired, as we still want to show it)
-    navigate(`/bubble/${bubbleId}`);
-  }, [bubbles, navigate, toast]);
+    // Set the selected bubble and open the chat dialog
+    setSelectedBubbleId(bubbleId);
+    setChatOpen(true);
+  }, [bubbles, toast, setSelectedBubbleId, setChatOpen]);
 
   return {
     bubbles,

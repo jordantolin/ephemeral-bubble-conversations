@@ -7,7 +7,6 @@ import { NetworkProvider } from "@/context/NetworkContext";
 import RequireAuth from "@/components/RequireAuth";
 import OfflineIndicator from "@/components/network/OfflineIndicator";
 import ReconnectionIndicator from "@/components/network/ReconnectionIndicator";
-import Navbar from "@/components/navigation/Navbar";
 import Index from "@/pages/Index";
 import Auth from "@/pages/Auth";
 import BubbleChat from "@/pages/BubbleChat";
@@ -42,7 +41,6 @@ function AppContent() {
   
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
       <OfflineIndicator />
       <ReconnectionIndicator isReconnecting={isReconnecting} />
       <GamificationTracker />
