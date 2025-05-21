@@ -9,11 +9,13 @@ import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const location = useLocation();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
   
   const {
@@ -47,17 +49,31 @@ const Index = () => {
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
-    await handleReflect(bubbleId);
-    
-    if (user) {
-      // Add points for the reflection
-      await addPoints(10, 'reflection');
+    try {
+      await handleReflect(bubbleId);
       
-      // Increment progress for the reflection master achievement
-      await incrementAchievementProgress('reflection-master');
-      
-      // Refresh gamification profile to ensure all achievements are up to date
-      await refreshGamificationProfile();
+      if (user) {
+        // Add points for the reflection
+        await addPoints(10, 'reflection');
+        
+        // Increment progress for the reflection master achievement
+        await incrementAchievementProgress('reflection-master');
+        
+        // Refresh gamification profile to ensure all achievements are up to date
+        await refreshGamificationProfile();
+        
+        toast({
+          title: "Reflection successful!",
+          description: "You've earned 10 points for your reflection",
+        });
+      }
+    } catch (error) {
+      console.error("Error during reflection:", error);
+      toast({
+        title: "Reflection failed",
+        description: "There was an error processing your reflection",
+        variant: "destructive"
+      });
     }
   };
   

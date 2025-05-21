@@ -16,7 +16,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
   if (isLoading || !profile) {
     return minimal ? (
       <div className="flex items-center gap-1">
-        <div className="bg-yellow-400 rounded-full w-5 h-5 flex items-center justify-center">
+        <div className="bg-yellow-500 rounded-full w-5 h-5 flex items-center justify-center">
           <span className="text-white text-xs">?</span>
         </div>
         <Progress value={30} className="w-14 h-2 bg-yellow-100" />
@@ -25,7 +25,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
       <div className="flex flex-col">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center">
-            <div className="bg-yellow-400 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+            <div className="bg-yellow-500 rounded-full w-6 h-6 flex items-center justify-center mr-2">
               <span className="text-white text-xs">?</span>
             </div>
             <span className="text-sm font-medium text-gray-700">Loading...</span>
@@ -47,7 +47,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
     return (
       <div className="flex items-center gap-1">
         <motion.div
-          className="bg-yellow-400 rounded-full w-5 h-5 flex items-center justify-center text-white text-xs font-bold"
+          className="bg-yellow-500 rounded-full w-5 h-5 flex items-center justify-center text-white text-xs font-bold"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           initial={{ scale: 0.9 }}
@@ -65,7 +65,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center">
           <motion.div
-            className="bg-yellow-400 rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold mr-2"
+            className="bg-yellow-500 rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold mr-2"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             initial={{ scale: 0.9 }}
@@ -76,7 +76,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
           <span className="text-sm font-medium text-gray-700">Level {profile.level}</span>
         </div>
         <div className="flex items-center">
-          <Sparkles className="h-4 w-4 text-yellow-400 mr-1" />
+          <Sparkles className="h-4 w-4 text-yellow-500 mr-1" />
           <span className="text-xs font-medium text-yellow-500">{profile.points} points</span>
         </div>
       </div>

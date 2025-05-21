@@ -61,7 +61,7 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
           <BubbleChatInput 
             bubbleId={selectedBubbleId}
             isBubbleExpired={isBubbleExpired}
-            onReflect={handleReflect}
+            onReflect={() => selectedBubbleId && handleReflect(selectedBubbleId)}
           />
         )}
       </DialogContent>

@@ -14,7 +14,7 @@ export const useBubbleChat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { trackMessageSent } = useGamification();
+  const { trackMessageSent, addPoints } = useGamification();
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [cameFromBubbleWorld, setCameFromBubbleWorld] = useState(false);
@@ -79,7 +79,24 @@ export const useBubbleChat = () => {
 
   // Reflect bubble
   const handleReflect = async () => {
-    if (!id || !user) return;
+    if (!id || !user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if bubble has expired
+    if (bubble && isBubbleExpired(bubble.expires_at)) {
+      toast({
+        title: "Bubble has exploded",
+        description: "This bubble has expired and cannot be reflected",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const username = profile?.username || user?.email || "";
     
@@ -110,6 +127,9 @@ export const useBubbleChat = () => {
       title: "Bubble reflected!",
       description: "This bubble will appear in your profile",
     });
+
+    // Add gamification points
+    await addPoints(10, 'reflection');
 
     // Refresh bubble data
     queryClient.invalidateQueries({ queryKey: ['bubble', id] });
