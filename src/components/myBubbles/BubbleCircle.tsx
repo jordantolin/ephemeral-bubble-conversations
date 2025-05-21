@@ -15,7 +15,8 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const initialPositionsRef = useRef<BubbleData[]>([]);
-  const isAnimatingRef = useRef<boolean>(true);
+  const isAnimatingRef = useRef<boolean>(false); // Default to not animating
+  const isInitializedRef = useRef<boolean>(false);
   
   // Debug bubbles data on mount and when bubbles change
   useEffect(() => {
@@ -50,6 +51,13 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       
       // Initialize positions
       setPositionedBubbles(positioned);
+      
+      // Start animation after a delay to reduce initial motion overload
+      setTimeout(() => {
+        isAnimatingRef.current = true;
+      }, 1000);
+      
+      isInitializedRef.current = true;
     };
     
     updateInitialPositions();
@@ -62,15 +70,18 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     };
   }, [bubbles]);
   
-  // Animation loop for floating motion - with control
+  // Animation loop for floating motion - with better control
   useEffect(() => {
     const animate = () => {
-      if (initialPositionsRef.current && initialPositionsRef.current.length > 0 && isAnimatingRef.current) {
+      if (initialPositionsRef.current && 
+          initialPositionsRef.current.length > 0 && 
+          isAnimatingRef.current &&
+          isInitializedRef.current) {
         const time = Date.now();
         const floatingBubbles = calculateFloatingPositions(
           initialPositionsRef.current,
           time,
-          5 // Reduced floating radius for smoother movement
+          2 // Reduced floating radius for much smoother movement
         );
         setPositionedBubbles(floatingBubbles);
       }
@@ -79,9 +90,11 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     
     animationRef.current = requestAnimationFrame(animate);
     
+    // Proper cleanup of animation frame
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
       }
     };
   }, []);
@@ -93,7 +106,10 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     };
     
     const handleMouseLeave = () => {
-      isAnimatingRef.current = true;
+      // Only resume animation if component is initialized
+      if (isInitializedRef.current) {
+        isAnimatingRef.current = true;
+      }
     };
     
     const container = containerRef.current;
@@ -147,7 +163,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
             backgroundColor: getBubbleColor(bubble.topic),
             left: `${bubble.x ? (bubble.x - (parseInt(getBubbleSize(bubble.size).split(" ")[0].replace("w-", "")) / 2)) : 0}px`,
             top: `${bubble.y ? (bubble.y - (parseInt(getBubbleSize(bubble.size).split(" ")[1].replace("h-", "")) / 2)) : 0}px`,
-            transition: 'transform 0.2s ease-in-out',
+            transition: 'transform 0.2s ease-in-out, left 0.7s ease-in-out, top 0.7s ease-in-out', // Slower transitions for stability
           }}
           onClick={() => onBubbleClick(bubble.id)}
         >

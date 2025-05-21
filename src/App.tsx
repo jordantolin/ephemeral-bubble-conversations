@@ -18,7 +18,6 @@ import NotFound from "@/pages/NotFound";
 import GamificationTracker from "@/components/gamification/GamificationTracker";
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
-import { useNetwork } from "@/context/NetworkContext";
 import ErrorBoundary from "@/components/errorHandling/ErrorBoundary";
 
 function App() {
@@ -45,12 +44,10 @@ function App() {
 
 // Separate component to use the NetworkContext after it's been provided
 function AppContent() {
-  const { isReconnecting } = useNetwork();
-  
   return (
     <div className="min-h-screen bg-white">
       <OfflineIndicator />
-      <ReconnectionIndicator isReconnecting={isReconnecting} />
+      <ReconnectionIndicator />
       <GamificationTracker />
       <AchievementPopup />
       <DailyStreakIndicator />

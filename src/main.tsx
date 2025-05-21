@@ -8,12 +8,16 @@ import ErrorBoundary from './components/errorHandling/ErrorBoundary'
 
 console.log("Starting application initialization");
 
-// Create a client
+// Create a client with better error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
+      retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 30000,
+      onError: (error) => {
+        console.error("Query error:", error);
+      }
     },
   },
 })

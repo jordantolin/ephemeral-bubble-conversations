@@ -18,12 +18,12 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({
 }) => {
   return (
     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-      <div className="text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-500 tracking-tight mb-2">
+      <div className="text-center md:text-left">
+        <h1 className="text-3xl md:text-4xl font-bold text-yellow-500 tracking-tight mb-2">
           <span>{title}</span>
         </h1>
         {showDescription && (
-          <p className="text-yellow-500/80 text-lg max-w-xl">
+          <p className="text-yellow-500/80 text-base max-w-xl">
             Explore ephemeral bubbles that last for just 24 hours. Join conversations and reflect on ideas before they disappear!
           </p>
         )}

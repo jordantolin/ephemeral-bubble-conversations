@@ -10,6 +10,7 @@ import BubbleChat from "@/components/bubbleWorld/BubbleChat";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNetwork } from "@/context/NetworkContext";
 
 const Index = () => {
   const location = useLocation();
@@ -17,6 +18,7 @@ const Index = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
+  const { isReconnecting } = useNetwork();
   
   const {
     searchQuery,
@@ -30,7 +32,6 @@ const Index = () => {
     messagesError,
     chatOpen,
     setChatOpen,
-    isReconnecting,
     filteredBubbles,
     isLoadingBubbles,
     bubblesError,
@@ -115,7 +116,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
-      {/* Navigation */}
+      {/* Navigation - Only one navbar component */}
       <Navbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -124,7 +125,11 @@ const Index = () => {
       <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
-          <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
+          <BubbleWorldHeader 
+            onCreateBubble={handleCreateBubble}
+            showCreateButton={true} 
+            showDescription={true}
+          />
           
           <BubbleWorldContent
             isLoadingBubbles={isLoadingBubbles}
@@ -156,6 +161,11 @@ const Index = () => {
         isBubbleExpired={selectedBubble ? isBubbleExpired(selectedBubble) : false}
         handleReflect={handleReflectWithGamification}
       />
+      
+      {/* Reconnection indicator */}
+      {isReconnecting && (
+        <ReconnectionIndicator isReconnecting={isReconnecting} />
+      )}
     </div>
   );
 };

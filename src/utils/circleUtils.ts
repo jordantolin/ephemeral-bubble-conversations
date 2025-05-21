@@ -38,11 +38,11 @@ export const calculateCircularPositions = (bubbles: BubbleData[], containerWidth
 };
 
 // Function to create floating effect by slightly adjusting positions
-// Reduced animation intensity for more controlled movement
+// Significantly reduced animation intensity for much more controlled movement
 export const calculateFloatingPositions = (
   initialPositions: BubbleData[], 
   time: number, 
-  floatingRadius: number = 5
+  floatingRadius: number = 2 // Reduced from 5 to 2 for much gentler movement
 ): BubbleData[] => {
   if (!initialPositions || initialPositions.length === 0) {
     return [];
@@ -53,12 +53,12 @@ export const calculateFloatingPositions = (
       return bubble;
     }
     
-    // Create a floating effect with sine and cosine
-    // Slowed down the animation by dividing time by a larger value
-    // Add variation based on bubble index
-    const offsetFactor = (index % 3) + 1;
-    const floatX = Math.sin(time / 3000 + index * 0.5) * floatingRadius / offsetFactor;
-    const floatY = Math.cos(time / 4000 + index * 0.7) * floatingRadius / offsetFactor;
+    // Create a very subtle floating effect with sine and cosine
+    // Slowed down the animation by dividing time by a much larger value
+    // And reduced the floating radius substantially
+    const offsetFactor = (index % 3) + 2; // Increased divisor for even less movement
+    const floatX = Math.sin(time / 5000 + index * 0.3) * floatingRadius / offsetFactor;
+    const floatY = Math.cos(time / 6000 + index * 0.5) * floatingRadius / offsetFactor;
     
     return {
       ...bubble,

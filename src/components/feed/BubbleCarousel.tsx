@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown } from 'lucide-react';
@@ -38,6 +37,8 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
   const dragThreshold = 100; // Pixels required to trigger a bubble change
+  const isUserInteractingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
   
   // Navigate to the next bubble (scroll down)
   const navigateNext = () => {
@@ -45,11 +46,12 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     
     setIsTransitioning(true);
     setDirection(1);
+    lastInteractionTimeRef.current = Date.now();
     
     setTimeout(() => {
       setCurrentIndex(prev => (prev < bubbles.length - 1 ? prev + 1 : 0));
       setIsTransitioning(false);
-    }, 300);
+    }, 400); // Increased transition time for smoother movement
   };
 
   // Navigate to the previous bubble (scroll up)
@@ -58,14 +60,15 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     
     setIsTransitioning(true);
     setDirection(-1);
+    lastInteractionTimeRef.current = Date.now();
     
     setTimeout(() => {
       setCurrentIndex(prev => (prev > 0 ? prev - 1 : bubbles.length - 1));
       setIsTransitioning(false);
-    }, 300);
+    }, 400); // Increased transition time for smoother movement
   };
 
-  // Handle touch interactions for swiping
+  // Handle touch interactions for swiping with better control
   useEffect(() => {
     if (!containerRef.current) return;
     
@@ -73,13 +76,18 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
     
     const handleTouchStart = (e: TouchEvent) => {
       dragStartY.current = e.touches[0].clientY;
+      isUserInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
     };
     
     const handleTouchMove = (e: TouchEvent) => {
+      if (!isUserInteractingRef.current) return;
       e.preventDefault(); // Prevent page scrolling
     };
     
     const handleTouchEnd = (e: TouchEvent) => {
+      if (!isUserInteractingRef.current) return;
+      
       const dragEndY = e.changedTouches[0].clientY;
       const dragDiff = dragEndY - dragStartY.current;
       
@@ -92,14 +100,24 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
           navigateNext();
         }
       }
+      
+      isUserInteractingRef.current = false;
     };
     
-    // Handle wheel events for desktop scrolling
+    // Handle wheel events for desktop scrolling with debouncing
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       
       // Debounce wheel events to prevent rapid firing
       if (isTransitioning) return;
+      
+      // Track user interaction
+      isUserInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+      
+      // Debounce the scroll
+      const now = Date.now();
+      if (now - lastInteractionTimeRef.current < 200) return;
       
       if (e.deltaY > 0) {
         navigateNext();
@@ -108,8 +126,15 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       }
     };
     
-    // Handle keyboard navigation
+    // Handle keyboard navigation with debouncing
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Track user interaction
+      isUserInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+      
+      // Debounce key presses
+      if (isTransitioning) return;
+      
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         navigatePrev();
@@ -133,16 +158,17 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       container.removeEventListener('touchend', handleTouchEnd);
       container.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
+      isUserInteractingRef.current = false;
     };
   }, [bubbles.length, isTransitioning]);
 
-  // Transition variants for Framer Motion
+  // Transition variants for Framer Motion with smoother animations
   const bubbleVariants = {
     enter: (direction: number) => ({
       y: direction > 0 ? '100%' : '-100%',
       opacity: 0,
-      scale: 0.8,
-      rotateY: direction > 0 ? -20 : 20,
+      scale: 0.9,
+      rotateY: direction > 0 ? -10 : 10, // Reduced rotation angle
     }),
     center: {
       y: 0,
@@ -150,18 +176,18 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
       scale: 1,
       rotateY: 0,
       transition: {
-        duration: 0.5,
-        ease: [0.34, 1.56, 0.64, 1], // Custom cubic bezier for springy feel
+        duration: 0.6, // Increased duration for smoother effect
+        ease: [0.34, 1.2, 0.64, 1], // Adjusted ease for smoother spring effect
       }
     },
     exit: (direction: number) => ({
       y: direction > 0 ? '-100%' : '100%',
       opacity: 0,
-      scale: 0.8,
-      rotateY: direction > 0 ? 20 : -20,
+      scale: 0.9,
+      rotateY: direction > 0 ? 10 : -10, // Reduced rotation angle
       transition: {
-        duration: 0.4,
-        ease: [0.43, 0.13, 0.23, 0.96], // Custom cubic bezier for smooth exit
+        duration: 0.5, // Increased duration for smoother effect
+        ease: [0.43, 0.13, 0.23, 0.96], // Adjusted for smoother exit
       }
     })
   };
@@ -219,7 +245,7 @@ const BubbleCarousel: React.FC<BubbleCarouselProps> = ({
         ))}
       </div>
 
-      {/* Bubble content with smooth transitions */}
+      {/* Bubble content with smoother transitions */}
       <AnimatePresence initial={false} custom={direction}>
         {bubbles.length > 0 && (
           <motion.div

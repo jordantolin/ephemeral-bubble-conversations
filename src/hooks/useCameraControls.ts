@@ -26,9 +26,10 @@ export const useCameraControls = () => {
     isActive: false // Track if controls are active
   });
 
-  // Add a ref for animation control
+  // Add a ref for animation control with default to disabled
   const animationRef = useRef({
-    isEnabled: false
+    isEnabled: false, // Default to false to prevent unwanted movement
+    animationFrameId: 0 // Store animation frame ID for cleanup
   });
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
@@ -36,6 +37,9 @@ export const useCameraControls = () => {
     mouseRef.current.startX = event.clientX;
     mouseRef.current.startY = event.clientY;
     mouseRef.current.isActive = true;
+    
+    // Disable animation when user interacts
+    animationRef.current.isEnabled = false;
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -50,8 +54,9 @@ export const useCameraControls = () => {
       mouseRef.current.isDragging = true;
     }
 
-    rotationRef.current.targetY += deltaX * 0.004;
-    rotationRef.current.targetX += deltaY * 0.004;
+    // Reduce movement sensitivity for more stability
+    rotationRef.current.targetY += deltaX * 0.002;
+    rotationRef.current.targetX += deltaY * 0.002;
 
     // Limit vertical rotation
     rotationRef.current.targetX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.targetX));
@@ -70,7 +75,12 @@ export const useCameraControls = () => {
 
   const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
-    const zoomSpeed = 0.001;
+    
+    // Disable animation when user interacts
+    animationRef.current.isEnabled = false;
+    
+    // Reduce zoom sensitivity for more stability
+    const zoomSpeed = 0.0005;
     zoomRef.current.target = Math.max(
       zoomRef.current.min,
       Math.min(zoomRef.current.max,
@@ -85,8 +95,11 @@ export const useCameraControls = () => {
       return;
     }
 
+    // Disable animation when user interacts
+    animationRef.current.isEnabled = false;
+
     const pinchDelta = distance - mouseRef.current.lastPinchDistance;
-    const zoomSpeed = 0.03; // Adjusted for smoother mobile zoom
+    const zoomSpeed = 0.02; // Reduced for smoother mobile zoom
     const zoomDelta = pinchDelta * zoomSpeed;
     const currentZoom = zoomRef.current.target;
     const newZoom = currentZoom - zoomDelta;
@@ -99,9 +112,10 @@ export const useCameraControls = () => {
     mouseRef.current.lastPinchDistance = distance;
   }, []);
 
-  // Enable/disable automatic rotation
+  // Enable/disable automatic rotation - explicitly controlled
   const setAnimationEnabled = useCallback((enabled: boolean) => {
     animationRef.current.isEnabled = enabled;
+    console.log("Animation enabled:", enabled);
   }, []);
 
   const updateCamera = useCallback((camera: THREE.Camera) => {
@@ -109,10 +123,10 @@ export const useCameraControls = () => {
 
     // Only update rotation if user isn't actively controlling the camera
     // or if automatic animation is enabled
-    if (!mouseRef.current.isActive || animationRef.current.isEnabled) {
-      // Smoother rotation transitions
-      rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.1;
-      rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.1;
+    if (!mouseRef.current.isActive) {
+      // Smoother rotation transitions with reduced speed
+      rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.05;
+      rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.05;
 
       const radius = zoomRef.current.current;
 
@@ -121,18 +135,29 @@ export const useCameraControls = () => {
       camera.position.z = Math.cos(rotationRef.current.y) * Math.cos(rotationRef.current.x) * radius;
       camera.position.y = Math.sin(rotationRef.current.x) * radius;
 
-      // Smooth zoom transition
-      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
+      // Smooth zoom transition with reduced speed
+      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.05;
 
       camera.lookAt(new THREE.Vector3(0, 0, 0));
+      
+      // Only apply automatic rotation if enabled
+      if (animationRef.current.isEnabled) {
+        // Very small rotation increment for subtle movement
+        rotationRef.current.targetY += 0.0005;
+      }
     }
   }, []);
 
-  // Effect to clear activity state when component unmounts
+  // Properly clean up animation frame on unmount
   useEffect(() => {
     return () => {
       mouseRef.current.isActive = false;
       animationRef.current.isEnabled = false;
+      
+      // Cancel any ongoing animation frame
+      if (animationRef.current.animationFrameId) {
+        cancelAnimationFrame(animationRef.current.animationFrameId);
+      }
     };
   }, []);
 
