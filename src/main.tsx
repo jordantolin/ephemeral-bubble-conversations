@@ -8,7 +8,7 @@ import './index.css'
 // Create a client
 const queryClient = new QueryClient()
 
-// Make sure we're using the correct version of React here
+// Create root first, then render
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 root.render(
   <React.StrictMode>
