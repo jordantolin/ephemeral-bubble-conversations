@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
@@ -7,11 +6,14 @@ import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
 import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
 import BubbleChat from "@/components/bubbleWorld/BubbleChat";
-import ReconnectionIndicator from "@/components/network/ReconnectionIndicator"; // Added import for ReconnectionIndicator
+import ReconnectionIndicator from "@/components/network/ReconnectionIndicator";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNetwork } from "@/context/NetworkContext";
+
+// Replace direct import with lazy-loaded component
+// BubbleWorldContent will handle the actual loading of LazyBubbleWorld
 
 const Index = () => {
   const location = useLocation();
