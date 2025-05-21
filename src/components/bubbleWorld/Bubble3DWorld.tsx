@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { useCameraControls } from '@/hooks/useCameraControls';
@@ -88,7 +87,6 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     }
     cleanupThreeScene(containerRef.current, rendererRef.current, bubbleRefsRef.current);
     
-    // Force browser to skip a frame to ensure cleanup completes
     setTimeout(() => {
       toast({
         title: "Ritento inizializzazione 3D",
@@ -122,55 +120,6 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     
     try {
       console.log(`Bubble3DWorld: Inizializzazione mondo bolle 3D con ${bubbles.length} bolle (tentativo: ${retryCount + 1})`);
-      console.log('DEBUG CONTAINER: Container reference:', containerRef.current);
-      console.log('DEBUG CONTAINER: Dimensioni container:', {
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-        offsetWidth: containerRef.current.offsetWidth,
-        offsetHeight: containerRef.current.offsetHeight,
-        scrollWidth: containerRef.current.scrollWidth,
-        scrollHeight: containerRef.current.scrollHeight
-      });
-      
-      // Force container to be visible with explicit inline styles again
-      containerRef.current.style.display = 'block';
-      containerRef.current.style.visibility = 'visible';
-      containerRef.current.style.opacity = '1';
-      containerRef.current.style.position = 'relative';
-      containerRef.current.style.overflow = 'hidden';
-      containerRef.current.style.minHeight = '300px';
-      containerRef.current.style.minWidth = '300px';
-      containerRef.current.style.border = '1px solid red'; // DEBUG: Visible border
-      
-      // Force container layout calculation
-      void containerRef.current.getBoundingClientRect();
-      
-      // Check container dimensions
-      if (containerRef.current.clientWidth <= 0 || containerRef.current.clientHeight <= 0) {
-        console.error('Bubble3DWorld: Container ha dimensioni zero o non valide!');
-        setInitializationError("Container ha dimensioni non valide");
-        throw new Error("Container ha dimensioni non valide");
-      }
-      
-      // Check container visibility
-      const style = window.getComputedStyle(containerRef.current);
-      console.log('DEBUG CONTAINER: Stile container:', {
-        display: style.display,
-        visibility: style.visibility,
-        opacity: style.opacity,
-        overflow: style.overflow,
-        position: style.position,
-        width: style.width,
-        height: style.height
-      });
-      
-      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-        console.warn('DEBUG CONTAINER: Container non è visibile!');
-        // Try to force visibility
-        containerRef.current.style.display = 'block';
-        containerRef.current.style.visibility = 'visible';
-        containerRef.current.style.opacity = '1';
-      }
       
       // Initialize scene, camera, and renderer
       const threeElements = initializeThreeScene(
@@ -223,7 +172,6 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
           }
         } catch (error) {
           console.error("Bubble3DWorld: Errore nel loop di animazione:", error);
-          // Don't throw here - just log the error to avoid crashing the loop
         }
       };
       
@@ -231,9 +179,9 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         try {
           rendererRef.current.render(sceneRef.current, cameraRef.current);
-          console.log('DEBUG RENDERING: First render completed successfully');
+          console.log('Bubble3DWorld: First render completed successfully');
         } catch (e) {
-          console.error('DEBUG RENDERING: First render failed:', e);
+          console.error('Bubble3DWorld: First render failed:', e);
         }
       }
       
@@ -243,6 +191,13 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       setIsInitialized(true);
       setIs3DReady(true);
       console.log("Bubble3DWorld: Inizializzazione mondo 3D completata");
+      
+      // Update bubbles immediately
+      if (bubbles.length > 0) {
+        updateBubbles(bubbles);
+        setLastBubbleCount(bubbles.length);
+      }
+      
     } catch (error) {
       console.error("Bubble3DWorld: Errore inizializzazione mondo bolle 3D:", error);
       setInitializationError("Errore inizializzazione mondo 3D");
@@ -263,7 +218,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       cleanupThreeScene(containerRef.current, rendererRef.current, bubbleRefsRef.current);
     };
   }, [
-    isInitialized, mouseRef, bubbles.length, toast, updateCamera, animateBubbles, retryCount
+    isInitialized, mouseRef, bubbles.length, toast, updateCamera, animateBubbles, retryCount, updateBubbles
   ]);
   
   // Set up event listeners
@@ -364,18 +319,17 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     <ComponentErrorBoundary name="3D Bubble World">
       <motion.div 
         ref={containerRef} 
-        className="w-full h-full relative overflow-hidden rounded-xl bg-black/5" // Added bg color for visibility
+        className="w-full h-full relative overflow-hidden rounded-xl"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
         style={{
-          minHeight: '300px',  // Garantire un'altezza minima
-          minWidth: '300px',   // Garantire una larghezza minima
-          display: 'block',    // Forzare display block
-          visibility: 'visible', // Forzare visibilità
-          position: 'relative', // Ensure proper positioning
-          overflow: 'hidden',  // Prevent overflow
-          border: process.env.NODE_ENV === 'development' ? '1px dashed rgba(255,0,0,0.3)' : undefined // Debug border
+          minHeight: '300px',
+          minWidth: '300px',
+          display: 'block',
+          visibility: 'visible',
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
         <BubbleWorldStatus 

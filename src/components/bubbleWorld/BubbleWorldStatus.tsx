@@ -14,8 +14,6 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
   initializationError,
   onRetry 
 }) => {
-  console.log('BubbleWorldStatus render:', { is3DReady, initializationError });
-  
   // State to track canvas presence in real-time
   const [canvasPresent, setCanvasPresent] = useState<boolean>(false);
   const [canvasInfo, setCanvasInfo] = useState<{
@@ -24,8 +22,7 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
     display: string, 
     position: string,
     zIndex: string,
-    visibility: string,
-    backgroundColor: string
+    visibility: string
   } | null>(null);
   
   // Check for canvas at regular intervals with more detailed information
@@ -42,21 +39,10 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
           display: styles.display,
           position: styles.position,
           zIndex: styles.zIndex,
-          visibility: styles.visibility,
-          backgroundColor: styles.backgroundColor
-        });
-        console.log('Canvas check: VISIBLE in DOM', {
-          width: canvasElement.width,
-          height: canvasElement.height,
-          clientWidth: canvasElement.clientWidth,
-          clientHeight: canvasElement.clientHeight,
-          display: styles.display,
-          position: styles.position,
-          zIndex: styles.zIndex
+          visibility: styles.visibility
         });
       } else {
         setCanvasInfo(null);
-        console.log('Canvas check: NOT FOUND in DOM');
       }
     };
     
@@ -68,11 +54,10 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
     return () => clearInterval(interval);
   }, []);
   
-  // Always show status overlay for debugging
-  const forceShowDebug = true; // Always show debug info
+  // Only show status in development or when there's an error
+  const showDebug = process.env.NODE_ENV === 'development';
   
-  // In development, always show some status
-  if (is3DReady && !initializationError && !forceShowDebug) return null;
+  if (is3DReady && !initializationError && !showDebug) return null;
   
   if (initializationError) {
     return (
@@ -97,29 +82,16 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
     );
   }
   
-  // Debug overlay - always visible for debugging
-  if (forceShowDebug) {
+  // Debug overlay - only visible in development
+  if (showDebug) {
     return (
-      <div className="absolute top-2 left-2 z-50 bg-blue-100/90 p-2 rounded text-xs border-2 border-blue-300 max-w-[300px]">
+      <div className="absolute top-2 right-2 z-50 bg-blue-100/80 p-2 rounded text-xs border border-blue-300 max-w-[150px]">
         <div className="flex items-center gap-1 mb-1 text-blue-800">
           <Info className="w-3 h-3" />
-          <span className="font-bold">Debug stato 3D:</span>
+          <span className="font-bold">3D Status:</span>
         </div>
         <p>Ready: {is3DReady ? '✅' : '❌'}</p>
-        <p>Error: {initializationError ? '❌' : '✅'}</p>
-        <p>Canvas nel DOM: {canvasPresent ? '✅' : '❌'}</p>
-        <p>Ultima verifica: {new Date().toLocaleTimeString()}</p>
-        {canvasInfo && (
-          <>
-            <p>Canvas width: {canvasInfo.width}</p>
-            <p>Canvas height: {canvasInfo.height}</p>
-            <p>Canvas display: {canvasInfo.display}</p>
-            <p>Canvas position: {canvasInfo.position}</p>
-            <p>Canvas z-index: {canvasInfo.zIndex}</p>
-            <p>Canvas visibility: {canvasInfo.visibility}</p>
-            <p>Canvas background: {canvasInfo.backgroundColor}</p>
-          </>
-        )}
+        <p>Canvas: {canvasPresent ? '✅' : '❌'}</p>
       </div>
     );
   }
@@ -134,10 +106,6 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
     >
       <div className="w-12 h-12 rounded-full border-4 border-t-yellow-400 border-yellow-200 animate-spin mb-3"></div>
       <p className="text-white text-lg font-medium">Caricamento ambiente 3D...</p>
-      <p className="text-white/80 text-sm mt-2">Inizializzazione rendering...</p>
-      <p className="text-white/60 text-xs mt-4">
-        Canvas presente: {canvasPresent ? '✅' : '❌'}
-      </p>
     </motion.div>
   );
 };
