@@ -2,7 +2,7 @@
 import React, { useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, MessageCircle, WifiOff } from "lucide-react";
-import BubbleChatMessages from "./BubbleChatMessages";
+import OptimizedBubbleMessages from "./OptimizedBubbleMessages";
 import BubbleChatInput from "./BubbleChatInput";
 import { useNetwork } from "@/context/NetworkContext";
 
@@ -41,6 +41,9 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
     }
   }, [isOnline, chatOpen, setChatOpen]);
 
+  // Performance optimization - prevent rendering when closed
+  if (!chatOpen) return null;
+
   return (
     <Dialog open={chatOpen} onOpenChange={setChatOpen}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] flex flex-col overflow-hidden">
@@ -65,22 +68,12 @@ const BubbleChat: React.FC<BubbleChatProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4 min-h-[300px]">
-          {!isOnline ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-4">
-              <WifiOff className="h-10 w-10 text-gray-400 mb-2" />
-              <h3 className="text-lg font-medium text-gray-700">You're offline</h3>
-              <p className="text-gray-500 mt-1">
-                Chat messages will be available when you reconnect.
-              </p>
-            </div>
-          ) : (
-            <BubbleChatMessages 
-              messages={messages}
-              isLoadingMessages={isLoadingMessages}
-              messagesError={messagesError}
-            />
-          )}
+        <div className="flex-1 overflow-hidden py-4 px-1 min-h-[300px]">
+          <OptimizedBubbleMessages 
+            messages={messages}
+            isLoadingMessages={isLoadingMessages}
+            messagesError={messagesError}
+          />
         </div>
 
         {selectedBubbleId && isOnline && (

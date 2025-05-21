@@ -1,31 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import useBubbleData from "@/hooks/useBubbleData";
+import { useOptimizedBubbleWorld } from "@/hooks/useOptimizedBubbleWorld";
 import Navbar from "@/components/navigation/Navbar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
-import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
-import BubbleChat from "@/components/bubbleWorld/BubbleChat";
-import ReconnectionIndicator from "@/components/network/ReconnectionIndicator";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNetwork } from "@/context/NetworkContext";
+import { Loader2 } from "lucide-react";
 
-// Replace direct import with lazy-loaded component
-// BubbleWorldContent will handle the actual loading of LazyBubbleWorld
+// Lazy load non-essential components for better performance
+const CreateBubbleDialog = lazy(() => import("@/components/bubbleWorld/CreateBubbleDialog"));
+const BubbleChat = lazy(() => import("@/components/bubbleWorld/BubbleChat"));
+const ReconnectionIndicator = lazy(() => import("@/components/network/ReconnectionIndicator"));
 
 const Index = () => {
   const location = useLocation();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
-  const { isReconnecting } = useNetwork();
+  const { isReconnecting, isOnline } = useNetwork();
   
+  // Extract search functionality from useBubbleData
+  const [searchQuery, setSearchQuery] = useState("");
+  const { bubbles, isLoading, error } = useOptimizedBubbleWorld(searchQuery);
+  
+  // Keep using the rest of useBubbleData for existing functionality
   const {
-    searchQuery,
-    setSearchQuery,
     selectedBubbleId,
     setSelectedBubbleId,
     selectedBubble,
@@ -35,10 +41,6 @@ const Index = () => {
     messagesError,
     chatOpen,
     setChatOpen,
-    filteredBubbles,
-    isLoadingBubbles,
-    bubblesError,
-    bubbleDataForComponent,
     isBubbleExpired,
     handleReflect,
   } = useBubbleData();
@@ -48,11 +50,28 @@ const Index = () => {
   
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
+    if (!isOnline) {
+      toast({
+        title: "You're offline",
+        description: "Please connect to the internet to create a bubble",
+        variant: "destructive"
+      });
+      return;
+    }
     setNewBubbleDialog(true);
   };
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
+    if (!isOnline) {
+      toast({
+        title: "You're offline",
+        description: "Please connect to the internet to reflect on bubbles",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       await handleReflect(bubbleId);
       
@@ -70,6 +89,10 @@ const Index = () => {
           title: "Reflection successful!",
           description: "You've earned 10 points for your reflection",
         });
+        
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ['bubbles'] });
+        queryClient.invalidateQueries({ queryKey: ['optimized-bubbles'] });
       }
     } catch (error) {
       console.error("Error during reflection:", error);
@@ -135,39 +158,52 @@ const Index = () => {
           />
           
           <BubbleWorldContent
-            isLoadingBubbles={isLoadingBubbles}
-            bubblesError={bubblesError}
-            filteredBubbles={filteredBubbles}
-            bubbleDataForComponent={bubbleDataForComponent}
+            isLoadingBubbles={isLoading}
+            bubblesError={error}
+            filteredBubbles={bubbles}
+            bubbleDataForComponent={bubbles}
             onBubbleClick={handleBubbleClick}
             onCreateBubble={handleCreateBubble}
           />
         </div>
       </div>
       
-      {/* New Bubble Dialog */}
-      <CreateBubbleDialog 
-        open={newBubbleDialog} 
-        onOpenChange={setNewBubbleDialog} 
-      />
+      {/* Lazy loaded components */}
+      <Suspense fallback={null}>
+        {/* New Bubble Dialog */}
+        {newBubbleDialog && (
+          <CreateBubbleDialog 
+            open={newBubbleDialog} 
+            onOpenChange={setNewBubbleDialog} 
+          />
+        )}
+        
+        {/* Chat Dialog */}
+        {chatOpen && (
+          <BubbleChat
+            chatOpen={chatOpen}
+            setChatOpen={setChatOpen}
+            selectedBubbleId={selectedBubbleId}
+            selectedBubble={selectedBubble}
+            isLoadingBubbleDetails={isLoadingBubbleDetails}
+            messages={messages}
+            isLoadingMessages={isLoadingMessages}
+            messagesError={messagesError}
+            isBubbleExpired={selectedBubble ? isBubbleExpired(selectedBubble) : false}
+            handleReflect={handleReflectWithGamification}
+          />
+        )}
+        
+        {/* Reconnection indicator */}
+        {isReconnecting && <ReconnectionIndicator isReconnecting={isReconnecting} />}
+      </Suspense>
       
-      {/* Chat Dialog */}
-      <BubbleChat
-        chatOpen={chatOpen}
-        setChatOpen={setChatOpen}
-        selectedBubbleId={selectedBubbleId}
-        selectedBubble={selectedBubble}
-        isLoadingBubbleDetails={isLoadingBubbleDetails}
-        messages={messages}
-        isLoadingMessages={isLoadingMessages}
-        messagesError={messagesError}
-        isBubbleExpired={selectedBubble ? isBubbleExpired(selectedBubble) : false}
-        handleReflect={handleReflectWithGamification}
-      />
-      
-      {/* Reconnection indicator */}
-      {isReconnecting && (
-        <ReconnectionIndicator isReconnecting={isReconnecting} />
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="fixed bottom-4 right-4 bg-red-100 text-red-800 px-4 py-2 rounded-md shadow-md flex items-center">
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          <span>You're offline. Some features may be limited.</span>
+        </div>
       )}
     </div>
   );
