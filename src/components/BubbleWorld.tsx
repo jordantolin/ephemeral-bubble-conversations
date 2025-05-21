@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Bubble from './Bubble';
+import Bubble3DWorld from './bubbleWorld/Bubble3DWorld';
 import { BubbleData, BubbleWorldProps } from '@/types/bubble';
 
 // Create a staggered animation for bubbles
@@ -27,6 +28,7 @@ const bubbleVariants = {
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => {
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
+  const [use3DMode, setUse3DMode] = useState<boolean>(true);
   const navigate = useNavigate();
 
   // Handle case where bubbles is undefined or empty
@@ -46,6 +48,20 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
       setExplodingBubble(null);
     }, 500);
   };
+  
+  useEffect(() => {
+    // Check if WebGL is available
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    
+    if (!gl) {
+      console.log('WebGL not supported, falling back to 2D mode');
+      setUse3DMode(false);
+    } else {
+      console.log('WebGL supported, using 3D mode');
+      setUse3DMode(true);
+    }
+  }, []);
 
   // If no valid bubbles, render placeholder content
   if (validBubbles.length === 0) {
@@ -57,31 +73,40 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   }
 
   return (
-    <motion.div 
-      className="w-full h-full flex flex-wrap justify-center items-center gap-4 p-4 overflow-hidden"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {validBubbles.map((bubble) => (
-        <motion.div
-          key={bubble.id}
-          className="flex flex-col items-center mx-2 my-2"
-          variants={bubbleVariants}
+    <div className="w-full h-full">
+      {use3DMode ? (
+        <Bubble3DWorld 
+          bubbles={validBubbles} 
+          onBubbleClick={handleClick}
+        />
+      ) : (
+        <motion.div 
+          className="w-full h-full flex flex-wrap justify-center items-center gap-4 p-4 overflow-hidden"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
         >
-          <Bubble
-            id={bubble.id}
-            title={bubble.topic || 'Untitled'} // Add fallback for topic
-            description={bubble.description || ''} // Add fallback for description
-            timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
-            participants={0}
-            reflects={bubble.reflect_count || 0} // Add fallback for reflect_count
-            isExploding={explodingBubble === bubble.id}
-            onClick={() => handleClick(bubble.id)}
-          />
+          {validBubbles.map((bubble) => (
+            <motion.div
+              key={bubble.id}
+              className="flex flex-col items-center mx-2 my-2"
+              variants={bubbleVariants}
+            >
+              <Bubble
+                id={bubble.id}
+                title={bubble.topic || 'Untitled'} // Add fallback for topic
+                description={bubble.description || ''} // Add fallback for description
+                timeLeft={bubble.expires_at ? new Date(bubble.expires_at).toLocaleString() : 'No expiry'}
+                participants={0}
+                reflects={bubble.reflect_count || 0} // Add fallback for reflect_count
+                isExploding={explodingBubble === bubble.id}
+                onClick={() => handleClick(bubble.id)}
+              />
+            </motion.div>
+          ))}
         </motion.div>
-      ))}
-    </motion.div>
+      )}
+    </div>
   );
 };
 

@@ -2,157 +2,145 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
- 
+
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 3.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
- 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
- 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
- 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
- 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
- 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
- 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --card-foreground: 240 10% 3.9%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
- 
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+
     --radius: 0.5rem;
   }
- 
+
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
- 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
- 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
- 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
- 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
- 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
- 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
- 
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
- 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
   }
 }
- 
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
-    @apply bg-[#FEF7E4] text-foreground;
-    -webkit-tap-highlight-color: transparent;
-  }
-  html, body, #root {
-    min-height: 100vh;
-    background-color: #FEF7E4;
-    scroll-behavior: smooth;
-    overflow-x: hidden;
+    @apply bg-background text-foreground;
   }
 }
 
-/* Global animations and transitions */
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+/* Bubble styling */
+.bubble {
+  @apply relative rounded-full flex items-center justify-center overflow-hidden backdrop-blur-sm;
+  background: radial-gradient(ellipse at center, rgba(235, 189, 52, 0.8) 0%, rgba(235, 189, 52, 0.4) 70%);
+  box-shadow: 0 0 20px 10px rgba(235, 189, 52, 0.15), inset 0 0 20px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(235, 189, 52, 0.3);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
-.bg-glow {
-  animation: pulse-glow 3s infinite ease-in-out;
+.bubble::before {
+  content: '';
+  position: absolute;
+  top: 5%;
+  left: 15%;
+  width: 30%;
+  height: 30%;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  filter: blur(5px);
 }
 
-/* Mobile optimizations */
-@media (max-width: 640px) {
-  .container {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-  }
-  
-  h1 {
-    font-size: 1.5rem !important;
-  }
-  
-  h2 {
-    font-size: 1.25rem !important;
-  }
-  
-  .mobile-spacing {
-    margin-bottom: 4rem;
-  }
-  
-  /* Fix mobile bottom spacing for fixed elements */
-  .fixed.bottom-4 {
-    bottom: 4.5rem;
-  }
+.bubble::after {
+  content: '';
+  position: absolute;
+  bottom: 15%;
+  right: 20%;
+  width: 15%;
+  height: 15%;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  filter: blur(3px);
 }
 
-/* Better focus states for accessibility */
-:focus-visible {
-  outline: 2px solid #ebbd34;
-  outline-offset: 2px;
+/* Animation for floating bubbles */
+@keyframes float-animation-1 {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-15px) scale(1.03); }
 }
 
-/* Remove tap highlight on mobile */
-button, a {
-  -webkit-tap-highlight-color: transparent;
+@keyframes float-animation-2 {
+  0%, 100% { transform: translateY(0px) rotate(2deg) scale(1); }
+  50% { transform: translateY(-10px) rotate(-2deg) scale(1.02); }
 }
 
-/* Smoother transitions */
-.transition-all {
-  transition-duration: 300ms;
+@keyframes float-animation-3 {
+  0%, 100% { transform: translateY(0px) rotate(-3deg) scale(1); }
+  50% { transform: translateY(-20px) rotate(1deg) scale(1.04); }
 }
 
-/* Improved touch targets for mobile */
-@media (max-width: 640px) {
-  button, a, [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  input, select, textarea {
-    font-size: 16px; /* Prevents zoom on iOS */
-  }
+.float-bubble-1 {
+  animation: float-animation-1 4s ease-in-out infinite;
 }
 
-/* Better scrolling experience */
-.smooth-scroll {
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+.float-bubble-2 {
+  animation: float-animation-2 6s ease-in-out infinite;
+  animation-delay: 1s;
 }
 
-/* Glassmorphism utility */
+.float-bubble-3 {
+  animation: float-animation-3 8s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+/* Glass effect for cards and panels */
 .glass {
-  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
+  @apply backdrop-blur-md bg-white/30 border border-white/20;
 }

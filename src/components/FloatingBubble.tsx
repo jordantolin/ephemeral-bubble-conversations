@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { motion } from "framer-motion";
 
 interface FloatingBubbleProps {
   id: string;
@@ -29,17 +30,32 @@ const FloatingBubble = ({ topic, size = "md", delay, position }: FloatingBubbleP
 
   return (
     <>
-      <button
-        className={`bubble float-bubble-${delay} ${sizeClasses[size]} flex items-center justify-center cursor-pointer overflow-hidden`}
+      <motion.button
+        className={`bubble float-bubble-${delay} ${sizeClasses[size]} flex items-center justify-center cursor-pointer overflow-hidden
+                   bg-gradient-to-tr from-yellow-300/70 to-yellow-400/50 backdrop-blur-md
+                   border border-yellow-200 rounded-full shadow-lg`}
         style={{
           position: "absolute",
           left: `${position?.x ?? Math.random() * 60}%`,
           top: `${position?.y ?? Math.random() * 60}%`,
         }}
         onClick={() => setIsOpen(true)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ 
+          scale: 1, 
+          opacity: 1,
+          transition: { 
+            type: "spring", 
+            stiffness: 260, 
+            damping: 20,
+            delay: delay ? parseInt(delay) * 0.2 : 0
+          }
+        }}
       >
-        <p className="text-sm font-medium text-center">{topic}</p>
-      </button>
+        <p className="text-sm font-medium text-center text-yellow-900/80 px-3">{topic}</p>
+      </motion.button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[500px]">
