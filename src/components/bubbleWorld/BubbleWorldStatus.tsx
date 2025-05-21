@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, AlertTriangle, Info } from 'lucide-react';
 
@@ -15,6 +15,36 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
   onRetry 
 }) => {
   console.log('BubbleWorldStatus render:', { is3DReady, initializationError });
+  
+  // State to track canvas presence in real-time
+  const [canvasPresent, setCanvasPresent] = useState<boolean>(false);
+  const [canvasInfo, setCanvasInfo] = useState<{width: number, height: number, display: string, position: string} | null>(null);
+  
+  // Check for canvas at regular intervals
+  useEffect(() => {
+    const checkCanvas = () => {
+      const canvasElement = document.getElementById('three-js-canvas') as HTMLCanvasElement | null;
+      setCanvasPresent(!!canvasElement);
+      
+      if (canvasElement) {
+        setCanvasInfo({
+          width: canvasElement.width,
+          height: canvasElement.height,
+          display: window.getComputedStyle(canvasElement).display,
+          position: window.getComputedStyle(canvasElement).position
+        });
+      } else {
+        setCanvasInfo(null);
+      }
+    };
+    
+    // Check immediately
+    checkCanvas();
+    
+    // Then check periodically
+    const interval = setInterval(checkCanvas, 2000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Always show status overlay for debugging
   const forceShowDebug = process.env.NODE_ENV === 'development';
@@ -39,7 +69,7 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
         </button>
         <p className="text-xs text-gray-500 mt-4">Dettaglio errore: {initializationError}</p>
         <p className="text-xs text-gray-500 mt-2">
-          Canvas presente nel DOM: {document.getElementById('three-js-canvas') ? '✅' : '❌'}
+          Canvas presente nel DOM: {canvasPresent ? '✅ ADESSO' : '❌ MANCANTE'}
         </p>
       </div>
     );
@@ -57,13 +87,14 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
         </div>
         <p>Ready: {is3DReady ? '✅' : '❌'}</p>
         <p>Error: {initializationError ? '❌' : '✅'}</p>
-        <p>Canvas nel DOM: {canvasElement ? '✅' : '❌'}</p>
-        {canvasElement && (
+        <p>Canvas nel DOM: {canvasPresent ? '✅' : '❌'}</p>
+        <p>Ultima verifica: {new Date().toLocaleTimeString()}</p>
+        {canvasInfo && (
           <>
-            <p>Canvas width: {canvasElement.width}</p>
-            <p>Canvas height: {canvasElement.height}</p>
-            <p>Canvas display: {window.getComputedStyle(canvasElement).display}</p>
-            <p>Canvas position: {window.getComputedStyle(canvasElement).position}</p>
+            <p>Canvas width: {canvasInfo.width}</p>
+            <p>Canvas height: {canvasInfo.height}</p>
+            <p>Canvas display: {canvasInfo.display}</p>
+            <p>Canvas position: {canvasInfo.position}</p>
           </>
         )}
       </div>
@@ -82,7 +113,7 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
       <p className="text-white text-lg font-medium">Caricamento ambiente 3D...</p>
       <p className="text-white/80 text-sm mt-2">Inizializzazione rendering...</p>
       <p className="text-white/60 text-xs mt-4">
-        Canvas presente: {document.getElementById('three-js-canvas') ? '✅' : '❌'}
+        Canvas presente: {canvasPresent ? '✅' : '❌'}
       </p>
     </motion.div>
   );

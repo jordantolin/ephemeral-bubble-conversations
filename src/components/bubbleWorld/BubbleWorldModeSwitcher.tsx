@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Axis3D, CircleDashed, Info, AlertTriangle } from 'lucide-react';
+import { Axis3D, CircleDashed, Info, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface BubbleWorldModeSwitcherProps {
   use3DMode: boolean;
@@ -17,6 +17,30 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
   webGLSupported = true
 }) => {
   console.log('BubbleWorldModeSwitcher render:', { use3DMode, webGLSupported });
+  
+  // State to track canvas presence in real-time
+  const [canvasPresent, setCanvasPresent] = useState<boolean>(false);
+  
+  // Check for canvas at regular intervals
+  useEffect(() => {
+    const checkCanvas = () => {
+      const canvasElement = document.getElementById('three-js-canvas');
+      setCanvasPresent(!!canvasElement);
+    };
+    
+    // Check immediately
+    checkCanvas();
+    
+    // Then check periodically when in 3D mode
+    let interval: number | null = null;
+    if (use3DMode) {
+      interval = window.setInterval(checkCanvas, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [use3DMode]);
 
   const handleSwitchTo3D = () => {
     if (!webGLSupported) {
@@ -43,6 +67,15 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
     console.log('BubbleWorldModeSwitcher: Passaggio a modalità 2D');
   };
   
+  const handleForceReinitialize = () => {
+    // Force reinitialize 3D mode
+    setUse3DMode(false);
+    setRenderAttempted(false);
+    setTimeout(() => {
+      setUse3DMode(true);
+    }, 100);
+  };
+  
   return (
     <motion.div 
       className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex flex-col items-center shadow-lg rounded-lg bg-white/80 backdrop-blur-md p-2 border-2 border-white/70"
@@ -57,10 +90,15 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
         </div>
       )}
       
-      {use3DMode && !document.getElementById('three-js-canvas') && (
+      {use3DMode && !canvasPresent && (
         <div className="mb-2 px-3 py-1 bg-red-100 rounded-md text-xs text-red-800 flex items-center gap-1">
           <AlertTriangle size={12} />
-          <span>Canvas 3D non trovato nel DOM!</span>
+          <span>Canvas 3D non trovato nel DOM! <button 
+            onClick={handleForceReinitialize}
+            className="ml-1 underline text-blue-600 hover:text-blue-800"
+          >
+            <RefreshCw className="h-3 w-3 inline"/> Riprova
+          </button></span>
         </div>
       )}
       
@@ -78,7 +116,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
         >
           <Axis3D className="h-4 w-4" />
           <span className="text-sm font-medium">3D</span>
-          {use3DMode && <span className="ml-1 text-xs">{document.getElementById('three-js-canvas') ? '✓' : '!'}</span>}
+          {use3DMode && <span className="ml-1 text-xs">{canvasPresent ? '✓' : '!'}</span>}
         </button>
         <button 
           onClick={handleSwitchTo2D}

@@ -97,68 +97,83 @@ export const initializeThreeScene = (
         zIndex: containerStyles.zIndex
       });
       
-      // Append to DOM and set style properties
-      try {
-        console.log("Aggiungo canvas a:", container);
-        container.appendChild(renderer.domElement);
-        console.log("Canvas dopo append:", container.querySelector("canvas"));
-        
-        // Per debugging - fissa il canvas in posizione assoluta visibile
-        renderer.domElement.style.width = '100%';
-        renderer.domElement.style.height = '100%';
-        renderer.domElement.style.display = 'block';
-        
-        // Debug: usa position fixed come suggerito per forzare la visibilità
-        renderer.domElement.style.position = 'fixed';
-        renderer.domElement.style.top = '0';
-        renderer.domElement.style.left = '0';
-        renderer.domElement.style.zIndex = '9999';  // Altissimo z-index per debug
-        renderer.domElement.style.border = '5px solid magenta'; // Bordo molto visibile
-        
-        // Force repaint to ensure visibility
-        renderer.domElement.getBoundingClientRect();
-        
-        // Set a fixed ID to the canvas for easier debugging
-        renderer.domElement.id = 'three-js-canvas';
-        
-        console.log('DEBUG CANVAS: Canvas aggiunto al container con successo');
-        console.log('DEBUG CANVAS: Canvas dimensions', {
-          width: renderer.domElement.width,
-          height: renderer.domElement.height,
-          styleWidth: renderer.domElement.style.width,
-          styleHeight: renderer.domElement.style.height
-        });
-        
-        // Verify canvas is in the DOM
-        console.log('DEBUG CANVAS: Canvas is in DOM?', renderer.domElement.isConnected);
-        
-        // Add a DOM mutation observer to detect if the canvas gets removed
-        const observer = new MutationObserver((mutations) => {
-          for (let mutation of mutations) {
-            if (mutation.type === 'childList') {
-              for (let node of Array.from(mutation.removedNodes)) {
-                if (node === renderer.domElement) {
-                  console.error('DEBUG CANVAS: Canvas was removed from the DOM!');
-                  
-                  // Try to re-append it immediately
-                  try {
-                    console.log('DEBUG CANVAS: Attempting to re-append canvas');
-                    container.appendChild(renderer.domElement);
-                  } catch (e) {
-                    console.error('DEBUG CANVAS: Failed to re-append canvas:', e);
-                  }
+      // Create the canvas first but DON'T append it yet
+      const domElement = renderer.domElement;
+      
+      // Set a fixed ID to the canvas for easier debugging
+      domElement.id = 'three-js-canvas';
+      
+      // Per debugging - fissa il canvas in posizione assoluta visibile
+      domElement.style.width = '100%';
+      domElement.style.height = '100%';
+      domElement.style.display = 'block';
+      
+      // Debug: usa position absolute al container invece di fixed per evitare problemi di layering
+      domElement.style.position = 'absolute';
+      domElement.style.top = '0';
+      domElement.style.left = '0';
+      domElement.style.zIndex = '5';  // Riduce z-index per non coprire completamente i controlli
+      domElement.style.border = '5px solid magenta'; // Bordo molto visibile
+
+      // CRITICAL: Make the container relative positioned to properly contain the absolute canvas
+      if (getComputedStyle(container).position === 'static') {
+        container.style.position = 'relative';
+      }
+      
+      // CRITICAL: Force container to be visible and have dimensions
+      container.style.minHeight = '300px';
+      container.style.minWidth = '300px';
+      container.style.display = 'block';
+      container.style.visibility = 'visible';
+      container.style.overflow = 'hidden'; // Prevent canvas from spilling out
+      
+      // Add canvas to container after configuring everything
+      console.log("Aggiungo canvas a:", container);
+      
+      // IMPORTANT: Use requestAnimationFrame to ensure the DOM has settled before adding canvas
+      // This can help avoid React re-rendering issues
+      requestAnimationFrame(() => {
+        try {
+          container.appendChild(domElement);
+          console.log("Canvas dopo append:", container.querySelector("canvas"));
+          
+          // Force repaint to ensure visibility
+          void domElement.getBoundingClientRect();
+        } catch (e) {
+          console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
+          onError("Errore nell'aggiunta del canvas al DOM");
+        }
+      });
+      
+      // Add a DOM mutation observer to detect if the canvas gets removed
+      const observer = new MutationObserver((mutations) => {
+        for (let mutation of mutations) {
+          if (mutation.type === 'childList') {
+            for (let node of Array.from(mutation.removedNodes)) {
+              if (node === domElement) {
+                console.error('DEBUG CANVAS: Canvas was removed from the DOM!');
+                
+                // Try to re-append it immediately
+                try {
+                  console.log('DEBUG CANVAS: Attempting to re-append canvas');
+                  setTimeout(() => {
+                    if (!domElement.isConnected && container.isConnected) {
+                      container.appendChild(domElement);
+                      console.log('Canvas re-appended to container');
+                    }
+                  }, 0);
+                } catch (e) {
+                  console.error('DEBUG CANVAS: Failed to re-append canvas:', e);
                 }
               }
             }
           }
-        });
-        
-        observer.observe(container, { childList: true, subtree: true });
-      } catch (e) {
-        console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
-        onError("Errore nell'aggiunta del canvas al DOM");
-        return null;
-      }
+        }
+      });
+      
+      observer.observe(container, { childList: true, subtree: true });
+      
+      console.log('DEBUG CANVAS: Canvas configured, observer attached');
       
     } catch (e) {
       console.error("ThreeScene: Errore durante la creazione del renderer WebGL:", e);
@@ -250,7 +265,8 @@ export const cleanupThreeScene = (
   
   if (container && renderer && renderer.domElement) {
     try {
-      if (renderer.domElement.parentNode === container) {
+      // First check if canvas is still in the DOM before removing
+      if (renderer.domElement.isConnected && renderer.domElement.parentNode === container) {
         console.log('DEBUG CLEANUP: Removing canvas from container');
         container.removeChild(renderer.domElement);
       }
