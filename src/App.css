@@ -1,0 +1,124 @@
+#root {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  background-color: #FEF7E4;
+}
+
+@media (min-width: 768px) {
+  #root {
+    max-width: 1280px;
+    padding: 2rem;
+  }
+}
+
+body, html {
+  background-color: #FEF7E4;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 640px) {
+  .card {
+    padding: 1em;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  h2 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Error State Styling */
+.error-container {
+  background-color: rgba(254, 202, 202, 0.8);
+  border: 1px solid rgb(220, 38, 38);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.error-container h3 {
+  color: rgb(185, 28, 28);
+  margin-top: 0;
+}
+
+.error-container pre {
+  overflow-x: auto;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+/* Feed and My Bubbles Pages Styling */
+.feed-container, .my-bubbles-container {
+  min-height: 100vh;
+  background-color: #FEF7E4;
+  padding-top: 86px;
+}
+
+.bubble-card {
+  transition: all 0.2s ease-in-out;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.bubble-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(235, 189, 52, 0.1);
+}
+
+.bubble-expired {
+  opacity: 0.7;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .feed-container, .my-bubbles-container {
+    padding-top: 110px;
+  }
+}

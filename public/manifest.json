@@ -1,0 +1,19 @@
+
+{
+  "name": "Bubble Trouble",
+  "short_name": "Bubbles",
+  "description": "Ephemeral chats that last just 24 hours",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FEF7E4",
+  "theme_color": "#ebbd34",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/lovable-uploads/1e765740-61ed-4cac-9a40-b57138f6da26.png",
+      "sizes": "64x64 192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
