@@ -26,6 +26,13 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
     const checkCanvas = () => {
       const canvasElement = document.getElementById('three-js-canvas');
       setCanvasPresent(!!canvasElement);
+      
+      // Log the canvas state for debugging
+      console.log('BubbleWorldModeSwitcher: Canvas check', {
+        present: !!canvasElement,
+        isConnected: canvasElement?.isConnected,
+        parent: canvasElement?.parentElement
+      });
     };
     
     // Check immediately
@@ -74,11 +81,14 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
     setTimeout(() => {
       setUse3DMode(true);
     }, 100);
+    
+    // Force a window resize event to help with canvas reinitialization
+    window.dispatchEvent(new Event('resize'));
   };
   
   return (
     <motion.div 
-      className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex flex-col items-center shadow-lg rounded-lg bg-white/80 backdrop-blur-md p-2 border-2 border-white/70"
+      className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 flex flex-col items-center shadow-lg rounded-lg bg-white/80 backdrop-blur-md p-2 border-2 border-white/70"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}

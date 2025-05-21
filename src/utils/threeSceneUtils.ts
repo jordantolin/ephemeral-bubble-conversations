@@ -1,5 +1,7 @@
-
 import * as THREE from 'three';
+
+// Store the canvas globally so it persists between re-renders
+let globalCanvas: HTMLCanvasElement | null = null;
 
 // Initialize a basic Three.js scene with camera, renderer, and lighting
 export const initializeThreeScene = (
@@ -26,10 +28,10 @@ export const initializeThreeScene = (
     
     // Create scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xff0000); // DEBUG: Forza sfondo rosso per debugging
-    scene.fog = new THREE.Fog(0xff0000, 10, 50); // Match fog to background
+    scene.background = new THREE.Color(0x1a1a2e); // Dark blue background
+    scene.fog = new THREE.Fog(0x1a1a2e, 10, 50); // Match fog to background
     
-    console.log('DEBUG RENDERING: Scene creata con sfondo rosso');
+    console.log('DEBUG RENDERING: Scene creata con sfondo scuro');
     
     // Create camera with better parameters for our use case
     const camera = new THREE.PerspectiveCamera(
@@ -45,116 +47,101 @@ export const initializeThreeScene = (
       position: camera.position
     });
     
-    // Create renderer with error handling
+    // Check if we need to create a new renderer or if we can reuse the existing one
     let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({ 
-        antialias: true,
-        alpha: true,
-        powerPreference: 'high-performance',
-        precision: 'highp'
-      });
-      
-      console.log('ThreeScene: Renderer creato, configurazione dimensioni:', {
-        containerWidth: container.clientWidth,
-        containerHeight: container.clientHeight
-      });
-      
+    
+    if (globalCanvas && globalCanvas.isConnected) {
+      // Reuse existing renderer
+      console.log('ThreeScene: Riutilizzo renderer esistente');
+      renderer = new THREE.WebGLRenderer({ canvas: globalCanvas });
       renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
-      renderer.setClearColor(0xff0000, 1); // DEBUG: Forza sfondo rosso completamente opaco
-      renderer.shadowMap.enabled = false; // Disable shadows for performance
-      
-      // Make sure we can append to the container
-      if (!container) {
-        throw new Error("Container element is null");
-      }
-      
-      // Check if container is in the DOM
-      if (!container.isConnected) {
-        console.error("ThreeScene: Il container non è collegato al DOM");
-        onError("Container non collegato al DOM");
-        return null;
-      }
-      
-      // Verify canvas element can be created
-      const testCanvas = document.createElement('canvas');
-      if (!testCanvas) {
-        console.error("ThreeScene: Impossibile creare elemento canvas");
-        onError("Impossibile creare canvas");
-        return null;
-      }
-      
-      // Debug container visibility before appending
-      const containerStyles = window.getComputedStyle(container);
-      console.log('DEBUG CANVAS: Container styles before appending canvas', {
-        display: containerStyles.display,
-        visibility: containerStyles.visibility,
-        opacity: containerStyles.opacity,
-        width: containerStyles.width,
-        height: containerStyles.height,
-        position: containerStyles.position,
-        zIndex: containerStyles.zIndex
-      });
-      
-      // Create the canvas first but DON'T append it yet
-      const domElement = renderer.domElement;
-      
-      // Set a fixed ID to the canvas for easier debugging
-      domElement.id = 'three-js-canvas';
-      
-      // Per debugging - fissa il canvas in posizione assoluta visibile
-      domElement.style.width = '100%';
-      domElement.style.height = '100%';
-      domElement.style.display = 'block';
-      
-      // Debug: usa position absolute al container invece di fixed per evitare problemi di layering
-      domElement.style.position = 'absolute';
-      domElement.style.top = '0';
-      domElement.style.left = '0';
-      domElement.style.zIndex = '5';  // Riduce z-index per non coprire completamente i controlli
-      domElement.style.border = '5px solid magenta'; // Bordo molto visibile
-
-      // CRITICAL: Make the container relative positioned to properly contain the absolute canvas
-      if (getComputedStyle(container).position === 'static') {
-        container.style.position = 'relative';
-      }
-      
-      // CRITICAL: Force container to be visible and have dimensions
-      container.style.minHeight = '300px';
-      container.style.minWidth = '300px';
-      container.style.display = 'block';
-      container.style.visibility = 'visible';
-      container.style.overflow = 'hidden'; // Prevent canvas from spilling out
-      
-      // Add canvas to container after configuring everything
-      console.log("Aggiungo canvas a:", container);
-      
-      // IMPORTANT: Use requestAnimationFrame to ensure the DOM has settled before adding canvas
-      // This can help avoid React re-rendering issues
-      requestAnimationFrame(() => {
-        try {
-          container.appendChild(domElement);
-          console.log("Canvas dopo append:", container.querySelector("canvas"));
-          
-          // Force repaint to ensure visibility
-          void domElement.getBoundingClientRect();
-        } catch (e) {
-          console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
-          onError("Errore nell'aggiunta del canvas al DOM");
+    } else {
+      // Create new renderer
+      try {
+        renderer = new THREE.WebGLRenderer({ 
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+          precision: 'highp'
+        });
+        
+        console.log('ThreeScene: Renderer creato, configurazione dimensioni:', {
+          containerWidth: container.clientWidth,
+          containerHeight: container.clientHeight
+        });
+        
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
+        renderer.setClearColor(0x1a1a2e, 1); // Dark blue background
+        renderer.shadowMap.enabled = false; // Disable shadows for performance
+        
+        // Make sure we can append to the container
+        if (!container) {
+          throw new Error("Container element is null");
         }
-      });
-      
-      // Add a DOM mutation observer to detect if the canvas gets removed
-      const observer = new MutationObserver((mutations) => {
-        for (let mutation of mutations) {
-          if (mutation.type === 'childList') {
-            for (let node of Array.from(mutation.removedNodes)) {
-              if (node === domElement) {
-                console.error('DEBUG CANVAS: Canvas was removed from the DOM!');
-                
-                // Try to re-append it immediately
-                try {
+        
+        // Check if container is in the DOM
+        if (!container.isConnected) {
+          console.error("ThreeScene: Il container non è collegato al DOM");
+          onError("Container non collegato al DOM");
+          return null;
+        }
+        
+        // Set a fixed ID to the canvas for easier debugging
+        const domElement = renderer.domElement;
+        domElement.id = 'three-js-canvas';
+        
+        // Force the canvas to be visible with fixed positioning
+        domElement.style.width = '100%';
+        domElement.style.height = '100%';
+        domElement.style.position = 'absolute';
+        domElement.style.top = '0';
+        domElement.style.left = '0';
+        domElement.style.zIndex = '5';
+        domElement.style.border = '2px solid blue'; // Visible border for debugging
+        
+        // Store the canvas globally so we can reuse it
+        globalCanvas = domElement;
+        
+        // CRITICAL: Make the container relative positioned to properly contain the absolute canvas
+        container.style.position = 'relative';
+        container.style.minHeight = '300px';
+        container.style.minWidth = '300px';
+        container.style.display = 'block';
+        container.style.visibility = 'visible';
+        container.style.overflow = 'hidden'; // Prevent canvas from spilling out
+        
+        // Use forced layout to ensure DOM is ready, then append the canvas
+        void container.getBoundingClientRect();
+        
+        // CRITICAL: Ensure immediate execution to avoid React re-rendering issues
+        setTimeout(() => {
+          try {
+            if (!domElement.isConnected) {
+              console.log("Aggiungo canvas a:", container);
+              container.appendChild(domElement);
+              console.log("Canvas dopo append:", container.querySelector("canvas"));
+              
+              // Force repaint to ensure visibility
+              void domElement.getBoundingClientRect();
+            } else {
+              console.log("Canvas già presente nel DOM");
+            }
+          } catch (e) {
+            console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
+            onError("Errore nell'aggiunta del canvas al DOM");
+          }
+        }, 0);
+        
+        // Add event listener to ensure canvas stays in DOM after React updates
+        const observer = new MutationObserver((mutations) => {
+          for (let mutation of mutations) {
+            if (mutation.type === 'childList') {
+              for (let node of Array.from(mutation.removedNodes)) {
+                if (node === domElement) {
+                  console.error('DEBUG CANVAS: Canvas was removed from the DOM!');
+                  
+                  // Try to re-append it immediately
                   console.log('DEBUG CANVAS: Attempting to re-append canvas');
                   setTimeout(() => {
                     if (!domElement.isConnected && container.isConnected) {
@@ -162,23 +149,18 @@ export const initializeThreeScene = (
                       console.log('Canvas re-appended to container');
                     }
                   }, 0);
-                } catch (e) {
-                  console.error('DEBUG CANVAS: Failed to re-append canvas:', e);
                 }
               }
             }
           }
-        }
-      });
-      
-      observer.observe(container, { childList: true, subtree: true });
-      
-      console.log('DEBUG CANVAS: Canvas configured, observer attached');
-      
-    } catch (e) {
-      console.error("ThreeScene: Errore durante la creazione del renderer WebGL:", e);
-      onError("Errore creazione renderer WebGL");
-      return null;
+        });
+        
+        observer.observe(container, { childList: true, subtree: true });
+      } catch (e) {
+        console.error("ThreeScene: Errore durante la creazione del renderer WebGL:", e);
+        onError("Errore creazione renderer WebGL");
+        return null;
+      }
     }
     
     // Lighting
@@ -195,7 +177,11 @@ export const initializeThreeScene = (
     
     // Draw something simple to ensure we can see rendering
     const geometry = new THREE.SphereGeometry(5, 32, 32);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const material = new THREE.MeshStandardMaterial({ 
+      color: 0xebbd34, 
+      metalness: 0.3,
+      roughness: 0.4
+    });
     const sphere = new THREE.Mesh(geometry, material);
     scene.add(sphere);
     
@@ -263,17 +249,8 @@ export const cleanupThreeScene = (
 ) => {
   console.log('ThreeScene: Pulizia risorse');
   
-  if (container && renderer && renderer.domElement) {
-    try {
-      // First check if canvas is still in the DOM before removing
-      if (renderer.domElement.isConnected && renderer.domElement.parentNode === container) {
-        console.log('DEBUG CLEANUP: Removing canvas from container');
-        container.removeChild(renderer.domElement);
-      }
-    } catch (e) {
-      console.error("ThreeScene: Errore rimozione renderer:", e);
-    }
-  }
+  // We don't remove the canvas anymore, just clear the scene and dispose materials
+  // This helps maintain the canvas in the DOM between renders
   
   // Dispose of 3D objects
   Object.values(bubbleRefs).forEach((group) => {
@@ -292,11 +269,8 @@ export const cleanupThreeScene = (
   });
   
   if (renderer) {
-    renderer.dispose();
-    renderer.forceContextLoss();
-    const gl = renderer.getContext();
-    if (gl && typeof gl.getExtension === 'function') {
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
-    }
+    // Don't dispose of the renderer or force context loss
+    // This will keep the canvas element alive
+    console.log('ThreeScene: Renderer cleaned but canvas preserved');
   }
 };
