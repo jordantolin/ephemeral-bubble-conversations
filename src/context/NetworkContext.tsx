@@ -7,6 +7,7 @@ interface NetworkContextType {
   queuedActions: QueuedAction[];
   addQueuedAction: (action: Omit<QueuedAction, 'id'>) => void;
   executeQueuedActions: () => Promise<void>;
+  isReconnecting: boolean; // Added isReconnecting property to the context type
 }
 
 export interface QueuedAction {
@@ -22,12 +23,19 @@ const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [queuedActions, setQueuedActions] = useState<QueuedAction[]>([]);
+  const [isReconnecting, setIsReconnecting] = useState<boolean>(false); // Added isReconnecting state
   const { toast } = useToast();
 
   useEffect(() => {
     // Function to handle the online status
     const handleOnline = () => {
       setIsOnline(true);
+      
+      // Set isReconnecting to true when coming back online and have queued actions
+      if (queuedActions.length > 0) {
+        setIsReconnecting(true);
+      }
+      
       toast({
         title: "You're back online!",
         description: queuedActions.length > 0 
@@ -40,6 +48,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     // Function to handle the offline status
     const handleOffline = () => {
       setIsOnline(false);
+      setIsReconnecting(false); // Reset reconnecting state when going offline
       toast({
         title: "You're offline",
         description: "Actions will be queued until your connection is restored.",
@@ -77,6 +86,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const executeQueuedActions = async () => {
     if (queuedActions.length === 0 || !isOnline) return;
 
+    // Set reconnecting state while executing actions
+    setIsReconnecting(true);
+    
     const actionsToExecute = [...queuedActions];
     setQueuedActions([]);
 
@@ -99,6 +111,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         setQueuedActions(prev => [...prev, action]);
       }
     }
+    
+    // Reset reconnecting state after all actions are processed
+    setIsReconnecting(false);
   };
 
   return (
@@ -106,7 +121,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       isOnline, 
       queuedActions, 
       addQueuedAction, 
-      executeQueuedActions 
+      executeQueuedActions,
+      isReconnecting  // Include isReconnecting in the context value
     }}>
       {children}
     </NetworkContext.Provider>
