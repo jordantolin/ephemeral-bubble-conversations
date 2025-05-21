@@ -1,5 +1,5 @@
 
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react';
 import useBubbleData from '../useBubbleData';
 import '@testing-library/jest-dom';
 
@@ -83,33 +83,30 @@ describe('useBubbleData', () => {
   });
   
   it('should load bubbles on mount', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
+    const { result, waitFor } = renderHook(() => useBubbleData());
     
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoadingBubbles).toBe(false));
     
     expect(result.current.bubbles).toEqual(mockData);
-    expect(result.current.isLoadingBubbles).toBe(false);
   });
   
   it('should filter bubbles when search term changes', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
+    const { result, waitFor } = renderHook(() => useBubbleData());
     
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoadingBubbles).toBe(false));
     
     act(() => {
       result.current.setSearchQuery('First');
     });
     
-    await waitForNextUpdate();
-    
-    expect(result.current.filteredBubbles.length).toBe(1);
+    await waitFor(() => expect(result.current.filteredBubbles.length).toBe(1));
     expect(result.current.filteredBubbles[0].name).toBe('First Bubble');
   });
   
   it('should set selected bubble id', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
+    const { result, waitFor } = renderHook(() => useBubbleData());
     
-    await waitForNextUpdate();
+    await waitFor(() => expect(result.current.isLoadingBubbles).toBe(false));
     
     act(() => {
       result.current.setSelectedBubbleId(mockData[0].id);

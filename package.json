@@ -43,7 +43,6 @@
     "@supabase/supabase-js": "^2.48.1",
     "@tanstack/react-query": "^5.56.2",
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react-hooks": "^8.0.1",
     "@tweenjs/tween.js": "^21.1.1",
     "@types/jest": "^29.5.14",
     "@types/three": "^0.173.0",
