@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Cube, CircleDashed } from 'lucide-react';
 
 interface BubbleWorldModeSwitcherProps {
   use3DMode: boolean;
@@ -13,33 +14,48 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
   setUse3DMode,
   setRenderAttempted
 }) => {
+  const handleSwitchTo3D = () => {
+    // Reset render attempt flag before switching to 3D
+    setRenderAttempted(false);
+    // Then switch mode
+    setUse3DMode(true);
+  };
+  
+  const handleSwitchTo2D = () => {
+    setUse3DMode(false);
+  };
+  
   return (
     <motion.div 
-      className="absolute bottom-4 right-4 z-10"
+      className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 flex items-center shadow-lg rounded-full bg-white/20 backdrop-blur-sm p-1 border border-white/30"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      {use3DMode ? (
-        <button 
-          onClick={() => setUse3DMode(false)}
-          className="px-3 py-1.5 bg-gray-800/70 text-white text-xs rounded-md hover:bg-gray-700/70 transition-colors backdrop-blur-sm"
-          aria-label="Switch to 2D Mode"
-        >
-          Switch to 2D Mode
-        </button>
-      ) : (
-        <button 
-          onClick={() => {
-            setUse3DMode(true);
-            setRenderAttempted(false);
-          }}
-          className="px-3 py-1.5 bg-yellow-500/70 text-white text-xs rounded-md hover:bg-yellow-600/70 transition-colors backdrop-blur-sm"
-          aria-label="Try 3D Mode"
-        >
-          Try 3D Mode
-        </button>
-      )}
+      <button 
+        onClick={handleSwitchTo3D}
+        className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full ${
+          use3DMode 
+            ? 'bg-yellow-500 text-white' 
+            : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
+        } transition-colors`}
+        aria-label="3D Mode"
+      >
+        <Cube className="h-4 w-4" />
+        <span className="text-sm font-medium">3D</span>
+      </button>
+      <button 
+        onClick={handleSwitchTo2D}
+        className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full ${
+          !use3DMode 
+            ? 'bg-gray-700 text-white' 
+            : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
+        } transition-colors`}
+        aria-label="2D Mode"
+      >
+        <CircleDashed className="h-4 w-4" />
+        <span className="text-sm font-medium">2D</span>
+      </button>
     </motion.div>
   );
 };

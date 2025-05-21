@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { useCameraControls } from '@/hooks/useCameraControls';
 import { useBubbleInteraction } from '@/hooks/useBubbleInteraction';
@@ -11,6 +11,7 @@ import { useBubbleManager } from './BubbleManager';
 import BubbleWorldStatus from './BubbleWorldStatus';
 import BubbleWorldInstructions from './BubbleWorldInstructions';
 import { useWorldInteraction } from './BubbleWorldInteraction';
+import ComponentErrorBoundary from '../errorHandling/ComponentErrorBoundary';
 
 interface Bubble3DWorldProps {
   bubbles: BubbleData[];
@@ -46,6 +47,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
   const [isInitialized, setIsInitialized] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   // Setup world interaction handlers
   const { 
@@ -69,12 +71,34 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     onBubbleClick
   });
   
+  // Define retry initialization function
+  const handleRetry = useCallback(() => {
+    setInitializationError(null);
+    setIs3DReady(false);
+    setIsInitialized(false);
+    setRetryCount(prev => prev + 1);
+    
+    // Clean up previous Three.js scene if it exists
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    cleanupThreeScene(containerRef.current, rendererRef.current, bubbleRefsRef.current);
+    
+    // Force browser to skip a frame to ensure cleanup completes
+    setTimeout(() => {
+      toast({
+        title: "Retrying 3D initialization",
+        description: "Attempting to reload 3D environment..."
+      });
+    }, 100);
+  }, [toast]);
+  
   // Set up the 3D scene
   useEffect(() => {
     if (!containerRef.current || isInitialized) return;
     
     try {
-      console.log("Initializing 3D bubble world with", bubbles.length, "bubbles");
+      console.log(`Initializing 3D bubble world with ${bubbles.length} bubbles (attempt: ${retryCount + 1})`);
       
       // Initialize scene, camera, and renderer
       const threeElements = initializeThreeScene(
@@ -136,7 +160,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       cleanupThreeScene(containerRef.current, rendererRef.current, bubbleRefsRef.current);
     };
   }, [
-    isInitialized, mouseRef, bubbles.length, toast, updateCamera, animateBubbles
+    isInitialized, mouseRef, bubbles.length, toast, updateCamera, animateBubbles, retryCount
   ]);
   
   // Set up event listeners
@@ -165,20 +189,22 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
   }, [bubbles, is3DReady, updateBubbles]);
 
   return (
-    <motion.div 
-      ref={containerRef} 
-      className="w-full h-full relative overflow-hidden rounded-xl"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <BubbleWorldStatus 
-        is3DReady={is3DReady} 
-        initializationError={initializationError} 
-        onRetry={() => window.location.reload()}
-      />
-      <BubbleWorldInstructions is3DReady={is3DReady} />
-    </motion.div>
+    <ComponentErrorBoundary name="3D Bubble World">
+      <motion.div 
+        ref={containerRef} 
+        className="w-full h-full relative overflow-hidden rounded-xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <BubbleWorldStatus 
+          is3DReady={is3DReady} 
+          initializationError={initializationError} 
+          onRetry={handleRetry}
+        />
+        <BubbleWorldInstructions is3DReady={is3DReady} />
+      </motion.div>
+    </ComponentErrorBoundary>
   );
 };
 

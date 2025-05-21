@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from "@/hooks/use-toast";
 import { BubbleData, BubbleWorldProps } from '@/types/bubble';
 import WebGLDetector from './bubbleWorld/WebGLDetector';
@@ -9,6 +9,8 @@ import Bubble3DWorld from './bubbleWorld/Bubble3DWorld';
 import BubbleWorld2D from './bubbleWorld/BubbleWorld2D';
 import BubbleWorldModeSwitcher from './bubbleWorld/BubbleWorldModeSwitcher';
 import BubbleWorldEmptyState from './bubbleWorld/BubbleWorldEmptyState';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => {
   const [explodingBubble, setExplodingBubble] = useState<string | null>(null);
@@ -16,16 +18,36 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   const [renderAttempted, setRenderAttempted] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [webGLSupported, setWebGLSupported] = useState<boolean | null>(null);
+  const [hasErrorOccurred, setHasErrorOccurred] = useState<boolean>(false);
+  const [shouldShowEmptyState, setShouldShowEmptyState] = useState<boolean>(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-
+  
   // Handle case where bubbles is undefined or empty
-  const validBubbles = Array.isArray(bubbles) ? bubbles : [];
+  const validBubbles = bubbles && Array.isArray(bubbles) ? bubbles : [];
   
   // Debug output to help troubleshoot
   useEffect(() => {
-    console.log('BubbleWorld component received bubbles:', validBubbles.length);
-  }, [validBubbles]);
+    console.log('BubbleWorld component received bubbles:', validBubbles?.length || 0);
+    
+    // If we have bubbles, ensure the empty state is not shown
+    if (validBubbles?.length > 0) {
+      setShouldShowEmptyState(false);
+      setHasErrorOccurred(false);
+    } else if (bubblesError) {
+      // If there's an error fetching bubbles, show that instead of the empty state
+      setHasErrorOccurred(true);
+    } else if (!isLoadingBubbles) {
+      // Only show empty state if we're not loading and have no bubbles
+      setShouldShowEmptyState(true);
+    }
+  }, [validBubbles, isLoadingBubbles, bubblesError]);
+
+  // Add these props to ensure component has access to the loading/error state
+  const { isLoadingBubbles, bubblesError } = 
+    typeof bubbles === 'undefined' ? { isLoadingBubbles: true, bubblesError: null } 
+    : (bubbles as any)._loading !== undefined ? { isLoadingBubbles: (bubbles as any)._loading, bubblesError: (bubbles as any)._error }
+    : { isLoadingBubbles: false, bubblesError: null };
 
   // Improved WebGL detection logic
   useEffect(() => {
@@ -74,8 +96,44 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
     }
   }, [renderError, toast, use3DMode]);
 
-  // If no valid bubbles, render placeholder content
-  if (validBubbles.length === 0) {
+  const handleRetry = () => {
+    // Force a page refresh to retry loading data
+    window.location.reload();
+  };
+  
+  // Show error state if there's a problem fetching bubbles
+  if (hasErrorOccurred || bubblesError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center">
+        <div className="bg-red-100 rounded-lg p-8 max-w-md mx-auto text-center">
+          <div className="w-16 h-16 bg-red-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="text-red-500 w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-medium text-red-800 mb-2">Error fetching bubbles</h3>
+          <p className="text-red-600 mb-6">Please check your connection and try again</p>
+          <Button onClick={handleRetry} className="bg-red-500 hover:bg-red-600 text-white">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state if bubbles are being fetched
+  if (isLoadingBubbles) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full border-4 border-[#ebbd34]/10 border-t-[#ebbd34] animate-spin"></div>
+          <p className="text-[#ebbd34] mt-4">Loading bubbles...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no valid bubbles and we should show empty state, render placeholder content
+  if (shouldShowEmptyState || validBubbles.length === 0) {
     return (
       <BubbleWorldEmptyState 
         onReload={() => window.location.reload()} 
