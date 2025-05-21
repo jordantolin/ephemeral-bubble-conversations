@@ -9,9 +9,17 @@ import { connectionUtils } from "@/integrations/supabase/client";
 
 interface BubbleWorldHeaderProps {
   onCreateBubble: () => void;
+  showDescription?: boolean;
+  showCreateButton?: boolean;
+  title?: string;
 }
 
-const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble }) => {
+const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ 
+  onCreateBubble,
+  showDescription = true,
+  showCreateButton = true,
+  title = "Bubble World"
+}) => {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -51,25 +59,29 @@ const BubbleWorldHeader: React.FC<BubbleWorldHeaderProps> = ({ onCreateBubble })
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-[#ebbd34]">
-          Bubble World
+          {title}
         </h1>
-        <p className="text-gray-600 mt-1">
-          Join conversations that only last 24 hours
-        </p>
+        {showDescription && (
+          <p className="text-gray-600 mt-1">
+            Join conversations that only last 24 hours
+          </p>
+        )}
       </div>
 
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <Button 
-          onClick={handleCreateClick}
-          className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+      {showCreateButton && (
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
-          <Sparkles className="h-4 w-4 mr-2" />
-          Create New Bubble
-        </Button>
-      </motion.div>
+          <Button 
+            onClick={handleCreateClick}
+            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Create New Bubble
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 };
