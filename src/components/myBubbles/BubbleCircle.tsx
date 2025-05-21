@@ -15,6 +15,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const initialPositionsRef = useRef<BubbleData[]>([]);
+  const isAnimatingRef = useRef<boolean>(true);
   
   // Debug bubbles data on mount and when bubbles change
   useEffect(() => {
@@ -61,15 +62,15 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     };
   }, [bubbles]);
   
-  // Animation loop for floating motion
+  // Animation loop for floating motion - with control
   useEffect(() => {
     const animate = () => {
-      if (initialPositionsRef.current && initialPositionsRef.current.length > 0) {
+      if (initialPositionsRef.current && initialPositionsRef.current.length > 0 && isAnimatingRef.current) {
         const time = Date.now();
         const floatingBubbles = calculateFloatingPositions(
           initialPositionsRef.current,
           time,
-          8 // Adjust floating radius for smoother movement
+          5 // Reduced floating radius for smoother movement
         );
         setPositionedBubbles(floatingBubbles);
       }
@@ -81,6 +82,34 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
+  
+  // Add mouse interaction to pause animation
+  useEffect(() => {
+    const handleMouseEnter = () => {
+      isAnimatingRef.current = false;
+    };
+    
+    const handleMouseLeave = () => {
+      isAnimatingRef.current = true;
+    };
+    
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("mouseenter", handleMouseEnter);
+      container.addEventListener("mouseleave", handleMouseLeave);
+      container.addEventListener("touchstart", handleMouseEnter);
+      container.addEventListener("touchend", handleMouseLeave);
+    }
+    
+    return () => {
+      if (container) {
+        container.removeEventListener("mouseenter", handleMouseEnter);
+        container.removeEventListener("mouseleave", handleMouseLeave);
+        container.removeEventListener("touchstart", handleMouseEnter);
+        container.removeEventListener("touchend", handleMouseLeave);
       }
     };
   }, []);

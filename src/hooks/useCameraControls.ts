@@ -1,11 +1,12 @@
-import { useRef, useCallback } from 'react';
+
+import { useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 
 export const useCameraControls = () => {
   const zoomRef = useRef({
     current: 16,
     target: 16,
-    min: 4, // Increased minimum zoom for better mobile visibility
+    min: 4,
     max: 30
   });
 
@@ -21,16 +22,25 @@ export const useCameraControls = () => {
     startY: 0,
     isDragging: false,
     lastPinchDistance: 0,
-    moveThreshold: 5 // Threshold to determine if it's a drag or tap
+    moveThreshold: 5,
+    isActive: false // Track if controls are active
+  });
+
+  // Add a ref for animation control
+  const animationRef = useRef({
+    isEnabled: false
   });
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
     mouseRef.current.isDragging = false;
     mouseRef.current.startX = event.clientX;
     mouseRef.current.startY = event.clientY;
+    mouseRef.current.isActive = true;
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!mouseRef.current.isActive) return;
+    
     const deltaX = event.clientX - mouseRef.current.startX;
     const deltaY = event.clientY - mouseRef.current.startY;
 
@@ -54,6 +64,7 @@ export const useCameraControls = () => {
     // Keep track of dragging state
     const wasDragging = mouseRef.current.isDragging;
     mouseRef.current.isDragging = false;
+    mouseRef.current.isActive = false;
     return wasDragging;
   }, []);
 
@@ -88,24 +99,41 @@ export const useCameraControls = () => {
     mouseRef.current.lastPinchDistance = distance;
   }, []);
 
+  // Enable/disable automatic rotation
+  const setAnimationEnabled = useCallback((enabled: boolean) => {
+    animationRef.current.isEnabled = enabled;
+  }, []);
+
   const updateCamera = useCallback((camera: THREE.Camera) => {
     if (!camera) return;
 
-    // Smoother rotation transitions
-    rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.1;
-    rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.1;
+    // Only update rotation if user isn't actively controlling the camera
+    // or if automatic animation is enabled
+    if (!mouseRef.current.isActive || animationRef.current.isEnabled) {
+      // Smoother rotation transitions
+      rotationRef.current.x += (rotationRef.current.targetX - rotationRef.current.x) * 0.1;
+      rotationRef.current.y += (rotationRef.current.targetY - rotationRef.current.y) * 0.1;
 
-    const radius = zoomRef.current.current;
+      const radius = zoomRef.current.current;
 
-    // Update camera position with smooth transitions
-    camera.position.x = Math.sin(rotationRef.current.y) * Math.cos(rotationRef.current.x) * radius;
-    camera.position.z = Math.cos(rotationRef.current.y) * Math.cos(rotationRef.current.x) * radius;
-    camera.position.y = Math.sin(rotationRef.current.x) * radius;
+      // Update camera position with smooth transitions
+      camera.position.x = Math.sin(rotationRef.current.y) * Math.cos(rotationRef.current.x) * radius;
+      camera.position.z = Math.cos(rotationRef.current.y) * Math.cos(rotationRef.current.x) * radius;
+      camera.position.y = Math.sin(rotationRef.current.x) * radius;
 
-    // Smooth zoom transition
-    zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
+      // Smooth zoom transition
+      zoomRef.current.current += (zoomRef.current.target - zoomRef.current.current) * 0.1;
 
-    camera.lookAt(new THREE.Vector3(0, 0, 0));
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+  }, []);
+
+  // Effect to clear activity state when component unmounts
+  useEffect(() => {
+    return () => {
+      mouseRef.current.isActive = false;
+      animationRef.current.isEnabled = false;
+    };
   }, []);
 
   return {
@@ -115,8 +143,10 @@ export const useCameraControls = () => {
     handleWheel,
     handlePinchZoom,
     updateCamera,
+    setAnimationEnabled,
     zoomRef,
     rotationRef,
-    mouseRef
+    mouseRef,
+    animationRef
   };
 };
