@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,11 +9,19 @@ import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import LevelProgress from "@/components/gamification/LevelProgress";
+import { useToast } from "@/hooks/use-toast";
 
 const Achievements: React.FC = () => {
-  const { profile, achievements, isLoading } = useGamification();
-  const { profile: userProfile } = useAuth();
+  const { profile, achievements, isLoading, refreshGamificationProfile } = useGamification();
+  const { profile: userProfile, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  useEffect(() => {
+    if (user) {
+      refreshGamificationProfile();
+    }
+  }, [user, refreshGamificationProfile]);
   
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -32,12 +40,25 @@ const Achievements: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 pt-24 pb-16 px-4">
         <div className="container mx-auto max-w-4xl">
+          <div className="flex items-center mb-6">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="mr-2" 
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl md:text-4xl font-bold text-[#ebbd34]">
+              Your Achievements
+            </h1>
+          </div>
+          
           <div className="animate-pulse flex flex-col gap-8">
-            <div className="h-10 w-40 bg-gray-200 rounded"></div>
-            <div className="h-40 w-full bg-gray-200 rounded-lg"></div>
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-4 md:p-6 mb-8 h-40"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+                <div key={i} className="bg-white/70 backdrop-blur-sm rounded-lg shadow-sm p-4 h-32"></div>
               ))}
             </div>
           </div>

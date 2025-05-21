@@ -4,6 +4,7 @@ import { useLoginStreak } from "@/hooks/useLoginStreak";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 // This component should be included in a main layout component 
 // to track achievements without adding any visual elements
@@ -12,9 +13,12 @@ const GamificationTracker: React.FC = () => {
   const { 
     refreshGamificationProfile, 
     checkAchievement, 
-    incrementAchievementProgress 
+    incrementAchievementProgress,
+    addPoints,
+    profile 
   } = useGamification();
   const [isMounted, setIsMounted] = useState(false);
+  const { toast } = useToast();
   
   // Use the login streak hook
   useLoginStreak();
@@ -26,6 +30,48 @@ const GamificationTracker: React.FC = () => {
       setIsMounted(true);
     }
   }, [user, refreshGamificationProfile]);
+
+  // Ensure user has a gamification profile
+  useEffect(() => {
+    const ensureUserProfile = async () => {
+      if (!user || !isMounted) return;
+      
+      // Check if user has a gamification profile
+      const { data, error } = await supabase
+        .from("gamification_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+        
+      if (error && error.code === "PGRST116") {
+        // Profile doesn't exist, create it
+        try {
+          await supabase.from("gamification_profiles").insert({
+            user_id: user.id,
+            level: 1,
+            points: 0,
+            bubble_points: 0,
+            reflection_points: 0,
+            message_points: 0,
+            daily_streak: 1
+          });
+          
+          toast({
+            title: "Welcome!",
+            description: "Your gamification profile has been created. Earn points by participating!",
+            duration: 5000,
+          });
+          
+          // Refresh profile to get the new data
+          refreshGamificationProfile();
+        } catch (err) {
+          console.error("Error creating gamification profile:", err);
+        }
+      }
+    };
+    
+    ensureUserProfile();
+  }, [user, isMounted, refreshGamificationProfile, toast]);
 
   // Track Social Butterfly achievement (message count)
   useEffect(() => {

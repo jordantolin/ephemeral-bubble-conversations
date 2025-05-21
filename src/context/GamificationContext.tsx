@@ -13,6 +13,7 @@ import {
 } from '@/services/gamificationService';
 import { useGamificationActions } from '@/hooks/useGamificationActions';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Create context with default value
 const GamificationContext = createContext<GamificationContextType>({
@@ -84,8 +85,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       let userProfile = await fetchUserGamificationProfile(user.id);
       
-      if (!userProfile) {
+      if (!userProfile || !userProfile.achievements || userProfile.achievements.length === 0) {
+        // No valid profile found, create a new one
         userProfile = await createNewUserProfile(user.id);
+        
         toast({
           title: "Welcome!",
           description: "Your gamification profile has been created. Earn points by participating!",
@@ -94,14 +97,44 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
       
       setProfile(userProfile);
-      setAchievements(userProfile.achievements);
+      setAchievements(userProfile.achievements || defaultAchievements);
     } catch (error) {
       console.error("Error fetching gamification profile:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load your gamification profile. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Check if the profile exists at all
+      const { data } = await supabase
+        .from('gamification_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!data) {
+        // Create a new profile if it doesn't exist
+        try {
+          const newProfile = await createNewUserProfile(user.id);
+          setProfile(newProfile);
+          setAchievements(newProfile.achievements);
+          
+          toast({
+            title: "Welcome!",
+            description: "Your gamification profile has been created. Earn points by participating!",
+            duration: 5000,
+          });
+        } catch (createError) {
+          console.error("Error creating new profile:", createError);
+          toast({
+            title: "Error",
+            description: "Failed to create your gamification profile. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load your gamification profile. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }

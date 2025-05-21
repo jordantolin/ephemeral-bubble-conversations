@@ -12,11 +12,26 @@ interface LevelProgressProps {
 const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
   const { profile, isLoading } = useGamification();
   
+  // Return a more minimal loading state that still shows some UI
   if (isLoading) {
-    return (
-      <div className={`flex items-center ${minimal ? 'gap-1' : 'gap-2'}`}>
-        <div className="h-5 w-5 rounded-full bg-gray-200 animate-pulse"></div>
-        <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
+    return minimal ? (
+      <div className="flex items-center gap-1">
+        <div className="bg-amber-200 rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="text-white text-xs">?</span>
+        </div>
+        <Progress value={0} className="w-14 h-2 bg-amber-100" />
+      </div>
+    ) : (
+      <div className="flex flex-col">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center">
+            <div className="bg-amber-200 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+              <span className="text-white text-xs">?</span>
+            </div>
+            <span className="text-sm font-medium text-gray-700">Loading...</span>
+          </div>
+        </div>
+        <Progress value={0} className="h-2 bg-amber-100 w-full" />
       </div>
     );
   }
