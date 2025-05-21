@@ -94,7 +94,15 @@ export const useBubbleManager = (
           group.userData = { 
             id: bubble.id,
             topic: bubble.topic,
-            reflectCount: bubble.reflect_count || 0
+            reflectCount: bubble.reflect_count || 0,
+            // Add animation parameters to userData
+            bobSpeed: 0.5 + Math.random() * 0.5,
+            bobPhase: Math.random() * Math.PI * 2,
+            rotationSpeed: {
+              x: (Math.random() - 0.5) * 0.002,
+              y: (Math.random() - 0.5) * 0.002,
+              z: (Math.random() - 0.5) * 0.001
+            }
           };
           
           // Add to scene
@@ -113,23 +121,45 @@ export const useBubbleManager = (
   const animateBubbles = () => {
     if (!bubbleRefsRef.current) return;
     
-    // Add subtle animation to all bubbles
+    // Get current time for animations
+    const time = Date.now() * 0.001;
+    
+    // Add animation to all bubbles
     Object.values(bubbleRefsRef.current).forEach((bubbleGroup) => {
+      // Get animation parameters from userData or use defaults
+      const bobSpeed = bubbleGroup.userData.bobSpeed || 1.0;
+      const bobPhase = bubbleGroup.userData.bobPhase || 0;
+      const rotSpeed = bubbleGroup.userData.rotationSpeed || { x: 0.001, y: 0.002, z: 0 };
+      
       // Rotate bubbles for a more dynamic look
-      bubbleGroup.rotation.y += 0.002;
-      bubbleGroup.rotation.x += 0.001;
+      bubbleGroup.rotation.x += rotSpeed.x;
+      bubbleGroup.rotation.y += rotSpeed.y;
+      bubbleGroup.rotation.z += rotSpeed.z;
       
-      // Small bobbing motion
-      const time = Date.now() * 0.001;
-      const id = bubbleGroup.userData.id || '';
-      const idHash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      // Original position (without bobbing)
+      const origPosition = {
+        x: bubbleGroup.userData.origX || bubbleGroup.position.x,
+        y: bubbleGroup.userData.origY || bubbleGroup.position.y,
+        z: bubbleGroup.userData.origZ || bubbleGroup.position.z
+      };
       
-      // Unique animation for each bubble based on ID hash
-      const floatY = Math.sin(time + idHash * 0.1) * 0.05;
-      const floatX = Math.cos(time * 0.8 + idHash * 0.05) * 0.03;
+      // Store original position if not stored yet
+      if (bubbleGroup.userData.origX === undefined) {
+        bubbleGroup.userData.origX = origPosition.x;
+        bubbleGroup.userData.origY = origPosition.y;
+        bubbleGroup.userData.origZ = origPosition.z;
+      }
       
-      bubbleGroup.position.y += floatY * 0.01;
-      bubbleGroup.position.x += floatX * 0.01;
+      // Bobbing motion with different phases for each bubble
+      const bobY = Math.sin(time * bobSpeed + bobPhase) * 0.15;
+      const bobX = Math.cos(time * bobSpeed * 0.7 + bobPhase) * 0.08;
+      
+      // Apply bobbing motion
+      bubbleGroup.position.set(
+        origPosition.x + bobX,
+        origPosition.y + bobY,
+        origPosition.z
+      );
       
       // Ensure text sprite always faces the camera by reversing parent rotation
       const textSprite = bubbleGroup.children.find(child => child instanceof THREE.Sprite);

@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { createCentralWorldGeometry, createCentralWorldMaterial } from '@/utils/bubbleUtils';
 
@@ -42,8 +43,6 @@ export const initializeThreeScene = (
     scene.background = new THREE.Color(0x020617); // Dark blue background
     scene.fog = new THREE.Fog(0x020617, 10, 50); // Match fog to background
     
-    console.log('DEBUG RENDERING: Scene created with DARK background for visibility');
-    
     // Create camera with better parameters for our use case
     const camera = new THREE.PerspectiveCamera(
       75, // Field of view
@@ -52,11 +51,6 @@ export const initializeThreeScene = (
       1000
     );
     camera.position.z = 15;
-    
-    console.log('DEBUG RENDERING: Camera created', {
-      aspect: camera.aspect,
-      position: camera.position
-    });
     
     // Check if we need to create a new renderer or if we can reuse the existing one
     let renderer: THREE.WebGLRenderer;
@@ -229,6 +223,16 @@ export const initializeThreeScene = (
     centralWorld.scale.set(1, 1, 1);
     centralWorld.position.set(0, 0, 0);
     scene.add(centralWorld);
+    
+    // Animate central world with slow rotation
+    const animateCentralWorld = () => {
+      if (centralWorld) {
+        centralWorld.rotation.y += 0.001;
+        centralWorld.rotation.x += 0.0005;
+        requestAnimationFrame(animateCentralWorld);
+      }
+    };
+    animateCentralWorld();
     
     // Render once immediately to test
     try {

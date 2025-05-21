@@ -99,7 +99,6 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
   useEffect(() => {
     if (!containerRef.current) return;
     
-    console.log('DEBUG CONTAINER: Forcing container visibility on mount');
     const container = containerRef.current;
     
     // Force container to be visible with explicit inline styles
@@ -161,7 +160,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
           // Update camera position based on controls
           updateCamera(cameraRef.current);
           
-          // Animate bubbles
+          // Animate bubbles - IMPORTANT: This is what makes bubbles move!
           animateBubbles();
           
           // Render the scene
@@ -175,17 +174,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
         }
       };
       
-      // Render at least once immediately to see if it works
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        try {
-          rendererRef.current.render(sceneRef.current, cameraRef.current);
-          console.log('Bubble3DWorld: First render completed successfully');
-        } catch (e) {
-          console.error('Bubble3DWorld: First render failed:', e);
-        }
-      }
-      
-      // Start animation
+      // Start animation loop immediately
       animate();
       
       setIsInitialized(true);

@@ -16,34 +16,12 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
 }) => {
   // State to track canvas presence in real-time
   const [canvasPresent, setCanvasPresent] = useState<boolean>(false);
-  const [canvasInfo, setCanvasInfo] = useState<{
-    width: number, 
-    height: number, 
-    display: string, 
-    position: string,
-    zIndex: string,
-    visibility: string
-  } | null>(null);
   
-  // Check for canvas at regular intervals with more detailed information
+  // Check for canvas at regular intervals
   useEffect(() => {
     const checkCanvas = () => {
       const canvasElement = document.getElementById('three-js-canvas') as HTMLCanvasElement | null;
       setCanvasPresent(!!canvasElement);
-      
-      if (canvasElement) {
-        const styles = window.getComputedStyle(canvasElement);
-        setCanvasInfo({
-          width: canvasElement.width,
-          height: canvasElement.height,
-          display: styles.display,
-          position: styles.position,
-          zIndex: styles.zIndex,
-          visibility: styles.visibility
-        });
-      } else {
-        setCanvasInfo(null);
-      }
     };
     
     // Check immediately
@@ -74,9 +52,8 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
           <RefreshCw className="w-4 h-4" />
           Riprova
         </button>
-        <p className="text-xs text-gray-500 mt-4">Dettaglio errore: {initializationError}</p>
         <p className="text-xs text-gray-500 mt-2">
-          Canvas presente nel DOM: {canvasPresent ? '✅ ADESSO' : '❌ MANCANTE'}
+          Canvas presente nel DOM: {canvasPresent ? '✅' : '❌'}
         </p>
       </div>
     );
