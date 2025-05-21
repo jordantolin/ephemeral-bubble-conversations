@@ -29,8 +29,10 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: any }>;
 }
 
+// Create context with undefined as default value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// AuthProvider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -250,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// useAuth hook
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
