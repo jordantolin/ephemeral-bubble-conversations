@@ -594,4 +594,5 @@ const useBubbleData = () => {
   };
 };
 
+// Export default instead of named export
 export default useBubbleData;

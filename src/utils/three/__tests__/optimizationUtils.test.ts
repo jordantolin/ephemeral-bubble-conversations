@@ -5,6 +5,7 @@ import {
   getDetailLevelForDevice
 } from '../optimizationUtils';
 import * as THREE from 'three';
+import '@testing-library/jest-dom';
 
 // Mock the window innerWidth and navigator
 beforeAll(() => {

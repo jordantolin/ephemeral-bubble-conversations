@@ -45,6 +45,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react-hooks": "^8.0.1",
     "@tweenjs/tween.js": "^21.1.1",
+    "@types/jest": "^29.5.14",
     "@types/three": "^0.173.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

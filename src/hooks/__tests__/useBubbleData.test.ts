@@ -1,6 +1,7 @@
 
 import { renderHook, act } from '@testing-library/react-hooks';
-import { useBubbleData } from '../useBubbleData';
+import useBubbleData from '../useBubbleData';
+import '@testing-library/jest-dom';
 
 // Mock data for testing
 const mockData = [
