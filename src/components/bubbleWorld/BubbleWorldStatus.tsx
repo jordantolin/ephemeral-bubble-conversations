@@ -47,7 +47,8 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
   
   // Debug overlay - sempre visibile in development
   if (forceShowDebug) {
-    const canvasElement = document.getElementById('three-js-canvas');
+    // Properly type the canvas element as HTMLCanvasElement instead of HTMLElement
+    const canvasElement = document.getElementById('three-js-canvas') as HTMLCanvasElement | null;
     return (
       <div className="absolute top-2 left-2 z-30 bg-blue-100/90 p-2 rounded text-xs border-2 border-blue-300 max-w-[300px]">
         <div className="flex items-center gap-1 mb-1 text-blue-800">
