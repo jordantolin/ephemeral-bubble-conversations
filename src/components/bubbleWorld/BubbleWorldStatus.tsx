@@ -18,23 +18,45 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
   
   // State to track canvas presence in real-time
   const [canvasPresent, setCanvasPresent] = useState<boolean>(false);
-  const [canvasInfo, setCanvasInfo] = useState<{width: number, height: number, display: string, position: string} | null>(null);
+  const [canvasInfo, setCanvasInfo] = useState<{
+    width: number, 
+    height: number, 
+    display: string, 
+    position: string,
+    zIndex: string,
+    visibility: string,
+    backgroundColor: string
+  } | null>(null);
   
-  // Check for canvas at regular intervals
+  // Check for canvas at regular intervals with more detailed information
   useEffect(() => {
     const checkCanvas = () => {
       const canvasElement = document.getElementById('three-js-canvas') as HTMLCanvasElement | null;
       setCanvasPresent(!!canvasElement);
       
       if (canvasElement) {
+        const styles = window.getComputedStyle(canvasElement);
         setCanvasInfo({
           width: canvasElement.width,
           height: canvasElement.height,
-          display: window.getComputedStyle(canvasElement).display,
-          position: window.getComputedStyle(canvasElement).position
+          display: styles.display,
+          position: styles.position,
+          zIndex: styles.zIndex,
+          visibility: styles.visibility,
+          backgroundColor: styles.backgroundColor
+        });
+        console.log('Canvas check: VISIBLE in DOM', {
+          width: canvasElement.width,
+          height: canvasElement.height,
+          clientWidth: canvasElement.clientWidth,
+          clientHeight: canvasElement.clientHeight,
+          display: styles.display,
+          position: styles.position,
+          zIndex: styles.zIndex
         });
       } else {
         setCanvasInfo(null);
+        console.log('Canvas check: NOT FOUND in DOM');
       }
     };
     
@@ -54,7 +76,7 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
   
   if (initializationError) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-100/90 backdrop-blur-sm p-6 z-30">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-100/90 backdrop-blur-sm p-6 z-50">
         <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
           <AlertTriangle className="w-8 h-8 text-red-500" />
         </div>
@@ -77,7 +99,6 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
   
   // Debug overlay - always visible for debugging
   if (forceShowDebug) {
-    const canvasElement = document.getElementById('three-js-canvas') as HTMLCanvasElement | null;
     return (
       <div className="absolute top-2 left-2 z-50 bg-blue-100/90 p-2 rounded text-xs border-2 border-blue-300 max-w-[300px]">
         <div className="flex items-center gap-1 mb-1 text-blue-800">
@@ -94,6 +115,9 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
             <p>Canvas height: {canvasInfo.height}</p>
             <p>Canvas display: {canvasInfo.display}</p>
             <p>Canvas position: {canvasInfo.position}</p>
+            <p>Canvas z-index: {canvasInfo.zIndex}</p>
+            <p>Canvas visibility: {canvasInfo.visibility}</p>
+            <p>Canvas background: {canvasInfo.backgroundColor}</p>
           </>
         )}
       </div>

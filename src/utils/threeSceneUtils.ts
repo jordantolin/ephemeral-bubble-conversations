@@ -1,7 +1,9 @@
+
 import * as THREE from 'three';
 
 // Store the canvas globally so it persists between re-renders
 let globalCanvas: HTMLCanvasElement | null = null;
+let rendererId = 0; // Use to track renderer instances
 
 // Initialize a basic Three.js scene with camera, renderer, and lighting
 export const initializeThreeScene = (
@@ -17,32 +19,44 @@ export const initializeThreeScene = (
     console.log('DEBUG CANVAS: Container element:', container);
     
     // Check if container has valid dimensions
+    const containerWidth = container.clientWidth || 500; // Fallback width if zero
+    const containerHeight = container.clientHeight || 400; // Fallback height if zero
+    
+    console.log('ThreeScene: Container dimensions', {
+      clientWidth: container.clientWidth,
+      clientHeight: container.clientHeight,
+      offsetWidth: container.offsetWidth,
+      offsetHeight: container.offsetHeight,
+      fallbackWidth: containerWidth,
+      fallbackHeight: containerHeight
+    });
+    
+    // Force container to have dimensions if they're not set
     if (container.clientWidth <= 0 || container.clientHeight <= 0) {
-      console.error('ThreeScene: Dimensioni del container non valide', {
-        width: container.clientWidth,
-        height: container.clientHeight
-      });
-      onError("Container dimensioni non valide");
-      return null;
+      console.warn('ThreeScene: Container has invalid dimensions, forcing minimum size');
+      container.style.width = '100%';
+      container.style.height = '500px';
+      container.style.minWidth = '500px';
+      container.style.minHeight = '400px';
     }
     
-    // Create scene
+    // Create scene with BRIGHT RED background for debugging
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e); // Dark blue background
-    scene.fog = new THREE.Fog(0x1a1a2e, 10, 50); // Match fog to background
+    scene.background = new THREE.Color(0xFF0000); // BRIGHT RED for visibility
+    scene.fog = new THREE.Fog(0xFF0000, 10, 50); // Match fog to background
     
-    console.log('DEBUG RENDERING: Scene creata con sfondo scuro');
+    console.log('DEBUG RENDERING: Scene created with RED background for visibility');
     
     // Create camera with better parameters for our use case
     const camera = new THREE.PerspectiveCamera(
       75, // Field of view
-      container.clientWidth / container.clientHeight,
+      containerWidth / containerHeight,
       0.1,
       1000
     );
     camera.position.z = 15;
     
-    console.log('DEBUG RENDERING: Camera creata', {
+    console.log('DEBUG RENDERING: Camera created', {
       aspect: camera.aspect,
       position: camera.position
     });
@@ -52,28 +66,42 @@ export const initializeThreeScene = (
     
     if (globalCanvas && globalCanvas.isConnected) {
       // Reuse existing renderer
-      console.log('ThreeScene: Riutilizzo renderer esistente');
-      renderer = new THREE.WebGLRenderer({ canvas: globalCanvas });
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      console.log('ThreeScene: Reusing existing canvas', globalCanvas);
+      renderer = new THREE.WebGLRenderer({ canvas: globalCanvas, antialias: true });
+      renderer.setSize(containerWidth, containerHeight, false); // Don't update style, just buffer size
+      
+      // Check if canvas is actually visible
+      const canvasStyle = window.getComputedStyle(globalCanvas);
+      console.log('ThreeScene: Existing canvas style:', {
+        display: canvasStyle.display,
+        visibility: canvasStyle.visibility,
+        position: canvasStyle.position,
+        zIndex: canvasStyle.zIndex
+      });
     } else {
       // Create new renderer
       try {
+        const currentId = ++rendererId;
+        console.log(`ThreeScene: Creating new WebGL renderer (ID: ${currentId})`);
+        
         renderer = new THREE.WebGLRenderer({ 
           antialias: true,
-          alpha: true,
+          alpha: false, // Disable alpha for better performance
           powerPreference: 'high-performance',
           precision: 'highp'
         });
         
-        console.log('ThreeScene: Renderer creato, configurazione dimensioni:', {
-          containerWidth: container.clientWidth,
-          containerHeight: container.clientHeight
+        console.log('ThreeScene: Renderer created, setting dimensions:', {
+          containerWidth,
+          containerHeight
         });
         
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
-        renderer.setClearColor(0x1a1a2e, 1); // Dark blue background
-        renderer.shadowMap.enabled = false; // Disable shadows for performance
+        // IMPORTANT: Set size in pixels, not using style (which would be %)
+        renderer.setSize(containerWidth, containerHeight, false);
+        renderer.setPixelRatio(1); // Force 1:1 for performance and clarity
+        
+        // Set BRIGHT RED background color for maximum visibility during debugging
+        renderer.setClearColor(0xFF0000, 1); // Pure RED
         
         // Make sure we can append to the container
         if (!container) {
@@ -82,8 +110,8 @@ export const initializeThreeScene = (
         
         // Check if container is in the DOM
         if (!container.isConnected) {
-          console.error("ThreeScene: Il container non è collegato al DOM");
-          onError("Container non collegato al DOM");
+          console.error("ThreeScene: Container is not connected to the DOM");
+          onError("Container not connected to DOM");
           return null;
         }
         
@@ -91,106 +119,164 @@ export const initializeThreeScene = (
         const domElement = renderer.domElement;
         domElement.id = 'three-js-canvas';
         
-        // Force the canvas to be visible with fixed positioning
-        domElement.style.width = '100%';
-        domElement.style.height = '100%';
+        // Force the canvas to be visible with fixed dimensions and positioning
+        // CRITICAL: Set FIXED dimensions in pixels, not percentages
+        domElement.style.width = `${containerWidth}px`;
+        domElement.style.height = `${containerHeight}px`;
         domElement.style.position = 'absolute';
         domElement.style.top = '0';
         domElement.style.left = '0';
-        domElement.style.zIndex = '5';
-        domElement.style.border = '2px solid blue'; // Visible border for debugging
+        domElement.style.zIndex = '10';
+        domElement.style.border = '5px solid red'; // Very visible border for debugging
+        domElement.style.backgroundColor = '#ff0000'; // Red background for the canvas element
         
         // Store the canvas globally so we can reuse it
         globalCanvas = domElement;
         
         // CRITICAL: Make the container relative positioned to properly contain the absolute canvas
         container.style.position = 'relative';
-        container.style.minHeight = '300px';
-        container.style.minWidth = '300px';
+        container.style.minHeight = '400px';
+        container.style.minWidth = '400px';
         container.style.display = 'block';
         container.style.visibility = 'visible';
-        container.style.overflow = 'hidden'; // Prevent canvas from spilling out
+        container.style.overflow = 'visible'; // Changed from 'hidden' to ensure canvas is visible
         
         // Use forced layout to ensure DOM is ready, then append the canvas
         void container.getBoundingClientRect();
         
-        // CRITICAL: Ensure immediate execution to avoid React re-rendering issues
-        setTimeout(() => {
+        // Force immediate canvas insertion
+        if (!domElement.isConnected) {
           try {
-            if (!domElement.isConnected) {
-              console.log("Aggiungo canvas a:", container);
-              container.appendChild(domElement);
-              console.log("Canvas dopo append:", container.querySelector("canvas"));
-              
-              // Force repaint to ensure visibility
-              void domElement.getBoundingClientRect();
-            } else {
-              console.log("Canvas già presente nel DOM");
-            }
+            console.log("Adding canvas to container:", container);
+            container.appendChild(domElement);
+            console.log("Canvas after append:", container.querySelector("#three-js-canvas"));
+            
+            // Force repaint to ensure visibility
+            void domElement.getBoundingClientRect();
+            
+            // Double check it was really added
+            setTimeout(() => {
+              const canvasCheck = document.getElementById('three-js-canvas');
+              console.log('Canvas check after append timeout:', {
+                found: !!canvasCheck,
+                isConnected: canvasCheck?.isConnected,
+                parent: canvasCheck?.parentElement
+              });
+            }, 100);
           } catch (e) {
-            console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
-            onError("Errore nell'aggiunta del canvas al DOM");
+            console.error("ThreeScene: Error adding canvas to container:", e);
+            onError("Error adding canvas to DOM");
           }
-        }, 0);
+        } else {
+          console.log("Canvas already in DOM");
+        }
         
-        // Add event listener to ensure canvas stays in DOM after React updates
+        // Add ROBUST mutation observer to ensure canvas stays in DOM after React updates
         const observer = new MutationObserver((mutations) => {
+          let canvasRemoved = false;
+          
           for (let mutation of mutations) {
             if (mutation.type === 'childList') {
+              // Check if canvas was removed in this mutation
               for (let node of Array.from(mutation.removedNodes)) {
                 if (node === domElement) {
                   console.error('DEBUG CANVAS: Canvas was removed from the DOM!');
-                  
-                  // Try to re-append it immediately
-                  console.log('DEBUG CANVAS: Attempting to re-append canvas');
-                  setTimeout(() => {
-                    if (!domElement.isConnected && container.isConnected) {
-                      container.appendChild(domElement);
-                      console.log('Canvas re-appended to container');
-                    }
-                  }, 0);
+                  canvasRemoved = true;
                 }
               }
             }
           }
+          
+          // If canvas was removed, try to re-append it
+          if (canvasRemoved) {
+            console.log('DEBUG CANVAS: Attempting to re-append canvas');
+            setTimeout(() => {
+              try {
+                if (!domElement.isConnected && container.isConnected) {
+                  console.log('Re-appending canvas to container');
+                  container.appendChild(domElement);
+                  
+                  // Force canvas to be visible again
+                  domElement.style.width = `${containerWidth}px`;
+                  domElement.style.height = `${containerHeight}px`;
+                  domElement.style.position = 'absolute';
+                  domElement.style.top = '0';
+                  domElement.style.left = '0';
+                  domElement.style.zIndex = '10';
+                  domElement.style.visibility = 'visible';
+                  domElement.style.display = 'block';
+                  
+                  console.log('Canvas re-appended to container');
+                  
+                  // Check canvas is visible
+                  setTimeout(() => {
+                    const canvasCheck = document.getElementById('three-js-canvas');
+                    console.log('Canvas check after re-append:', {
+                      found: !!canvasCheck,
+                      isConnected: canvasCheck?.isConnected,
+                      parent: canvasCheck?.parentElement
+                    });
+                  }, 100);
+                }
+              } catch (e) {
+                console.error('Error re-appending canvas:', e);
+              }
+            }, 0);
+          }
         });
         
-        observer.observe(container, { childList: true, subtree: true });
+        // Observe the container for changes with a more thorough configuration
+        observer.observe(container, { 
+          childList: true,  // Watch for child additions/removals
+          subtree: true,    // Watch all descendants
+          attributes: true, // Watch for attribute changes
+        });
       } catch (e) {
-        console.error("ThreeScene: Errore durante la creazione del renderer WebGL:", e);
-        onError("Errore creazione renderer WebGL");
+        console.error("ThreeScene: Error creating WebGL renderer:", e);
+        onError("Error creating WebGL renderer");
         return null;
       }
     }
     
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increased intensity
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased intensity
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
     
-    const pointLight = new THREE.PointLight(0xffffcc, 0.8, 30);
+    const pointLight = new THREE.PointLight(0xffffcc, 1.0, 50); // Increased intensity and range
     pointLight.position.set(0, 0, 0);
     scene.add(pointLight);
     
-    // Draw something simple to ensure we can see rendering
-    const geometry = new THREE.SphereGeometry(5, 32, 32);
+    // Draw a simple, large, very visible sphere to test rendering
+    const geometry = new THREE.SphereGeometry(8, 32, 32); // Larger size for visibility
     const material = new THREE.MeshStandardMaterial({ 
-      color: 0xebbd34, 
-      metalness: 0.3,
-      roughness: 0.4
+      color: 0x00ffff,  // Bright cyan color for contrast on red
+      emissive: 0x222222, // Add some emission for visibility
+      metalness: 0.8,   // More metallic for visibility
+      roughness: 0.2    // More shiny for visibility
     });
     const sphere = new THREE.Mesh(geometry, material);
     scene.add(sphere);
     
-    console.log('DEBUG RENDERING: Test sphere added to scene');
+    console.log('DEBUG RENDERING: Test sphere added to scene (CYAN)');
+    
+    // Render once immediately to test
+    try {
+      console.log('DEBUG RENDERING: Attempting initial render');
+      renderer.render(scene, camera);
+      console.log('DEBUG RENDERING: Initial render completed successfully');
+    } catch (e) {
+      console.error('DEBUG RENDERING: Initial render failed:', e);
+      onError("Initial render failed");
+    }
     
     return { scene, camera, renderer };
   } catch (error) {
-    console.error("ThreeScene: Errore inizializzazione scena 3D:", error);
-    onError("Errore inizializzazione scena 3D");
+    console.error("ThreeScene: Error initializing 3D scene:", error);
+    onError("Error initializing 3D scene");
     return null;
   }
 };
