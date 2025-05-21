@@ -40,7 +40,10 @@ const GamificationTracker: React.FC = () => {
           .eq("username", user.email)
           .order("created_at", { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error tracking messages:", error);
+          return;
+        }
 
         // Update achievement progress for social butterfly
         if (data) {
@@ -67,7 +70,10 @@ const GamificationTracker: React.FC = () => {
           .select("bubble_id")
           .eq("username", user.email);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error tracking reflections:", error);
+          return;
+        }
 
         if (data) {
           // Get unique reflection count
@@ -96,7 +102,10 @@ const GamificationTracker: React.FC = () => {
           .gte("reflect_count", 5)
           .order("reflect_count", { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error tracking popular bubbles:", error);
+          return;
+        }
 
         if (data && data.length > 0) {
           // If any popular bubble exists, unlock the achievement

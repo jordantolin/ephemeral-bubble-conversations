@@ -108,7 +108,7 @@ const Index = () => {
     if (user) {
       refreshGamificationProfile();
     }
-  }, [user]);
+  }, [user, refreshGamificationProfile]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">

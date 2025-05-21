@@ -82,7 +82,10 @@ const NotificationCenter: React.FC = () => {
         .order('created_at', { ascending: false })
         .limit(20);
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching notifications:", error.message);
+        return;
+      }
       
       setNotifications(data || []);
     } catch (error) {
