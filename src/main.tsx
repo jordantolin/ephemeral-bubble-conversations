@@ -9,11 +9,17 @@ import './index.css'
 const queryClient = new QueryClient()
 
 // Create root first, then render
-const root = ReactDOM.createRoot(document.getElementById('root')!)
-root.render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </React.StrictMode>,
-)
+// Make sure React is properly imported and used
+const rootElement = document.getElementById('root')
+if (!rootElement) {
+  console.error("Root element not found!")
+} else {
+  const root = ReactDOM.createRoot(rootElement)
+  root.render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </React.StrictMode>,
+  )
+}

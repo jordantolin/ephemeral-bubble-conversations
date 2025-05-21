@@ -34,44 +34,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Initialize all state variables at the top level - not conditionally
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Get toast outside of any hooks or conditions
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
+  // Define the fetchProfile function outside of useEffect
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -90,6 +62,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Unexpected error fetching profile:", error);
     }
   };
+
+  useEffect(() => {
+    console.log("Setting up auth state change listener");
+    
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session:", session);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+      
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth state changed:", session);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const updateProfile = async (data: ProfileUpdateData) => {
     if (!user) {

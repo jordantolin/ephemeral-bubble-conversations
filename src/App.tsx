@@ -19,18 +19,27 @@ import GamificationTracker from "@/components/gamification/GamificationTracker";
 import AchievementPopup from "@/components/gamification/AchievementPopup";
 import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
 import { useNetwork } from "@/context/NetworkContext";
+import ErrorBoundary from "@/components/errorHandling/ErrorBoundary";
 
 function App() {
   return (
-    <Router>
-      <NetworkProvider>
-        <AuthProvider>
-          <GamificationProvider>
-            <AppContent />
-          </GamificationProvider>
-        </AuthProvider>
-      </NetworkProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <ErrorBoundary>
+          <NetworkProvider>
+            <ErrorBoundary>
+              <AuthProvider>
+                <ErrorBoundary>
+                  <GamificationProvider>
+                    <AppContent />
+                  </GamificationProvider>
+                </ErrorBoundary>
+              </AuthProvider>
+            </ErrorBoundary>
+          </NetworkProvider>
+        </ErrorBoundary>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
