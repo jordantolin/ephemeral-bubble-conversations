@@ -14,6 +14,8 @@ const mockData = [
     reflect_count: 2,
     size: 'sm',
     color: 'blue',
+    topic: 'Test Topic 1',
+    expires_at: '2023-01-08T00:00:00Z',
     position: { x: 0, y: 0, z: 0 }
   },
   {
@@ -25,6 +27,8 @@ const mockData = [
     reflect_count: 5,
     size: 'md',
     color: 'red',
+    topic: 'Test Topic 2',
+    expires_at: '2023-01-09T00:00:00Z',
     position: { x: 1, y: 1, z: 1 }
   }
 ];
@@ -42,6 +46,27 @@ jest.mock('@/services/bubbleService', () => ({
   )
 }));
 
+// Mock the supabase client
+jest.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          order: jest.fn(() => ({
+            limit: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
+          })),
+          single: jest.fn(() => Promise.resolve({ data: mockData[0], error: null }))
+        })),
+        gte: jest.fn(() => ({
+          order: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
+        })),
+        in: jest.fn(() => Promise.resolve({ data: mockData, error: null })),
+      })),
+      insert: jest.fn(() => Promise.resolve({ data: null, error: null }))
+    })
+  }
+}));
+
 describe('useBubbleData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -51,9 +76,9 @@ describe('useBubbleData', () => {
     const { result } = renderHook(() => useBubbleData());
     
     expect(result.current.bubbles).toEqual([]);
-    expect(result.current.loading).toBe(true);
-    expect(result.current.error).toBe(null);
-    expect(result.current.searchTerm).toBe('');
+    expect(result.current.isLoadingBubbles).toBe(true);
+    expect(result.current.bubblesError).toBe(null);
+    expect(result.current.searchQuery).toBe('');
     expect(result.current.selectedBubble).toBe(null);
   });
   
@@ -63,7 +88,7 @@ describe('useBubbleData', () => {
     await waitForNextUpdate();
     
     expect(result.current.bubbles).toEqual(mockData);
-    expect(result.current.loading).toBe(false);
+    expect(result.current.isLoadingBubbles).toBe(false);
   });
   
   it('should filter bubbles when search term changes', async () => {
@@ -72,24 +97,24 @@ describe('useBubbleData', () => {
     await waitForNextUpdate();
     
     act(() => {
-      result.current.setSearchTerm('First');
+      result.current.setSearchQuery('First');
     });
     
     await waitForNextUpdate();
     
-    expect(result.current.bubbles.length).toBe(1);
-    expect(result.current.bubbles[0].name).toBe('First Bubble');
+    expect(result.current.filteredBubbles.length).toBe(1);
+    expect(result.current.filteredBubbles[0].name).toBe('First Bubble');
   });
   
-  it('should set selected bubble', async () => {
+  it('should set selected bubble id', async () => {
     const { result, waitForNextUpdate } = renderHook(() => useBubbleData());
     
     await waitForNextUpdate();
     
     act(() => {
-      result.current.selectBubble(mockData[0]);
+      result.current.setSelectedBubbleId(mockData[0].id);
     });
     
-    expect(result.current.selectedBubble).toEqual(mockData[0]);
+    expect(result.current.selectedBubbleId).toEqual(mockData[0].id);
   });
 });
