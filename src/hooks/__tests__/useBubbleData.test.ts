@@ -60,7 +60,7 @@ jest.mock('@/integrations/supabase/client', () => ({
         gte: jest.fn(() => ({
           order: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
         })),
-        in: jest.fn(() => Promise.resolve({ data: mockData, error: null })),
+        in: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
       })),
       insert: jest.fn(() => Promise.resolve({ data: null, error: null }))
     })
