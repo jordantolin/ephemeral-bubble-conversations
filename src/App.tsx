@@ -24,19 +24,13 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <ErrorBoundary>
-          <NetworkProvider>
-            <ErrorBoundary>
-              <AuthProvider>
-                <ErrorBoundary>
-                  <GamificationProvider>
-                    <AppContent />
-                  </GamificationProvider>
-                </ErrorBoundary>
-              </AuthProvider>
-            </ErrorBoundary>
-          </NetworkProvider>
-        </ErrorBoundary>
+        <NetworkProvider>
+          <AuthProvider>
+            <GamificationProvider>
+              <AppContent />
+            </GamificationProvider>
+          </AuthProvider>
+        </NetworkProvider>
       </Router>
     </ErrorBoundary>
   );
