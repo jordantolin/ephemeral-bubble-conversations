@@ -4,19 +4,21 @@ export interface BubbleData {
   topic: string;
   username: string;
   name: string;
-  size: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg";
   reflect_count: number;
   created_at?: string;
   description?: string;
   expires_at?: string;
-  isExploding?: boolean;
+  // Position data
   x?: number;
   y?: number;
-  angle?: number;  // Added for circle positioning
-  radius?: number; // Added for circle positioning
+  angle?: number;
+  radius?: number;
+  isExploding?: boolean;
 }
 
 export interface BubbleWorldProps {
   topics: BubbleData[];
   onBubbleClick: (id: string) => void;
+  initialAnimationEnabled?: boolean; // Nuova proprietà per controllare l'animazione iniziale
 }

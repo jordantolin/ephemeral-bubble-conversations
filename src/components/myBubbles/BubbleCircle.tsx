@@ -52,9 +52,9 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       // Initialize positions
       setPositionedBubbles(positioned);
       
-      // Start animation after a delay to reduce initial motion overload
+      // Ritardare l'inizio dell'animazione e disabilitarla di default
       setTimeout(() => {
-        isAnimatingRef.current = true;
+        isAnimatingRef.current = false; // Disabilitato di default, cambiato da true a false
       }, 1000);
       
       isInitializedRef.current = true;
@@ -70,7 +70,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     };
   }, [bubbles]);
   
-  // Animation loop for floating motion - with better control
+  // Loop di animazione estremamente lento, o completamente disabilitato per impostazione predefinita
   useEffect(() => {
     const animate = () => {
       if (initialPositionsRef.current && 
@@ -81,7 +81,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
         const floatingBubbles = calculateFloatingPositions(
           initialPositionsRef.current,
           time,
-          2 // Reduced floating radius for much smoother movement
+          0.5 // Raggio di fluttuazione estremamente ridotto per un movimento quasi impercettibile
         );
         setPositionedBubbles(floatingBubbles);
       }
@@ -108,7 +108,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     const handleMouseLeave = () => {
       // Only resume animation if component is initialized
       if (isInitializedRef.current) {
-        isAnimatingRef.current = true;
+        isAnimatingRef.current = false; // Manteniamo l'animazione disabilitata
       }
     };
     
@@ -163,7 +163,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
             backgroundColor: getBubbleColor(bubble.topic),
             left: `${bubble.x ? (bubble.x - (parseInt(getBubbleSize(bubble.size).split(" ")[0].replace("w-", "")) / 2)) : 0}px`,
             top: `${bubble.y ? (bubble.y - (parseInt(getBubbleSize(bubble.size).split(" ")[1].replace("h-", "")) / 2)) : 0}px`,
-            transition: 'transform 0.2s ease-in-out, left 0.7s ease-in-out, top 0.7s ease-in-out', // Slower transitions for stability
+            transition: 'transform 0.2s ease-in-out, left 1.5s ease-in-out, top 1.5s ease-in-out', // Transizioni ancora più lente per maggiore stabilità
           }}
           onClick={() => onBubbleClick(bubble.id)}
         >

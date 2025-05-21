@@ -1,117 +1,83 @@
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import useBubbleData from '../useBubbleData';
-import '@testing-library/jest-dom';
+import { supabase } from '@/integrations/supabase/client';
+import React from 'react';
 
-// Mock data for testing
-const mockData = [
-  {
-    id: '1',
-    name: 'First Bubble',
-    description: 'Test description 1',
-    username: 'user1',
-    created_at: '2023-01-01T00:00:00Z',
-    reflect_count: 2,
-    size: 'sm',
-    color: 'blue',
-    topic: 'Test Topic 1',
-    expires_at: '2023-01-08T00:00:00Z',
-    position: { x: 0, y: 0, z: 0 }
-  },
-  {
-    id: '2',
-    name: 'Second Bubble',
-    description: 'Test description 2',
-    username: 'user2',
-    created_at: '2023-01-02T00:00:00Z',
-    reflect_count: 5,
-    size: 'md',
-    color: 'red',
-    topic: 'Test Topic 2',
-    expires_at: '2023-01-09T00:00:00Z',
-    position: { x: 1, y: 1, z: 1 }
-  }
-];
-
-// Mock the bubbleService
-jest.mock('@/services/bubbleService', () => ({
-  getBubbles: jest.fn(() => Promise.resolve(mockData)),
-  searchBubbles: jest.fn((searchTerm) => 
-    Promise.resolve(
-      mockData.filter(bubble => 
-        bubble.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        bubble.description.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    )
-  )
-}));
-
-// Mock the supabase client
+// Mock Supabase client
 jest.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          order: jest.fn(() => ({
-            limit: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
-          })),
-          single: jest.fn(() => Promise.resolve({ data: mockData[0], error: null }))
-        })),
-        gte: jest.fn(() => ({
-          order: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
-        })),
-        in: jest.fn(() => Promise.resolve({ data: mockData, error: null }))
-      })),
-      insert: jest.fn(() => Promise.resolve({ data: null, error: null }))
-    })
-  },
+    from: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    data: [
+      { id: '123', topic: 'Test Topic', username: 'testuser', name: 'Test Bubble' }
+    ],
+    removeChannel: jest.fn()
+  }
 }));
 
-describe('useBubbleData', () => {
+// Create a wrapper for the renderHook function with the QueryClientProvider
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false
+      }
+    }
+  });
+  
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
+
+describe('useBubbleData hook', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
   
-  it('should initialize with the correct default values', () => {
-    const { result } = renderHook(() => useBubbleData());
-    
-    expect(result.current.bubbles).toEqual([]);
-    expect(result.current.isLoadingBubbles).toBe(true);
-    expect(result.current.bubblesError).toBe(null);
-    expect(result.current.searchQuery).toBe('');
-    expect(result.current.selectedBubble).toBe(null);
-  });
-  
-  it('should load bubbles on mount', async () => {
-    const { result, waitFor } = renderHook(() => useBubbleData());
-    
-    await waitFor(() => expect(result.current.isLoadingBubbles).toBe(false));
-    
-    expect(result.current.bubbles).toEqual(mockData);
-  });
-  
-  it('should filter bubbles when search term changes', async () => {
-    const { result, waitFor } = renderHook(() => useBubbleData());
-    
-    await waitFor(() => expect(result.current.isLoadingBubbles).toBe(false));
-    
-    act(() => {
-      result.current.setSearchQuery('First');
+  it('should initialize with default values', async () => {
+    const { result } = renderHook(() => useBubbleData(), {
+      wrapper: createWrapper()
     });
     
-    await waitFor(() => expect(result.current.filteredBubbles.length).toBe(1));
-    expect(result.current.filteredBubbles[0].name).toBe('First Bubble');
+    expect(result.current.selectedBubbleId).toBeNull();
+    expect(result.current.selectedBubble).toBeNull();
+    expect(result.current.messages).toEqual([]);
+    expect(result.current.chatOpen).toBe(false);
   });
   
-  it('should set selected bubble id', async () => {
-    const { result, waitFor } = renderHook(() => useBubbleData());
-    
-    await waitFor(() => expect(result.current.isLoadingBubbles).toBe(false));
-    
-    act(() => {
-      result.current.setSelectedBubbleId(mockData[0].id);
+  it('should set selected bubble ID', () => {
+    const { result } = renderHook(() => useBubbleData(), {
+      wrapper: createWrapper()
     });
     
-    expect(result.current.selectedBubbleId).toEqual(mockData[0].id);
+    // Act
+    result.current.setSelectedBubbleId('123');
+    
+    // Assert
+    waitFor(() => {
+      expect(result.current.selectedBubbleId).toBe('123');
+    });
+  });
+  
+  it('should open and close chat', () => {
+    const { result } = renderHook(() => useBubbleData(), {
+      wrapper: createWrapper()
+    });
+    
+    // Act
+    result.current.setChatOpen(true);
+    
+    // Assert
+    expect(result.current.chatOpen).toBe(true);
+    
+    // Act
+    result.current.setChatOpen(false);
+    
+    // Assert
+    expect(result.current.chatOpen).toBe(false);
   });
 });

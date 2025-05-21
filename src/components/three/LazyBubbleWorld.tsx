@@ -30,6 +30,8 @@ const LazyBubbleWorld = (props: BubbleWorldProps) => {
     errorMessage: null
   });
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  // Opzione per controllo dell'animazione - impostata a false di default
+  const [animationEnabled, setAnimationEnabled] = useState(false);
 
   // Reset error state if props change significantly
   useEffect(() => {
@@ -73,20 +75,32 @@ const LazyBubbleWorld = (props: BubbleWorldProps) => {
   }
 
   return (
-    <Suspense fallback={
-      <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-[#FEF7E4]/50 rounded-2xl border-2 border-[#ebbd34]/20">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 text-yellow-500 animate-spin" />
-          <p className="text-yellow-500 font-medium">
-            {isFirstLoad ? 'Creating your bubble world...' : 'Loading bubbles...'}
-          </p>
+    <div className="relative w-full h-full">
+      <Suspense fallback={
+        <div className="w-full h-full min-h-[500px] flex items-center justify-center bg-[#FEF7E4]/50 rounded-2xl border-2 border-[#ebbd34]/20">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-10 w-10 text-yellow-500 animate-spin" />
+            <p className="text-yellow-500 font-medium">
+              {isFirstLoad ? 'Creating your bubble world...' : 'Loading bubbles...'}
+            </p>
+          </div>
         </div>
+      }>
+        <ErrorBoundary onError={handleError}>
+          <BubbleWorld {...props} initialAnimationEnabled={animationEnabled} />
+        </ErrorBoundary>
+      </Suspense>
+      
+      {/* Controllo animazione opzionale */}
+      <div className="absolute bottom-4 right-4 opacity-50 hover:opacity-100 transition-opacity">
+        <button 
+          onClick={() => setAnimationEnabled(prev => !prev)}
+          className={`px-3 py-1 rounded text-xs ${animationEnabled ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+        >
+          {animationEnabled ? 'Pause Animation' : 'Start Animation'}
+        </button>
       </div>
-    }>
-      <ErrorBoundary onError={handleError}>
-        <BubbleWorld {...props} />
-      </ErrorBoundary>
-    </Suspense>
+    </div>
   );
 };
 
