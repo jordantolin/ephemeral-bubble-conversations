@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Cube, CircleDashed } from 'lucide-react';
+import { Axis3D, CircleDashed } from 'lucide-react';
 
 interface BubbleWorldModeSwitcherProps {
   use3DMode: boolean;
@@ -41,7 +41,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
         } transition-colors`}
         aria-label="3D Mode"
       >
-        <Cube className="h-4 w-4" />
+        <Axis3D className="h-4 w-4" />
         <span className="text-sm font-medium">3D</span>
       </button>
       <button 

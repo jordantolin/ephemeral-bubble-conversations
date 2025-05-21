@@ -26,6 +26,12 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
   // Handle case where bubbles is undefined or empty
   const validBubbles = bubbles && Array.isArray(bubbles) ? bubbles : [];
   
+  // Extract loading and error states from bubbles prop
+  const { isLoadingBubbles, bubblesError } = 
+    typeof bubbles === 'undefined' ? { isLoadingBubbles: true, bubblesError: null } 
+    : (bubbles as any)._loading !== undefined ? { isLoadingBubbles: (bubbles as any)._loading, bubblesError: (bubbles as any)._error }
+    : { isLoadingBubbles: false, bubblesError: null };
+  
   // Debug output to help troubleshoot
   useEffect(() => {
     console.log('BubbleWorld component received bubbles:', validBubbles?.length || 0);
@@ -42,12 +48,6 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
       setShouldShowEmptyState(true);
     }
   }, [validBubbles, isLoadingBubbles, bubblesError]);
-
-  // Add these props to ensure component has access to the loading/error state
-  const { isLoadingBubbles, bubblesError } = 
-    typeof bubbles === 'undefined' ? { isLoadingBubbles: true, bubblesError: null } 
-    : (bubbles as any)._loading !== undefined ? { isLoadingBubbles: (bubbles as any)._loading, bubblesError: (bubbles as any)._error }
-    : { isLoadingBubbles: false, bubblesError: null };
 
   // Improved WebGL detection logic
   useEffect(() => {
