@@ -18,7 +18,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
 }) => {
   const handleSwitchTo3D = () => {
     if (!webGLSupported) {
-      console.warn('WebGL not supported, but user attempted to switch to 3D mode');
+      console.warn('WebGL non supportato, impossibile passare alla modalità 3D');
       return; // Prevent switching if WebGL is not supported
     }
     

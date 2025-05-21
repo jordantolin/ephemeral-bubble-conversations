@@ -11,12 +11,16 @@ export const initializeThreeScene = (
   renderer: THREE.WebGLRenderer;
 } | null => {
   try {
+    console.log('ThreeScene: Inizializzazione scena');
+    
     // Create scene
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    scene.fog = new THREE.Fog(0x000000, 10, 50);
     
-    // Create camera
+    // Create camera with better parameters for our use case
     const camera = new THREE.PerspectiveCamera(
-      70,
+      75, // Field of view
       container.clientWidth / container.clientHeight,
       0.1,
       1000
@@ -28,14 +32,31 @@ export const initializeThreeScene = (
     try {
       renderer = new THREE.WebGLRenderer({ 
         antialias: true,
-        alpha: true
+        alpha: true,
+        powerPreference: 'high-performance',
+        precision: 'highp'
       });
       renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
       renderer.setClearColor(0x000000, 0); // Transparent background
+      renderer.shadowMap.enabled = false; // Disable shadows for performance
+      
+      // Make sure we can append to the container
+      if (!container) {
+        throw new Error("Container element is null");
+      }
       container.appendChild(renderer.domElement);
+      
+      // Set explicit dimensions via style to ensure visibility
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      renderer.domElement.style.display = 'block';
+      renderer.domElement.style.position = 'absolute';
+      
+      console.log('ThreeScene: Renderer creato con successo');
     } catch (e) {
-      console.error("Failed to create WebGL renderer:", e);
-      onError("WebGL renderer creation failed");
+      console.error("ThreeScene: Errore durante la creazione del renderer WebGL:", e);
+      onError("Errore creazione renderer WebGL");
       return null;
     }
     
@@ -51,15 +72,12 @@ export const initializeThreeScene = (
     pointLight.position.set(0, 0, 0);
     scene.add(pointLight);
     
-    // Add a helper grid for orientation (optional)
-    const gridHelper = new THREE.GridHelper(20, 20, 0xffffff, 0xffffff);
-    gridHelper.position.y = -10;
-    scene.add(gridHelper);
+    // No grid helper for cleaner look
     
     return { scene, camera, renderer };
   } catch (error) {
-    console.error("Error initializing 3D scene:", error);
-    onError("Failed to initialize 3D scene");
+    console.error("ThreeScene: Errore inizializzazione scena 3D:", error);
+    onError("Errore inizializzazione scena 3D");
     return null;
   }
 };
@@ -100,7 +118,7 @@ export const generatePointsOnSphere = (count: number, radius: number, fallbackPo
     
     return points;
   } catch (e) {
-    console.error("Error generating sphere points:", e);
+    console.error("ThreeScene: Errore generazione punti sfera:", e);
     // Return fallback positions
     return fallbackPositions.map(p => ({
       x: p.x * radius / 5,
@@ -116,11 +134,13 @@ export const cleanupThreeScene = (
   renderer: THREE.WebGLRenderer | null,
   bubbleRefs: { [key: string]: THREE.Group }
 ) => {
+  console.log('ThreeScene: Pulizia risorse');
+  
   if (container && renderer) {
     try {
       container.removeChild(renderer.domElement);
     } catch (e) {
-      console.error("Error removing renderer:", e);
+      console.error("ThreeScene: Errore rimozione renderer:", e);
     }
   }
   
@@ -142,5 +162,10 @@ export const cleanupThreeScene = (
   
   if (renderer) {
     renderer.dispose();
+    renderer.forceContextLoss();
+    const gl = renderer.getContext();
+    if (gl && typeof gl.getExtension === 'function') {
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
   }
 };

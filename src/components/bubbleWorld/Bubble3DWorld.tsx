@@ -48,6 +48,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
   const [is3DReady, setIs3DReady] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [lastBubbleCount, setLastBubbleCount] = useState(0);
   
   // Setup world interaction handlers
   const { 
@@ -73,6 +74,8 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
   
   // Define retry initialization function
   const handleRetry = useCallback(() => {
+    console.log('Bubble3DWorld: Ritento inizializzazione');
+    
     setInitializationError(null);
     setIs3DReady(false);
     setIsInitialized(false);
@@ -81,14 +84,15 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     // Clean up previous Three.js scene if it exists
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
     cleanupThreeScene(containerRef.current, rendererRef.current, bubbleRefsRef.current);
     
     // Force browser to skip a frame to ensure cleanup completes
     setTimeout(() => {
       toast({
-        title: "Retrying 3D initialization",
-        description: "Attempting to reload 3D environment..."
+        title: "Ritento inizializzazione 3D",
+        description: "Tentativo di ricaricare l'ambiente 3D..."
       });
     }, 100);
   }, [toast]);
@@ -98,7 +102,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     if (!containerRef.current || isInitialized) return;
     
     try {
-      console.log(`Initializing 3D bubble world with ${bubbles.length} bubbles (attempt: ${retryCount + 1})`);
+      console.log(`Bubble3DWorld: Inizializzazione mondo bolle 3D con ${bubbles.length} bolle (tentativo: ${retryCount + 1})`);
       
       // Initialize scene, camera, and renderer
       const threeElements = initializeThreeScene(
@@ -107,13 +111,16 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       );
       
       if (!threeElements) {
-        throw new Error("Failed to initialize Three.js scene");
+        throw new Error("Fallita inizializzazione scena Three.js");
       }
       
       const { scene, camera, renderer } = threeElements;
       sceneRef.current = scene;
       cameraRef.current = camera;
       rendererRef.current = renderer;
+      
+      // Add performance stats for dev mode
+      console.log("Bubble3DWorld: Renderer inizializzato");
       
       // Setup animation loop
       const animate = () => {
@@ -130,7 +137,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
           
           rendererRef.current.render(sceneRef.current, cameraRef.current);
         } catch (error) {
-          console.error("Error in animation loop:", error);
+          console.error("Bubble3DWorld: Errore nel loop di animazione:", error);
           // Don't throw here - just log the error to avoid crashing the loop
         }
       };
@@ -140,13 +147,13 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       
       setIsInitialized(true);
       setIs3DReady(true);
-      console.log("3D world initialization complete");
+      console.log("Bubble3DWorld: Inizializzazione mondo 3D completata");
     } catch (error) {
-      console.error("Error initializing 3D bubble world:", error);
-      setInitializationError("Failed to initialize 3D world");
+      console.error("Bubble3DWorld: Errore inizializzazione mondo bolle 3D:", error);
+      setInitializationError("Errore inizializzazione mondo 3D");
       toast({
-        title: "3D Rendering Failed",
-        description: "There was an error initializing the 3D environment. Please refresh and try again.",
+        title: "Rendering 3D fallito",
+        description: "Si è verificato un errore nell'inizializzazione dell'ambiente 3D. Ricarica la pagina o prova con un altro browser.",
         variant: "destructive"
       });
     }
@@ -155,6 +162,7 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
 
       cleanupThreeScene(containerRef.current, rendererRef.current, bubbleRefsRef.current);
@@ -185,8 +193,24 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       return;
     }
     
-    updateBubbles(bubbles);
-  }, [bubbles, is3DReady, updateBubbles]);
+    // Only update if bubbles have changed
+    if (bubbles.length !== lastBubbleCount) {
+      console.log(`Bubble3DWorld: Aggiorno bolle, totale: ${bubbles.length}`);
+      updateBubbles(bubbles);
+      setLastBubbleCount(bubbles.length);
+    }
+  }, [bubbles, is3DReady, updateBubbles, lastBubbleCount]);
+
+  // Add console logs to help debug
+  useEffect(() => {
+    console.log(`Bubble3DWorld status: initialized=${isInitialized}, ready=${is3DReady}, error=${initializationError}`);
+    
+    // Check if container is visible
+    if (containerRef.current) {
+      const style = window.getComputedStyle(containerRef.current);
+      console.log(`Container visibility: display=${style.display}, visibility=${style.visibility}, height=${style.height}`);
+    }
+  }, [isInitialized, is3DReady, initializationError]);
 
   return (
     <ComponentErrorBoundary name="3D Bubble World">

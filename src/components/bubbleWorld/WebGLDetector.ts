@@ -20,21 +20,20 @@ export const WebGLDetector = {
       
       // Check if context creation was successful
       if (!gl) {
-        console.log('WebGL not supported, falling back to 2D mode');
+        console.warn('WebGL non supportato, modalità 2D sarà usata come fallback');
         return false;
       }
       
-      // Perform an additional capability test by creating a test renderer
+      // Try to use some WebGL features to ensure it's working
       try {
-        const testRenderer = new THREE.WebGLRenderer({ canvas });
-        testRenderer.dispose();
+        gl.viewport(0, 0, canvas.width, canvas.height);
         return true;
       } catch (e) {
-        console.error('WebGL renderer test failed:', e);
+        console.error('Errore durante il test WebGL:', e);
         return false;
       }
     } catch (e) {
-      console.error('WebGL detection error:', e);
+      console.error('Errore rilevamento WebGL:', e);
       return false;
     }
   },
@@ -45,43 +44,84 @@ export const WebGLDetector = {
   testThreeCapabilities: (): Promise<boolean> => {
     return new Promise((resolve) => {
       try {
+        // Creazione di un canvas di test
         const testCanvas = document.createElement('canvas');
         testCanvas.width = 1;
         testCanvas.height = 1;
         
-        // Try to create an entire test scene
+        // Tentativo di creazione di una scena Three.js
         const testScene = new THREE.Scene();
         const testCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 10);
         testCamera.position.z = 5;
         
-        // Create a simple cube to test rendering
-        const geometry = new THREE.BoxGeometry();
+        // Oggetto test (cubo)
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const cube = new THREE.Mesh(geometry, material);
         testScene.add(cube);
         
-        // Try to create the renderer
-        const renderer = new THREE.WebGLRenderer({
-          canvas: testCanvas,
-          antialias: false,
-          alpha: true
-        });
-        
-        // Attempt a render
-        renderer.render(testScene, testCamera);
-        
-        // Clean up
-        geometry.dispose();
-        material.dispose();
-        renderer.dispose();
-        
-        console.log('Full Three.js capability test passed');
-        resolve(true);
+        // Creazione renderer
+        let renderer: THREE.WebGLRenderer;
+        try {
+          renderer = new THREE.WebGLRenderer({
+            canvas: testCanvas,
+            antialias: false,
+            alpha: true,
+            powerPreference: 'default'
+          });
+          
+          // Tentativo di rendering
+          renderer.render(testScene, testCamera);
+          
+          // Pulizia
+          geometry.dispose();
+          material.dispose();
+          renderer.dispose();
+          
+          console.log('Test Three.js passato con successo');
+          resolve(true);
+        } catch (e) {
+          console.error('Errore durante il test del renderer Three.js:', e);
+          resolve(false);
+        }
       } catch (e) {
-        console.error('Full Three.js capability test failed:', e);
+        console.error('Errore durante il test delle capacità Three.js:', e);
         resolve(false);
       }
     });
+  },
+
+  /**
+   * Comprehensive capability check with multiple tests
+   */
+  checkWebGLCompatibility: async (): Promise<{supported: boolean, reason?: string}> => {
+    // Step 1: Basic WebGL availability
+    const isBasicWebGLAvailable = WebGLDetector.isWebGLAvailable();
+    if (!isBasicWebGLAvailable) {
+      return { 
+        supported: false, 
+        reason: "WebGL non è supportato in questo browser" 
+      };
+    }
+    
+    // Step 2: Check Three.js capabilities
+    const threeCapabilities = await WebGLDetector.testThreeCapabilities();
+    if (!threeCapabilities) {
+      return { 
+        supported: false, 
+        reason: "Il browser non supporta Three.js correttamente" 
+      };
+    }
+    
+    // Step 3: Check for mobile-specific limitations
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isLowEndDevice = navigator.deviceMemory && navigator.deviceMemory < 4;
+    
+    if (isMobile && isLowEndDevice) {
+      console.warn("Dispositivo mobile con memoria limitata - potrebbe funzionare ma con prestazioni ridotte");
+    }
+    
+    return { supported: true };
   }
 };
 
