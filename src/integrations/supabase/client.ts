@@ -6,47 +6,10 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://fmsijphhzututcmzlhfr.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtc2lqcGhoenV0dXRjbXpsaGZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk4NjE1NzYsImV4cCI6MjA1NTQzNzU3Nn0.e6MyIJ2j5ehDnnI-jAGY5toj7m6nqMVjAfpiHeOpN_o";
 
-// Create retry wrapper to handle connection issues
-const createRetryFetch = (maxRetries = 3, initialTimeout = 500) => {
-  return async (...args: Parameters<typeof fetch>) => {
-    let retries = 0;
-    let timeout = initialTimeout;
-    
-    while (retries < maxRetries) {
-      try {
-        return await fetch(...args);
-      } catch (err) {
-        retries++;
-        console.log(`Fetch attempt ${retries} failed, retrying in ${timeout}ms...`);
-        
-        if (retries >= maxRetries) {
-          throw err;
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, timeout));
-        timeout *= 2; // Exponential backoff
-      }
-    }
-    
-    throw new Error("Max retries reached");
-  };
-};
+// Import the supabase client like this:
+// import { supabase } from "@/integrations/supabase/client";
 
-// Create the Supabase client with retry logic
-export const supabase = createClient<Database>(
-  SUPABASE_URL, 
-  SUPABASE_PUBLISHABLE_KEY,
-  { 
-    auth: { 
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    },
-    global: {
-      fetch: createRetryFetch()
-    }
-  }
-);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // Check for the dedicated avatars bucket
 (async () => {
@@ -75,46 +38,3 @@ export const supabase = createClient<Database>(
     console.log('Storage initialization check completed with warnings:', err);
   }
 })();
-
-// Add offline status detection
-let isOffline = false;
-
-const handleOnline = () => {
-  console.log('🟢 Application is online');
-  isOffline = false;
-};
-
-const handleOffline = () => {
-  console.log('🔴 Application is offline');
-  isOffline = true;
-};
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-  
-  // Initial check
-  isOffline = !navigator.onLine;
-}
-
-// Export utility to check connection status
-export const connectionUtils = {
-  isOffline: () => isOffline,
-  retryOperation: async (operation: () => Promise<any>, maxAttempts = 3) => {
-    let attempts = 0;
-    
-    while (attempts < maxAttempts) {
-      try {
-        return await operation();
-      } catch (error: any) {
-        attempts++;
-        console.warn(`Operation failed (attempt ${attempts}/${maxAttempts}):`, error?.message || error);
-        
-        if (attempts >= maxAttempts) throw error;
-        
-        // Wait longer between retries
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-      }
-    }
-  }
-};

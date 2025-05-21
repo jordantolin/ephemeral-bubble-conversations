@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Clock, Plus, X, Trophy, Star, Award, WifiOff } from "lucide-react";
+import { Clock, Plus, X, Trophy, Star, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BubbleWorld from "@/components/BubbleWorld";
 import { BubbleData } from "@/types/bubble";
@@ -35,9 +35,6 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   const renderGamificationStatus = () => {
     if (isLoadingGamification || !user) return null;
     
-    // Prevent errors by ensuring profile exists
-    if (!profile) return null;
-    
     return (
       <motion.div 
         className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-[#ebbd34]/20"
@@ -53,7 +50,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
           
           <div className="flex items-center">
             <Star className="h-4 w-4 text-[#ebbd34] mr-1" />
-            <span className="text-xs font-medium text-gray-700">{profile.points || 0} pts</span>
+            <span className="text-xs font-medium text-gray-700">{profile.points} pts</span>
           </div>
           
           <Link to="/achievements">
@@ -82,41 +79,28 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
   }
 
   if (bubblesError) {
-    // Improved error handling screen with connection issue information
     return (
       <div className="text-center py-16 md:py-24 px-4 bg-white/60 rounded-xl backdrop-blur-sm shadow-sm">
         <div className="mx-auto w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-4 bg-red-100">
-          <WifiOff className="w-8 h-8 md:w-10 md:h-10 text-red-500" />
+          <X className="w-8 h-8 md:w-10 md:h-10 text-red-500" />
         </div>
-        <h3 className="text-xl md:text-2xl font-medium text-gray-800 mb-2">Connection Error</h3>
+        <h3 className="text-xl md:text-2xl font-medium text-gray-800 mb-2">Error Loading Bubbles</h3>
         <p className="text-gray-600 mt-2 max-w-md mx-auto mb-6">
-          Unable to connect to the database. This could be due to network issues or server maintenance.
+          There was a problem loading the bubbles. Please check your connection and try again.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
-            variant="outline"
-            size="lg"
-            className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
-          >
-            Try Again
-          </Button>
-          <Button
-            onClick={onCreateBubble}
-            className="bg-[#ebbd34] hover:bg-[#ebbd34]/90 text-white"
-          >
-            Create New Bubble
-          </Button>
-        </div>
+        <Button
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['bubbles'] })}
+          variant="outline"
+          size="lg"
+          className="border-[#ebbd34]/30 text-[#ebbd34] hover:bg-[#ebbd34]/10"
+        >
+          Retry
+        </Button>
       </div>
     );
   }
 
-  // Handle case where filteredBubbles is undefined or null
-  const hasFilteredBubbles = Array.isArray(filteredBubbles) && filteredBubbles.length > 0;
-  const hasBubbleData = Array.isArray(bubbleDataForComponent) && bubbleDataForComponent.length > 0;
-  
-  if (!hasFilteredBubbles || !hasBubbleData) {
+  if (filteredBubbles.length === 0) {
     return (
       <div className="text-center py-16 md:py-24 bg-white/40 rounded-xl backdrop-blur-sm shadow-sm">
         <div className="mx-auto w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-6 bg-[#ebbd34]/10">
@@ -147,7 +131,7 @@ const BubbleWorldContent: React.FC<BubbleWorldContentProps> = ({
     <div className="h-[70vh] md:h-[75vh] min-h-[400px] md:min-h-[500px] w-full bg-white/30 rounded-2xl backdrop-blur-sm p-3 shadow-lg border border-[#ebbd34]/10 relative">
       {renderGamificationStatus()}
       <BubbleWorld 
-        bubbles={bubbleDataForComponent}
+        topics={bubbleDataForComponent}
         onBubbleClick={onBubbleClick}
       />
     </div>

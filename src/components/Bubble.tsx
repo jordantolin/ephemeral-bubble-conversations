@@ -18,28 +18,13 @@ interface BubbleProps {
   timeLeft: string;
   participants: number;
   reflects: number;
-  isExploding?: boolean;
-  onClick?: () => void;
 }
 
-const Bubble = ({ 
-  title, 
-  description, 
-  timeLeft, 
-  participants, 
-  reflects, 
-  isExploding,
-  onClick 
-}: BubbleProps) => {
+const Bubble = ({ title, description, timeLeft, participants, reflects }: BubbleProps) => {
   const [isReflected, setIsReflected] = useState(false);
 
   return (
-    <Card 
-      className={`bubble overflow-hidden group hover:scale-[1.02] transition-all duration-300 ${
-        isExploding ? 'scale-110 opacity-0 transition-all duration-500' : ''
-      }`}
-      onClick={onClick}
-    >
+    <Card className="bubble overflow-hidden group hover:scale-[1.02] transition-all duration-300">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -52,10 +37,7 @@ const Bubble = ({
             className={`rounded-full ${
               isReflected ? "text-primary bg-primary/10" : "text-muted-foreground"
             }`}
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering the card's onClick
-              setIsReflected(!isReflected);
-            }}
+            onClick={() => setIsReflected(!isReflected)}
           >
             <Star className="w-5 h-5" />
           </Button>

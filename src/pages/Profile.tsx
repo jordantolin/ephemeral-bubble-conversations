@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
@@ -17,8 +16,10 @@ const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   
+  // Add state for search functionality
   const [searchQuery, setSearchQuery] = useState("");
   
+  // Fetch the user's reflected bubbles
   const { data: reflectedBubbles, isLoading: reflectsLoading } = useQuery({
     queryKey: ['reflects', user?.id],
     queryFn: async () => {
@@ -73,6 +74,7 @@ const Profile = () => {
       
       <main className="container max-w-3xl mx-auto px-4 pt-24 pb-12">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          {/* Header */}
           <div className="bg-[#ebbd34]/10 p-4 flex items-center justify-between">
             <button 
               onClick={() => navigate(-1)}
@@ -86,7 +88,7 @@ const Profile = () => {
             
             <div>
               {isEditing ? (
-                <div className="w-5" />
+                <div className="w-5" /> // Empty space for alignment
               ) : (
                 <button
                   onClick={() => setIsEditing(true)}
@@ -98,8 +100,10 @@ const Profile = () => {
             </div>
           </div>
           
+          {/* Profile Content */}
           <div className="p-6">
             <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+              {/* Avatar Section */}
               <div className="flex flex-col items-center">
                 <AvatarUpload 
                   userId={user.id}
@@ -109,6 +113,7 @@ const Profile = () => {
                 />
               </div>
               
+              {/* Profile Details */}
               <div className="flex-1 w-full">
                 {isEditing ? (
                   <ProfileForm 
@@ -131,7 +136,7 @@ const Profile = () => {
                     
                     <div className="text-sm text-gray-600">
                       <p>Email: {user.email}</p>
-                      <p>Member since: {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}</p>
+                      <p>Member since: {new Date(user.created_at || Date.now()).toLocaleDateString()}</p>
                     </div>
                     
                     <div className="pt-4">
@@ -147,6 +152,7 @@ const Profile = () => {
                         
                         <div className="bg-[#ebbd34]/5 p-3 rounded-lg">
                           <p className="text-2xl font-bold text-[#ebbd34]">
+                            {/* We would fetch this from messages count */}
                             0
                           </p>
                           <p className="text-xs text-gray-600">Messages Sent</p>

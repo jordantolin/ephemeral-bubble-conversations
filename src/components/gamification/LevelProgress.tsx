@@ -32,7 +32,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
     return (
       <div className="flex items-center gap-1">
         <motion.div
-          className="bg-[#ebbd34] rounded-full w-5 h-5 flex items-center justify-center text-white text-xs font-bold"
+          className="bg-amber-400 rounded-full w-5 h-5 flex items-center justify-center text-white text-xs font-bold"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           initial={{ scale: 0.9 }}
@@ -40,7 +40,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
         >
           {profile.level}
         </motion.div>
-        <Progress value={progressPercentage} className="w-14 h-2 bg-[#ebbd34]/20" />
+        <Progress value={progressPercentage} className="w-14 h-2 bg-amber-100" />
       </div>
     );
   }
@@ -50,7 +50,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center">
           <motion.div
-            className="bg-[#ebbd34] rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold mr-2"
+            className="bg-amber-400 rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold mr-2"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             initial={{ scale: 0.9 }}
@@ -61,14 +61,14 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ minimal = false }) => {
           <span className="text-sm font-medium text-gray-700">Level {profile.level}</span>
         </div>
         <div className="flex items-center">
-          <Sparkles className="h-4 w-4 text-[#ebbd34] mr-1" />
-          <span className="text-xs font-medium text-[#ebbd34]">{profile.points} points</span>
+          <Sparkles className="h-4 w-4 text-amber-400 mr-1" />
+          <span className="text-xs font-medium text-amber-500">{profile.points} points</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Progress 
           value={progressPercentage} 
-          className="h-2 bg-[#ebbd34]/20 flex-1" 
+          className="h-2 bg-amber-100 flex-1" 
         />
         <span className="text-xs text-gray-500 whitespace-nowrap">
           {currentLevelPoints}/{pointsNeeded}

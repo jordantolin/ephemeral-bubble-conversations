@@ -61,6 +61,7 @@ const Feed = () => {
     refetchInterval: 5000 // Refetch every 5 seconds for real-time updates
   });
 
+  // Fetch recent messages for each bubble to show previews
   const { data: bubbleMessages = {}, isLoading: messagesLoading } = useQuery({
     queryKey: ['bubble-preview-messages'],
     queryFn: async () => {
@@ -94,6 +95,7 @@ const Feed = () => {
     refetchInterval: 3000 // Refetch chat messages more frequently
   });
 
+  // Fetch participant count for each bubble
   const { data: bubbleParticipants = {} } = useQuery({
     queryKey: ['bubble-participants'],
     queryFn: async () => {
