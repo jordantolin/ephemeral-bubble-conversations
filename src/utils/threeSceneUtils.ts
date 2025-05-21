@@ -99,18 +99,27 @@ export const initializeThreeScene = (
       
       // Append to DOM and set style properties
       try {
+        console.log("Aggiungo canvas a:", container);
         container.appendChild(renderer.domElement);
+        console.log("Canvas dopo append:", container.querySelector("canvas"));
         
-        // Set explicit dimensions via style to ensure visibility
+        // Per debugging - fissa il canvas in posizione assoluta visibile
         renderer.domElement.style.width = '100%';
         renderer.domElement.style.height = '100%';
         renderer.domElement.style.display = 'block';
-        renderer.domElement.style.position = 'absolute';
-        renderer.domElement.style.zIndex = '5'; // Ensure it's above background elements
-        renderer.domElement.style.border = '2px solid yellow'; // DEBUG: Aggiunge bordo visibile
+        
+        // Debug: usa position fixed come suggerito per forzare la visibilità
+        renderer.domElement.style.position = 'fixed';
+        renderer.domElement.style.top = '0';
+        renderer.domElement.style.left = '0';
+        renderer.domElement.style.zIndex = '9999';  // Altissimo z-index per debug
+        renderer.domElement.style.border = '5px solid magenta'; // Bordo molto visibile
         
         // Force repaint to ensure visibility
         renderer.domElement.getBoundingClientRect();
+        
+        // Set a fixed ID to the canvas for easier debugging
+        renderer.domElement.id = 'three-js-canvas';
         
         console.log('DEBUG CANVAS: Canvas aggiunto al container con successo');
         console.log('DEBUG CANVAS: Canvas dimensions', {
@@ -130,13 +139,21 @@ export const initializeThreeScene = (
               for (let node of Array.from(mutation.removedNodes)) {
                 if (node === renderer.domElement) {
                   console.error('DEBUG CANVAS: Canvas was removed from the DOM!');
+                  
+                  // Try to re-append it immediately
+                  try {
+                    console.log('DEBUG CANVAS: Attempting to re-append canvas');
+                    container.appendChild(renderer.domElement);
+                  } catch (e) {
+                    console.error('DEBUG CANVAS: Failed to re-append canvas:', e);
+                  }
                 }
               }
             }
           }
         });
         
-        observer.observe(container, { childList: true });
+        observer.observe(container, { childList: true, subtree: true });
       } catch (e) {
         console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
         onError("Errore nell'aggiunta del canvas al DOM");
@@ -234,6 +251,7 @@ export const cleanupThreeScene = (
   if (container && renderer && renderer.domElement) {
     try {
       if (renderer.domElement.parentNode === container) {
+        console.log('DEBUG CLEANUP: Removing canvas from container');
         container.removeChild(renderer.domElement);
       }
     } catch (e) {

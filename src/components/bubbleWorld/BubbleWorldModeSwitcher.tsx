@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Axis3D, CircleDashed, Info } from 'lucide-react';
+import { Axis3D, CircleDashed, Info, AlertTriangle } from 'lucide-react';
 
 interface BubbleWorldModeSwitcherProps {
   use3DMode: boolean;
@@ -29,6 +29,12 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
     // Then switch mode
     setUse3DMode(true);
     
+    // Debug: Check if canvas exists after mode switch
+    setTimeout(() => {
+      const canvasExists = document.getElementById('three-js-canvas');
+      console.log('BubbleWorldModeSwitcher: Canvas exists after 3D switch?', !!canvasExists);
+    }, 1000);
+    
     console.log('BubbleWorldModeSwitcher: Passaggio a modalità 3D');
   };
   
@@ -46,8 +52,15 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
     >
       {webGLSupported === false && (
         <div className="mb-2 px-3 py-1 bg-yellow-100 rounded-md text-xs text-yellow-800 flex items-center gap-1">
-          <Info size={12} />
-          <span>WebGL non supportato</span>
+          <AlertTriangle size={12} />
+          <span>WebGL non supportato sul tuo dispositivo</span>
+        </div>
+      )}
+      
+      {use3DMode && !document.getElementById('three-js-canvas') && (
+        <div className="mb-2 px-3 py-1 bg-red-100 rounded-md text-xs text-red-800 flex items-center gap-1">
+          <AlertTriangle size={12} />
+          <span>Canvas 3D non trovato nel DOM!</span>
         </div>
       )}
       
@@ -65,6 +78,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
         >
           <Axis3D className="h-4 w-4" />
           <span className="text-sm font-medium">3D</span>
+          {use3DMode && <span className="ml-1 text-xs">{document.getElementById('three-js-canvas') ? '✓' : '!'}</span>}
         </button>
         <button 
           onClick={handleSwitchTo2D}
