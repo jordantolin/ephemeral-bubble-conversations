@@ -6,6 +6,7 @@ import Bubble from './Bubble';
 import Bubble3DWorld from './bubbleWorld/Bubble3DWorld';
 import { BubbleData, BubbleWorldProps } from '@/types/bubble';
 import { useToast } from "@/hooks/use-toast";
+import * as THREE from 'three';
 
 // Create a staggered animation for bubbles
 const containerVariants = {
@@ -70,20 +71,22 @@ const BubbleWorld: React.FC<BubbleWorldProps> = ({ bubbles, onBubbleClick }) => 
           return false;
         }
         
-        // Additional capability check
-        const extensionsSupported = gl.getSupportedExtensions();
-        if (!extensionsSupported || extensionsSupported.length < 5) {
-          console.log('WebGL supported but with limited extensions, using 2D mode');
-          setUse3DMode(false);
-          return false;
+        // Additional capability check - fixed TypeScript error by adding type guard
+        if (gl && 'getSupportedExtensions' in gl) {
+          const extensionsSupported = gl.getSupportedExtensions();
+          if (!extensionsSupported || extensionsSupported.length < 5) {
+            console.log('WebGL supported but with limited extensions, using 2D mode');
+            setUse3DMode(false);
+            return false;
+          }
         }
         
-        // Check for Three.js specific requirements
+        // Check for Three.js specific requirements - removed window.THREE reference
         try {
-          // Basic Three.js initialization test
-          const THREE = window.THREE;
-          if (!THREE) {
-            throw new Error('THREE is not defined');
+          // Basic Three.js initialization test - using imported THREE instead
+          const testRenderer = new THREE.WebGLRenderer();
+          if (!testRenderer) {
+            throw new Error('THREE renderer initialization failed');
           }
           
           console.log('WebGL supported with Three.js, using 3D mode');
