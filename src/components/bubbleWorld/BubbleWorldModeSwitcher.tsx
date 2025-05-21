@@ -26,10 +26,13 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
     setRenderAttempted(false);
     // Then switch mode
     setUse3DMode(true);
+    
+    console.log('BubbleWorldModeSwitcher: Passaggio a modalità 3D');
   };
   
   const handleSwitchTo2D = () => {
     setUse3DMode(false);
+    console.log('BubbleWorldModeSwitcher: Passaggio a modalità 2D');
   };
   
   return (
@@ -48,6 +51,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
         } transition-colors ${!webGLSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
         aria-label="3D Mode"
         disabled={!webGLSupported}
+        title={!webGLSupported ? 'WebGL non supportato su questo dispositivo' : 'Passa alla modalità 3D'}
       >
         <Axis3D className="h-4 w-4" />
         <span className="text-sm font-medium">3D</span>
@@ -60,6 +64,7 @@ const BubbleWorldModeSwitcher: React.FC<BubbleWorldModeSwitcherProps> = ({
             : 'bg-transparent text-gray-700 hover:bg-gray-100/60'
         } transition-colors`}
         aria-label="2D Mode"
+        title="Passa alla modalità 2D"
       >
         <CircleDashed className="h-4 w-4" />
         <span className="text-sm font-medium">2D</span>

@@ -13,6 +13,16 @@ export const initializeThreeScene = (
   try {
     console.log('ThreeScene: Inizializzazione scena');
     
+    // Check if container has valid dimensions
+    if (container.clientWidth <= 0 || container.clientHeight <= 0) {
+      console.error('ThreeScene: Dimensioni del container non valide', {
+        width: container.clientWidth,
+        height: container.clientHeight
+      });
+      onError("Container dimensioni non valide");
+      return null;
+    }
+    
     // Create scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
@@ -36,6 +46,12 @@ export const initializeThreeScene = (
         powerPreference: 'high-performance',
         precision: 'highp'
       });
+      
+      console.log('ThreeScene: Renderer creato, configurazione dimensioni:', {
+        containerWidth: container.clientWidth,
+        containerHeight: container.clientHeight
+      });
+      
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
       renderer.setClearColor(0x000000, 0); // Transparent background
@@ -45,15 +61,42 @@ export const initializeThreeScene = (
       if (!container) {
         throw new Error("Container element is null");
       }
-      container.appendChild(renderer.domElement);
       
-      // Set explicit dimensions via style to ensure visibility
-      renderer.domElement.style.width = '100%';
-      renderer.domElement.style.height = '100%';
-      renderer.domElement.style.display = 'block';
-      renderer.domElement.style.position = 'absolute';
+      // Check if container is in the DOM
+      if (!container.isConnected) {
+        console.error("ThreeScene: Il container non è collegato al DOM");
+        onError("Container non collegato al DOM");
+        return null;
+      }
       
-      console.log('ThreeScene: Renderer creato con successo');
+      // Verify canvas element can be created
+      const testCanvas = document.createElement('canvas');
+      if (!testCanvas) {
+        console.error("ThreeScene: Impossibile creare elemento canvas");
+        onError("Impossibile creare canvas");
+        return null;
+      }
+      
+      // Append to DOM and set style properties
+      try {
+        container.appendChild(renderer.domElement);
+        
+        // Set explicit dimensions via style to ensure visibility
+        renderer.domElement.style.width = '100%';
+        renderer.domElement.style.height = '100%';
+        renderer.domElement.style.display = 'block';
+        renderer.domElement.style.position = 'absolute';
+        
+        // Force repaint to ensure visibility
+        renderer.domElement.getBoundingClientRect();
+        
+        console.log('ThreeScene: Canvas aggiunto al container con successo');
+      } catch (e) {
+        console.error("ThreeScene: Errore durante l'aggiunta del canvas al container:", e);
+        onError("Errore nell'aggiunta del canvas al DOM");
+        return null;
+      }
+      
     } catch (e) {
       console.error("ThreeScene: Errore durante la creazione del renderer WebGL:", e);
       onError("Errore creazione renderer WebGL");
@@ -71,8 +114,6 @@ export const initializeThreeScene = (
     const pointLight = new THREE.PointLight(0xffffcc, 0.8, 30);
     pointLight.position.set(0, 0, 0);
     scene.add(pointLight);
-    
-    // No grid helper for cleaner look
     
     return { scene, camera, renderer };
   } catch (error) {
@@ -136,9 +177,11 @@ export const cleanupThreeScene = (
 ) => {
   console.log('ThreeScene: Pulizia risorse');
   
-  if (container && renderer) {
+  if (container && renderer && renderer.domElement) {
     try {
-      container.removeChild(renderer.domElement);
+      if (renderer.domElement.parentNode === container) {
+        container.removeChild(renderer.domElement);
+      }
     } catch (e) {
       console.error("ThreeScene: Errore rimozione renderer:", e);
     }

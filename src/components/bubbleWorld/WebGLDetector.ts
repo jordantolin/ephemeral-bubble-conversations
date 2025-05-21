@@ -14,9 +14,10 @@ export const WebGLDetector = {
       const canvas = document.createElement('canvas');
       
       // Try to get WebGL context - first try WebGL2, then fall back to WebGL1
-      const gl = canvas.getContext('webgl2') || 
-               canvas.getContext('webgl') || 
-               canvas.getContext('experimental-webgl');
+      const gl = 
+        (canvas.getContext('webgl2') as WebGLRenderingContext) || 
+        (canvas.getContext('webgl') as WebGLRenderingContext) || 
+        (canvas.getContext('experimental-webgl') as WebGLRenderingContext);
       
       // Check if context creation was successful
       if (!gl) {
@@ -24,12 +25,18 @@ export const WebGLDetector = {
         return false;
       }
       
-      // Try to use some WebGL features to ensure it's working
-      try {
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        return true;
-      } catch (e) {
-        console.error('Errore durante il test WebGL:', e);
+      // Make sure we're dealing with a WebGL context
+      if ('viewport' in gl) {
+        // Try to use some WebGL features to ensure it's working
+        try {
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          return true;
+        } catch (e) {
+          console.error('Errore durante il test WebGL:', e);
+          return false;
+        }
+      } else {
+        console.warn('WebGL context non valido');
         return false;
       }
     } catch (e) {
@@ -115,7 +122,13 @@ export const WebGLDetector = {
     
     // Step 3: Check for mobile-specific limitations
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isLowEndDevice = navigator.deviceMemory && navigator.deviceMemory < 4;
+    
+    // Verifica sicura di deviceMemory (proprietà sperimentale)
+    let isLowEndDevice = false;
+    if ('deviceMemory' in navigator) {
+      const memory = (navigator as any).deviceMemory;
+      isLowEndDevice = memory < 4;
+    }
     
     if (isMobile && isLowEndDevice) {
       console.warn("Dispositivo mobile con memoria limitata - potrebbe funzionare ma con prestazioni ridotte");

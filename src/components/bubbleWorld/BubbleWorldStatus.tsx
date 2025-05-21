@@ -25,12 +25,13 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
         <h3 className="text-lg font-medium text-red-800 mb-2">Rendering 3D fallito</h3>
         <p className="text-center text-red-600 mb-4">{initializationError}</p>
         <button 
-          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 flex items-center"
+          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 flex items-center gap-2"
           onClick={() => onRetry ? onRetry() : window.location.reload()}
         >
-          <RefreshCw className="w-4 h-4 mr-2" />
+          <RefreshCw className="w-4 h-4" />
           Riprova
         </button>
+        <p className="text-xs text-gray-500 mt-4">Dettaglio errore: {initializationError}</p>
       </div>
     );
   }
@@ -45,6 +46,7 @@ const BubbleWorldStatus: React.FC<BubbleWorldStatusProps> = ({
     >
       <div className="w-12 h-12 rounded-full border-4 border-t-yellow-400 border-yellow-200 animate-spin mb-3"></div>
       <p className="text-gray-700">Caricamento ambiente 3D...</p>
+      <p className="text-xs text-gray-500 mt-2">Inizializzazione rendering...</p>
     </motion.div>
   );
 };

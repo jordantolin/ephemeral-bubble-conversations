@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { useCameraControls } from '@/hooks/useCameraControls';
@@ -103,11 +102,43 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     
     try {
       console.log(`Bubble3DWorld: Inizializzazione mondo bolle 3D con ${bubbles.length} bolle (tentativo: ${retryCount + 1})`);
+      console.log('Bubble3DWorld: Dimensioni container:', {
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight,
+        offsetWidth: containerRef.current.offsetWidth,
+        offsetHeight: containerRef.current.offsetHeight
+      });
+      
+      // Force container layout calculation
+      containerRef.current.getBoundingClientRect();
+      
+      // Check container dimensions
+      if (containerRef.current.clientWidth <= 0 || containerRef.current.clientHeight <= 0) {
+        console.error('Bubble3DWorld: Container ha dimensioni zero o non valide!');
+        setInitializationError("Container ha dimensioni non valide");
+        throw new Error("Container ha dimensioni non valide");
+      }
+      
+      // Check container visibility
+      const style = window.getComputedStyle(containerRef.current);
+      console.log('Bubble3DWorld: Stile container:', {
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+        overflow: style.overflow
+      });
+      
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+        console.warn('Bubble3DWorld: Container non è visibile!');
+      }
       
       // Initialize scene, camera, and renderer
       const threeElements = initializeThreeScene(
         containerRef.current, 
-        (error) => setInitializationError(error)
+        (error) => {
+          console.error('Bubble3DWorld: Errore di inizializzazione:', error);
+          setInitializationError(error);
+        }
       );
       
       if (!threeElements) {
@@ -119,13 +150,22 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
       cameraRef.current = camera;
       rendererRef.current = renderer;
       
-      // Add performance stats for dev mode
-      console.log("Bubble3DWorld: Renderer inizializzato");
+      // Verifica che il renderer sia correttamente collegato al DOM
+      if (!renderer.domElement.isConnected) {
+        console.error('Bubble3DWorld: Il canvas del renderer non è collegato al DOM!');
+        setInitializationError("Canvas non collegato al DOM");
+        throw new Error("Canvas non collegato al DOM");
+      }
+      
+      console.log("Bubble3DWorld: Renderer inizializzato correttamente");
       
       // Setup animation loop
       const animate = () => {
         try {
-          if (!sceneRef.current || !cameraRef.current || !rendererRef.current) return;
+          if (!sceneRef.current || !cameraRef.current || !rendererRef.current) {
+            console.warn('Bubble3DWorld: Mancano elementi necessari per il rendering');
+            return;
+          }
           
           animationFrameRef.current = requestAnimationFrame(animate);
           
@@ -135,7 +175,12 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
           // Animate bubbles
           animateBubbles();
           
-          rendererRef.current.render(sceneRef.current, cameraRef.current);
+          // Render the scene
+          try {
+            rendererRef.current.render(sceneRef.current, cameraRef.current);
+          } catch (renderError) {
+            console.error('Bubble3DWorld: Errore durante il rendering:', renderError);
+          }
         } catch (error) {
           console.error("Bubble3DWorld: Errore nel loop di animazione:", error);
           // Don't throw here - just log the error to avoid crashing the loop
@@ -212,6 +257,59 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
     }
   }, [isInitialized, is3DReady, initializationError]);
 
+  // Log container info and visibility periodically
+  useEffect(() => {
+    if (!containerRef.current || !is3DReady) return;
+    
+    const checkVisibility = () => {
+      if (!containerRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const isInViewport = (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+      );
+      
+      console.log('Bubble3DWorld container visibility check:', {
+        rect,
+        isInViewport,
+        style: {
+          display: window.getComputedStyle(containerRef.current).display,
+          visibility: window.getComputedStyle(containerRef.current).visibility,
+          opacity: window.getComputedStyle(containerRef.current).opacity
+        }
+      });
+      
+      // Check if canvas is present and visible
+      const canvas = containerRef.current.querySelector('canvas');
+      if (canvas) {
+        console.log('Bubble3DWorld canvas check:', {
+          isConnected: canvas.isConnected,
+          width: canvas.width,
+          height: canvas.height,
+          style: {
+            width: canvas.style.width,
+            height: canvas.style.height,
+            display: window.getComputedStyle(canvas).display,
+            visibility: window.getComputedStyle(canvas).visibility
+          }
+        });
+      } else {
+        console.warn('Bubble3DWorld: Canvas non trovato nel container!');
+      }
+    };
+    
+    // Check immediately
+    checkVisibility();
+    
+    // Check periodically
+    const intervalId = setInterval(checkVisibility, 5000);
+    
+    return () => clearInterval(intervalId);
+  }, [containerRef.current, is3DReady]);
+
   return (
     <ComponentErrorBoundary name="3D Bubble World">
       <motion.div 
@@ -220,6 +318,11 @@ const Bubble3DWorld: React.FC<Bubble3DWorldProps> = ({ bubbles, onBubbleClick })
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
+        style={{
+          minHeight: '300px',  // Garantire un'altezza minima
+          display: 'block',    // Forzare display block
+          visibility: 'visible' // Forzare visibilità
+        }}
       >
         <BubbleWorldStatus 
           is3DReady={is3DReady} 
