@@ -37,7 +37,7 @@ jest.mock('@/integrations/supabase/client', () => ({
 
 describe('useBubbleData', () => {
   let queryClient: QueryClient;
-  let wrapper: React.FC;
+  let wrapper: React.FC<{children: React.ReactNode}>;
 
   beforeEach(() => {
     queryClient = new QueryClient({

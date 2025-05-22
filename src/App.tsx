@@ -16,6 +16,7 @@ import { NetworkProvider } from './context/NetworkContext'
 import InstallButton from './components/InstallButton'
 import ErrorBoundary from './components/errorHandling/ErrorBoundary'
 import { setupNetworkMonitor, teardownNetworkMonitor } from './utils/networkMonitor'
+import GamificationTracker from './components/gamification/GamificationTracker'
 
 function App() {
   // Configura il monitor di rete globale
@@ -36,6 +37,7 @@ function App() {
           <AuthProvider>
             <GamificationProvider>
               <InstallButton />
+              <GamificationTracker />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/feed" element={<Feed />} />

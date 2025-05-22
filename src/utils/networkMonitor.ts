@@ -1,172 +1,174 @@
 
+/**
+ * Network Monitoring Utility
+ * 
+ * Questo modulo gestisce il monitoraggio delle connessioni di rete e Supabase Realtime
+ * per migliorare l'affidabilità dell'applicazione.
+ */
+
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
-let isMonitoring = false;
-let pingInterval: number | null = null;
-let reconnectTimeout: number | null = null;
-let consecutiveFailures = 0;
+// Stato della connessione
+let isOnline = navigator.onLine;
+let monitoringActive = false;
+const listeners: Array<(online: boolean) => void> = [];
 
-// Configura il monitor di rete per rilevare problemi di connessione
+// Configurazione
+const PING_INTERVAL = 30000; // 30 secondi
+const CONNECTION_TIMEOUT = 5000; // 5 secondi
+
+/**
+ * Inizializza il monitoraggio della rete
+ */
 export const setupNetworkMonitor = () => {
-  if (isMonitoring) return;
+  if (monitoringActive) return;
+  monitoringActive = true;
   
-  console.log("Setting up network connection monitor");
-  isMonitoring = true;
+  console.log("Network monitoring initialized");
   
-  // Monitoraggio eventi online/offline
+  // Gestione eventi online/offline del browser
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
   
-  // Monitoraggio ping periodico (ogni 30 secondi)
-  startPingMonitoring();
+  // Imposta lo stato iniziale
+  isOnline = navigator.onLine;
   
-  // Stato iniziale
-  if (!navigator.onLine) {
-    handleOffline();
-  }
+  // Inizia il monitoraggio attivo della connessione
+  startActiveMonitoring();
 };
 
+/**
+ * Termina il monitoraggio della rete
+ */
 export const teardownNetworkMonitor = () => {
-  if (!isMonitoring) return;
+  if (!monitoringActive) return;
+  monitoringActive = false;
   
-  console.log("Tearing down network connection monitor");
-  isMonitoring = false;
+  console.log("Network monitoring terminated");
   
+  // Rimuovi gli event listener
   window.removeEventListener('online', handleOnline);
   window.removeEventListener('offline', handleOffline);
   
-  if (pingInterval) {
-    clearInterval(pingInterval);
-    pingInterval = null;
+  // Interrompi i controlli attivi
+  if (pingIntervalId) {
+    clearInterval(pingIntervalId);
+    pingIntervalId = null;
   }
   
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
-    reconnectTimeout = null;
-  }
+  // Pulisci i listener
+  listeners.length = 0;
 };
 
-const handleOnline = () => {
-  console.log("🌐 App is back online");
-  toast({
-    title: "Connessione ripristinata",
-    description: "L'applicazione è di nuovo connessa",
-    variant: "default"
-  });
-  
-  // Reset del conteggio errori
-  consecutiveFailures = 0;
-  
-  // Riprova la connessione Supabase
-  reconnectSupabase();
-};
-
-const handleOffline = () => {
-  console.log("🔌 App is offline");
-  toast({
-    title: "Connessione persa",
-    description: "Verifica la tua connessione internet",
-    variant: "destructive"
-  });
-};
-
-const startPingMonitoring = () => {
-  if (pingInterval) {
-    clearInterval(pingInterval);
-  }
-  
-  // Esegui ping ogni 30 secondi
-  pingInterval = window.setInterval(async () => {
-    try {
-      const startTime = performance.now();
-      const { data, error } = await supabase.rpc('ping', {}, {
-        count: 'exact',
-        head: true
-      });
-      const endTime = performance.now();
-      
-      if (error) {
-        console.error("Ping to Supabase failed:", error);
-        handlePingFailure();
-        return;
-      }
-      
-      const pingTime = endTime - startTime;
-      console.log(`Supabase ping: ${Math.round(pingTime)}ms`);
-      
-      // Ripristina il conteggio errori se il ping ha successo
-      consecutiveFailures = 0;
-      
-    } catch (err) {
-      console.error("Error during ping:", err);
-      handlePingFailure();
+/**
+ * Aggiunge un listener per cambiamenti di stato della connessione
+ */
+export const addNetworkListener = (callback: (online: boolean) => void) => {
+  listeners.push(callback);
+  return () => {
+    const index = listeners.indexOf(callback);
+    if (index !== -1) {
+      listeners.splice(index, 1);
     }
-  }, 30000);
+  };
 };
 
-const handlePingFailure = () => {
-  consecutiveFailures++;
+// Gestori eventi di connessione
+function handleOnline() {
+  console.log("Browser reports online status");
+  updateConnectionStatus(true);
+}
+
+function handleOffline() {
+  console.log("Browser reports offline status");
+  updateConnectionStatus(false);
+}
+
+// Aggiorna lo stato della connessione e notifica i listener
+function updateConnectionStatus(online: boolean) {
+  const statusChanged = online !== isOnline;
+  isOnline = online;
   
-  console.warn(`Ping failure #${consecutiveFailures}`);
+  if (statusChanged) {
+    console.log(`Connection status changed to: ${online ? 'online' : 'offline'}`);
+    
+    // Notifica cambiamento
+    if (online) {
+      toast({
+        title: "Connessione ristabilita",
+        description: "Sei di nuovo online",
+        variant: "default"
+      });
+    } else {
+      toast({
+        title: "Connessione persa",
+        description: "Controlla la tua connessione di rete",
+        variant: "destructive"
+      });
+    }
+    
+    // Notifica i listener
+    listeners.forEach(listener => {
+      try {
+        listener(online);
+      } catch (err) {
+        console.error("Error in network status listener:", err);
+      }
+    });
+  }
+}
+
+// Monitoraggio attivo della connessione
+let pingIntervalId: number | null = null;
+
+function startActiveMonitoring() {
+  // Pulisci eventuali interval precedenti
+  if (pingIntervalId) {
+    clearInterval(pingIntervalId);
+  }
   
-  // Se ci sono più di 3 errori consecutivi, prova a riconnettere
-  if (consecutiveFailures >= 3) {
-    toast({
-      title: "Problemi di connessione",
-      description: "Tentativo di riconnessione in corso...",
-      variant: "destructive"
+  // Controlla periodicamente la connessione
+  pingIntervalId = window.setInterval(checkConnection, PING_INTERVAL);
+  
+  // Esegui subito il primo controllo
+  checkConnection();
+}
+
+// Controlla che la connessione sia attiva facendo un piccolo fetch
+async function checkConnection() {
+  if (!monitoringActive) return;
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONNECTION_TIMEOUT);
+    
+    // Usa un timestamp per evitare la cache
+    const response = await fetch(`/ping?t=${Date.now()}`, { 
+      method: 'HEAD',
+      signal: controller.signal 
     });
     
-    reconnectSupabase();
-  }
-};
-
-const reconnectSupabase = () => {
-  console.log("Attempting to reconnect Supabase Realtime...");
-  
-  // Annulla timer di riconnessione esistenti
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
-  }
-  
-  // Forza il refresh del token di autenticazione
-  supabase.realtime.setAuth(supabase.auth.session()?.access_token || '');
-  
-  // Verifica la connessione con un canale di test
-  const testChannel = supabase.channel('connection-test');
-  
-  testChannel
-    .on('system', { event: 'connected' }, () => {
-      console.log('✅ Realtime reconnection successful');
-      supabase.removeChannel(testChannel);
-      
-      // Se la riconnessione ha successo, notifica l'utente
-      toast({
-        title: "Connessione ripristinata",
-        description: "Le funzionalità realtime sono di nuovo attive",
-      });
-    })
-    .subscribe((status) => {
-      console.log(`Realtime reconnection test status: ${status}`);
-      
-      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        // Se fallisce, riprova tra 10 secondi
-        reconnectTimeout = window.setTimeout(reconnectSupabase, 10000);
-      }
-    });
-};
-
-// Aggiunge funzioni di utilità per il ping alle RPC di Supabase
-export const createSupabasePingFunction = async () => {
-  try {
-    const { error } = await supabase.rpc('create_ping_function');
-    if (error) {
-      console.error("Could not create ping function:", error);
-    } else {
-      console.log("Ping function created successfully");
-    }
+    clearTimeout(timeoutId);
+    updateConnectionStatus(true);
   } catch (err) {
-    console.error("Error creating ping function:", err);
+    // Se la richiesta fallisce o va in timeout, potremmo essere offline
+    if (err.name !== 'AbortError') {
+      console.warn("Connection check failed:", err);
+    }
+    
+    // Verifica lo stato attuale prima di aggiornare
+    // per evitare falsi positivi
+    if (navigator.onLine) {
+      // Il browser pensa di essere online ma il ping è fallito
+      // Potrebbe essere un problema temporaneo o instabilità di rete
+      console.log("Connection unstable, browser reports online but ping failed");
+    } else {
+      updateConnectionStatus(false);
+    }
   }
+}
+
+// Esponi lo stato attuale della connessione
+export const getConnectionStatus = () => {
+  return { isOnline };
 };
