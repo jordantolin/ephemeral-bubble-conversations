@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,8 +29,10 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: any }>;
 }
 
+// Create the context with undefined as initial value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Create the Auth provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -37,38 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
+  // Helper function to fetch user profile
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -88,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Update user profile
   const updateProfile = async (data: ProfileUpdateData) => {
     if (!user) {
       toast({
@@ -140,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Upload avatar
   const uploadAvatar = async (file: File) => {
     if (!user) {
       toast({
@@ -212,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Sign out function
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -236,6 +211,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Effect hook to handle auth state
+  useEffect(() => {
+    // Get initial session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Initialize auth
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Context value
   const value = {
     session,
     user,
@@ -249,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Custom hook to use the auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
