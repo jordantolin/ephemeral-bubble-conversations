@@ -20,27 +20,43 @@ export const connectionManager = {
         await connectionManager.removeChannel(supabase, channelName);
       }
       
+      // Create a new channel with timestamp to ensure uniqueness
+      const uniqueChannelName = `${channelName}-${Date.now()}`;
+      console.log(`Creating new realtime channel: ${uniqueChannelName}`);
+      
       // Create a new channel
-      const channel = supabase.channel(channelName);
+      const channel = supabase.channel(uniqueChannelName);
       
       // Add the postgres_changes event to the channel
       filters.forEach(filter => {
         channel.on(
           'postgres_changes', 
           filter, 
-          onChangeCallback
+          (payload) => {
+            console.log(`Received realtime update on ${uniqueChannelName}:`, payload.eventType);
+            onChangeCallback(payload);
+          }
         );
       });
       
-      // Subscribe to the channel
+      // Subscribe to the channel with status monitoring
       channel.subscribe((status) => {
-        if (status !== 'SUBSCRIBED') {
-          console.error(`Channel ${channelName} subscription status: ${status}`);
+        console.log(`Channel ${uniqueChannelName} subscription status: ${status}`);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log(`Successfully subscribed to ${uniqueChannelName}`);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.error(`Channel ${uniqueChannelName} closed or error. Status: ${status}`);
+          // Attempt to reconnect after a delay
+          setTimeout(() => {
+            console.log(`Attempting to reconnect channel ${uniqueChannelName}...`);
+            connectionManager.createChannel(supabase, channelName, filters, onChangeCallback);
+          }, 3000);
         }
       });
       
       // Store the channel reference
-      activeChannels[channelName] = channel;
+      activeChannels[uniqueChannelName] = channel;
       
     } catch (error) {
       console.error(`Error creating channel ${channelName}:`, error);
@@ -54,9 +70,17 @@ export const connectionManager = {
     channelName: string
   ): Promise<void> => {
     try {
-      if (activeChannels[channelName]) {
-        await supabase.removeChannel(activeChannels[channelName]);
-        delete activeChannels[channelName];
+      // Find all channels that start with the specified name (to handle timestamped names)
+      const channelsToRemove = Object.keys(activeChannels).filter(key => 
+        key === channelName || key.startsWith(`${channelName}-`)
+      );
+      
+      for (const key of channelsToRemove) {
+        if (activeChannels[key]) {
+          console.log(`Removing channel: ${key}`);
+          await supabase.removeChannel(activeChannels[key]);
+          delete activeChannels[key];
+        }
       }
     } catch (error) {
       console.error(`Error removing channel ${channelName}:`, error);
@@ -68,14 +92,31 @@ export const connectionManager = {
     supabase: SupabaseClient
   ): Promise<void> => {
     try {
-      await Promise.all(
-        Object.keys(activeChannels).map((channelName) => 
-          connectionManager.removeChannel(supabase, channelName)
-        )
-      );
+      console.log(`Removing all ${Object.keys(activeChannels).length} active channels`);
+      const promises = Object.keys(activeChannels).map(async (channelName) => {
+        try {
+          await supabase.removeChannel(activeChannels[channelName]);
+          delete activeChannels[channelName];
+        } catch (e) {
+          console.error(`Failed to remove channel ${channelName}:`, e);
+        }
+      });
+      
+      await Promise.allSettled(promises);
+      console.log("All channels removed");
     } catch (error) {
       console.error("Error removing all channels:", error);
     }
+  },
+  
+  // Get active channel count for debugging
+  getActiveChannelCount: (): number => {
+    return Object.keys(activeChannels).length;
+  },
+  
+  // Log active channels for debugging
+  logActiveChannels: (): void => {
+    console.log("Currently active channels:", Object.keys(activeChannels));
   }
 };
 

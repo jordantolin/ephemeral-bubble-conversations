@@ -9,11 +9,38 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Configurazione ottimizzata del client Supabase con gestione migliore degli errori e della persistenza
+export const supabase = createClient<Database>(
+  SUPABASE_URL, 
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: localStorage
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      headers: {
+        'x-application-name': 'BubbleTrouble'
+      }
+    }
+  }
+);
 
-// Check for the dedicated avatars bucket
+// Monitoraggio globale della connessione Realtime
 (async () => {
+  console.log("Initializing Supabase client and checking storage buckets...");
+  
   try {
+    // Log stato connessione quando cambia
+    supabase.realtime.setAuth(SUPABASE_PUBLISHABLE_KEY);
+    
     const { data: buckets, error } = await supabase.storage.listBuckets();
     
     if (error) {
@@ -31,10 +58,49 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
       } else {
         console.log('Avatars bucket verified and ready for use.');
       }
+      
+      // Check for bubble_assets bucket
+      const bubbleAssetsBucketExists = buckets.some(b => b.name === 'bubble_assets');
+      if (!bubbleAssetsBucketExists) {
+        console.log('Warning: bubble_assets bucket not found. Please create it for bubble assets to work correctly.');
+      } else {
+        console.log('Bubble assets bucket verified and ready for use.');
+      }
     } else {
       console.log('No storage buckets found. Avatar uploads may not work correctly.');
     }
   } catch (err) {
-    console.log('Storage initialization check completed with warnings:', err);
+    console.error('Storage initialization check completed with errors:', err);
+  }
+  
+  // Verifica che Realtime sia configurato correttamente
+  console.log("Testing Realtime connection...");
+  try {
+    const testChannel = supabase.channel('connection-test');
+    testChannel
+      .on('system', { event: 'connected' }, () => {
+        console.log('✅ Realtime connection established successfully');
+      })
+      .subscribe((status) => {
+        console.log(`Realtime connection test status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          // Pulizia dopo la verifica
+          setTimeout(() => {
+            supabase.removeChannel(testChannel);
+          }, 2000);
+        }
+      });
+  } catch (err) {
+    console.error('❌ Realtime connection test failed:', err);
   }
 })();
+
+window.addEventListener('online', () => {
+  console.log('🌐 App is back online. Reconnecting Supabase client...');
+  // Forza un riavvio delle connessioni realtime
+  supabase.realtime.setAuth(SUPABASE_PUBLISHABLE_KEY);
+});
+
+window.addEventListener('offline', () => {
+  console.log('🔌 App is offline. Supabase connections may be interrupted.');
+});

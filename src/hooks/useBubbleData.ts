@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -41,8 +40,33 @@ const useBubbleData = () => {
   const [explodingBubbleId, setExplodingBubbleId] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
   
-  // Track channel subscriptions for cleanup
-  const activeChannels = useState<string[]>([]);
+  // Riferimenti per i canali attivi
+  const bubbleChannelRef = useRef<string | null>(null);
+  const messageChannelRef = useRef<string | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  
+  // Funzione di pulizia delle risorse
+  const cleanupResources = useCallback(() => {
+    // Pulisci timer di riconnessione
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    
+    // Log dei canali attivi per debug
+    connectionManager.logActiveChannels();
+  }, []);
+  
+  // Gestione pulizia alla chiusura
+  useEffect(() => {
+    return () => {
+      console.log("useBubbleData hook cleanup");
+      cleanupResources();
+      
+      // Rimuovi tutti i canali al dismount del componente
+      connectionManager.removeAllChannels(supabase);
+    };
+  }, [cleanupResources]);
 
   // Function to check if a bubble is expired (more than 24 hours old)
   const isBubbleExpired = useCallback((bubble: Bubble) => {
@@ -86,6 +110,7 @@ const useBubbleData = () => {
     queryKey: ['bubbles'],
     queryFn: async () => {
       try {
+        console.log("Fetching bubbles from database");
         // Calculate the cutoff date (24 hours after expiration)
         const cutoffDate = new Date();
         cutoffDate.setHours(cutoffDate.getHours() - 48); // Current time minus 48 hours (24h bubble lifetime + 24h after)
@@ -104,6 +129,8 @@ const useBubbleData = () => {
           console.warn("Unexpected data format from bubbles query:", data);
           return [];
         }
+        
+        console.log(`Fetched ${data.length} bubbles successfully`);
         
         // Ensure size is a valid type
         return data.map(bubble => ({
@@ -263,7 +290,13 @@ const useBubbleData = () => {
   useEffect(() => {
     const setupBubbleChannel = async () => {
       try {
-        const channelName = `bubble-updates-${Date.now()}`;
+        setIsReconnecting(false);
+        
+        // Gen unique channel name
+        const channelName = `bubble-updates-global`;
+        bubbleChannelRef.current = channelName;
+        
+        console.log(`Setting up bubble updates channel: ${channelName}`);
         
         const filters = [
           { event: '*', schema: 'public', table: 'reflects' },
@@ -275,6 +308,8 @@ const useBubbleData = () => {
           channelName,
           filters,
           (payload) => {
+            console.log("Received bubble update:", payload.eventType);
+            
             // Invalidate bubbles query
             queryClient.invalidateQueries({ queryKey: ['bubbles'] });
             
@@ -284,14 +319,11 @@ const useBubbleData = () => {
                 typeof payload.new === 'object' && 
                 'id' in payload.new && 
                 payload.new.id === selectedBubbleId) {
+              console.log("Invalidating selected bubble data");
               queryClient.invalidateQueries({ queryKey: ['bubble', selectedBubbleId] });
             }
           }
         );
-        
-        // Track this channel for cleanup
-        activeChannels[0] = [...activeChannels[0], channelName];
-        setIsReconnecting(false);
       } catch (err) {
         console.error("Error setting up bubble updates subscription:", err);
         setIsReconnecting(true);
@@ -303,18 +335,29 @@ const useBubbleData = () => {
         });
         
         // Try reconnecting after a delay
-        setTimeout(setupBubbleChannel, 5000);
+        reconnectTimerRef.current = window.setTimeout(() => {
+          console.log("Attempting to reconnect bubble channel...");
+          setupBubbleChannel();
+        }, 5000);
       }
     };
 
     setupBubbleChannel();
     
-    // Global cleanup on unmount
     return () => {
-      connectionManager.removeAllChannels(supabase);
-      activeChannels[0] = [];
+      // Cleanup for this effect only
+      if (bubbleChannelRef.current) {
+        console.log(`Removing bubble channel: ${bubbleChannelRef.current}`);
+        connectionManager.removeChannel(supabase, bubbleChannelRef.current);
+        bubbleChannelRef.current = null;
+      }
+      
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
-  }, [queryClient, selectedBubbleId, toast, activeChannels]);
+  }, [queryClient, selectedBubbleId, toast]);
 
   // Handle online/offline status for better user experience
   useEffect(() => {
@@ -361,8 +404,13 @@ const useBubbleData = () => {
 
     const setupMessageChannel = async () => {
       try {
+        setIsReconnecting(false);
+        
         // Create a more robust channel name to avoid conflicts
-        const channelName = `chat-room-${selectedBubbleId}-${Date.now()}`;
+        const channelName = `chat-room-${selectedBubbleId}`;
+        messageChannelRef.current = channelName;
+        
+        console.log(`Setting up message channel for bubble: ${selectedBubbleId}`);
         
         const filters = [
           {
@@ -383,12 +431,11 @@ const useBubbleData = () => {
           supabase,
           channelName,
           filters,
-          () => queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] })
+          () => {
+            console.log("Invalidating bubble messages");
+            queryClient.invalidateQueries({ queryKey: ['messages', selectedBubbleId] });
+          }
         );
-        
-        // Track this channel for cleanup
-        activeChannels[0] = [...activeChannels[0], channelName];
-        setIsReconnecting(false);
       } catch (err) {
         console.error("Error setting up real-time chat subscription:", err);
         setIsReconnecting(true);
@@ -400,8 +447,9 @@ const useBubbleData = () => {
         });
         
         // Try reconnecting after a delay
-        setTimeout(() => {
+        reconnectTimerRef.current = window.setTimeout(() => {
           if (selectedBubbleId) {
+            console.log("Attempting to reconnect message channel...");
             setupMessageChannel();
           }
         }, 5000);
@@ -411,17 +459,19 @@ const useBubbleData = () => {
     setupMessageChannel();
 
     return () => {
-      // Clean up only the relevant channels
-      const channelsToRemove = activeChannels[0].filter(
-        name => name.startsWith(`chat-room-${selectedBubbleId}`)
-      );
+      // Cleanup message channel when bubble ID changes or component unmounts
+      if (messageChannelRef.current) {
+        console.log(`Removing message channel: ${messageChannelRef.current}`);
+        connectionManager.removeChannel(supabase, messageChannelRef.current);
+        messageChannelRef.current = null;
+      }
       
-      channelsToRemove.forEach(async (channelName) => {
-        await connectionManager.removeChannel(supabase, channelName);
-        activeChannels[0] = activeChannels[0].filter(name => name !== channelName);
-      });
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
-  }, [selectedBubbleId, queryClient, toast, activeChannels]);
+  }, [selectedBubbleId, queryClient, toast]);
 
   // Filter bubbles based on search query
   const filteredBubbles = useMemo(() => {
