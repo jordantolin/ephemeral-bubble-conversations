@@ -1,39 +1,41 @@
 
 import { renderHook } from '@testing-library/react-hooks';
+import { describe, it, expect, vi } from 'vitest';
 import useBubbleData from '../useBubbleData';
 
 // Mock the supabase client
-jest.mock('@/integrations/supabase/client', () => ({
+vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    from: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    then: jest.fn().mockImplementation((callback) => callback({ 
+    from: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    then: vi.fn().mockImplementation((callback) => callback({ 
       data: [], 
       error: null 
     })),
-    on: jest.fn().mockReturnThis(),
-    subscribe: jest.fn(),
-    removeChannel: jest.fn(),
-    channel: jest.fn().mockReturnThis(),
+    on: vi.fn().mockReturnThis(),
+    subscribe: vi.fn(),
+    removeChannel: vi.fn(),
+    channel: vi.fn().mockReturnThis(),
   }
 }));
 
-// Mock the connection manager
-jest.mock('@/utils/bubbleUtils', () => ({
+// Mock the connection manager and bubble utils
+vi.mock('@/utils/bubbleUtils', () => ({
   connectionManager: {
-    createChannel: jest.fn(),
-    removeChannel: jest.fn(),
-    logActiveChannels: jest.fn(),
+    createChannel: vi.fn(),
+    removeChannel: vi.fn(),
+    logActiveChannels: vi.fn(),
+    removeAllChannels: vi.fn(),
   },
-  isBubbleExpired: jest.fn().mockReturnValue(false),
-  shouldShowInFeed: jest.fn().mockReturnValue(true),
+  isBubbleExpired: vi.fn().mockReturnValue(false),
+  shouldShowInFeed: vi.fn().mockReturnValue(true),
 }));
 
 // Mock react-router-dom
-jest.mock('react-router-dom', () => ({
-  useNavigate: jest.fn(),
+vi.mock('react-router-dom', () => ({
+  useNavigate: vi.fn(),
 }));
 
 describe('useBubbleData', () => {
