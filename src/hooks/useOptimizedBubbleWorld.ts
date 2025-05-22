@@ -1,9 +1,9 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { BubbleData } from '@/types/bubble';
-import { createQueryOptions, createRealtimeChannel } from '@/utils/queryUtils';
+import { createQueryOptions } from '@/utils/queryUtils';
 import { useNetwork } from '@/context/NetworkContext';
 
 /**
@@ -12,16 +12,21 @@ import { useNetwork } from '@/context/NetworkContext';
  */
 export const useOptimizedBubbleWorld = (searchQuery: string = '') => {
   const { isOnline } = useNetwork();
-  const [channelState, setChannelState] = useState<{ channel: any | null }>({ channel: null });
+  const channelRef = useRef<any>(null);
   const [explodingBubbleId, setExplodingBubbleId] = useState<string | null>(null);
 
   // Clean up function for the realtime channel
   const cleanupChannel = useCallback(() => {
-    if (channelState.channel) {
-      supabase.removeChannel(channelState.channel);
-      setChannelState({ channel: null });
+    if (channelRef.current) {
+      console.log('Cleaning up bubble world channel');
+      try {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      } catch (e) {
+        console.error('Error cleaning up channel:', e);
+      }
     }
-  }, [channelState]);
+  }, []);
 
   // Fetch bubbles with optimized query
   const { 
@@ -31,6 +36,7 @@ export const useOptimizedBubbleWorld = (searchQuery: string = '') => {
     refetch
   } = useQuery(
     createQueryOptions(['optimized-bubbles'], async () => {
+      console.log('Fetching optimized bubbles data');
       const cutoffDate = new Date();
       cutoffDate.setHours(cutoffDate.getHours() - 48);
       
@@ -40,10 +46,17 @@ export const useOptimizedBubbleWorld = (searchQuery: string = '') => {
         .gte('expires_at', cutoffDate.toISOString())
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching bubbles:', error);
+        throw error;
+      }
       
-      if (!data) return [];
+      if (!data) {
+        console.log('No bubbles data returned');
+        return [];
+      }
       
+      console.log(`Retrieved ${data.length} bubbles`);
       return data.map(bubble => ({
         id: bubble.id,
         topic: bubble.topic,
@@ -70,21 +83,66 @@ export const useOptimizedBubbleWorld = (searchQuery: string = '') => {
 
   // Handle realtime updates
   useEffect(() => {
-    if (!isOnline) return cleanupChannel();
+    if (!isOnline) {
+      cleanupChannel();
+      return;
+    }
 
-    const channel = createRealtimeChannel(
-      `bubbles-realtime-${Date.now()}`,
-      'bubbles',
-      '*',
-      (payload) => {
-        console.log('Bubbles changed:', payload);
-        refetch();
-      }
-    );
+    const setupChannel = () => {
+      // Clean up existing channel first
+      cleanupChannel();
+      
+      const uniqueChannelName = `bubbles-realtime-${Date.now()}`;
+      console.log(`Setting up new bubbles realtime channel: ${uniqueChannelName}`);
+      
+      const channel = supabase.channel(uniqueChannelName, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: uniqueChannelName }
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*', 
+          schema: 'public', 
+          table: 'bubbles'
+        },
+        (payload) => {
+          console.log(`Bubbles changed (${payload.eventType}):`, payload);
+          refetch();
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Bubbles channel ${uniqueChannelName} status: ${status}`);
+        
+        if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`Bubbles channel ${uniqueChannelName} disconnected (${status}), reconnecting...`);
+          
+          // Try reconnecting after a delay
+          setTimeout(() => {
+            if (channelRef.current === channel) {
+              console.log(`Attempting to reconnect bubbles channel ${uniqueChannelName}...`);
+              try {
+                channel.subscribe();
+              } catch (err) {
+                console.error(`Failed to reconnect bubbles channel:`, err);
+                setupChannel(); // Try creating a new channel
+              }
+            }
+          }, 3000);
+        }
+      });
+      
+      channelRef.current = channel;
+    };
+    
+    setupChannel();
 
-    setChannelState({ channel });
-
-    return cleanupChannel;
+    return () => {
+      console.log('Cleaning up bubbles realtime channel on unmount');
+      cleanupChannel();
+    };
   }, [isOnline, refetch, cleanupChannel]);
 
   // Check for expiring bubbles

@@ -14,7 +14,10 @@ jest.mock('@/integrations/supabase/client', () => ({
     data: [
       { id: '123', topic: 'Test Topic', username: 'testuser', name: 'Test Bubble' }
     ],
-    removeChannel: jest.fn()
+    removeChannel: jest.fn(),
+    channel: jest.fn().mockReturnThis(),
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn().mockReturnThis()
   }
 }));
 
@@ -28,7 +31,7 @@ const createWrapper = () => {
     }
   });
   
-  return ({ children }: { children: React.ReactNode }) => (
+  return ({ children }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 };

@@ -68,6 +68,30 @@ export type Database = {
           },
         ]
       }
+      bubble_updates: {
+        Row: {
+          bubble_id: string
+          created_at: string | null
+          id: string
+          payload: Json | null
+          type: string | null
+        }
+        Insert: {
+          bubble_id: string
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          type?: string | null
+        }
+        Update: {
+          bubble_id?: string
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          type?: string | null
+        }
+        Relationships: []
+      }
       bubbles: {
         Row: {
           created_at: string | null
