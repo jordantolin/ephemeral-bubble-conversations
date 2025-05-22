@@ -13,7 +13,6 @@ import {
 } from '@/services/gamificationService';
 import { useGamificationActions } from '@/hooks/useGamificationActions';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 // Create context with default value
 const GamificationContext = createContext<GamificationContextType>({
@@ -55,7 +54,6 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [achievements, setAchievements] = useState<AchievementType[]>(defaultAchievements);
   const [recentAchievement, setRecentAchievement] = useState<AchievementType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [fetchAttempts, setFetchAttempts] = useState(0);
   
   // Reset recent achievement
   const resetRecentAchievement = () => {
@@ -78,25 +76,16 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     toast
   });
   
-  // Fetch or create user profile with retry mechanism
+  // Fetch or create user profile
   const fetchProfile = async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+    if (!user) return;
     
     setIsLoading(true);
-    console.log("Fetching gamification profile for user:", user.id);
-    
     try {
       let userProfile = await fetchUserGamificationProfile(user.id);
       
-      if (!userProfile || !userProfile.achievements || userProfile.achievements.length === 0) {
-        console.log("No valid profile found, creating a new one...");
-        
-        // No valid profile found, create a new one
+      if (!userProfile) {
         userProfile = await createNewUserProfile(user.id);
-        
         toast({
           title: "Welcome!",
           description: "Your gamification profile has been created. Earn points by participating!",
@@ -104,93 +93,29 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
       }
       
-      console.log("Profile loaded successfully:", userProfile);
       setProfile(userProfile);
-      setAchievements(userProfile.achievements || defaultAchievements);
-      setFetchAttempts(0); // Reset attempts on success
+      setAchievements(userProfile.achievements);
     } catch (error) {
       console.error("Error fetching gamification profile:", error);
-      
-      // Check if the profile exists at all
-      try {
-        const { data } = await supabase
-          .from('gamification_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (!data) {
-          console.log("Creating new profile as none exists");
-          // Create a new profile if it doesn't exist
-          try {
-            const newProfile = await createNewUserProfile(user.id);
-            setProfile(newProfile);
-            setAchievements(newProfile.achievements);
-            
-            toast({
-              title: "Welcome!",
-              description: "Your gamification profile has been created. Earn points by participating!",
-              duration: 5000,
-            });
-            
-            setFetchAttempts(0); // Reset attempts on success
-          } catch (createError) {
-            console.error("Error creating new profile:", createError);
-            handleFetchError();
-          }
-        } else {
-          handleFetchError();
-        }
-      } catch (err) {
-        console.error("Error checking profile existence:", err);
-        handleFetchError();
-      }
+      toast({
+        title: "Error",
+        description: "Failed to load your gamification profile. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Handle fetch errors with retry mechanism
-  const handleFetchError = () => {
-    if (fetchAttempts < 3) {
-      const newAttempts = fetchAttempts + 1;
-      setFetchAttempts(newAttempts);
-      
-      // Exponential backoff for retries
-      const delay = Math.pow(2, newAttempts) * 1000;
-      console.log(`Retrying profile fetch in ${delay}ms (attempt ${newAttempts}/3)`);
-      
-      setTimeout(() => {
-        fetchProfile();
-      }, delay);
-      
-      // Only show error toast on final attempt
-      if (newAttempts === 3) {
-        toast({
-          title: "Error",
-          description: "Failed to load your gamification profile after multiple attempts.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-  
   // Fetch profile when user changes
   useEffect(() => {
-    console.log("User state changed, fetching profile if user exists");
-    setFetchAttempts(0); // Reset attempts when user changes
-    
     if (user) {
       fetchProfile();
-    } else {
-      setIsLoading(false); // Not loading if no user
     }
   }, [user]);
   
   // Refresh gamification profile
   const refreshGamificationProfile = async () => {
-    console.log("Manual refresh of gamification profile requested");
-    setFetchAttempts(0); // Reset attempts on manual refresh
     await fetchProfile();
   };
   

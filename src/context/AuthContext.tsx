@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -29,46 +28,18 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; url?: string; error?: any }>;
 }
 
-// Create context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// AuthProvider component
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
   const { toast } = useToast();
 
-  // Define the fetchProfile function outside of useEffect
-  const fetchProfile = async (userId: string) => {
-    try {
-      console.log("Fetching profile for user:", userId);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-        return;
-      }
-
-      console.log("Profile data received:", data);
-      setProfile(data);
-    } catch (error) {
-      console.error("Unexpected error fetching profile:", error);
-    }
-  };
-
   useEffect(() => {
-    console.log("Setting up auth state change listener");
-    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Initial session:", session);
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
@@ -82,15 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", session);
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
 
       if (session?.user) {
-        setTimeout(() => {
-          fetchProfile(session.user.id);
-        }, 0);
+        fetchProfile(session.user.id);
       } else {
         setProfile(null);
       }
@@ -100,6 +68,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error("Unexpected error fetching profile:", error);
+    }
+  };
 
   const updateProfile = async (data: ProfileUpdateData) => {
     if (!user) {
@@ -262,7 +249,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// useAuth hook
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

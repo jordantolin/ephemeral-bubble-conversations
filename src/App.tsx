@@ -1,64 +1,68 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from "@/context/AuthContext";
-import { GamificationProvider } from "@/context/GamificationContext";
-import { NetworkProvider } from "@/context/NetworkContext";
-import RequireAuth from "@/components/RequireAuth";
-import OfflineIndicator from "@/components/network/OfflineIndicator";
-import ReconnectionIndicator from "@/components/network/ReconnectionIndicator";
-import Index from "@/pages/Index";
-import Auth from "@/pages/Auth";
-import BubbleChat from "@/pages/BubbleChat";
-import Feed from "@/pages/Feed";
-import MyBubbles from "@/pages/MyBubbles";
-import Profile from "@/pages/Profile";
-import Achievements from "@/pages/Achievements";
-import NotFound from "@/pages/NotFound";
-import GamificationTracker from "@/components/gamification/GamificationTracker";
-import AchievementPopup from "@/components/gamification/AchievementPopup";
-import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
-import ErrorBoundary from "@/components/errorHandling/ErrorBoundary";
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import Auth from '@/pages/Auth';
+import Index from '@/pages/Index';
+import Feed from '@/pages/Feed';
+import BubbleChat from '@/pages/BubbleChat';
+import Achievements from '@/pages/Achievements';
+import Profile from '@/pages/Profile';
+import RequireAuth from '@/components/RequireAuth';
+import NotFound from '@/pages/NotFound';
+import MyBubbles from '@/pages/MyBubbles';
+import { GamificationProvider } from '@/context/GamificationContext';
+import AchievementPopup from '@/components/gamification/AchievementPopup';
+import GamificationTracker from '@/components/gamification/GamificationTracker';
+import DailyStreakIndicator from '@/components/gamification/DailyStreakIndicator';
+import './App.css';
 
-function App() {
+function AppContent() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Clear queries when user changes
+  useEffect(() => {
+    queryClient.clear();
+  }, [user?.id, queryClient]);
+
   return (
-    <ErrorBoundary>
-      <Router>
-        <NetworkProvider>
-          <AuthProvider>
-            <GamificationProvider>
-              <AppContent />
-            </GamificationProvider>
-          </AuthProvider>
-        </NetworkProvider>
-      </Router>
-    </ErrorBoundary>
+    <>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth/*" element={<Auth />} />
+        <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
+        <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
+        <Route path="/bubble/:id" element={<RequireAuth><BubbleChat /></RequireAuth>} />
+        <Route path="/bubble-chat/:id" element={<RequireAuth><BubbleChat /></RequireAuth>} />
+        <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
+        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+        <Route path="/404" element={<NotFound />} />
+        <Route path="*" element={<Navigate to="/404" replace />} />
+      </Routes>
+      
+      {/* Achievement popups and trackers */}
+      {user && (
+        <>
+          <AchievementPopup />
+          <DailyStreakIndicator />
+          <GamificationTracker />
+        </>
+      )}
+    </>
   );
 }
 
-// Separate component to use the NetworkContext after it's been provided
-function AppContent() {
+function App() {
   return (
-    <div className="min-h-screen bg-white">
-      <OfflineIndicator />
-      <ReconnectionIndicator isReconnecting={false} />
-      <GamificationTracker />
-      <AchievementPopup />
-      <DailyStreakIndicator />
-      
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/bubble-chat/:id" element={<BubbleChat />} />
-        <Route path="/feed" element={<RequireAuth><Feed /></RequireAuth>} />
-        <Route path="/my-bubbles" element={<RequireAuth><MyBubbles /></RequireAuth>} />
-        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-        <Route path="/achievements" element={<RequireAuth><Achievements /></RequireAuth>} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      
-      <Toaster />
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <GamificationProvider>
+          <AppContent />
+        </GamificationProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

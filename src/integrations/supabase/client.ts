@@ -3,24 +3,13 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Use direct URLs rather than Vite environment variables for better deployment compatibility
 const SUPABASE_URL = "https://fmsijphhzututcmzlhfr.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtc2lqcGhoenV0dXRjbXpsaGZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk4NjE1NzYsImV4cCI6MjA1NTQzNzU3Nn0.e6MyIJ2j5ehDnnI-jAGY5toj7m6nqMVjAfpiHeOpN_o";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-});
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // Check for the dedicated avatars bucket
 (async () => {

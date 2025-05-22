@@ -72,12 +72,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-white text-foreground;
+    @apply bg-[#FEF7E4] text-foreground;
     -webkit-tap-highlight-color: transparent;
   }
   html, body, #root {
     min-height: 100vh;
-    background-color: white;
+    background-color: #FEF7E4;
     scroll-behavior: smooth;
     overflow-x: hidden;
   }
@@ -120,7 +120,7 @@
 
 /* Better focus states for accessibility */
 :focus-visible {
-  outline: 2px solid #f59e0b;
+  outline: 2px solid #ebbd34;
   outline-offset: 2px;
 }
 
@@ -155,12 +155,4 @@ button, a {
 /* Glassmorphism utility */
 .glass {
   @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
-}
-
-/* Progress bar styling */
-.progress::-webkit-progress-value {
-  background-color: #f59e0b;
-}
-.progress::-moz-progress-bar {
-  background-color: #f59e0b;
 }

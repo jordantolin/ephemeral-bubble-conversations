@@ -15,8 +15,6 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const initialPositionsRef = useRef<BubbleData[]>([]);
-  const isAnimatingRef = useRef<boolean>(false); // Default to not animating
-  const isInitializedRef = useRef<boolean>(false);
   
   // Debug bubbles data on mount and when bubbles change
   useEffect(() => {
@@ -51,13 +49,6 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
       
       // Initialize positions
       setPositionedBubbles(positioned);
-      
-      // Ritardare l'inizio dell'animazione e disabilitarla di default
-      setTimeout(() => {
-        isAnimatingRef.current = false; // Disabilitato di default, cambiato da true a false
-      }, 1000);
-      
-      isInitializedRef.current = true;
     };
     
     updateInitialPositions();
@@ -70,18 +61,15 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     };
   }, [bubbles]);
   
-  // Loop di animazione estremamente lento, o completamente disabilitato per impostazione predefinita
+  // Animation loop for floating motion
   useEffect(() => {
     const animate = () => {
-      if (initialPositionsRef.current && 
-          initialPositionsRef.current.length > 0 && 
-          isAnimatingRef.current &&
-          isInitializedRef.current) {
+      if (initialPositionsRef.current && initialPositionsRef.current.length > 0) {
         const time = Date.now();
         const floatingBubbles = calculateFloatingPositions(
           initialPositionsRef.current,
           time,
-          0.5 // Raggio di fluttuazione estremamente ridotto per un movimento quasi impercettibile
+          8 // Adjust floating radius for smoother movement
         );
         setPositionedBubbles(floatingBubbles);
       }
@@ -90,42 +78,9 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
     
     animationRef.current = requestAnimationFrame(animate);
     
-    // Proper cleanup of animation frame
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
-        animationRef.current = undefined;
-      }
-    };
-  }, []);
-  
-  // Add mouse interaction to pause animation
-  useEffect(() => {
-    const handleMouseEnter = () => {
-      isAnimatingRef.current = false;
-    };
-    
-    const handleMouseLeave = () => {
-      // Only resume animation if component is initialized
-      if (isInitializedRef.current) {
-        isAnimatingRef.current = false; // Manteniamo l'animazione disabilitata
-      }
-    };
-    
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener("mouseenter", handleMouseEnter);
-      container.addEventListener("mouseleave", handleMouseLeave);
-      container.addEventListener("touchstart", handleMouseEnter);
-      container.addEventListener("touchend", handleMouseLeave);
-    }
-    
-    return () => {
-      if (container) {
-        container.removeEventListener("mouseenter", handleMouseEnter);
-        container.removeEventListener("mouseleave", handleMouseLeave);
-        container.removeEventListener("touchstart", handleMouseEnter);
-        container.removeEventListener("touchend", handleMouseLeave);
       }
     };
   }, []);
@@ -163,7 +118,7 @@ const BubbleCircle: React.FC<BubbleCircleProps> = ({ bubbles, onBubbleClick }) =
             backgroundColor: getBubbleColor(bubble.topic),
             left: `${bubble.x ? (bubble.x - (parseInt(getBubbleSize(bubble.size).split(" ")[0].replace("w-", "")) / 2)) : 0}px`,
             top: `${bubble.y ? (bubble.y - (parseInt(getBubbleSize(bubble.size).split(" ")[1].replace("h-", "")) / 2)) : 0}px`,
-            transition: 'transform 0.2s ease-in-out, left 1.5s ease-in-out, top 1.5s ease-in-out', // Transizioni ancora più lente per maggiore stabilità
+            transition: 'transform 0.2s ease-in-out',
           }}
           onClick={() => onBubbleClick(bubble.id)}
         >

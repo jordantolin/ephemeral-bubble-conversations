@@ -1,4 +1,3 @@
-
 import { ReactNode } from "react";
 import { Json } from "@/integrations/supabase/types";
 

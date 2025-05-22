@@ -1,37 +1,28 @@
-import { useState, useEffect, Suspense, lazy } from "react";
-import { useLocation } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import useBubbleData from "@/hooks/useBubbleData";
-import { useOptimizedBubbleWorld } from "@/hooks/useOptimizedBubbleWorld";
-import Navbar from "@/components/navigation/Navbar";
+import NavigationBar from "@/components/bubbleWorld/NavigationBar";
 import BubbleWorldHeader from "@/components/bubbleWorld/BubbleWorldHeader";
 import BubbleWorldContent from "@/components/bubbleWorld/BubbleWorldContent";
+import CreateBubbleDialog from "@/components/bubbleWorld/CreateBubbleDialog";
+import BubbleChat from "@/components/bubbleWorld/BubbleChat";
+import ReconnectionIndicator from "@/components/bubbleWorld/ReconnectionIndicator";
+import DailyStreakIndicator from "@/components/gamification/DailyStreakIndicator";
+import AchievementPopup from "@/components/gamification/AchievementPopup";
 import { useGamification } from "@/context/GamificationContext";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { useNetwork } from "@/context/NetworkContext";
-import { Loader2 } from "lucide-react";
-
-// Lazy load non-essential components for better performance
-const CreateBubbleDialog = lazy(() => import("@/components/bubbleWorld/CreateBubbleDialog"));
-const BubbleChat = lazy(() => import("@/components/bubbleWorld/BubbleChat"));
-const ReconnectionIndicator = lazy(() => import("@/components/network/ReconnectionIndicator"));
 
 const Index = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [newBubbleDialog, setNewBubbleDialog] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { checkAchievement, addPoints, refreshGamificationProfile } = useGamification();
-  const { isReconnecting, isOnline } = useNetwork();
   
-  // Extract search functionality from useBubbleData
-  const [searchQuery, setSearchQuery] = useState("");
-  const { bubbles, isLoading, error } = useOptimizedBubbleWorld(searchQuery);
-  
-  // Keep using the rest of useBubbleData for existing functionality
   const {
+    searchQuery,
+    setSearchQuery,
     selectedBubbleId,
     setSelectedBubbleId,
     selectedBubble,
@@ -41,8 +32,14 @@ const Index = () => {
     messagesError,
     chatOpen,
     setChatOpen,
+    isReconnecting,
+    filteredBubbles,
+    isLoadingBubbles,
+    bubblesError,
+    bubbleDataForComponent,
     isBubbleExpired,
     handleReflect,
+    handleBubbleClick
   } = useBubbleData();
   
   const searchParams = new URLSearchParams(location.search);
@@ -50,69 +47,42 @@ const Index = () => {
   
   // Enhanced bubble creation with achievement tracking
   const handleCreateBubble = () => {
-    if (!isOnline) {
-      toast({
-        title: "You're offline",
-        description: "Please connect to the internet to create a bubble",
-        variant: "destructive"
-      });
-      return;
-    }
     setNewBubbleDialog(true);
+    
+    // We'll check the achievement when the bubble is actually created
+    // in the CreateBubbleDialog component
   };
   
   // Enhanced reflection with gamification
   const handleReflectWithGamification = async (bubbleId: string) => {
-    if (!isOnline) {
-      toast({
-        title: "You're offline",
-        description: "Please connect to the internet to reflect on bubbles",
-        variant: "destructive"
-      });
-      return;
-    }
+    await handleReflect(bubbleId);
     
-    try {
-      await handleReflect(bubbleId);
+    if (user) {
+      // Add points for the reflection
+      await addPoints(10, 'reflection');
       
-      if (user) {
-        // Add points for the reflection
-        await addPoints(10, 'reflection');
-        
-        // Increment progress for the reflection master achievement
-        await incrementAchievementProgress('reflection-master');
-        
-        // Refresh gamification profile to ensure all achievements are up to date
-        await refreshGamificationProfile();
-        
-        toast({
-          title: "Reflection successful!",
-          description: "You've earned 10 points for your reflection",
-        });
-        
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ queryKey: ['bubbles'] });
-        queryClient.invalidateQueries({ queryKey: ['optimized-bubbles'] });
-      }
-    } catch (error) {
-      console.error("Error during reflection:", error);
-      toast({
-        title: "Reflection failed",
-        description: "There was an error processing your reflection",
-        variant: "destructive"
-      });
+      // Increment progress for the reflection master achievement
+      await incrementAchievementProgress('reflection-master');
+      
+      // Refresh gamification profile to ensure all achievements are up to date
+      await refreshGamificationProfile();
+    }
+  };
+  
+  // Handle sending messages with gamification
+  const handleSendMessage = async () => {
+    if (user) {
+      // Add points for sending a message
+      await addPoints(5, 'message');
+      
+      // Increment progress for the social butterfly achievement
+      await incrementAchievementProgress('social-butterfly');
     }
   };
   
   // Increment achievement progress
   const incrementAchievementProgress = async (achievementId: string) => {
     await checkAchievement(achievementId);
-  };
-
-  // Open bubble chat when a bubble is clicked
-  const handleBubbleClick = (bubbleId: string) => {
-    setSelectedBubbleId(bubbleId);
-    setChatOpen(true);
   };
   
   // Check URL params for bubble to open
@@ -138,12 +108,15 @@ const Index = () => {
     if (user) {
       refreshGamificationProfile();
     }
-  }, [user, refreshGamificationProfile]);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-secondary/20 overflow-x-hidden relative">
-      {/* Navigation - Only one navbar component */}
-      <Navbar 
+      {/* Reconnection indicator */}
+      <ReconnectionIndicator isReconnecting={isReconnecting} />
+      
+      {/* Navigation */}
+      <NavigationBar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
@@ -151,60 +124,42 @@ const Index = () => {
       <div className="pt-24 md:pt-28 pb-20 md:pb-16 px-4 sm:px-6 relative z-10">
         {/* Bubble World and Filtering UI */}
         <div className="container mx-auto max-w-6xl">
-          <BubbleWorldHeader 
-            onCreateBubble={handleCreateBubble}
-            showCreateButton={true} 
-            showDescription={true}
-          />
+          <BubbleWorldHeader onCreateBubble={handleCreateBubble} />
           
           <BubbleWorldContent
-            isLoadingBubbles={isLoading}
-            bubblesError={error}
-            filteredBubbles={bubbles}
-            bubbleDataForComponent={bubbles}
+            isLoadingBubbles={isLoadingBubbles}
+            bubblesError={bubblesError}
+            filteredBubbles={filteredBubbles}
+            bubbleDataForComponent={bubbleDataForComponent}
             onBubbleClick={handleBubbleClick}
             onCreateBubble={handleCreateBubble}
           />
         </div>
       </div>
       
-      {/* Lazy loaded components */}
-      <Suspense fallback={null}>
-        {/* New Bubble Dialog */}
-        {newBubbleDialog && (
-          <CreateBubbleDialog 
-            open={newBubbleDialog} 
-            onOpenChange={setNewBubbleDialog} 
-          />
-        )}
-        
-        {/* Chat Dialog */}
-        {chatOpen && (
-          <BubbleChat
-            chatOpen={chatOpen}
-            setChatOpen={setChatOpen}
-            selectedBubbleId={selectedBubbleId}
-            selectedBubble={selectedBubble}
-            isLoadingBubbleDetails={isLoadingBubbleDetails}
-            messages={messages}
-            isLoadingMessages={isLoadingMessages}
-            messagesError={messagesError}
-            isBubbleExpired={selectedBubble ? isBubbleExpired(selectedBubble) : false}
-            handleReflect={handleReflectWithGamification}
-          />
-        )}
-        
-        {/* Reconnection indicator */}
-        {isReconnecting && <ReconnectionIndicator isReconnecting={isReconnecting} />}
-      </Suspense>
+      {/* New Bubble Dialog */}
+      <CreateBubbleDialog 
+        open={newBubbleDialog} 
+        onOpenChange={setNewBubbleDialog} 
+      />
       
-      {/* Offline indicator */}
-      {!isOnline && (
-        <div className="fixed bottom-4 right-4 bg-red-100 text-red-800 px-4 py-2 rounded-md shadow-md flex items-center">
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          <span>You're offline. Some features may be limited.</span>
-        </div>
-      )}
+      {/* Chat Dialog */}
+      <BubbleChat
+        chatOpen={chatOpen}
+        setChatOpen={setChatOpen}
+        selectedBubbleId={selectedBubbleId}
+        selectedBubble={selectedBubble}
+        isLoadingBubbleDetails={isLoadingBubbleDetails}
+        messages={messages}
+        isLoadingMessages={isLoadingMessages}
+        messagesError={messagesError}
+        isBubbleExpired={isBubbleExpired(selectedBubble)}
+        handleReflect={handleReflectWithGamification}
+      />
+      
+      {/* Gamification Components */}
+      <DailyStreakIndicator />
+      <AchievementPopup />
     </div>
   );
 };

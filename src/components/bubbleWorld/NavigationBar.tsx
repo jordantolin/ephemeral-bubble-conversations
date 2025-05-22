@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, UserCircle, Sparkles, LogOut, LogIn, Award } from "lucide-react";
+import { Search, UserCircle, Sparkles, LogOut, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import InstallButton from "../InstallButton";
@@ -103,16 +103,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ searchQuery, setSearchQue
                     <circle cx="12" cy="15" r="3" />
                   </svg>
                   <span className="ml-1 hidden sm:inline">My Bubbles</span>
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`text-[#ebbd34] hover:bg-[#ebbd34]/10 ${location.pathname === '/achievements' ? 'bg-[#ebbd34]/10' : ''}`}
-                  onClick={() => navigate('/achievements')}
-                >
-                  <Award className="h-5 w-5" />
-                  <span className="ml-1 hidden sm:inline">Achievements</span>
                 </Button>
                 
                 <div className="mx-1 hidden md:block">

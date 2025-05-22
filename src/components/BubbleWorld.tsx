@@ -2,15 +2,14 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import * as TWEEN from '@tweenjs/tween.js';
 import { BubbleWorldProps } from '@/types/bubble';
-import { useNavigate } from 'react-router-dom';
 import { 
-  createOptimizedBubbleGeometry, 
-  createOptimizedBubbleMaterial,
-  getDetailLevelForDevice,
-  ParticlePool,
-  FrustumCullingManager
-} from '@/utils/three/optimizationUtils';
-import { createTextCanvas } from '@/utils/bubbleUtils';
+  createBubbleGeometry, 
+  createBubbleMaterial, 
+  createTextCanvas,
+  createCentralWorldGeometry,
+  createCentralWorldMaterial,
+} from '@/utils/bubbleUtils';
+import { useNavigate } from 'react-router-dom';
 
 // Format time remaining for display
 const formatTimeRemaining = (expiryTime: Date) => {
@@ -60,11 +59,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     moveThreshold: 5
   });
   
-  // New refs for optimization
-  const particlePoolRef = useRef<ParticlePool | null>(null);
-  const frustumCullingRef = useRef<FrustumCullingManager | null>(null);
-  const detailLevelRef = useRef<number>(getDetailLevelForDevice());
-  
   // Add navigation
   const navigate = useNavigate();
 
@@ -95,18 +89,15 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     interactionRef.current.zoom.target = camera.position.z;
     cameraRef.current = camera;
 
-    // Initialize frustum culling
-    frustumCullingRef.current = new FrustumCullingManager(camera);
-
-    // Enhanced renderer with better anti-aliasing for smoother edges and performance optimizations
+    // Enhanced renderer with better anti-aliasing for smoother edges
     const renderer = new THREE.WebGLRenderer({
-      antialias: !isMobile, // Disable antialias on mobile for better performance
+      antialias: true,
       powerPreference: "high-performance",
       alpha: true
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for better performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
-    renderer.shadowMap.enabled = !isMobile; // Disable shadows on mobile for better performance
+    renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
@@ -138,41 +129,32 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     scene.add(centerLight);
 
     // Create central world with enhanced appearance
-    const worldGeometry = createOptimizedBubbleGeometry(1.2, detailLevelRef.current);
-    const worldMaterial = createOptimizedBubbleMaterial();
+    const worldGeometry = createCentralWorldGeometry();
+    const worldMaterial = createCentralWorldMaterial();
     const centralWorld = new THREE.Mesh(worldGeometry, worldMaterial);
-    centralWorld.castShadow = !isMobile; // Disable shadows on mobile
-    centralWorld.receiveShadow = !isMobile;
+    centralWorld.castShadow = true;
+    centralWorld.receiveShadow = true;
     // Adjust central world size
     centralWorld.scale.set(1.2, 1.2, 1.2);
     centralWorldRef.current = centralWorld;
     scene.add(centralWorld);
 
-    // Add subtle environment fog for depth - disable on mobile for performance
-    if (!isMobile) {
-      scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
-    }
+    // Add subtle environment fog for depth
+    scene.fog = new THREE.FogExp2('#F9F7F0', 0.03);
 
-    // Initialize particle pool for better performance
-    particlePoolRef.current = new ParticlePool(scene, 5, 20);
-
-    // Create explosion particles function with object pooling
+    // Create explosion particles function with more realistic effect
     const createExplosionParticles = (position: THREE.Vector3, size: number) => {
-      if (!particlePoolRef.current) return null;
-      
-      const particleCount = isMobile ? 100 : 250; // Fewer particles on mobile
-      const particles = particlePoolRef.current.getParticle();
-      
-      const geometry = particles.geometry;
-      const positions = new Float32Array(particleCount * 3);
+      const particleCount = 250; // More particles for richer effect
+      const geometry = new THREE.BufferGeometry();
+      const initialPositions = new Float32Array(particleCount * 3);
       const colors = new Float32Array(particleCount * 3);
       
       // Start all particles at center
       for (let i = 0; i < particleCount; i++) {
         const i3 = i * 3;
-        positions[i3] = 0;
-        positions[i3 + 1] = 0;
-        positions[i3 + 2] = 0;
+        initialPositions[i3] = 0;
+        initialPositions[i3 + 1] = 0;
+        initialPositions[i3 + 2] = 0;
         
         // Gradient from gold to amber for more vibrant explosion
         const colorRand = Math.random();
@@ -181,12 +163,26 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         colors[i3 + 2] = 0.2 + (colorRand * 0.1);  // B
       }
       
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('position', new THREE.BufferAttribute(initialPositions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       
+      // Enhanced particle material with better blending and size
+      const material = new THREE.PointsMaterial({
+        size: 0.15,
+        transparent: true,
+        opacity: 1,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+        depthWrite: false
+      });
+      
+      const particles = new THREE.Points(geometry, material);
       particles.position.copy(position);
+      scene.add(particles);
       
       // More complex explosion animation
+      const positions = particles.geometry.attributes.position.array;
       const dirs = [];
       
       // Create varied explosion directions
@@ -208,10 +204,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         .to({ progress: 1, opacity: 0 }, duration)
         .easing(TWEEN.Easing.Exponential.Out)
         .onUpdate(({ progress, opacity }) => {
-          if (!particles.geometry.attributes.position) return;
-          
-          const positions = particles.geometry.attributes.position.array;
-          
           for (let i = 0; i < particleCount; i++) {
             const i3 = i * 3;
             
@@ -227,14 +219,10 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
           particles.geometry.attributes.position.needsUpdate = true;
           
           // Fade out gradually
-          if (particles.material instanceof THREE.PointsMaterial) {
-            particles.material.opacity = Math.max(0, 1 - (progress * 1.2));
-          }
+          (particles.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - (progress * 1.2));
         })
         .onComplete(() => {
-          if (particlePoolRef.current && particles) {
-            particlePoolRef.current.releaseParticle(particles);
-          }
+          scene.remove(particles);
         })
         .start();
       
@@ -243,7 +231,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
 
     // Check if topics array exists and has items
     if (topics && topics.length > 0) {
-      // Modified to create bubbles with LOD based on device capability
+      // MODIFIED: Create bubbles with better positioning to avoid overlap
       
       // Distribute bubbles across multiple layers (orbits)
       const numLayers = Math.min(3, Math.ceil(topics.length / 4));
@@ -278,12 +266,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
         const reflectScale = 1 + (topic.reflect_count * 0.1);
         const finalSize = baseSize * reflectScale;
         
-        // Use optimized geometry based on device capability
-        const geometry = createOptimizedBubbleGeometry(finalSize, detailLevelRef.current);
-        const material = createOptimizedBubbleMaterial();
+        const geometry = createBubbleGeometry(finalSize);
+        const material = createBubbleMaterial();
         const bubble = new THREE.Mesh(geometry, material);
-        bubble.castShadow = !isMobile; // Disable shadows on mobile
-        bubble.receiveShadow = !isMobile; // Disable shadow receiving on mobile
+        bubble.castShadow = true;
+        bubble.receiveShadow = true;
         bubbleGroup.add(bubble);
 
         // Calculate time until expiry
@@ -684,16 +671,11 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
     container.addEventListener('mouseleave', onMouseLeave);
     container.addEventListener('wheel', onWheel, { passive: false });
 
-    // Animate function - Updated with frustum culling and optimization
+    // Animate function - Modified for better bubble movement
     let time = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       time += 0.002;
-      
-      // Update the frustum for culling check
-      if (frustumCullingRef.current) {
-        frustumCullingRef.current.update();
-      }
       
       // Smoother camera movement with enhanced zooming
       const zoom = interactionRef.current.zoom;
@@ -708,14 +690,8 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       const normalizedZoom = (interactionRef.current.zoom.max - zoom.current) / zoomRange;
       const zoomFactor = 1 + Math.pow(normalizedZoom, 1.3);
 
-      // Update bubble positions with frustum culling
+      // Update bubble positions with improved movement to prevent overlap
       Object.values(bubblesRef.current).forEach(bubble => {
-        // Skip if the bubble is not visible (far from camera)
-        if (frustumCullingRef.current && !frustumCullingRef.current.isVisible(bubble, 2)) {
-          // If the bubble is not in view frustum, skip expensive updates
-          return;
-        }
-        
         const movement = bubble.userData.movement;
         const expiryRatio = bubble.userData.expiryRatio || 1;
         const layer = movement.layer || 0;
@@ -832,17 +808,7 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       }
 
       TWEEN.update();
-      
-      // Only render if the canvas is visible in the viewport
-      const rect = container.getBoundingClientRect();
-      if (
-        rect.bottom >= 0 &&
-        rect.top <= window.innerHeight &&
-        rect.right >= 0 &&
-        rect.left <= window.innerWidth
-      ) {
-        renderer.render(scene, camera);
-      }
+      renderer.render(scene, camera);
     };
 
     animate();
@@ -872,11 +838,6 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
       
       if (rendererRef.current) {
         rendererRef.current.dispose();
-        if (rendererRef.current.getContext()) {
-          const gl = rendererRef.current.getContext();
-          const loseContext = gl.getExtension('WEBGL_lose_context');
-          if (loseContext) loseContext.loseContext();
-        }
         if (containerRef.current?.contains(rendererRef.current.domElement)) {
           containerRef.current.removeChild(rendererRef.current.domElement);
         }
@@ -902,29 +863,14 @@ const BubbleWorld = ({ topics, onBubbleClick }: BubbleWorldProps) => {
             const material = Array.isArray(child.material) ? child.material : [child.material];
             material.forEach(m => m.dispose());
           }
-          if (child instanceof THREE.Sprite && child.material) {
-            child.material.dispose();
-            if (child.material.map) {
-              child.material.map.dispose();
-            }
-          }
         });
-        scene.remove(group);
       });
       
-      // Clean up particle pool
-      if (particlePoolRef.current) {
-        particlePoolRef.current.dispose();
-        particlePoolRef.current = null;
-      }
-      
-      // Clear all references
       bubblesRef.current = {};
       sceneRef.current = null;
       rendererRef.current = null;
       cameraRef.current = null;
       centralWorldRef.current = null;
-      frustumCullingRef.current = null;
     };
   }, [topics, onBubbleClick, navigate]);
 

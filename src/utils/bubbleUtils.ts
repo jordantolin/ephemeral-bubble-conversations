@@ -7,60 +7,41 @@ const activeChannels: { [key: string]: RealtimeChannel } = {};
 
 // Connection manager to handle Supabase realtime subscriptions
 export const connectionManager = {
-  // Create a new realtime subscription channel with enhanced retry logic
+  // Create a new realtime subscription channel
   createChannel: async (
     supabase: SupabaseClient,
     channelName: string,
     filters: any[],
     onChangeCallback: (payload: any) => void
-  ): Promise<RealtimeChannel> => {
+  ): Promise<void> => {
     try {
       // Clean up existing channel with the same name if it exists
       if (activeChannels[channelName]) {
         await connectionManager.removeChannel(supabase, channelName);
       }
       
-      console.log(`Creating new channel: ${channelName}`);
-      
-      // Create a new channel with unique ID to avoid conflicts
-      const uniqueChannelName = `${channelName}-${Date.now()}`;
-      const channel = supabase.channel(uniqueChannelName);
+      // Create a new channel
+      const channel = supabase.channel(channelName);
       
       // Add the postgres_changes event to the channel
       filters.forEach(filter => {
         channel.on(
           'postgres_changes', 
           filter, 
-          (payload) => {
-            console.log(`Channel ${uniqueChannelName} received update:`, payload.eventType);
-            onChangeCallback(payload);
-          }
+          onChangeCallback
         );
       });
       
-      // Subscribe to the channel with better error handling
-      channel.subscribe((status: string) => {
-        console.log(`Channel ${uniqueChannelName} status: ${status}`);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log(`Channel ${uniqueChannelName} connected successfully`);
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn(`Channel ${uniqueChannelName} status ${status}, attempting reconnect...`);
-          
-          // Try to reconnect after a delay
-          setTimeout(() => {
-            if (activeChannels[uniqueChannelName]) {
-              console.log(`Attempting to reconnect channel ${uniqueChannelName}...`);
-              channel.subscribe();
-            }
-          }, 3000);
+      // Subscribe to the channel
+      channel.subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.error(`Channel ${channelName} subscription status: ${status}`);
         }
       });
       
       // Store the channel reference
-      activeChannels[uniqueChannelName] = channel;
+      activeChannels[channelName] = channel;
       
-      return channel;
     } catch (error) {
       console.error(`Error creating channel ${channelName}:`, error);
       throw error;
@@ -73,29 +54,12 @@ export const connectionManager = {
     channelName: string
   ): Promise<void> => {
     try {
-      const channelsToRemove = Object.keys(activeChannels).filter(name => 
-        name.startsWith(channelName)
-      );
-      
-      if (channelsToRemove.length === 0) {
-        console.log(`No channels found with name starting with ${channelName}`);
-        return;
+      if (activeChannels[channelName]) {
+        await supabase.removeChannel(activeChannels[channelName]);
+        delete activeChannels[channelName];
       }
-      
-      await Promise.all(
-        channelsToRemove.map(async (name) => {
-          console.log(`Removing channel: ${name}`);
-          try {
-            await supabase.removeChannel(activeChannels[name]);
-            delete activeChannels[name];
-            console.log(`Successfully removed channel: ${name}`);
-          } catch (e) {
-            console.error(`Error removing channel ${name}:`, e);
-          }
-        })
-      );
     } catch (error) {
-      console.error(`Error in removeChannel for ${channelName}:`, error);
+      console.error(`Error removing channel ${channelName}:`, error);
     }
   },
   
@@ -104,38 +68,14 @@ export const connectionManager = {
     supabase: SupabaseClient
   ): Promise<void> => {
     try {
-      console.log(`Removing all ${Object.keys(activeChannels).length} active channels`);
-      
       await Promise.all(
-        Object.keys(activeChannels).map((channelName) => {
-          return new Promise<void>(async (resolve) => {
-            try {
-              await supabase.removeChannel(activeChannels[channelName]);
-              delete activeChannels[channelName];
-              console.log(`Successfully removed channel: ${channelName}`);
-            } catch (e) {
-              console.error(`Error removing channel ${channelName}:`, e);
-            } finally {
-              resolve();
-            }
-          });
-        })
+        Object.keys(activeChannels).map((channelName) => 
+          connectionManager.removeChannel(supabase, channelName)
+        )
       );
-      
-      console.log("All channels removed successfully");
     } catch (error) {
       console.error("Error removing all channels:", error);
     }
-  },
-  
-  // Get active channel count
-  getActiveChannelCount: (): number => {
-    return Object.keys(activeChannels).length;
-  },
-  
-  // Debug active channels
-  logActiveChannels: (): void => {
-    console.log("Active channels:", Object.keys(activeChannels));
   }
 };
 
